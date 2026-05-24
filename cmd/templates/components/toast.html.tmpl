@@ -1,0 +1,12 @@
+{{- define "component-toast"}}
+
+{{- if .PageConfig.ToastSuccess}}
+
+  <div hx-swap-oob="afterbegin:#toast-container">
+    <div class="toast show success">
+      <p>{{.PageConfig.ToastSuccess}}</p>
+      <div class="progress-bar"></div>
+    </div>
+  </div>
+  {{- end}}
+{{- end}}

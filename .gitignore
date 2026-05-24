@@ -1,0 +1,42 @@
+# Node
+webresources/node_modules/
+webresources/dist/
+webresources/build/
+
+# JavaScript files produced under cmd (e.g. cmd/static/js)
+cmd/**/*.js
+
+# Environment files
+.env
+**/.env
+.env.local
+.env.*.local
+
+# Go build / editor / OS
+*.exe
+*.dll
+*.so
+*.dylib
+*.test
+/cover.out
+/bin/
+/obj/
+/vendor/
+
+# IDEs and editors
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Logs
+*.log
+
+# Docker
+docker-compose.override.yml
+.env.docker
+
+# Other
+heterogen
+notes.md

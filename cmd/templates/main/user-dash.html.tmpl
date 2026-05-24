@@ -1,0 +1,11 @@
+{{- define "main-user-dash"}}
+<main>
+  <h1>Welcome {{ .Data.User.UserName}} </h1>
+
+      <button 
+        id="sign-out-button"
+      >
+        Sign-out
+      </button>
+</main>
+{{- end}}

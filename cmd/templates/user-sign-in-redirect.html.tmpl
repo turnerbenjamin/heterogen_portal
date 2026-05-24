@@ -1,0 +1,30 @@
+{{- define "page-user-sign-in-redirect"}}
+{{- template "layout-top" . }}
+    <main class="focussed-main">
+    <div class="flex col justify-content-center align-items-center gap-4 mt-8">
+      <p>Signing in to app...</p>
+      <a 
+        href="#"
+        id="manual-sign-in-link" 
+        aria-label="manual sign-in link"
+        class="mt-4"
+      >
+        sign-in manually        
+      </a>
+      <div class="error-container mt-6"></div>
+
+      <button 
+        id="sign-in-button"
+        hx-post="/sign-in"
+        hx-swap="innerHTML"
+        hx-target="#page-content"
+        hx-indicator="#page-content"
+        class="hidden"
+        aria-hidden="true"
+      >
+        Sign-in
+      </button>
+    </div>
+    </main>
+{{- template "layout-bottom" . }}
+{{- end}}

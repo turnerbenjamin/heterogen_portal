@@ -1,0 +1,21 @@
+{{- define "component-errors"}}
+  {{- $toastErrLen := len .Data.ToastError}}
+  {{- if ge $toastErrLen 0}}
+  <div hx-swap-oob="afterbegin:#toast-container">
+    <div class="toast show error">
+      <p>{{.Data.ToastError}}</p>
+      <div class="progress-bar"></div>
+    </div>
+  </div>
+  {{- end}}
+  {{- $pageErrorsLen := len .Data.PageErrors}}
+  {{- if eq $pageErrorsLen 1}}
+  <p class="error">{{index .Data.PageErrors 0}}</p>
+  {{- else if gt $pageErrorsLen 1}}
+<ul class = "errors">
+  {{- range .Data.PageErrors}}
+    <li>{{.}}</li>
+  {{- end}}
+</ul>
+  {{- end}}
+{{- end}}

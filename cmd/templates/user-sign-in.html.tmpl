@@ -1,0 +1,30 @@
+{{- define "page-user-sign-in"}}
+{{- template "layout-top" . }}
+    <main class="focussed-main">
+    <div class="flex col justify-content-center align-items-center gap-4 mt-8">
+      <p>Redirecting to authentication service.</p> 
+      <a 
+        href="#"
+        id="manual-redirect-link" 
+        aria-label="manual redirect link"
+        class="mt-4"
+      >
+        Redirect manually        
+      </a>
+      <div class="error-container mt-6"></div>
+
+      <button 
+        id="sign-in-button"
+        hx-post="/sign-in"
+        hx-swap="innerHTML"
+        hx-target="#page-content"
+        hx-indicator="#page-content"
+        class="hidden"
+        aria-hidden="true"
+      >
+        Sign-in
+      </button>
+    </div>
+    </main>
+{{- template "layout-bottom" . }}
+{{- end}}
