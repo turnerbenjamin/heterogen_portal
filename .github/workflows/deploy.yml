@@ -5,10 +5,10 @@ on:
   # Automatically trigger it when detected changes in repo
   push:
     branches: 
-      [ set-up-actions ]
+      [ main ]
     paths:
     - '**'
-    - '.github/workflows/heterogen-portal-app-dev-AutoDeployTrigger-d6512a3f-afdd-4c56-bd97-7a9cfbd7f878.yml'
+    - '.github/workflows/deploy.yml'
 
   # Allow manual trigger 
   workflow_dispatch:      
