@@ -1,7 +1,0 @@
-{
-    "PORTAL APP": {
-        "name": "heterogen-portal-app-dev",
-        "resource-group": "heterogen-portal-resource-group",
-        "environment": "heterogen-portal-app-environment"
-    }
-}
