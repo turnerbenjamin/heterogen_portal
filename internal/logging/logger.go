@@ -47,7 +47,7 @@ func (l *consoleLogger) WriteLog() error {
 		return err
 	}
 	for k, v := range l.properties {
-		_, err = sb.WriteString(fmt.Sprintf("\t%v: %v,\n", k, v))
+		_, err = fmt.Fprintf(&sb, "\t%v: %v,\n", k, v)
 		if err != nil {
 			return err
 		}

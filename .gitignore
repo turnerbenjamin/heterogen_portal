@@ -40,3 +40,4 @@ docker-compose.override.yml
 # Other
 heterogen
 notes.md
+/bash-scripts
