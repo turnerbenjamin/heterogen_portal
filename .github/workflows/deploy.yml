@@ -34,6 +34,13 @@ jobs:
           tenant-id: ${{ secrets.HETEROGENPORTALAPPDEV_AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.HETEROGENPORTALAPPDEV_AZURE_SUBSCRIPTION_ID }}
 
+      - name: Show logged-in principal
+        run: |
+          az account show --query "{user:user,tenantId:tenantId}" -o json
+          PRINCIPAL=$(az account show --query "user.name" -o tsv)
+          echo "Principal identifier: $PRINCIPAL"
+          az ad sp show --id "$PRINCIPAL" --query "{displayName:displayName,appId:appId,objectId:objectId}" -o json || echo "Not a service principal or not found: $PRINCIPAL"
+
       - name: Set up Go
         uses: actions/setup-go@v4
         with:
