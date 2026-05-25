@@ -36,12 +36,18 @@ jobs:
         run: |
           mkdir -p bin
           GOOS=linux GOARCH=amd64 go build -o ./bin/goose-azuresql ./cmd/goose-azuresql
-
     
-      - name: Azure Login (GITHUB AGENT)
+      - name: Azure Login
         uses: azure/login@v3
         with:
-          creds: ${{ secrets.GITHUBAGENT_CREDS }}
+          client-id: ${{ secrets.MIGRATIONAGENT_AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.MIGRATIONAGENT_AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.MIGRATIONAGENT_AZURE_SUBSCRIPTION_ID }}
+
+      - name: Verify Azure identity
+        run: |
+          az account show
+          az account get-access-token --resource https://database.windows.net/
 
       - name: Run DB migrations
         env:
