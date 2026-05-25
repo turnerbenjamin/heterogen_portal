@@ -2,9 +2,6 @@ name: Trigger auto deployment for heterogen-portal-app-dev
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
-  AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-  AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
-  AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
 
 # When this action will be executed
 on:
