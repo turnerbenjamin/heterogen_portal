@@ -42,7 +42,7 @@ jobs:
       - name: Build goose-azuresql
         run: |
           mkdir -p bin
-          GOOS=linux GOARCH=amd64 go build -o ./bin/goose-azuresql ./cmd/goose_azuresql
+          GOOS=linux GOARCH=amd64 go build -o ./bin/goose-azuresql ./cmd/goose-azuresql
 
       - name: Run DB migrations
         env:
