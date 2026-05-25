@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/turnerbenjamin/go_gbf/internal/config"
 	"github.com/turnerbenjamin/go_gbf/internal/etc"
 	"github.com/turnerbenjamin/go_gbf/internal/logging"
 	"github.com/turnerbenjamin/go_gbf/internal/templates"
@@ -21,15 +22,15 @@ func GET_ROOT(ts *templates.Store) AppHandlerWithRaft[UserRaft] {
 			return nil
 		}
 
-		pageConfig := templates.PageConfig{
+		pageConfig := config.PageConfig{
 			ContentOnly: r.Header.Get("HX-Request") != "",
 			Title:       "HETEROGEN",
 		}
 
 		err := ts.Execute(
-			templates.TMPL_PAGE_APP,
+			config.TMPL_PAGE_APP,
 			w,
-			templates.TemplateArgs{PageConfig: pageConfig, Data: raft},
+			config.TemplateArgs{PageConfig: pageConfig, Data: raft},
 		)
 		if err != nil {
 			fmt.Println(err.Error())
@@ -41,15 +42,15 @@ func GET_ROOT(ts *templates.Store) AppHandlerWithRaft[UserRaft] {
 
 func GET_SIGN_IN(ts *templates.Store) AppHandler {
 	return func(w http.ResponseWriter, r *http.Request, l logging.Logger) etc.AppError {
-		pageConfig := templates.PageConfig{
+		pageConfig := config.PageConfig{
 			ContentOnly: false,
 			Title:       "HETEROGEN | SIGN-IN",
 		}
 
 		err := ts.Execute(
-			templates.TMPL_PAGE_USER_SIGN_IN,
+			config.TMPL_PAGE_USER_SIGN_IN,
 			w,
-			templates.TemplateArgs{PageConfig: pageConfig, Data: nil},
+			config.TemplateArgs{PageConfig: pageConfig, Data: nil},
 		)
 		if err != nil {
 			fmt.Println(err.Error())
@@ -61,15 +62,15 @@ func GET_SIGN_IN(ts *templates.Store) AppHandler {
 
 func GET_SIGN_IN_REDIRECT(ts *templates.Store) AppHandler {
 	return func(w http.ResponseWriter, r *http.Request, l logging.Logger) etc.AppError {
-		pageConfig := templates.PageConfig{
+		pageConfig := config.PageConfig{
 			ContentOnly: false,
 			Title:       "HETEROGEN | SIGN-IN",
 		}
 
 		err := ts.Execute(
-			templates.TMPL_PAGE_USER_SIGN_IN_REDIRECT,
+			config.TMPL_PAGE_USER_SIGN_IN_REDIRECT,
 			w,
-			templates.TemplateArgs{PageConfig: pageConfig, Data: nil},
+			config.TemplateArgs{PageConfig: pageConfig, Data: nil},
 		)
 		if err != nil {
 			fmt.Println(err.Error())
@@ -83,15 +84,15 @@ func GET_SIGNED_OUT(ts *templates.Store) AppHandler {
 	return func(w http.ResponseWriter, r *http.Request, l logging.Logger) etc.AppError {
 		unsetJWTCookie(w)
 
-		pageConfig := templates.PageConfig{
+		pageConfig := config.PageConfig{
 			ContentOnly: false,
 			Title:       "HETEROGEN | SIGNED OUT",
 		}
 
 		err := ts.Execute(
-			templates.TMPL_PAGE_USER_SIGNED_OUT,
+			config.TMPL_PAGE_USER_SIGNED_OUT,
 			w,
-			templates.TemplateArgs{PageConfig: pageConfig, Data: nil},
+			config.TemplateArgs{PageConfig: pageConfig, Data: nil},
 		)
 		if err != nil {
 			fmt.Println(err.Error())

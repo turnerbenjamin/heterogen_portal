@@ -81,16 +81,16 @@ func POST_UserSignIn(appSettings config.AppSettings, ts *templates.Store, userRe
 		setJWTCookie(w, tokenString)
 
 		w.Header().Add("HX-Push-Url", "/")
-		conf := templates.PageConfig{
+		conf := config.PageConfig{
 			ContentOnly:  r.Header.Get("HX-Request") != "",
 			Title:        "HETEROGEN",
 			ToastSuccess: "You've been signed-in successfully",
 		}
 
 		err = ts.Execute(
-			templates.TMPL_PAGE_APP,
+			config.TMPL_PAGE_APP,
 			w,
-			templates.TemplateArgs{PageConfig: conf, Data: UserRaft{User: user}},
+			config.TemplateArgs{PageConfig: conf, Data: UserRaft{User: user}},
 		)
 		if err != nil {
 			l.AddKV("server_error", err.Error())

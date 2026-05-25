@@ -1,0 +1,62 @@
+name: validate-build
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+    branches: ['**']
+
+jobs:
+  validate-build:
+    name: validate-build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.21'
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Cache npm modules
+        uses: actions/cache@v4
+        with:
+          path: webresources/node_modules
+          key: ${{ runner.os }}-node-${{ hashFiles('webresources/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+
+      - name: Cache Go modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: Install webresources dependencies
+        working-directory: webresources
+        run: |
+          npm ci
+
+      - name: Build webresources
+        working-directory: webresources
+        run: |
+          npm run build
+
+      - name: Build Go binaries
+        run: |
+          # Build main app and goose tool to ensure they compile
+          go build -v ./cmd/...
+
+      - name: Run tests (with race detector)
+        run: |
+          go test -race ./... -v
