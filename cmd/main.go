@@ -45,18 +45,18 @@ func run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	config, err := config.GetAppSettings(ctx, dotenvPath, isRunningLocally)
+	appConfig, err := config.GetAppSettings(ctx, dotenvPath, isRunningLocally)
 
 	if err != nil {
 		return err
 	}
 
-	ts, err := templates.MakeTemplateStore(embeddedFiles, "templates")
+	ts, err := templates.MakeTemplateStore(embeddedFiles, "templates", config.TemplateDataMap)
 	if err != nil {
 		return err
 	}
 
-	db_conn, err := db.SetUpDB(config.SqlServerDsn)
+	db_conn, err := db.SetUpDB(appConfig.SqlServerDsn)
 	if err != nil {
 		return err
 	}
@@ -71,7 +71,7 @@ func run(ctx context.Context) error {
 	adminRepo := db.BuildUserRepo(db_conn, crypt{})
 	defer adminRepo.Close()
 
-	srv, err := app.NewServer(*config, ts, embeddedFiles, adminRepo)
+	srv, err := app.NewServer(*appConfig, ts, embeddedFiles, adminRepo)
 	if err != nil {
 		return err
 	}

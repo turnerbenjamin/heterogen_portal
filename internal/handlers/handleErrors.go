@@ -3,6 +3,7 @@ package handlers
 import (
 	"net/http"
 
+	"github.com/turnerbenjamin/go_gbf/internal/config"
 	"github.com/turnerbenjamin/go_gbf/internal/etc"
 	"github.com/turnerbenjamin/go_gbf/internal/logging"
 	"github.com/turnerbenjamin/go_gbf/internal/templates"
@@ -33,9 +34,9 @@ func (h *errorHandler) Write(w http.ResponseWriter, logger logging.Logger, appEr
 	te := templateError{appErr.ToastError(), appErr.PageErrors()}
 
 	err := h.templateStore.Execute(
-		templates.TMPL_COMPONENT_ERRORS,
+		config.TMPL_COMPONENT_ERRORS,
 		w,
-		templates.TemplateArgs{Data: te},
+		config.TemplateArgs{Data: te},
 	)
 	if err != nil {
 		logger.AddKV("error", err.Error())

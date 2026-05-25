@@ -65,7 +65,10 @@ func parseDotEnv(filepath string) error {
 		key := strings.Trim(words[0], " ")
 		value := strings.Trim(words[1], " ")
 
-		os.Setenv(key, value)
+		err := os.Setenv(key, value)
+		if err != nil {
+			return err
+		}
 	}
 
 	return s.Err()

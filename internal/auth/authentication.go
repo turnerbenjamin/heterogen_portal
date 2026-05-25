@@ -43,7 +43,12 @@ func initOIDC() error {
 			initErr = err
 			return
 		}
-		defer resp.Body.Close()
+
+		defer func() {
+			if cerr := resp.Body.Close(); err == nil {
+				initErr = cerr
+			}
+		}()
 
 		var cfg struct {
 			JwksURI string `json:"jwks_uri"`
@@ -177,7 +182,7 @@ func parsePortalTokenClaims(claims jwt.MapClaims) (*PortalTokenClaims, error) {
 func parseClaim(claims jwt.MapClaims, claim string) (string, error) {
 	value, ok := claims[claim].(string)
 	if !ok {
-		return "", errors.New(fmt.Sprintf("unable to parse %s from token claims", claim))
+		return "", fmt.Errorf("unable to parse %s from token claims", claim)
 	}
 	return value, nil
 }

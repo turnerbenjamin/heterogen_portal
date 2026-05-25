@@ -22,7 +22,11 @@ func connectToDb(dsn string) (*sql.DB, error) {
 		return nil, err
 	}
 	if err := db.Ping(); err != nil {
-		db.Close()
+		cerr := db.Close()
+		if cerr != nil {
+			return nil, cerr
+		}
+
 		return nil, err
 	}
 	return db, nil

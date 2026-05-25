@@ -7,113 +7,47 @@ import (
 	"io"
 	"io/fs"
 	"path/filepath"
+	"sort"
+
+	"github.com/turnerbenjamin/go_gbf/internal/config"
 )
 
-type TemplateIdentifier int
+// Store holds the parsed templates and metadata required to execute them.
+type Store struct {
+	templates    *template.Template
+	templateData map[config.TemplateIdentifier]config.TemplateData
+}
+
+// executeTemplateData holds data to be passed to all templates
+type executeTemplateData struct {
+	PageConfig   config.PageConfig
+	Data         any
+	WebResources config.WebResourceDependencies
+}
 
 const (
-	TMPL_PAGE_APP TemplateIdentifier = iota
-	TMPL_PAGE_USER_SIGN_IN
-	TMPL_PAGE_USER_SIGN_IN_REDIRECT
-	TMPL_PAGE_USER_SIGNED_OUT
-	TMPL_COMPONENT_ERRORS
-	TMPL_COMPONENT_TOAST
-	templateIdentifierEnumEnd
+	// Err_FileSystemIsNil is returned when a nil fs.FS is passed to MakeTemplateStore.
+	Err_FileSystemIsNil = "filesystem is nil"
+
+	// Err_MissingTemplateDataPrefix prefixes errors where template-data for an
+	// identifier is missing.
+	Err_MissingTemplateDataPrefix = "template data not found: "
+
+	// Err_MissingTemplateFilePrefix prefixes errors where a template file or
+	// dependency cannot be found in the provided file system.
+	Err_MissingTemplateFilePrefix = "template file not found: "
 )
 
-type webResourceDependencies struct {
-	HG_AUTH bool
-}
-
-type PageConfig struct {
-	ContentOnly  bool
-	Title        string
-	ToastSuccess string
-}
-
-type TemplateArgs struct {
-	PageConfig PageConfig
-	Data       any
-}
-
-type executeTemplateData struct {
-	PageConfig   PageConfig
-	Data         any
-	WebResources webResourceDependencies
-}
-
-type Store struct {
-	templates *template.Template
-}
-
-type templateData struct {
-	name         string
-	dependencies []string
-	webResources webResourceDependencies
-}
-
-var idToTmplDataMap = map[TemplateIdentifier]templateData{
-	TMPL_PAGE_APP: {
-		name: "page-app",
-		dependencies: []string{
-			"layout-top",
-			"layout-bottom",
-			"main-user-dash",
-			"main-user-login",
-		},
-		webResources: webResourceDependencies{
-			HG_AUTH: true,
-		},
-	},
-	TMPL_PAGE_USER_SIGN_IN: {
-		name: "page-user-sign-in",
-		dependencies: []string{
-			"layout-top",
-			"layout-bottom",
-			"main-user-dash",
-			"main-user-login",
-		},
-		webResources: webResourceDependencies{
-			HG_AUTH: true,
-		},
-	},
-	TMPL_PAGE_USER_SIGN_IN_REDIRECT: {
-		name: "page-user-sign-in-redirect",
-		dependencies: []string{
-			"layout-top",
-			"layout-bottom",
-			"main-user-dash",
-			"main-user-login",
-		},
-		webResources: webResourceDependencies{
-			HG_AUTH: true,
-		},
-	},
-	TMPL_PAGE_USER_SIGNED_OUT: {
-		name: "page-user-signed-out",
-		dependencies: []string{
-			"layout-top",
-			"layout-bottom",
-			"main-user-dash",
-			"main-user-login",
-		},
-		webResources: webResourceDependencies{
-			HG_AUTH: true,
-		},
-	},
-	TMPL_COMPONENT_ERRORS: {
-		name:         "component-errors",
-		dependencies: []string{},
-	},
-	TMPL_COMPONENT_TOAST: {
-		name:         "component-toast",
-		dependencies: []string{},
-	},
-}
-
-func MakeTemplateStore(fileSystem fs.FS, root string) (*Store, error) {
+// MakeTemplateStore builds a `Store` by reading and parsing all templates
+// found under `root` in `fileSystem`. Validates that all template identifiers
+// have corresponding template data and that files exist for all templates and
+// their dependencies
+//
+// It returns a fully-initialized `Store` on success or an error when the
+// filesystem is nil, required template files are missing, or parsing fails.
+func MakeTemplateStore(fileSystem fs.FS, root string, templateData map[config.TemplateIdentifier]config.TemplateData) (*Store, error) {
 	if fileSystem == nil {
-		return nil, errors.New("templates: fileSystem is nil")
+		return nil, errors.New(Err_FileSystemIsNil)
 	}
 
 	buildPaths, err := getTemplatePaths(fileSystem, root)
@@ -127,44 +61,73 @@ func MakeTemplateStore(fileSystem fs.FS, root string) (*Store, error) {
 		if err != nil {
 			return nil, err
 		}
-		t = template.Must(t.Parse(string(b)))
+		t, err = t.Parse(string(b))
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	for i := range templateIdentifierEnumEnd {
-		data := idToTmplDataMap[TemplateIdentifier(i)]
-		for _, dependency := range data.dependencies {
+	for i := range config.TMPL_ENUM_END {
+		data, ok := templateData[config.TemplateIdentifier(i)]
+		if !ok {
+			return nil, fmt.Errorf("%s%d", Err_MissingTemplateDataPrefix, i)
+		}
+
+		//Validate template identifier found
+		currentT := t.Lookup(data.Name)
+		if currentT == nil {
+			return nil, fmt.Errorf("%s%s", Err_MissingTemplateFilePrefix, data.Name)
+		}
+
+		//Validate template dependencies
+		for _, dependency := range data.Dependencies {
 			tmpl := t.Lookup(dependency)
 			if tmpl == nil {
-				return nil, fmt.Errorf("template not found: %s", dependency)
+				return nil, fmt.Errorf("%s%s", Err_MissingTemplateFilePrefix, dependency)
 			}
 		}
 	}
 	return &Store{
-		templates: t,
+		templates:    t,
+		templateData: templateData,
 	}, nil
 }
 
+// Execute renders the template associated with `id` to the provided
+// writer.
 func (ts *Store) Execute(
-	id TemplateIdentifier,
+	id config.TemplateIdentifier,
 	w io.Writer,
-	data TemplateArgs,
+	data config.TemplateArgs,
 ) error {
-	td := idToTmplDataMap[id]
-	d := executeTemplateData{
+	td, ok := ts.templateData[id]
+	if !ok {
+		return fmt.Errorf("%s%d", Err_MissingTemplateDataPrefix, id)
+	}
+
+	d := &executeTemplateData{
 		PageConfig:   data.PageConfig,
 		Data:         data.Data,
-		WebResources: td.webResources,
+		WebResources: td.WebResources,
 	}
-	return (*ts).templates.ExecuteTemplate(w, td.name, d)
+
+	return ts.templates.ExecuteTemplate(w, td.Name, d)
 }
 
+// getTemplatePaths returns the .tmpl file paths under root
 func getTemplatePaths(fileSystem fs.FS, root string) ([]string, error) {
 	templatePaths := make([]string, 0, 64)
 	err := fs.WalkDir(fileSystem, root, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+
 		if filepath.Ext(path) == ".tmpl" {
 			templatePaths = append(templatePaths, path)
 		}
 		return nil
 	})
+
+	sort.Strings(templatePaths)
 	return templatePaths, err
 }
