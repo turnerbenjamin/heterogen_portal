@@ -1,0 +1,77 @@
+name: Trigger auto deployment for heterogen-portal-app-dev
+
+# When this action will be executed
+on:
+  # Automatically trigger it when detected changes in repo
+  push:
+    branches: 
+      [ main ]
+    paths:
+    - '**'
+    - '.github/workflows/deploy.yml'
+
+  # Allow manual trigger 
+  workflow_dispatch:      
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    permissions: 
+      id-token: write #This is required for requesting the OIDC JWT Token
+      contents: read #Required when GH token is used to authenticate with private repo
+
+    steps:
+      - name: Checkout to the branch
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.25'
+
+      - name: Build goose-azuresql
+        run: |
+          mkdir -p bin
+          GOOS=linux GOARCH=amd64 go build -o ./bin/goose-azuresql ./cmd/goose-azuresql
+    
+      - name: Azure Login
+        uses: azure/login@v3
+        with:
+          client-id: ${{ secrets.MIGRATIONAGENT_AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.MIGRATIONAGENT_AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.MIGRATIONAGENT_AZURE_SUBSCRIPTION_ID }}
+
+      - name: Verify Azure identity
+        run: |
+          az account show
+          az account get-access-token --resource https://database.windows.net/
+
+      - name: Run DB migrations
+        env:
+          SQL_SERVER_DSN: ${{ secrets.HETEROGENPORTALAPPDEV_SQL_SERVER_DSN }}
+        run: |
+          ./bin/goose-azuresql -dir ./migration azuresql "$SQL_SERVER_DSN" up
+
+      - name: Azure Login (PORTAL PRINCIPLE)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.HETEROGENPORTALAPPDEV_AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.HETEROGENPORTALAPPDEV_AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.HETEROGENPORTALAPPDEV_AZURE_SUBSCRIPTION_ID }}
+
+      - name: Build and push container image to registry
+        uses: azure/container-apps-deploy-action@v2
+        with:
+          appSourcePath: ${{ github.workspace }}
+          _dockerfilePathKey_: _dockerfilePath_
+          _targetLabelKey_: _targetLabel_
+          registryUrl: heterogenportalcontainerregistry-cjd9bgd0gme8g6gc.azurecr.io
+          registryUsername: ${{ secrets.HETEROGENPORTALAPPDEV_REGISTRY_USERNAME }}
+          registryPassword: ${{ secrets.HETEROGENPORTALAPPDEV_REGISTRY_PASSWORD }}
+          containerAppName: heterogen-portal-app-dev
+          resourceGroup: heterogen-portal-resource-group
+          imageToBuild: heterogenportalcontainerregistry-cjd9bgd0gme8g6gc.azurecr.io/heterogen-portal-app-dev:${{ github.sha }}
+          _buildArgumentsKey_: |
+            _buildArgumentsValues_
+
+
