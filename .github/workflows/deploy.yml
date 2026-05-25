@@ -1,14 +1,11 @@
 name: Trigger auto deployment for heterogen-portal-app-dev
 
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
-
 # When this action will be executed
 on:
   # Automatically trigger it when detected changes in repo
   push:
     branches: 
-      [ set-up-actions ]
+      [ main ]
     paths:
     - '**'
     - '.github/workflows/deploy.yml'
