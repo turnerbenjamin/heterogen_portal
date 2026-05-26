@@ -141,10 +141,6 @@ func parsePortalTokenClaims(claims jwt.MapClaims) (*PortalTokenClaims, error) {
 		return nil, errors.New("no claims")
 	}
 
-	for c := range claims {
-		println(c)
-	}
-
 	oid, err := parseClaim(claims, "oid")
 	if err != nil {
 		return nil, err

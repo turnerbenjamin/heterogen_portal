@@ -8,24 +8,22 @@ import (
 	"strings"
 	"testing"
 	"testing/fstest"
-
-	"github.com/turnerbenjamin/go_gbf/internal/config"
 )
 
 func TestMakeTemplateStore_ReturnsStore(t *testing.T) {
 	root := "templates"
 
-	testTemplate := config.TemplateData{
+	testTemplate := TemplateData{
 		Name:         "test_data_config",
-		WebResources: config.WebResourceDependencies{},
+		WebResources: WebResourceDependencies{},
 		Dependencies: []string{"dep1", "dep2"},
 	}
 
 	testFS, templateData := makeTestFileStoreAndData(
 		t,
 		root,
-		map[config.TemplateIdentifier]config.TemplateData{
-			config.TMPL_COMPONENT_ERRORS: testTemplate,
+		map[TemplateIdentifier]TemplateData{
+			TMPL_COMPONENT_ERRORS: testTemplate,
 		},
 	)
 
@@ -45,7 +43,7 @@ func TestMakeTemplateStore_HandlesNilFS(t *testing.T) {
 	_, templateData := makeTestFileStoreAndData(
 		t,
 		root,
-		map[config.TemplateIdentifier]config.TemplateData{},
+		map[TemplateIdentifier]TemplateData{},
 	)
 	_, err := MakeTemplateStore(nil, root, templateData)
 	assertEqualError(t, err, Err_FileSystemIsNil)
@@ -56,10 +54,10 @@ func TestMakeTemplateStore_HandlesMissingTemplateData(t *testing.T) {
 	fs, templateData := makeTestFileStoreAndData(
 		t,
 		root,
-		map[config.TemplateIdentifier]config.TemplateData{},
+		map[TemplateIdentifier]TemplateData{},
 	)
 
-	delete(templateData, config.TMPL_PAGE_USER_SIGNED_OUT)
+	delete(templateData, TMPL_PAGE_USER_SIGNED_OUT)
 
 	_, err := MakeTemplateStore(fs, root, templateData)
 	assertEqualError(t,
@@ -67,7 +65,7 @@ func TestMakeTemplateStore_HandlesMissingTemplateData(t *testing.T) {
 		fmt.Sprintf(
 			"%s%d",
 			Err_MissingTemplateDataPrefix,
-			config.TMPL_PAGE_USER_SIGNED_OUT,
+			TMPL_PAGE_USER_SIGNED_OUT,
 		),
 	)
 
@@ -78,10 +76,10 @@ func TestMakeTemplateStore_HandlesMissingTemplate(t *testing.T) {
 	fs, templateData := makeTestFileStoreAndData(
 		t,
 		root,
-		map[config.TemplateIdentifier]config.TemplateData{},
+		map[TemplateIdentifier]TemplateData{},
 	)
 
-	missingTemplate := templateData[config.TMPL_COMPONENT_TOAST]
+	missingTemplate := templateData[TMPL_COMPONENT_TOAST]
 	delete(fs, filepath.Join(root, missingTemplate.Name+".tmpl"))
 
 	_, err := MakeTemplateStore(fs, root, templateData)
@@ -91,17 +89,17 @@ func TestMakeTemplateStore_HandlesMissingTemplate(t *testing.T) {
 func TestMakeTemplateStore_HandlesMissingDependency(t *testing.T) {
 	root := "templates"
 
-	testTemplate := config.TemplateData{
+	testTemplate := TemplateData{
 		Name:         "test_data_config",
-		WebResources: config.WebResourceDependencies{},
+		WebResources: WebResourceDependencies{},
 		Dependencies: []string{"dep1", "dep2"},
 	}
 
 	testFS, templateData := makeTestFileStoreAndData(
 		t,
 		root,
-		map[config.TemplateIdentifier]config.TemplateData{
-			config.TMPL_PAGE_APP: testTemplate,
+		map[TemplateIdentifier]TemplateData{
+			TMPL_PAGE_APP: testTemplate,
 		},
 	)
 
@@ -115,17 +113,17 @@ func TestMakeTemplateStore_HandlesMissingDependency(t *testing.T) {
 
 func TestMakeTemplateStore_HandlesInvalidTemplateSyntax(t *testing.T) {
 	root := "templates"
-	testTemplate := config.TemplateData{
+	testTemplate := TemplateData{
 		Name:         "invalid_syntax_template",
-		WebResources: config.WebResourceDependencies{},
+		WebResources: WebResourceDependencies{},
 		Dependencies: []string{},
 	}
 
 	testFS, templateData := makeTestFileStoreAndData(
 		t,
 		root,
-		map[config.TemplateIdentifier]config.TemplateData{
-			config.TMPL_PAGE_APP: testTemplate,
+		map[TemplateIdentifier]TemplateData{
+			TMPL_PAGE_APP: testTemplate,
 		},
 	)
 
@@ -143,16 +141,16 @@ func TestExecute_HandlesMissingData(t *testing.T) {
 	var w bytes.Buffer
 	testStore := makeTestStore(
 		t,
-		config.TMPL_PAGE_APP,
-		config.WebResourceDependencies{},
+		TMPL_PAGE_APP,
+		WebResourceDependencies{},
 		"",
 	)
 
 	err := testStore.Execute(
-		config.TMPL_PAGE_USER_SIGNED_OUT,
+		TMPL_PAGE_USER_SIGNED_OUT,
 		&w,
-		config.TemplateArgs{
-			PageConfig: config.PageConfig{},
+		TemplateArgs{
+			PageConfig: PageConfig{},
 			Data:       nil,
 		},
 	)
@@ -162,7 +160,7 @@ func TestExecute_HandlesMissingData(t *testing.T) {
 		fmt.Sprintf(
 			"%s%d",
 			Err_MissingTemplateDataPrefix,
-			config.TMPL_PAGE_USER_SIGNED_OUT,
+			TMPL_PAGE_USER_SIGNED_OUT,
 		),
 	)
 }
@@ -171,18 +169,18 @@ func TestExecute_SetsWebResources(t *testing.T) {
 	var w bytes.Buffer
 	testStore := makeTestStore(
 		t,
-		config.TMPL_PAGE_APP,
-		config.WebResourceDependencies{
+		TMPL_PAGE_APP,
+		WebResourceDependencies{
 			HG_AUTH: true,
 		},
 		"{{- if .WebResources.HG_AUTH}}PASS{{- else}}FAIL{{end}}",
 	)
 
 	err := testStore.Execute(
-		config.TMPL_PAGE_APP,
+		TMPL_PAGE_APP,
 		&w,
-		config.TemplateArgs{
-			PageConfig: config.PageConfig{},
+		TemplateArgs{
+			PageConfig: PageConfig{},
 			Data:       nil,
 		},
 	)
@@ -196,8 +194,8 @@ func TestExecute_SetsWebResources(t *testing.T) {
 func TestExecute_PassesDataCorrectly(t *testing.T) {
 	var w bytes.Buffer
 
-	data := config.TemplateArgs{
-		PageConfig: config.PageConfig{
+	data := TemplateArgs{
+		PageConfig: PageConfig{
 			ContentOnly:  true,
 			ToastSuccess: "TOAST_SUCCESS",
 		},
@@ -206,8 +204,8 @@ func TestExecute_PassesDataCorrectly(t *testing.T) {
 
 	testStore := makeTestStore(
 		t,
-		config.TMPL_PAGE_APP,
-		config.WebResourceDependencies{
+		TMPL_PAGE_APP,
+		WebResourceDependencies{
 			HG_AUTH: true,
 		},
 		`{{- if .PageConfig.ContentOnly}}PASS{{- else}}FAIL{{end}},
@@ -216,7 +214,7 @@ func TestExecute_PassesDataCorrectly(t *testing.T) {
 	)
 
 	err := testStore.Execute(
-		config.TMPL_PAGE_APP,
+		TMPL_PAGE_APP,
 		&w,
 		data,
 	)
@@ -230,20 +228,20 @@ func TestExecute_PassesDataCorrectly(t *testing.T) {
 func makeTestFileStoreAndData(
 	t *testing.T,
 	root string,
-	overrides map[config.TemplateIdentifier]config.TemplateData,
-) (fstest.MapFS, map[config.TemplateIdentifier]config.TemplateData) {
+	overrides map[TemplateIdentifier]TemplateData,
+) (fstest.MapFS, map[TemplateIdentifier]TemplateData) {
 	t.Helper()
 	mf := fstest.MapFS{}
-	td := make(map[config.TemplateIdentifier]config.TemplateData)
+	td := make(map[TemplateIdentifier]TemplateData)
 
 	// Create default fs and data for all template identifiers
-	for i := range config.TMPL_ENUM_END {
-		id := config.TemplateIdentifier(i)
+	for i := range TMPL_ENUM_END {
+		id := TemplateIdentifier(i)
 		name := fmt.Sprintf("tmpl_%d", i)
 		content := fmt.Sprintf(`{{define "%s"}}TITLE:{{.PageConfig.Title}} ID:%d{{end}}`, name, i)
 		path := filepath.Join(root, name+".tmpl")
 		mf[path] = &fstest.MapFile{Data: []byte(content)}
-		td[id] = config.TemplateData{
+		td[id] = TemplateData{
 			Name:         name,
 			Dependencies: []string{},
 		}
@@ -273,8 +271,8 @@ func makeTestFileStoreAndData(
 
 func makeTestStore(
 	t *testing.T,
-	tid config.TemplateIdentifier,
-	wr config.WebResourceDependencies,
+	tid TemplateIdentifier,
+	wr WebResourceDependencies,
 	templateContent string,
 ) *Store {
 	t.Helper()
@@ -295,7 +293,7 @@ func makeTestStore(
 	}
 
 	return &Store{
-		templateData: map[config.TemplateIdentifier]config.TemplateData{
+		templateData: map[TemplateIdentifier]TemplateData{
 			tid: {
 				Name:         testTemplateName,
 				Dependencies: []string{},
