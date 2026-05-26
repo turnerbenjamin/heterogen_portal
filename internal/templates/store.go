@@ -1,3 +1,8 @@
+// Package templates provides helpers for parsing and executing HTML
+// templates stored in an fs.FS. It offers a small `Store` abstraction that
+// reads `.tmpl` files from a root directory, validates that template
+// identifiers have associated metadata (names and dependencies), and exposes
+// a simple `Execute` method to render a named template to an io.Writer.
 package templates
 
 import (
@@ -8,21 +13,52 @@ import (
 	"io/fs"
 	"path/filepath"
 	"sort"
-
-	"github.com/turnerbenjamin/go_gbf/internal/config"
 )
 
 // Store holds the parsed templates and metadata required to execute them.
 type Store struct {
 	templates    *template.Template
-	templateData map[config.TemplateIdentifier]config.TemplateData
+	templateData map[TemplateIdentifier]TemplateData
+}
+
+type TemplateIdentifier int
+
+const (
+	TMPL_PAGE_APP TemplateIdentifier = iota
+	TMPL_PAGE_USER_SIGN_IN
+	TMPL_PAGE_USER_SIGN_IN_REDIRECT
+	TMPL_PAGE_USER_SIGNED_OUT
+	TMPL_COMPONENT_ERRORS
+	TMPL_COMPONENT_TOAST
+	TMPL_ENUM_END
+)
+
+type PageConfig struct {
+	ContentOnly  bool
+	Title        string
+	ToastSuccess string
+}
+
+type TemplateArgs struct {
+	PageConfig PageConfig
+	Data       any
+}
+
+type WebResourceDependencies struct {
+	HG_AUTH bool
+}
+
+type TemplateData struct {
+	Name         string
+	Dependencies []string
+	WebResources WebResourceDependencies
 }
 
 // executeTemplateData holds data to be passed to all templates
 type executeTemplateData struct {
-	PageConfig   config.PageConfig
+	PageConfig   PageConfig
 	Data         any
-	WebResources config.WebResourceDependencies
+	WebResources WebResourceDependencies
 }
 
 const (
@@ -45,7 +81,7 @@ const (
 //
 // It returns a fully-initialized `Store` on success or an error when the
 // filesystem is nil, required template files are missing, or parsing fails.
-func MakeTemplateStore(fileSystem fs.FS, root string, templateData map[config.TemplateIdentifier]config.TemplateData) (*Store, error) {
+func MakeTemplateStore(fileSystem fs.FS, root string, templateData map[TemplateIdentifier]TemplateData) (*Store, error) {
 	if fileSystem == nil {
 		return nil, errors.New(Err_FileSystemIsNil)
 	}
@@ -67,19 +103,21 @@ func MakeTemplateStore(fileSystem fs.FS, root string, templateData map[config.Te
 		}
 	}
 
-	for i := range config.TMPL_ENUM_END {
-		data, ok := templateData[config.TemplateIdentifier(i)]
+	// Validate for all template constants that:
+	// - Template data exists
+	// - Template files exist
+	// - Template dependencies exist
+	for i := range TMPL_ENUM_END {
+		data, ok := templateData[TemplateIdentifier(i)]
 		if !ok {
 			return nil, fmt.Errorf("%s%d", Err_MissingTemplateDataPrefix, i)
 		}
 
-		//Validate template identifier found
 		currentT := t.Lookup(data.Name)
 		if currentT == nil {
 			return nil, fmt.Errorf("%s%s", Err_MissingTemplateFilePrefix, data.Name)
 		}
 
-		//Validate template dependencies
 		for _, dependency := range data.Dependencies {
 			tmpl := t.Lookup(dependency)
 			if tmpl == nil {
@@ -96,9 +134,9 @@ func MakeTemplateStore(fileSystem fs.FS, root string, templateData map[config.Te
 // Execute renders the template associated with `id` to the provided
 // writer.
 func (ts *Store) Execute(
-	id config.TemplateIdentifier,
+	id TemplateIdentifier,
 	w io.Writer,
-	data config.TemplateArgs,
+	data TemplateArgs,
 ) error {
 	td, ok := ts.templateData[id]
 	if !ok {

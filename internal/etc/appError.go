@@ -11,6 +11,14 @@ type AppError interface {
 	PageErrors() []string
 }
 
+var (
+	ErrServer = ToastAndPageErrors(
+		500,
+		"An unexpected error has occurred. Please try again later",
+		"An unexpected error has occurred. Please try again later",
+	)
+)
+
 type appError struct {
 	code       int
 	toastError string

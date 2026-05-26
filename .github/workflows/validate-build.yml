@@ -1,8 +1,6 @@
 name: validate-build
 
 on:
-  push:
-    branches: ['**']
   pull_request:
     branches: ['**']
 
@@ -22,7 +20,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '25'
 
       - name: Cache npm modules
         uses: actions/cache@v4
@@ -62,6 +60,6 @@ jobs:
         with:
           version: v2.12.2
 
-      - name: Run tests (with race detector)
+      - name: Run Go Tests
         run: |
           go test -race ./... -v
