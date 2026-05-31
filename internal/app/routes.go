@@ -5,11 +5,11 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/turnerbenjamin/go_gbf/internal/config"
-	"github.com/turnerbenjamin/go_gbf/internal/db"
-	h "github.com/turnerbenjamin/go_gbf/internal/handlers"
-	"github.com/turnerbenjamin/go_gbf/internal/logging"
-	"github.com/turnerbenjamin/go_gbf/internal/templates"
+	"github.com/turnerbenjamin/heterogen_portal/internal/config"
+	"github.com/turnerbenjamin/heterogen_portal/internal/db"
+	h "github.com/turnerbenjamin/heterogen_portal/internal/handlers"
+	"github.com/turnerbenjamin/heterogen_portal/internal/logging"
+	"github.com/turnerbenjamin/heterogen_portal/internal/templates"
 )
 
 func getNewAdminRaftSeed(r *http.Request) h.UserRaft {

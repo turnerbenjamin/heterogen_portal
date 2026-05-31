@@ -2,12 +2,15 @@ package templates
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"html/template"
 	"path/filepath"
 	"strings"
 	"testing"
 	"testing/fstest"
+
+	"github.com/turnerbenjamin/heterogen_portal/testhelpers"
 )
 
 func TestMakeTemplateStore_ReturnsStore(t *testing.T) {
@@ -29,10 +32,7 @@ func TestMakeTemplateStore_ReturnsStore(t *testing.T) {
 
 	got, err := MakeTemplateStore(testFS, root, templateData)
 
-	if err != nil {
-		t.Fatalf("expected error to be nil but got %s", err)
-	}
-
+	testhelpers.AssertErrorNil(t, err)
 	if got == nil {
 		t.Fatal("expected store pointer but got nil")
 	}
@@ -46,7 +46,9 @@ func TestMakeTemplateStore_HandlesNilFS(t *testing.T) {
 		map[TemplateIdentifier]TemplateData{},
 	)
 	_, err := MakeTemplateStore(nil, root, templateData)
-	assertEqualError(t, err, Err_FileSystemIsNil)
+	want := errors.New(Err_FileSystemIsNil)
+
+	testhelpers.AssertErrorEqual(t, err, want)
 }
 
 func TestMakeTemplateStore_HandlesMissingTemplateData(t *testing.T) {
@@ -60,15 +62,8 @@ func TestMakeTemplateStore_HandlesMissingTemplateData(t *testing.T) {
 	delete(templateData, TMPL_PAGE_USER_SIGNED_OUT)
 
 	_, err := MakeTemplateStore(fs, root, templateData)
-	assertEqualError(t,
-		err,
-		fmt.Sprintf(
-			"%s%d",
-			Err_MissingTemplateDataPrefix,
-			TMPL_PAGE_USER_SIGNED_OUT,
-		),
-	)
-
+	want := fmt.Errorf("%s%d", Err_MissingTemplateDataPrefix, TMPL_PAGE_USER_SIGNED_OUT)
+	testhelpers.AssertErrorEqual(t, err, want)
 }
 
 func TestMakeTemplateStore_HandlesMissingTemplate(t *testing.T) {
@@ -83,7 +78,9 @@ func TestMakeTemplateStore_HandlesMissingTemplate(t *testing.T) {
 	delete(fs, filepath.Join(root, missingTemplate.Name+".tmpl"))
 
 	_, err := MakeTemplateStore(fs, root, templateData)
-	assertEqualError(t, err, Err_MissingTemplateFilePrefix+missingTemplate.Name)
+
+	want := fmt.Errorf("%s%s", Err_MissingTemplateFilePrefix, missingTemplate.Name)
+	testhelpers.AssertErrorEqual(t, err, want)
 }
 
 func TestMakeTemplateStore_HandlesMissingDependency(t *testing.T) {
@@ -108,7 +105,8 @@ func TestMakeTemplateStore_HandlesMissingDependency(t *testing.T) {
 
 	_, err := MakeTemplateStore(testFS, root, templateData)
 
-	assertEqualError(t, err, Err_MissingTemplateFilePrefix+missingDepName)
+	want := fmt.Errorf("%s%s", Err_MissingTemplateFilePrefix, missingDepName)
+	testhelpers.AssertErrorEqual(t, err, want)
 }
 
 func TestMakeTemplateStore_HandlesInvalidTemplateSyntax(t *testing.T) {
@@ -132,9 +130,7 @@ func TestMakeTemplateStore_HandlesInvalidTemplateSyntax(t *testing.T) {
 
 	_, err := MakeTemplateStore(testFS, root, templateData)
 
-	if err == nil {
-		t.Fatalf("expected error when invalid template syntax, got nil")
-	}
+	testhelpers.AssertErrorMessageMatches(t, err, "unclosed action")
 }
 
 func TestExecute_HandlesMissingData(t *testing.T) {
@@ -155,14 +151,8 @@ func TestExecute_HandlesMissingData(t *testing.T) {
 		},
 	)
 
-	assertEqualError(t,
-		err,
-		fmt.Sprintf(
-			"%s%d",
-			Err_MissingTemplateDataPrefix,
-			TMPL_PAGE_USER_SIGNED_OUT,
-		),
-	)
+	want := fmt.Errorf("%s%d", Err_MissingTemplateDataPrefix, TMPL_PAGE_USER_SIGNED_OUT)
+	testhelpers.AssertErrorEqual(t, err, want)
 }
 
 func TestExecute_SetsWebResources(t *testing.T) {
@@ -185,9 +175,7 @@ func TestExecute_SetsWebResources(t *testing.T) {
 		},
 	)
 
-	if err != nil {
-		t.Fatalf("expected error to be nil but got %s", err)
-	}
+	testhelpers.AssertErrorNil(t, err)
 	assertTemplateContentLooseMatch(t, w.String(), "PASS")
 }
 
@@ -219,9 +207,7 @@ func TestExecute_PassesDataCorrectly(t *testing.T) {
 		data,
 	)
 
-	if err != nil {
-		t.Fatalf("expected error to be nil but got %s", err)
-	}
+	testhelpers.AssertErrorNil(t, err)
 	assertTemplateContentLooseMatch(t, w.String(), "PASS,PASS,PASS")
 }
 
@@ -314,16 +300,5 @@ func assertTemplateContentLooseMatch(t *testing.T, got, want string) {
 
 	if !strings.Contains(strings.ToLower(gn), strings.ToLower(wn)) {
 		t.Fatalf("expected output to contain:\nwant=%q\ngot =%q", wn, gn)
-	}
-}
-
-func assertEqualError(t *testing.T, got error, want string) {
-	t.Helper()
-	if got == nil {
-		t.Fatal("expected error but got nil")
-	}
-
-	if got.Error() != want {
-		t.Fatalf("got %s, but want %s", got.Error(), want)
 	}
 }

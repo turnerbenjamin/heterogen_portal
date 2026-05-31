@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/turnerbenjamin/go_gbf/internal/etc"
-	"github.com/turnerbenjamin/go_gbf/internal/logging"
+	"github.com/turnerbenjamin/heterogen_portal/internal/etc"
+	"github.com/turnerbenjamin/heterogen_portal/internal/logging"
 )
 
 type (
@@ -22,13 +22,13 @@ type PipelineWithRaftBuilder[T any] interface {
 	) http.HandlerFunc
 }
 
-type pipelineWithRaftBuiler[T any] struct {
+type pipelineWithRaftBuilder[T any] struct {
 	newSeed      func(*http.Request) T
 	newLogger    func(*http.Request) logging.Logger
 	errorHandler ErrorHandler
 }
 
-type StatusResponseWriter struct {
+type statusSpyWriter struct {
 	http.ResponseWriter
 	statusCode int
 }
@@ -38,14 +38,14 @@ func NewPipelineWithRaftBuilder[T any](
 	newLogger func(*http.Request) logging.Logger,
 	errorHandler ErrorHandler,
 ) PipelineWithRaftBuilder[T] {
-	return &pipelineWithRaftBuiler[T]{
+	return &pipelineWithRaftBuilder[T]{
 		newSeed:      newSeed,
 		newLogger:    newLogger,
 		errorHandler: errorHandler,
 	}
 }
 
-func (p *pipelineWithRaftBuiler[T]) New(
+func (p *pipelineWithRaftBuilder[T]) New(
 	middlewares []MiddlewareWithRaft[T],
 	handler AppHandlerWithRaft[T],
 ) http.HandlerFunc {
@@ -60,7 +60,7 @@ func (p *pipelineWithRaftBuiler[T]) New(
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		seed := p.newSeed(r)
 		logger := p.newLogger(r)
-		sw := StatusResponseWriter{ResponseWriter: w}
+		sw := statusSpyWriter{ResponseWriter: w}
 
 		err := pipeline(&sw, r, logger, seed)
 		if err != nil {
@@ -108,7 +108,7 @@ func (pb *pipelineBuilder) New(
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		logger := pb.newLogger(r)
-		sw := StatusResponseWriter{ResponseWriter: w}
+		sw := statusSpyWriter{ResponseWriter: w}
 
 		err := pipeline(&sw, r, logger)
 		if err != nil {
@@ -120,14 +120,14 @@ func (pb *pipelineBuilder) New(
 	})
 }
 
-func (w *StatusResponseWriter) WriteHeader(code int) {
+func (w *statusSpyWriter) WriteHeader(code int) {
 	w.statusCode = code
-	w.ResponseWriter.WriteHeader(code)
 }
 
-func (w *StatusResponseWriter) Write(b []byte) (int, error) {
+func (w *statusSpyWriter) Write(b []byte) (int, error) {
 	if w.statusCode == 0 {
 		w.statusCode = http.StatusOK
 	}
+	w.ResponseWriter.WriteHeader(w.statusCode)
 	return w.ResponseWriter.Write(b)
 }

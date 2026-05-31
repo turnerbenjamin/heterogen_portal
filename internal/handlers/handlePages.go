@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/turnerbenjamin/go_gbf/internal/etc"
-	"github.com/turnerbenjamin/go_gbf/internal/logging"
-	"github.com/turnerbenjamin/go_gbf/internal/templates"
+	"github.com/turnerbenjamin/heterogen_portal/internal/etc"
+	"github.com/turnerbenjamin/heterogen_portal/internal/logging"
+	"github.com/turnerbenjamin/heterogen_portal/internal/templates"
 )
 
 func GET_ROOT(ts *templates.Store) AppHandlerWithRaft[UserRaft] {

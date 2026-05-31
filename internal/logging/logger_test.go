@@ -11,6 +11,8 @@ import (
 	"strings"
 	"sync"
 	"testing"
+
+	"github.com/turnerbenjamin/heterogen_portal/testhelpers"
 )
 
 type testWriter struct {
@@ -23,7 +25,6 @@ func (tw *testWriter) Write(p []byte) (n int, err error) {
 	tw.t.Helper()
 
 	n, err = tw.w.Write(p)
-
 	if err != nil {
 		tw.t.Fatalf("writer failed with error %s", err.Error())
 	}
@@ -36,7 +37,7 @@ func TestNewLogger_HandlesNilWriter(t *testing.T) {
 	l.AddKV("k", "v")
 
 	err := l.WriteLog()
-	assertErrEqual(t, err, errors.New(Err_WriterIsNil))
+	testhelpers.AssertErrorEqual(t, err, errors.New(Err_WriterIsNil))
 }
 
 func TestNewLogger_ReturnsNilResponseWithoutErrorOrPanic(t *testing.T) {
@@ -53,7 +54,7 @@ func TestNewLogger_ReturnsNilResponseWithoutErrorOrPanic(t *testing.T) {
 	want := maps.Clone(testData)
 	want[LOGGER_KEY_LOGGER_ERROR_NIL_REQUEST] = Err_RequestIsNil
 
-	assertErrNil(t, err)
+	testhelpers.AssertErrorNil(t, err)
 	assertLogHasProperties(t, w, want)
 }
 
@@ -68,7 +69,7 @@ func TestNewLogger_ReturnsALoggerWithStandardProperties(t *testing.T) {
 
 	err := l.WriteLog()
 
-	assertErrNil(t, err)
+	testhelpers.AssertErrorNil(t, err)
 	assertLogHasProperties(t, w, map[string]string{
 		LOGGER_KEY_REQUEST_PATH:     regexp.QuoteMeta(testPath),
 		LOGGER_KEY_REQUEST_METHOD:   regexp.QuoteMeta(testMethod),
@@ -96,7 +97,7 @@ func TestAddKV_AddsPropertiesToTheLog(t *testing.T) {
 	}
 	err := l.WriteLog()
 
-	assertErrNil(t, err)
+	testhelpers.AssertErrorNil(t, err)
 	assertLogHasProperties(t, w, testLogs)
 }
 
@@ -109,7 +110,7 @@ func TestAddKV_ShowsLogErrorForInvalidKeys(t *testing.T) {
 	l.AddKV("_invalidKey", "value")
 	err := l.WriteLog()
 
-	assertErrNil(t, err)
+	testhelpers.AssertErrorNil(t, err)
 	assertLogHasProperties(t, w, map[string]string{
 		LOGGER_KEY_LOGGER_ERROR_RESERVED_KEY: Err_InvalidKey,
 	})
@@ -135,7 +136,7 @@ func TestAddKV_HandlesEmptyInputs(t *testing.T) {
 	}
 	err := l.WriteLog()
 
-	assertErrNil(t, err)
+	testhelpers.AssertErrorNil(t, err)
 	assertLogHasProperties(t, w, testLogs)
 }
 
@@ -162,7 +163,7 @@ func TestAddKV_OverridesValuesWhenConflictingKeys(t *testing.T) {
 	}
 	err := l.WriteLog()
 
-	assertErrNil(t, err)
+	testhelpers.AssertErrorNil(t, err)
 	assertLogHasProperties(t, w, map[string]string{
 		key: regexp.QuoteMeta(lastValue),
 	})
@@ -182,7 +183,7 @@ func TestWriteLog_ReturnsErrorsFromWriter(t *testing.T) {
 	l := NewLogger(&w, r)
 
 	err := l.WriteLog()
-	assertErrEqual(t, err, want)
+	testhelpers.AssertErrorEqual(t, err, want)
 }
 
 func TestConcurrency_AddKVAndWriteLog_NoRace(t *testing.T) {
@@ -220,7 +221,7 @@ func TestConcurrency_AddKVAndWriteLog_NoRace(t *testing.T) {
 	// Clear buffer and make a final write
 	w.Reset()
 	err := l.WriteLog()
-	assertErrNil(t, err)
+	testhelpers.AssertErrorNil(t, err)
 
 	// Decode the buffer
 	var got map[string]string
@@ -249,21 +250,6 @@ func TestConcurrency_AddKVAndWriteLog_NoRace(t *testing.T) {
 				t.Fatalf("expected v, but got %s", v)
 			}
 		}
-	}
-}
-
-func assertErrEqual(t testing.TB, want, got error) {
-	if got == nil {
-		t.Fatalf("got nil but expected error %s", want.Error())
-	}
-	if got.Error() != want.Error() {
-		t.Fatalf("got %s, but expected %s", got.Error(), want.Error())
-	}
-}
-
-func assertErrNil(t testing.TB, err error) {
-	if err != nil {
-		t.Fatalf("expected err to be nil but got %s", err.Error())
 	}
 }
 

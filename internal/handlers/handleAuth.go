@@ -6,12 +6,12 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/turnerbenjamin/go_gbf/internal/auth"
-	"github.com/turnerbenjamin/go_gbf/internal/config"
-	"github.com/turnerbenjamin/go_gbf/internal/db"
-	"github.com/turnerbenjamin/go_gbf/internal/etc"
-	"github.com/turnerbenjamin/go_gbf/internal/logging"
-	"github.com/turnerbenjamin/go_gbf/internal/templates"
+	"github.com/turnerbenjamin/heterogen_portal/internal/auth"
+	"github.com/turnerbenjamin/heterogen_portal/internal/config"
+	"github.com/turnerbenjamin/heterogen_portal/internal/db"
+	"github.com/turnerbenjamin/heterogen_portal/internal/etc"
+	"github.com/turnerbenjamin/heterogen_portal/internal/logging"
+	"github.com/turnerbenjamin/heterogen_portal/internal/templates"
 )
 
 type JwtCookie struct {
