@@ -3,21 +3,15 @@ package app
 import (
 	"io/fs"
 	"net/http"
-	"os"
 
 	"github.com/turnerbenjamin/heterogen_portal/internal/config"
 	"github.com/turnerbenjamin/heterogen_portal/internal/db"
 	h "github.com/turnerbenjamin/heterogen_portal/internal/handlers"
-	"github.com/turnerbenjamin/heterogen_portal/internal/logging"
 	"github.com/turnerbenjamin/heterogen_portal/internal/templates"
 )
 
 func getNewAdminRaftSeed(r *http.Request) h.UserRaft {
 	return h.UserRaft{}
-}
-
-func getNewLogger(r *http.Request) logging.Logger {
-	return logging.NewLogger(os.Stdout, r)
 }
 
 func addRoutes(
@@ -29,11 +23,10 @@ func addRoutes(
 ) {
 	errorHandler := h.NewErrorHandler(ts)
 
-	pipeline := h.NewPipelineBuilder(getNewLogger, errorHandler)
+	pipeline := h.NewPipelineBuilder(errorHandler)
 
-	pipelineWithRaft := h.NewPipelineWithRaftBuilder(
+	pipelineWithRaft := h.NewPipelineWithStateBuilder(
 		getNewAdminRaftSeed,
-		getNewLogger,
 		errorHandler,
 	)
 
@@ -48,7 +41,7 @@ func addRoutes(
 	mux.Handle(
 		"GET /",
 		pipelineWithRaft.New(
-			[]h.MiddlewareWithRaft[h.UserRaft]{parseAdminJWT},
+			[]h.Middleware[h.UserRaft]{parseAdminJWT},
 			h.GET_ROOT(ts),
 		),
 	)
@@ -56,7 +49,7 @@ func addRoutes(
 	mux.Handle(
 		"GET /sign-in",
 		pipeline.New(
-			[]h.Middleware{},
+			[]h.Middleware[h.NoPipelineState]{},
 			h.GET_SIGN_IN(ts),
 		),
 	)
@@ -64,7 +57,7 @@ func addRoutes(
 	mux.Handle(
 		"GET /sign-in-redirect",
 		pipeline.New(
-			[]h.Middleware{},
+			[]h.Middleware[h.NoPipelineState]{},
 			h.GET_SIGN_IN_REDIRECT(ts),
 		),
 	)
@@ -72,7 +65,7 @@ func addRoutes(
 	mux.Handle(
 		"GET /signed-out",
 		pipeline.New(
-			[]h.Middleware{},
+			[]h.Middleware[h.NoPipelineState]{},
 			h.GET_SIGNED_OUT(ts),
 		),
 	)
@@ -80,7 +73,7 @@ func addRoutes(
 	mux.Handle(
 		"POST /sign-in",
 		pipeline.New(
-			[]h.Middleware{},
+			[]h.Middleware[h.NoPipelineState]{},
 			h.POST_UserSignIn(settings, ts, adminRepo),
 		),
 	)

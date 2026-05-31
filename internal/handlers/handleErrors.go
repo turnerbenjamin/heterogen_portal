@@ -4,16 +4,11 @@ import (
 	"net/http"
 
 	"github.com/turnerbenjamin/heterogen_portal/internal/etc"
-	"github.com/turnerbenjamin/heterogen_portal/internal/logging"
 	"github.com/turnerbenjamin/heterogen_portal/internal/templates"
 )
 
-type errorHandler struct {
+type ErrorHandler struct {
 	templateStore *templates.Store
-}
-
-type ErrorHandler interface {
-	Write(http.ResponseWriter, logging.Logger, etc.AppError)
 }
 
 type templateError struct {
@@ -21,23 +16,20 @@ type templateError struct {
 	PageErrors []string
 }
 
-func NewErrorHandler(templateStore *templates.Store) ErrorHandler {
-	return &errorHandler{
+func NewErrorHandler(templateStore *templates.Store) *ErrorHandler {
+	return &ErrorHandler{
 		templateStore: templateStore,
 	}
 }
 
-func (h *errorHandler) Write(w http.ResponseWriter, logger logging.Logger, appErr etc.AppError) {
-	w.WriteHeader(appErr.Code())
+func (h *ErrorHandler) Write(w http.ResponseWriter, appErr *etc.AppError) error {
+	w.WriteHeader(appErr.Code)
 
-	te := templateError{appErr.ToastError(), appErr.PageErrors()}
+	te := templateError{appErr.ToastError, appErr.PageErrors}
 
-	err := h.templateStore.Execute(
+	return h.templateStore.Execute(
 		templates.TMPL_COMPONENT_ERRORS,
 		w,
 		templates.TemplateArgs{Data: te},
 	)
-	if err != nil {
-		logger.AddKV("error", err.Error())
-	}
 }

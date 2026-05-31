@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"fmt"
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -10,7 +11,6 @@ import (
 	"github.com/turnerbenjamin/heterogen_portal/internal/config"
 	"github.com/turnerbenjamin/heterogen_portal/internal/db"
 	"github.com/turnerbenjamin/heterogen_portal/internal/etc"
-	"github.com/turnerbenjamin/heterogen_portal/internal/logging"
 	"github.com/turnerbenjamin/heterogen_portal/internal/templates"
 )
 
@@ -43,13 +43,12 @@ type UserRaft struct {
 	ToastSuccess string
 }
 
-func POST_UserSignIn(appSettings config.AppSettings, ts *templates.Store, userRepo db.UserRepo) AppHandler {
-	return func(w http.ResponseWriter, r *http.Request, l logging.Logger) etc.AppError {
+func POST_UserSignIn(appSettings config.AppSettings, ts *templates.Store, userRepo db.UserRepo) AppHandler[NoPipelineState] {
+	return func(w http.ResponseWriter, r *http.Request, c *PipelineContext[NoPipelineState]) *etc.AppError {
 		// Parse bearer token
 		bearerToken := r.Header.Get("Authorization")
 		tokenClaims, err := auth.ValidateToken(r.Context(), bearerToken)
 		if err != nil {
-			l.AddKV("Error", err.Error())
 			return ErrServer
 		}
 
@@ -62,7 +61,6 @@ func POST_UserSignIn(appSettings config.AppSettings, ts *templates.Store, userRe
 			tokenClaims.EmailAddress,
 		)
 		if err != nil {
-			l.AddKV("Failed to insert user", err.Error())
 			return ErrServer
 		}
 
@@ -93,31 +91,31 @@ func POST_UserSignIn(appSettings config.AppSettings, ts *templates.Store, userRe
 			templates.TemplateArgs{PageConfig: conf, Data: UserRaft{User: user}},
 		)
 		if err != nil {
-			l.AddKV("server_error", err.Error())
 			return ErrServer
 		}
 		return nil
 	}
 }
 
-func NewParseJWTMiddleware(settings config.AppSettings, userRepo db.UserRepo) MiddlewareWithRaft[UserRaft] {
-	return func(next AppHandlerWithRaft[UserRaft]) AppHandlerWithRaft[UserRaft] {
-		return func(w http.ResponseWriter, r *http.Request, l logging.Logger, raft UserRaft) etc.AppError {
+func NewParseJWTMiddleware(settings config.AppSettings, userRepo db.UserRepo) Middleware[UserRaft] {
+	return func(next AppHandler[UserRaft]) AppHandler[UserRaft] {
+		return func(w http.ResponseWriter, r *http.Request, c *PipelineContext[UserRaft]) *etc.AppError {
 			if jwtCookie, err := r.Cookie(JWT_COOKIE_IDENTIFIER); err == nil {
 				payload, ok := parseUserJwtCookie(jwtCookie, settings)
 				if ok {
-					l.AddKV("TOKEN ID", payload.id)
+					c.AddLoggerKV(slog.String("TOKEN ID", payload.id))
+
 					user, err := userRepo.RetrieveUserById(payload.id)
 					if err != nil {
-						l.AddKV("User", "User not found")
+						c.AddLoggerKV(slog.String("User", "User not found"))
 						unsetJWTCookie(w)
 					} else {
-						l.AddKV("User", user.UserName)
-						raft.User = user
+						c.AddLoggerKV(slog.String("User", user.UserName))
+						c.state.User = user
 					}
 				}
 			}
-			return next(w, r, l, raft)
+			return next(w, r, c)
 		}
 	}
 }

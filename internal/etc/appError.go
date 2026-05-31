@@ -5,12 +5,6 @@ import (
 	"strings"
 )
 
-type AppError interface {
-	Code() int
-	ToastError() string
-	PageErrors() []string
-}
-
 var (
 	ErrServer = ToastAndPageErrors(
 		500,
@@ -19,69 +13,55 @@ var (
 	)
 )
 
-type appError struct {
-	code       int
-	toastError string
-	pageErrors []string
+type AppError struct {
+	Code       int
+	ToastError string
+	PageErrors []string
 }
 
-func (e *appError) String() string {
+func (e *AppError) String() string {
 	sb := strings.Builder{}
-	if e.toastError != "" {
+	if e.ToastError != "" {
 		sb.WriteString(": ")
-		sb.WriteString(e.toastError)
+		sb.WriteString(e.ToastError)
 	}
 
-	if len(e.pageErrors) > 0 {
+	if len(e.PageErrors) > 0 {
 		sb.WriteString(": ")
-		sb.WriteString(strings.Join(e.pageErrors, ", "))
+		sb.WriteString(strings.Join(e.PageErrors, ", "))
 	}
 
-	errorMessage := sb.String()
-
-	return fmt.Sprintf("%d%s", e.code, errorMessage)
+	return sb.String()
 }
 
-func (e *appError) Code() int {
-	return e.code
-}
-
-func (e *appError) ToastError() string {
-	return e.toastError
-}
-
-func (e *appError) PageErrors() []string {
-	return e.pageErrors
-}
-
-func ToastError(httpCode int, message string) AppError {
-	return &appError{
-		code:       httpCode,
-		toastError: message,
-		pageErrors: []string{},
+func ToastError(httpCode int, message string) *AppError {
+	return &AppError{
+		Code:       httpCode,
+		ToastError: message,
+		PageErrors: []string{},
 	}
 }
 
-func ToastErrorf(httpCode int, format string, a ...any) AppError {
-	return &appError{
-		code:       httpCode,
-		toastError: fmt.Sprintf(format, a...),
-		pageErrors: []string{},
+func ToastErrorf(httpCode int, format string, a ...any) *AppError {
+	return &AppError{
+		Code:       httpCode,
+		ToastError: fmt.Sprintf(format, a...),
+		PageErrors: []string{},
 	}
 }
 
-func PageError(httpCode int, messages ...string) AppError {
-	return &appError{
-		code:       httpCode,
-		toastError: "",
-		pageErrors: messages,
+func PageError(httpCode int, messages ...string) *AppError {
+	return &AppError{
+		Code:       httpCode,
+		ToastError: "",
+		PageErrors: messages,
 	}
 }
 
-func ToastAndPageErrors(httpCode int, toastError string, pageErrors ...string) AppError {
-	return &appError{
-		code:       httpCode,
-		toastError: toastError,
-		pageErrors: pageErrors,
+func ToastAndPageErrors(httpCode int, toastError string, pageErrors ...string) *AppError {
+	return &AppError{
+		Code:       httpCode,
+		ToastError: toastError,
+		PageErrors: pageErrors,
 	}
 }
