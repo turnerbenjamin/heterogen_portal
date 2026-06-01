@@ -1,9 +1,9 @@
 package handlers
 
 import (
+	"io"
 	"log/slog"
 	"net/http"
-	"os"
 	"time"
 
 	"github.com/turnerbenjamin/heterogen_portal/internal/etc"
@@ -23,16 +23,11 @@ type (
 type PipelineBuilder[T any] struct {
 	newSeed      func(*http.Request) T
 	errorHandler ErrorWriter
+	logSink      io.Writer
 }
 
 type ErrorWriter interface {
 	Write(http.ResponseWriter, *etc.AppError) error
-}
-
-type statusSpyWriter struct {
-	http.ResponseWriter
-	statusCode    int
-	headerWritten bool
 }
 
 func (d *PipelineContext[T]) AddLoggerKV(attrs ...slog.Attr) {
@@ -45,20 +40,24 @@ func (d *PipelineContext[T]) AddLoggerKV(attrs ...slog.Attr) {
 
 func NewPipelineBuilder(
 	errorWriter ErrorWriter,
+	logSink io.Writer,
 ) *PipelineBuilder[NoPipelineState] {
 	return &PipelineBuilder[NoPipelineState]{
 		newSeed:      func(r *http.Request) NoPipelineState { return NoPipelineState{} },
 		errorHandler: errorWriter,
+		logSink:      logSink,
 	}
 }
 
 func NewPipelineWithStateBuilder[T any](
 	newSeed func(*http.Request) T,
 	errorHandler ErrorWriter,
+	logSink io.Writer,
 ) *PipelineBuilder[T] {
 	return &PipelineBuilder[T]{
 		newSeed:      newSeed,
 		errorHandler: errorHandler,
+		logSink:      logSink,
 	}
 }
 
@@ -78,7 +77,7 @@ func (p *PipelineBuilder[T]) New(
 		startTime := time.Now()
 
 		pipelineData := &PipelineContext[T]{
-			logger: slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{})),
+			logger: slog.New(slog.NewJSONHandler(p.logSink, &slog.HandlerOptions{})),
 			state:  p.newSeed(r),
 		}
 
@@ -114,20 +113,4 @@ func (p *PipelineBuilder[T]) New(
 			slog.Int("response_status_code", sw.statusCode),
 		)
 	})
-}
-
-func (w *statusSpyWriter) WriteHeader(code int) {
-	w.statusCode = code
-}
-
-func (w *statusSpyWriter) Write(b []byte) (int, error) {
-	println("***********WRITE CALLED************")
-	if w.statusCode == 0 {
-		w.statusCode = http.StatusOK
-	}
-	if !w.headerWritten {
-		w.ResponseWriter.WriteHeader(w.statusCode)
-		w.headerWritten = true
-	}
-	return w.ResponseWriter.Write(b)
 }

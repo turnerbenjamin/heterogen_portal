@@ -3,6 +3,7 @@ package app
 import (
 	"io/fs"
 	"net/http"
+	"os"
 
 	"github.com/turnerbenjamin/heterogen_portal/internal/config"
 	"github.com/turnerbenjamin/heterogen_portal/internal/db"
@@ -10,7 +11,7 @@ import (
 	"github.com/turnerbenjamin/heterogen_portal/internal/templates"
 )
 
-func getNewAdminRaftSeed(r *http.Request) h.UserRaft {
+func getNewPipelineUserState(r *http.Request) h.UserRaft {
 	return h.UserRaft{}
 }
 
@@ -23,11 +24,12 @@ func addRoutes(
 ) {
 	errorHandler := h.NewErrorHandler(ts)
 
-	pipeline := h.NewPipelineBuilder(errorHandler)
+	pipeline := h.NewPipelineBuilder(errorHandler, os.Stdout)
 
-	pipelineWithRaft := h.NewPipelineWithStateBuilder(
-		getNewAdminRaftSeed,
+	pipelineWithUserState := h.NewPipelineWithStateBuilder(
+		getNewPipelineUserState,
 		errorHandler,
+		os.Stdout,
 	)
 
 	parseAdminJWT := h.NewParseJWTMiddleware(settings, adminRepo)
@@ -40,7 +42,7 @@ func addRoutes(
 
 	mux.Handle(
 		"GET /",
-		pipelineWithRaft.New(
+		pipelineWithUserState.New(
 			[]h.Middleware[h.UserRaft]{parseAdminJWT},
 			h.GET_ROOT(ts),
 		),
