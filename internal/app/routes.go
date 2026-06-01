@@ -24,10 +24,9 @@ func addRoutes(
 ) {
 	errorHandler := h.NewErrorHandler(ts)
 
-	pipeline := h.NewPipelineBuilder(errorHandler, os.Stdout)
+	pipeline := h.NewPipelineBuilder[h.NoPipelineState](errorHandler, os.Stdout)
 
-	pipelineWithUserState := h.NewPipelineWithStateBuilder(
-		getNewPipelineUserState,
+	pipelineWithUserState := h.NewPipelineBuilder[h.UserRaft](
 		errorHandler,
 		os.Stdout,
 	)

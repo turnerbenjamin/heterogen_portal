@@ -28,7 +28,7 @@ func TestPipelineBuilder_New_invokesHandler(t *testing.T) {
 		},
 	}
 
-	b := NewPipelineBuilder(&testErrorHandler{}, &bytes.Buffer{})
+	b := NewPipelineBuilder[NoPipelineState](&testErrorHandler{}, &bytes.Buffer{})
 	p := b.New(middlewareStack.stack, testHandler.handle)
 
 	r := httptest.NewRequest("POST", "/test", strings.NewReader(""))
@@ -51,7 +51,7 @@ func TestPipelineBuilder_New_defaultsStatusTo200_whenWriteWithoutHeader(t *testi
 		},
 	}
 
-	b := NewPipelineBuilder(&testErrorHandler{}, &bytes.Buffer{})
+	b := NewPipelineBuilder[NoPipelineState](&testErrorHandler{}, &bytes.Buffer{})
 	p := b.New(middlewareStack.stack, testHandler.handle)
 
 	r := httptest.NewRequest("POST", "/test", strings.NewReader(""))
@@ -95,7 +95,7 @@ func TestPipelineBuilder_New_appliesMiddlewaresCorrectly(t *testing.T) {
 		},
 	}
 
-	b := NewPipelineBuilder(&testErrorHandler{}, &bytes.Buffer{})
+	b := NewPipelineBuilder[NoPipelineState](&testErrorHandler{}, &bytes.Buffer{})
 	p := b.New(middlewareStack.stack, testHandler.handle)
 
 	r := httptest.NewRequest("POST", "/test", strings.NewReader(""))
@@ -144,7 +144,7 @@ func TestPipelineBuilder_New_middlewareCanModifyRequest_andHandlerSeesChange(t *
 		},
 	}
 
-	b := NewPipelineBuilder(&testErrorHandler{}, &bytes.Buffer{})
+	b := NewPipelineBuilder[NoPipelineState](&testErrorHandler{}, &bytes.Buffer{})
 	p := b.New(middlewareStack.stack, testHandler.handle)
 
 	r := httptest.NewRequest("POST", "/test", strings.NewReader(""))
@@ -181,7 +181,7 @@ func TestPipelineBuilder_New_middlewareCanModifyResponseBeforeHandler(t *testing
 		},
 	}
 
-	b := NewPipelineBuilder(&testErrorHandler{}, &bytes.Buffer{})
+	b := NewPipelineBuilder[NoPipelineState](&testErrorHandler{}, &bytes.Buffer{})
 	p := b.New(middlewareStack.stack, testHandler.handle)
 
 	r := httptest.NewRequest("POST", "/test", strings.NewReader(""))
@@ -210,7 +210,7 @@ func TestPipelineBuilder_New_invokesHandlerDirectly_WhenNoMiddlewares(t *testing
 		},
 	}
 
-	b := NewPipelineBuilder(&testErrorHandler{}, &bytes.Buffer{})
+	b := NewPipelineBuilder[NoPipelineState](&testErrorHandler{}, &bytes.Buffer{})
 	p := b.New(middlewareStack.stack, testHandler.handle)
 
 	r := httptest.NewRequest("POST", "/test", strings.NewReader(""))
@@ -235,7 +235,7 @@ func TestPipelineBuilder_New_invokesHandlerDirectly_WhenMiddlewaresIsNil(t *test
 		},
 	}
 
-	b := NewPipelineBuilder(&testErrorHandler{}, &bytes.Buffer{})
+	b := NewPipelineBuilder[NoPipelineState](&testErrorHandler{}, &bytes.Buffer{})
 	p := b.New(nil, testHandler.handle)
 
 	r := httptest.NewRequest("POST", "/test", strings.NewReader(""))
@@ -247,26 +247,22 @@ func TestPipelineBuilder_New_invokesHandlerDirectly_WhenMiddlewaresIsNil(t *test
 }
 
 func TestPipelineBuilder_New_initializesPipelineContext_withCorrectState(t *testing.T) {
-	wantPipelineStateValue := 16
-	seedTestPipelineState := func(r *http.Request) *testPipelineState {
-		return &testPipelineState{value: wantPipelineStateValue}
-	}
-
-	middlewareStack := newTestMiddlewareStack(t, []testMiddleware[*testPipelineState]{{}})
+	wantPipelineStateValue := 0
+	middlewareStack := newTestMiddlewareStack(t, []testMiddleware[testPipelineState]{{}})
 
 	gotPipelineStateValue := wantPipelineStateValue - 1
-	testHandler := &testAppHandler[*testPipelineState]{
+	testHandler := &testAppHandler[testPipelineState]{
 		t: t,
 		fn: func(
 			r *http.Request,
-			c *PipelineContext[*testPipelineState],
+			c *PipelineContext[testPipelineState],
 		) (request *http.Request, statusCode *int, response []byte, err *etc.AppError) {
 			gotPipelineStateValue = c.state.value
 			return r, nil, nil, nil
 		},
 	}
 
-	b := NewPipelineWithStateBuilder(seedTestPipelineState, &testErrorHandler{}, &bytes.Buffer{})
+	b := NewPipelineBuilder[testPipelineState](&testErrorHandler{}, &bytes.Buffer{})
 	p := b.New(middlewareStack.stack, testHandler.handle)
 
 	r := httptest.NewRequest("POST", "/test", strings.NewReader(""))
@@ -277,21 +273,16 @@ func TestPipelineBuilder_New_initializesPipelineContext_withCorrectState(t *test
 }
 
 func TestPipelineBuilder_New_carriesPipelineContextState_throughMiddlewareChain(t *testing.T) {
-	pipelineDefaultStateValue := 0
-	seedTestPipelineState := func(r *http.Request) *testPipelineState {
-		return &testPipelineState{value: pipelineDefaultStateValue}
-	}
-
 	middlewareCount := 5
-	middlewares := make([]testMiddleware[*testPipelineState], middlewareCount)
+	middlewares := make([]testMiddleware[testPipelineState], middlewareCount)
 
 	wantStateValue := 0
 	for i := range middlewareCount {
 		wantStateValue = wantStateValue + (i + 1)
-		middlewares = append(middlewares, testMiddleware[*testPipelineState]{
+		middlewares = append(middlewares, testMiddleware[testPipelineState]{
 			fn: func(
 				r *http.Request,
-				c *PipelineContext[*testPipelineState],
+				c *PipelineContext[testPipelineState],
 			) (request *http.Request, statusCode *int, response []byte, err *etc.AppError) {
 				c.state.value = c.state.value + (i + 1)
 				return r, nil, nil, nil
@@ -301,18 +292,18 @@ func TestPipelineBuilder_New_carriesPipelineContextState_throughMiddlewareChain(
 	middlewareStack := newTestMiddlewareStack(t, middlewares)
 
 	gotStateValue := 0
-	testHandler := &testAppHandler[*testPipelineState]{
+	testHandler := &testAppHandler[testPipelineState]{
 		t: t,
 		fn: func(
 			r *http.Request,
-			c *PipelineContext[*testPipelineState],
+			c *PipelineContext[testPipelineState],
 		) (request *http.Request, statusCode *int, response []byte, err *etc.AppError) {
 			gotStateValue = c.state.value
 			return r, nil, []byte("expected-body"), nil
 		},
 	}
 
-	b := NewPipelineWithStateBuilder(seedTestPipelineState, &testErrorHandler{}, &bytes.Buffer{})
+	b := NewPipelineBuilder[testPipelineState](&testErrorHandler{}, &bytes.Buffer{})
 	p := b.New(middlewareStack.stack, testHandler.handle)
 
 	r := httptest.NewRequest("POST", "/test", strings.NewReader(""))
@@ -341,7 +332,7 @@ func TestPipelineBuilder_New_invokesErrorHandler_whenHandlerReturnsError(t *test
 	}
 
 	errorHandler := &testErrorHandler{}
-	b := NewPipelineBuilder(errorHandler, &bytes.Buffer{})
+	b := NewPipelineBuilder[NoPipelineState](errorHandler, &bytes.Buffer{})
 	p := b.New(middlewareStack.stack, testHandler.handle)
 
 	r := httptest.NewRequest("POST", "/test", strings.NewReader(""))
@@ -392,7 +383,7 @@ func TestPipelineBuilder_New_invokesErrorHandler_whenMiddlewareReturnsError(t *t
 	}
 
 	errorHandler := &testErrorHandler{}
-	b := NewPipelineBuilder(errorHandler, &bytes.Buffer{})
+	b := NewPipelineBuilder[NoPipelineState](errorHandler, &bytes.Buffer{})
 	p := b.New(middlewareStack.stack, testHandler.handle)
 
 	r := httptest.NewRequest("POST", "/test", strings.NewReader(""))
@@ -429,7 +420,7 @@ func TestPipelineBuilder_New_stopsExecutionChain_whenMiddlewareReturnsError(t *t
 	}
 
 	errorHandler := &testErrorHandler{}
-	b := NewPipelineBuilder(errorHandler, &bytes.Buffer{})
+	b := NewPipelineBuilder[NoPipelineState](errorHandler, &bytes.Buffer{})
 	p := b.New(middlewareStack.stack, testHandler.handle)
 
 	r := httptest.NewRequest("POST", "/test", strings.NewReader(""))

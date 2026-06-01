@@ -11,7 +11,7 @@ import (
 
 type PipelineContext[T any] struct {
 	logger *slog.Logger
-	state  T
+	state  *T
 }
 type NoPipelineState struct{}
 
@@ -38,24 +38,11 @@ func (d *PipelineContext[T]) AddLoggerKV(attrs ...slog.Attr) {
 	d.logger = d.logger.With(anyAttrs...)
 }
 
-func NewPipelineBuilder(
-	errorWriter ErrorWriter,
-	logSink io.Writer,
-) *PipelineBuilder[NoPipelineState] {
-	return &PipelineBuilder[NoPipelineState]{
-		newSeed:      func(r *http.Request) NoPipelineState { return NoPipelineState{} },
-		errorHandler: errorWriter,
-		logSink:      logSink,
-	}
-}
-
-func NewPipelineWithStateBuilder[T any](
-	newSeed func(*http.Request) T,
+func NewPipelineBuilder[T any](
 	errorHandler ErrorWriter,
 	logSink io.Writer,
 ) *PipelineBuilder[T] {
 	return &PipelineBuilder[T]{
-		newSeed:      newSeed,
 		errorHandler: errorHandler,
 		logSink:      logSink,
 	}
@@ -78,7 +65,7 @@ func (p *PipelineBuilder[T]) New(
 
 		pipelineData := &PipelineContext[T]{
 			logger: slog.New(slog.NewJSONHandler(p.logSink, &slog.HandlerOptions{})),
-			state:  p.newSeed(r),
+			state:  new(T),
 		}
 
 		pipelineData.AddLoggerKV(
