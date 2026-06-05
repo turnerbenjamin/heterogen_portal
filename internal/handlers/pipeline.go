@@ -1,9 +1,11 @@
 package handlers
 
 import (
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
+	"runtime/debug"
 	"time"
 
 	"github.com/turnerbenjamin/heterogen_portal/internal/etc"
@@ -21,9 +23,8 @@ type (
 )
 
 type PipelineBuilder[T any] struct {
-	newSeed      func(*http.Request) T
 	errorHandler ErrorWriter
-	logSink      io.Writer
+	rootLogger   *slog.Logger
 }
 
 type ErrorWriter interface {
@@ -44,7 +45,7 @@ func NewPipelineBuilder[T any](
 ) *PipelineBuilder[T] {
 	return &PipelineBuilder[T]{
 		errorHandler: errorHandler,
-		logSink:      logSink,
+		rootLogger:   slog.New(slog.NewJSONHandler(logSink, &slog.HandlerOptions{})),
 	}
 }
 
@@ -61,10 +62,28 @@ func (p *PipelineBuilder[T]) New(
 	}
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		sw := &statusSpyWriter{ResponseWriter: w}
+
 		startTime := time.Now()
+		slogger := p.rootLogger.With(
+			slog.String("request_method", r.Method),
+			slog.String("request_path", r.URL.Path),
+			slog.String("request_time", startTime.Format(time.RFC3339Nano)),
+		)
+
+		defer func() {
+			if rec := recover(); rec != nil {
+				slogger.Error(
+					"panic",
+					slog.String("panic", fmt.Sprint(rec)),
+					slog.String("stack", string(debug.Stack())),
+				)
+				http.Error(sw, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			}
+		}()
 
 		pipelineData := &PipelineContext[T]{
-			logger: slog.New(slog.NewJSONHandler(p.logSink, &slog.HandlerOptions{})),
+			logger: slogger,
 			state:  new(T),
 		}
 
@@ -80,18 +99,18 @@ func (p *PipelineBuilder[T]) New(
 			)
 		}()
 
-		sw := &statusSpyWriter{ResponseWriter: w}
-
 		appError := pipeline(sw, r, pipelineData)
 		if appError != nil {
 			err := p.errorHandler.Write(sw, appError)
 			if err != nil {
 				pipelineData.AddLoggerKV(
-					slog.String("response_error", err.Error()),
+					slog.String("writer_error", err.Error()),
+					slog.String("response_error", appError.Error()),
 				)
+				http.Error(sw, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 			} else {
 				pipelineData.AddLoggerKV(
-					slog.String("response_error", appError.String()),
+					slog.String("response_error", appError.Error()),
 				)
 			}
 		}
@@ -99,5 +118,6 @@ func (p *PipelineBuilder[T]) New(
 		pipelineData.logger = pipelineData.logger.With(
 			slog.Int("response_status_code", sw.statusCode),
 		)
+
 	})
 }

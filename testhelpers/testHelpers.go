@@ -2,6 +2,7 @@ package testhelpers
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"regexp"
 	"testing"
@@ -84,4 +85,82 @@ func AssertErrorMessageMatches(t testing.TB, got error, wantPattern string) {
 	if !doMatch {
 		t.Fatalf("got %s, but want %s", got.Error(), want.Error())
 	}
+}
+
+func AssertSlogsContain(t testing.TB, logs []byte, attributes map[string]any) {
+	t.Helper()
+
+	logAttributes := map[string]any{}
+	err := json.Unmarshal(logs, &logAttributes)
+
+	if err != nil {
+		t.Fatalf("unable to parse logs as map: %s", err.Error())
+	}
+
+	for k, want := range attributes {
+		got, ok := logAttributes[k]
+		if !ok {
+			t.Fatalf("got none but want log attributes to contain key %s", k)
+		}
+
+		if !compareSlogValues(got, want) {
+			t.Fatalf("for key %s, got %v but want %v", k, got, want)
+		}
+	}
+}
+
+type SlogValue string
+
+// AnySlogValue may be used in AssertSlogsContain to skip value comparison for a
+// given key
+const AnySlogValue SlogValue = "**_any_slog_value_**"
+
+func compareSlogValues(got, want any) bool {
+	if want == AnySlogValue {
+		return true
+	}
+
+	if got == want {
+		return true
+	}
+
+	toFloat64 := func(v any) (float64, bool) {
+		switch n := v.(type) {
+		case int:
+			return float64(n), true
+		case int8:
+			return float64(n), true
+		case int16:
+			return float64(n), true
+		case int32:
+			return float64(n), true
+		case int64:
+			return float64(n), true
+		case uint:
+			return float64(n), true
+		case uint8:
+			return float64(n), true
+		case uint16:
+			return float64(n), true
+		case uint32:
+			return float64(n), true
+		case uint64:
+			return float64(n), true
+		case float32:
+			return float64(n), true
+		case float64:
+			return n, true
+		default:
+			return 0, false
+		}
+	}
+
+	gotF, gotIsNumber := toFloat64(got)
+	wantF, wantIsNumber := toFloat64(want)
+
+	if gotIsNumber && wantIsNumber {
+		return gotF == wantF
+	}
+
+	return false
 }

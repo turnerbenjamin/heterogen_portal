@@ -34,6 +34,10 @@ func (e *AppError) String() string {
 	return sb.String()
 }
 
+func (e *AppError) Error() string {
+	return e.String()
+}
+
 func ToastError(httpCode int, message string) *AppError {
 	return &AppError{
 		Code:       httpCode,

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"html/template"
+	"io/fs"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -131,6 +132,44 @@ func TestMakeTemplateStore_HandlesInvalidTemplateSyntax(t *testing.T) {
 	_, err := MakeTemplateStore(testFS, root, templateData)
 
 	testhelpers.AssertErrorMessageMatches(t, err, "unclosed action")
+}
+
+func TestMakeTemplateStore_HandlesWalkDirErr(t *testing.T) {
+	root := "templates"
+	testErr := errors.New("walk dir failed")
+
+	testFS, templateData := makeTestFileStoreAndData(
+		t,
+		root,
+		map[TemplateIdentifier]TemplateData{
+			TMPL_PAGE_APP: {
+				Name:         "tmpl_0",
+				Dependencies: []string{},
+			},
+		},
+	)
+
+	_, err := MakeTemplateStore(&errorWalkDirFS{MapFS: testFS, err: testErr}, root, templateData)
+	testhelpers.AssertErrorEqual(t, err, testErr)
+}
+
+func TestMakeTemplateStore_HandlesReadFileErr(t *testing.T) {
+	root := "templates"
+	testErr := errors.New("read file failed")
+
+	testFS, templateData := makeTestFileStoreAndData(
+		t,
+		root,
+		map[TemplateIdentifier]TemplateData{
+			TMPL_PAGE_APP: {
+				Name:         "tmpl_0",
+				Dependencies: []string{},
+			},
+		},
+	)
+
+	_, err := MakeTemplateStore(&errorReadFileFS{MapFS: testFS, err: testErr}, root, templateData)
+	testhelpers.AssertErrorEqual(t, err, testErr)
 }
 
 func TestExecute_HandlesMissingData(t *testing.T) {
@@ -288,6 +327,24 @@ func makeTestStore(
 		},
 		templates: tmpl,
 	}
+}
+
+type errorWalkDirFS struct {
+	fstest.MapFS
+	err error
+}
+
+func (f *errorWalkDirFS) ReadDir(name string) ([]fs.DirEntry, error) {
+	return nil, f.err
+}
+
+type errorReadFileFS struct {
+	fstest.MapFS
+	err error
+}
+
+func (f *errorReadFileFS) ReadFile(name string) ([]byte, error) {
+	return nil, f.err
 }
 
 func assertTemplateContentLooseMatch(t *testing.T, got, want string) {

@@ -3,6 +3,7 @@ package handlers
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -68,7 +69,7 @@ func TestPipelineBuilder_New_appliesMiddlewaresCorrectly(t *testing.T) {
 	middlewareCount := 5
 	wantCalls := make([]string, 0, middlewareCount)
 	gotCalls := make([]string, 0, middlewareCount)
-	middlewares := make([]testMiddleware[NoPipelineState], middlewareCount)
+	middlewares := make([]testMiddleware[NoPipelineState], 0, middlewareCount)
 
 	for i := range middlewareCount {
 		id := fmt.Sprintf("mw-id-%d", i)
@@ -106,7 +107,6 @@ func TestPipelineBuilder_New_appliesMiddlewaresCorrectly(t *testing.T) {
 	testhelpers.AssertIntEqual(t, len(gotCalls), middlewareCount)
 	for i, wantCall := range wantCalls {
 		gotCall := gotCalls[i]
-		println(gotCall)
 		testhelpers.AssertStringEqual(t, gotCall, wantCall)
 	}
 }
@@ -170,12 +170,14 @@ func TestPipelineBuilder_New_middlewareCanModifyResponseBeforeHandler(t *testing
 	},
 	})
 
+	handlerCallCount := 0
 	testHandler := &testAppHandler[NoPipelineState]{
 		t: t,
 		fn: func(
 			r *http.Request,
 			c *PipelineContext[NoPipelineState],
 		) (request *http.Request, statusCode *int, response []byte, err *etc.AppError) {
+			handlerCallCount = handlerCallCount + 1
 			sc := 200
 			return r, &sc, []byte("unexpected_body_value"), nil
 		},
@@ -193,6 +195,7 @@ func TestPipelineBuilder_New_middlewareCanModifyResponseBeforeHandler(t *testing
 	gotStatusCode := w.Result().StatusCode
 	testhelpers.AssertIntEqual(t, gotStatusCode, wantStatusCode)
 	testhelpers.AssertBytesEqual(t, w.Body.Bytes(), wantBody)
+	testhelpers.AssertIntEqual(t, handlerCallCount, 0)
 }
 
 func TestPipelineBuilder_New_invokesHandlerDirectly_WhenNoMiddlewares(t *testing.T) {
@@ -274,7 +277,7 @@ func TestPipelineBuilder_New_initializesPipelineContext_withCorrectState(t *test
 
 func TestPipelineBuilder_New_carriesPipelineContextState_throughMiddlewareChain(t *testing.T) {
 	middlewareCount := 5
-	middlewares := make([]testMiddleware[testPipelineState], middlewareCount)
+	middlewares := make([]testMiddleware[testPipelineState], 0, middlewareCount)
 
 	wantStateValue := 0
 	for i := range middlewareCount {
@@ -350,7 +353,7 @@ func TestPipelineBuilder_New_invokesErrorHandler_whenMiddlewareReturnsError(t *t
 	}
 
 	middlewareCount := 10
-	middlewares := make([]testMiddleware[NoPipelineState], middlewareCount)
+	middlewares := make([]testMiddleware[NoPipelineState], 0, middlewareCount)
 
 	failingMiddlewareIndex := 3
 	gotMiddlewareCalls := 0
@@ -392,6 +395,48 @@ func TestPipelineBuilder_New_invokesErrorHandler_whenMiddlewareReturnsError(t *t
 	p.ServeHTTP(w, r)
 	testhelpers.AssertIntEqual(t, gotMiddlewareCalls, failingMiddlewareIndex+1)
 	testhelpers.AssertIntEqual(t, gotHandlerCalls, 0)
+	testhelpers.AssertIntEqual(t, w.Result().StatusCode, testAppError.Code)
+	testhelpers.AssertBytesEqual(t, w.Body.Bytes(), []byte(testAppError.ToastError))
+}
+
+func TestPipelineBuilder_New_handlesErrorWriterReturningError(t *testing.T) {
+	testAppError := &etc.AppError{
+		Code:       402,
+		ToastError: "some_error",
+	}
+
+	middlewareStack := newTestMiddlewareStack(t, []testMiddleware[NoPipelineState]{{}})
+	testHandler := &testAppHandler[NoPipelineState]{
+		t: t,
+		fn: func(
+			r *http.Request,
+			c *PipelineContext[NoPipelineState],
+		) (request *http.Request, statusCode *int, response []byte, err *etc.AppError) {
+			return r, nil, []byte("expected_body"), testAppError
+		},
+	}
+
+	writeError := errors.New("this is a test error message")
+	errorHandler := &testErrorHandler{Err: writeError}
+	logSink := &bytes.Buffer{}
+
+	b := NewPipelineBuilder[NoPipelineState](errorHandler, logSink)
+	p := b.New(middlewareStack.stack, testHandler.handle)
+
+	r := httptest.NewRequest("POST", "/test", strings.NewReader(""))
+	w := httptest.NewRecorder()
+
+	p.ServeHTTP(w, r)
+
+	testhelpers.AssertSlogsContain(
+		t,
+		logSink.Bytes(),
+		map[string]any{
+			"writer_error":   writeError.Error(),
+			"response_error": testAppError.Error(),
+		},
+	)
+	testhelpers.AssertIntEqual(t, w.Result().StatusCode, 500)
 }
 
 func TestPipelineBuilder_New_stopsExecutionChain_whenMiddlewareReturnsError(t *testing.T) {
@@ -431,17 +476,149 @@ func TestPipelineBuilder_New_stopsExecutionChain_whenMiddlewareReturnsError(t *t
 	testhelpers.AssertIntEqual(t, w.Result().StatusCode, testAppError.Code)
 }
 
+func TestPipelineBuilder_New_logsResponseErrorWhenErrorWriterSucceeds(t *testing.T) {
+	testAppError := &etc.AppError{
+		Code:       402,
+		ToastError: "some_error",
+	}
+
+	middlewareStack := newTestMiddlewareStack(t, []testMiddleware[NoPipelineState]{{}})
+	testHandler := &testAppHandler[NoPipelineState]{
+		t: t,
+		fn: func(
+			r *http.Request,
+			c *PipelineContext[NoPipelineState],
+		) (request *http.Request, statusCode *int, response []byte, err *etc.AppError) {
+			return r, nil, []byte("expected_body"), testAppError
+		},
+	}
+
+	logSink := &bytes.Buffer{}
+	b := NewPipelineBuilder[NoPipelineState](&testErrorHandler{}, logSink)
+	p := b.New(middlewareStack.stack, testHandler.handle)
+
+	r := httptest.NewRequest("POST", "/test", strings.NewReader(""))
+	w := httptest.NewRecorder()
+
+	p.ServeHTTP(w, r)
+
+	testhelpers.AssertSlogsContain(
+		t,
+		logSink.Bytes(),
+		map[string]any{
+			"response_error": testAppError.Error(),
+		},
+	)
+}
+
+func TestPipelineBuilder_New_includesRequestDataInLogs(t *testing.T) {
+	wantStatusCode := 201
+	middlewareStack := newTestMiddlewareStack(t, []testMiddleware[NoPipelineState]{{}})
+	testHandler := &testAppHandler[NoPipelineState]{
+		t: t,
+		fn: func(
+			r *http.Request,
+			c *PipelineContext[NoPipelineState],
+		) (request *http.Request, statusCode *int, response []byte, err *etc.AppError) {
+			return r, &wantStatusCode, []byte("expected_body"), nil
+		},
+	}
+
+	logSink := &bytes.Buffer{}
+	b := NewPipelineBuilder[NoPipelineState](&testErrorHandler{}, logSink)
+	p := b.New(middlewareStack.stack, testHandler.handle)
+
+	r := httptest.NewRequest("POST", "/test", strings.NewReader(""))
+	w := httptest.NewRecorder()
+
+	p.ServeHTTP(w, r)
+
+	testhelpers.AssertSlogsContain(
+		t,
+		logSink.Bytes(),
+		map[string]any{
+			"request_method":       r.Method,
+			"request_path":         r.URL.Path,
+			"request_time":         testhelpers.AnySlogValue,
+			"request_duration_ms":  testhelpers.AnySlogValue,
+			"response_status_code": wantStatusCode,
+		},
+	)
+}
+
+func TestPipelineBuilder_New_RecoversFromHandlerPanic(t *testing.T) {
+	middlewareStack := newTestMiddlewareStack(t, []testMiddleware[NoPipelineState]{{}})
+	testHandler := &testAppHandler[NoPipelineState]{
+		t: t,
+		fn: func(
+			r *http.Request,
+			c *PipelineContext[NoPipelineState],
+		) (request *http.Request, statusCode *int, response []byte, err *etc.AppError) {
+			panic("handler panic")
+		},
+	}
+
+	b := NewPipelineBuilder[NoPipelineState](&testErrorHandler{}, &bytes.Buffer{})
+	p := b.New(middlewareStack.stack, testHandler.handle)
+
+	r := httptest.NewRequest("POST", "/test", strings.NewReader(""))
+	w := httptest.NewRecorder()
+
+	p.ServeHTTP(w, r)
+
+	wantStatusCode := 500
+	gotStatusCode := w.Result().StatusCode
+	testhelpers.AssertIntEqual(t, gotStatusCode, wantStatusCode)
+}
+
+func TestPipelineBuilder_New_RecoversFromMiddlewarePanic(t *testing.T) {
+	middlewareStack := newTestMiddlewareStack(t, []testMiddleware[NoPipelineState]{{
+		fn: func(
+			r *http.Request,
+			c *PipelineContext[NoPipelineState],
+		) (request *http.Request, statusCode *int, response []byte, err *etc.AppError) {
+			panic("middleware panic")
+		},
+	}})
+
+	testHandler := &testAppHandler[NoPipelineState]{
+		t: t,
+		fn: func(
+			r *http.Request,
+			c *PipelineContext[NoPipelineState],
+		) (request *http.Request, statusCode *int, response []byte, err *etc.AppError) {
+			return r, nil, nil, nil
+		},
+	}
+
+	b := NewPipelineBuilder[NoPipelineState](&testErrorHandler{}, &bytes.Buffer{})
+	p := b.New(middlewareStack.stack, testHandler.handle)
+
+	r := httptest.NewRequest("POST", "/test", strings.NewReader(""))
+	w := httptest.NewRecorder()
+
+	p.ServeHTTP(w, r)
+
+	wantStatusCode := 500
+	gotStatusCode := w.Result().StatusCode
+	testhelpers.AssertIntEqual(t, gotStatusCode, wantStatusCode)
+}
+
 type testPipelineState struct {
 	value int
 }
 
 type testErrorHandler struct {
+	Err error
 }
 
 func (eh *testErrorHandler) Write(w http.ResponseWriter, e *etc.AppError) error {
+	if eh.Err != nil {
+		return eh.Err
+	}
 	w.WriteHeader(e.Code)
-	w.Write([]byte(e.ToastError))
-	return nil
+	_, err := w.Write([]byte(e.ToastError))
+	return err
 }
 
 type testAppHandler[T any] struct {
@@ -452,11 +629,10 @@ type testAppHandler[T any] struct {
 func (h *testAppHandler[T]) handle(w http.ResponseWriter, r *http.Request, c *PipelineContext[T]) *etc.AppError {
 	h.t.Helper()
 
-	req, statusCode, res, appErr := h.fn(r, c)
+	_, statusCode, res, appErr := h.fn(r, c)
 	if appErr != nil {
 		return appErr
 	}
-	r = req
 
 	if statusCode != nil {
 		w.WriteHeader(*statusCode)

@@ -11,10 +11,6 @@ import (
 	"github.com/turnerbenjamin/heterogen_portal/internal/templates"
 )
 
-func getNewPipelineUserState(r *http.Request) h.UserRaft {
-	return h.UserRaft{}
-}
-
 func addRoutes(
 	mux *http.ServeMux,
 	ts *templates.Store,
