@@ -1,7 +1,7 @@
 package config
 
 import (
-	"github.com/turnerbenjamin/go_gbf/internal/templates"
+	"github.com/turnerbenjamin/heterogen_portal/internal/templates"
 )
 
 var TemplateDataMap = map[templates.TemplateIdentifier]templates.TemplateData{

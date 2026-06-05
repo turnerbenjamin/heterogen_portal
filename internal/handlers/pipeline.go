@@ -1,53 +1,57 @@
 package handlers
 
 import (
+	"fmt"
+	"io"
+	"log/slog"
 	"net/http"
-	"strconv"
+	"runtime/debug"
+	"time"
 
-	"github.com/turnerbenjamin/go_gbf/internal/etc"
-	"github.com/turnerbenjamin/go_gbf/internal/logging"
+	"github.com/turnerbenjamin/heterogen_portal/internal/etc"
 )
+
+type PipelineContext[T any] struct {
+	logger *slog.Logger
+	state  *T
+}
+type NoPipelineState struct{}
 
 type (
-	AppHandlerWithRaft[T any] func(http.ResponseWriter, *http.Request, logging.Logger, T) etc.AppError
-	MiddlewareWithRaft[T any] func(AppHandlerWithRaft[T]) AppHandlerWithRaft[T]
-	AppHandler                func(http.ResponseWriter, *http.Request, logging.Logger) etc.AppError
-	Middleware                func(AppHandler) AppHandler
+	AppHandler[T any] func(http.ResponseWriter, *http.Request, *PipelineContext[T]) *etc.AppError
+	Middleware[T any] func(AppHandler[T]) AppHandler[T]
 )
 
-type PipelineWithRaftBuilder[T any] interface {
-	New(
-		middlewares []MiddlewareWithRaft[T],
-		handler AppHandlerWithRaft[T],
-	) http.HandlerFunc
+type PipelineBuilder[T any] struct {
+	errorHandler ErrorWriter
+	rootLogger   *slog.Logger
 }
 
-type pipelineWithRaftBuiler[T any] struct {
-	newSeed      func(*http.Request) T
-	newLogger    func(*http.Request) logging.Logger
-	errorHandler ErrorHandler
+type ErrorWriter interface {
+	Write(http.ResponseWriter, *etc.AppError) error
 }
 
-type StatusResponseWriter struct {
-	http.ResponseWriter
-	statusCode int
+func (d *PipelineContext[T]) AddLoggerKV(attrs ...slog.Attr) {
+	anyAttrs := make([]any, len(attrs))
+	for i, attr := range attrs {
+		anyAttrs[i] = attr
+	}
+	d.logger = d.logger.With(anyAttrs...)
 }
 
-func NewPipelineWithRaftBuilder[T any](
-	newSeed func(*http.Request) T,
-	newLogger func(*http.Request) logging.Logger,
-	errorHandler ErrorHandler,
-) PipelineWithRaftBuilder[T] {
-	return &pipelineWithRaftBuiler[T]{
-		newSeed:      newSeed,
-		newLogger:    newLogger,
+func NewPipelineBuilder[T any](
+	errorHandler ErrorWriter,
+	logSink io.Writer,
+) *PipelineBuilder[T] {
+	return &PipelineBuilder[T]{
 		errorHandler: errorHandler,
+		rootLogger:   slog.New(slog.NewJSONHandler(logSink, &slog.HandlerOptions{})),
 	}
 }
 
-func (p *pipelineWithRaftBuiler[T]) New(
-	middlewares []MiddlewareWithRaft[T],
-	handler AppHandlerWithRaft[T],
+func (p *PipelineBuilder[T]) New(
+	middlewares []Middleware[T],
+	handler AppHandler[T],
 ) http.HandlerFunc {
 	pipeline := handler
 
@@ -58,76 +62,62 @@ func (p *pipelineWithRaftBuiler[T]) New(
 	}
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		seed := p.newSeed(r)
-		logger := p.newLogger(r)
-		sw := StatusResponseWriter{ResponseWriter: w}
+		sw := &statusSpyWriter{ResponseWriter: w}
 
-		err := pipeline(&sw, r, logger, seed)
-		if err != nil {
-			p.errorHandler.Write(w, logger, err)
+		startTime := time.Now()
+		slogger := p.rootLogger.With(
+			slog.String("request_method", r.Method),
+			slog.String("request_path", r.URL.Path),
+			slog.String("request_time", startTime.Format(time.RFC3339Nano)),
+		)
+
+		defer func() {
+			if rec := recover(); rec != nil {
+				slogger.Error(
+					"panic",
+					slog.String("panic", fmt.Sprint(rec)),
+					slog.String("stack", string(debug.Stack())),
+				)
+				http.Error(sw, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			}
+		}()
+
+		pipelineData := &PipelineContext[T]{
+			logger: slogger,
+			state:  new(T),
 		}
 
-		logger.AddKV("status_code", strconv.Itoa(sw.statusCode))
-		_ = logger.WriteLog()
-	})
-}
+		pipelineData.AddLoggerKV(
+			slog.String("request_method", r.Method),
+			slog.String("request_path", r.URL.Path),
+			slog.String("request_time", startTime.Format(time.RFC3339Nano)),
+		)
+		defer func() {
+			pipelineData.logger.Info(
+				"",
+				slog.Int64("request_duration_ms", time.Since(startTime).Milliseconds()),
+			)
+		}()
 
-type PipelineBuilder interface {
-	New(
-		middlewares []Middleware,
-		handler AppHandler,
-	) http.HandlerFunc
-}
-
-type pipelineBuilder struct {
-	newLogger    func(*http.Request) logging.Logger
-	errorHandler ErrorHandler
-}
-
-func NewPipelineBuilder(
-	newLogger func(*http.Request) logging.Logger,
-	errorHandler ErrorHandler,
-) PipelineBuilder {
-	return &pipelineBuilder{
-		newLogger:    newLogger,
-		errorHandler: errorHandler,
-	}
-}
-
-func (pb *pipelineBuilder) New(
-	middlewares []Middleware,
-	handler AppHandler,
-) http.HandlerFunc {
-	pipeline := handler
-
-	i := len(middlewares) - 1
-	for i >= 0 {
-		pipeline = middlewares[i](pipeline)
-		i--
-	}
-
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		logger := pb.newLogger(r)
-		sw := StatusResponseWriter{ResponseWriter: w}
-
-		err := pipeline(&sw, r, logger)
-		if err != nil {
-			pb.errorHandler.Write(w, logger, err)
+		appError := pipeline(sw, r, pipelineData)
+		if appError != nil {
+			err := p.errorHandler.Write(sw, appError)
+			if err != nil {
+				pipelineData.AddLoggerKV(
+					slog.String("writer_error", err.Error()),
+					slog.String("response_error", appError.Error()),
+				)
+				http.Error(sw, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			} else {
+				pipelineData.AddLoggerKV(
+					slog.String("response_error", appError.Error()),
+				)
+			}
 		}
 
-		logger.AddKV("status_code", strconv.Itoa(sw.statusCode))
-		_ = logger.WriteLog()
+		pipelineData.logger = pipelineData.logger.With(
+			slog.Int("response_status_code", sw.statusCode),
+		)
+
 	})
-}
-
-func (w *StatusResponseWriter) WriteHeader(code int) {
-	w.statusCode = code
-	w.ResponseWriter.WriteHeader(code)
-}
-
-func (w *StatusResponseWriter) Write(b []byte) (int, error) {
-	if w.statusCode == 0 {
-		w.statusCode = http.StatusOK
-	}
-	return w.ResponseWriter.Write(b)
 }

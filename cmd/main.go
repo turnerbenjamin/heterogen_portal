@@ -13,10 +13,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/turnerbenjamin/go_gbf/internal/app"
-	"github.com/turnerbenjamin/go_gbf/internal/config"
-	"github.com/turnerbenjamin/go_gbf/internal/db"
-	"github.com/turnerbenjamin/go_gbf/internal/templates"
+	"github.com/turnerbenjamin/heterogen_portal/internal/app"
+	"github.com/turnerbenjamin/heterogen_portal/internal/config"
+	"github.com/turnerbenjamin/heterogen_portal/internal/db"
+	"github.com/turnerbenjamin/heterogen_portal/internal/templates"
 	"golang.org/x/crypto/bcrypt"
 )
 

@@ -4,9 +4,9 @@ import (
 	"io/fs"
 	"net/http"
 
-	"github.com/turnerbenjamin/go_gbf/internal/config"
-	"github.com/turnerbenjamin/go_gbf/internal/db"
-	"github.com/turnerbenjamin/go_gbf/internal/templates"
+	"github.com/turnerbenjamin/heterogen_portal/internal/config"
+	"github.com/turnerbenjamin/heterogen_portal/internal/db"
+	"github.com/turnerbenjamin/heterogen_portal/internal/templates"
 )
 
 func NewServer(

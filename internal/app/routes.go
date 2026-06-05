@@ -5,20 +5,11 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/turnerbenjamin/go_gbf/internal/config"
-	"github.com/turnerbenjamin/go_gbf/internal/db"
-	h "github.com/turnerbenjamin/go_gbf/internal/handlers"
-	"github.com/turnerbenjamin/go_gbf/internal/logging"
-	"github.com/turnerbenjamin/go_gbf/internal/templates"
+	"github.com/turnerbenjamin/heterogen_portal/internal/config"
+	"github.com/turnerbenjamin/heterogen_portal/internal/db"
+	h "github.com/turnerbenjamin/heterogen_portal/internal/handlers"
+	"github.com/turnerbenjamin/heterogen_portal/internal/templates"
 )
-
-func getNewAdminRaftSeed(r *http.Request) h.UserRaft {
-	return h.UserRaft{}
-}
-
-func getNewLogger(r *http.Request) logging.Logger {
-	return logging.NewLogger(os.Stdout, r)
-}
 
 func addRoutes(
 	mux *http.ServeMux,
@@ -29,12 +20,11 @@ func addRoutes(
 ) {
 	errorHandler := h.NewErrorHandler(ts)
 
-	pipeline := h.NewPipelineBuilder(getNewLogger, errorHandler)
+	pipeline := h.NewPipelineBuilder[h.NoPipelineState](errorHandler, os.Stdout)
 
-	pipelineWithRaft := h.NewPipelineWithRaftBuilder(
-		getNewAdminRaftSeed,
-		getNewLogger,
+	pipelineWithUserState := h.NewPipelineBuilder[h.UserRaft](
 		errorHandler,
+		os.Stdout,
 	)
 
 	parseAdminJWT := h.NewParseJWTMiddleware(settings, adminRepo)
@@ -47,8 +37,8 @@ func addRoutes(
 
 	mux.Handle(
 		"GET /",
-		pipelineWithRaft.New(
-			[]h.MiddlewareWithRaft[h.UserRaft]{parseAdminJWT},
+		pipelineWithUserState.New(
+			[]h.Middleware[h.UserRaft]{parseAdminJWT},
 			h.GET_ROOT(ts),
 		),
 	)
@@ -56,7 +46,7 @@ func addRoutes(
 	mux.Handle(
 		"GET /sign-in",
 		pipeline.New(
-			[]h.Middleware{},
+			[]h.Middleware[h.NoPipelineState]{},
 			h.GET_SIGN_IN(ts),
 		),
 	)
@@ -64,7 +54,7 @@ func addRoutes(
 	mux.Handle(
 		"GET /sign-in-redirect",
 		pipeline.New(
-			[]h.Middleware{},
+			[]h.Middleware[h.NoPipelineState]{},
 			h.GET_SIGN_IN_REDIRECT(ts),
 		),
 	)
@@ -72,7 +62,7 @@ func addRoutes(
 	mux.Handle(
 		"GET /signed-out",
 		pipeline.New(
-			[]h.Middleware{},
+			[]h.Middleware[h.NoPipelineState]{},
 			h.GET_SIGNED_OUT(ts),
 		),
 	)
@@ -80,7 +70,7 @@ func addRoutes(
 	mux.Handle(
 		"POST /sign-in",
 		pipeline.New(
-			[]h.Middleware{},
+			[]h.Middleware[h.NoPipelineState]{},
 			h.POST_UserSignIn(settings, ts, adminRepo),
 		),
 	)
