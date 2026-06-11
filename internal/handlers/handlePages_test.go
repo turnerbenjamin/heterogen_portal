@@ -76,7 +76,7 @@ func TestGetRoot_ReturnsAppPage_WhenUserIsNotNil(t *testing.T) {
 	t.Parallel()
 
 	wantStatusCode := http.StatusOK
-	wantTemplate := templates.TMPL_PAGE_APP
+	wantTemplate := templates.TmplPageApp
 	wantPageTitle := "HETEROGEN"
 	wantState := &UserState{
 		User: &db.User{},
@@ -145,7 +145,7 @@ func TestGetSignInHandler_ReturnsSignInPage(t *testing.T) {
 	t.Parallel()
 
 	wantStatusCode := http.StatusOK
-	wantTemplate := templates.TMPL_PAGE_USER_SIGN_IN
+	wantTemplate := templates.TmplPageUserSignIn
 	wantPageTitle := "HETEROGEN | SIGN-IN"
 
 	testData := []struct {
@@ -265,7 +265,7 @@ func TestGetSignInRedirectHandler_ReturnsSignInRedirectPage(t *testing.T) {
 	t.Parallel()
 
 	wantStatusCode := http.StatusOK
-	wantTemplate := templates.TMPL_PAGE_USER_SIGN_IN_REDIRECT
+	wantTemplate := templates.TmpPageUserSignInRedirect
 	wantPageTitle := "HETEROGEN | SIGN-IN"
 	wantContentOnlyValue := false
 
@@ -293,7 +293,7 @@ func TestGetSignOutHandler_ReturnsSignOutPage(t *testing.T) {
 	t.Parallel()
 
 	wantStatusCode := http.StatusOK
-	wantTemplate := templates.TMPL_PAGE_USER_SIGN_OUT
+	wantTemplate := templates.TmplPageUserSignOut
 	wantPageTitle := "HETEROGEN | SIGN-OUT"
 	wantContentOnlyValue := false
 
@@ -362,7 +362,7 @@ func TestGetSignedOutHandler_ReturnsSignedOutPage(t *testing.T) {
 	t.Parallel()
 
 	wantStatusCode := http.StatusOK
-	wantTemplate := templates.TMPL_PAGE_USER_SIGNED_OUT
+	wantTemplate := templates.TmplPageUserSignedOut
 	wantPageTitle := "HETEROGEN | SIGNED-OUT"
 	wantContentOnlyValue := false
 

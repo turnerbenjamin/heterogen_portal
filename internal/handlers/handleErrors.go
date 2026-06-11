@@ -33,7 +33,7 @@ func (h *ErrorHandler) Write(w http.ResponseWriter, appErr *etc.AppError) error 
 	}
 
 	return h.templateStore.Execute(
-		templates.TMPL_COMPONENT_ERRORS,
+		templates.TmplComponentErrors,
 		w,
 		templates.TemplateArgs{
 			PageConfig: pageConfig,

@@ -20,14 +20,14 @@ type Store struct {
 type TemplateIdentifier int
 
 const (
-	TMPL_PAGE_APP TemplateIdentifier = iota
-	TMPL_PAGE_USER_SIGN_IN
-	TMPL_PAGE_USER_SIGN_IN_REDIRECT
-	TMPL_PAGE_USER_SIGN_OUT
-	TMPL_PAGE_USER_SIGNED_OUT
-	TMPL_COMPONENT_ERRORS
-	TMPL_COMPONENT_TOAST
-	TMPL_ENUM_END
+	TmplPageApp TemplateIdentifier = iota
+	TmplPageUserSignIn
+	TmpPageUserSignInRedirect
+	TmplPageUserSignOut
+	TmplPageUserSignedOut
+	TmplComponentErrors
+	TmplComponentToast
+	_tmplEnumEnd
 )
 
 type PageConfig struct {
@@ -104,7 +104,7 @@ func MakeTemplateStore(fileSystem fs.FS, root string, templateData map[TemplateI
 	// - Template data exists
 	// - Template files exist
 	// - Template dependencies exist
-	for i := range TMPL_ENUM_END {
+	for i := range _tmplEnumEnd {
 		data, ok := templateData[TemplateIdentifier(i)]
 		if !ok {
 			return nil, fmt.Errorf("%s%d", Err_MissingTemplateDataPrefix, i)
