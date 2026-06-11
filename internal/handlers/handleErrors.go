@@ -1,3 +1,6 @@
+// Package handlers contains HTTP handlers for the application.
+//
+// This file contains a simple error handler for writing AppError responses
 package handlers
 
 import (
@@ -7,29 +10,34 @@ import (
 	"github.com/turnerbenjamin/heterogen_portal/internal/templates"
 )
 
+// ErrorHandler uses a template store to write AppErrors to a response
 type ErrorHandler struct {
-	templateStore *templates.Store
+	templateStore TemplateStore
 }
 
-type templateError struct {
-	ToastError string
-	PageErrors []string
-}
-
-func NewErrorHandler(templateStore *templates.Store) *ErrorHandler {
+// NewErrorHandler is an arguably pointless factory function for creating a new
+// error handler
+func NewErrorHandler(templateStore TemplateStore) *ErrorHandler {
 	return &ErrorHandler{
 		templateStore: templateStore,
 	}
 }
 
+// Write is responsible for writing AppErrors to a response. It handles setting
+// the status code and passing error data to the error component template
 func (h *ErrorHandler) Write(w http.ResponseWriter, appErr *etc.AppError) error {
 	w.WriteHeader(appErr.Code)
 
-	te := templateError{appErr.ToastError, appErr.PageErrors}
+	pageConfig := templates.PageConfig{
+		ContentOnly: true,
+	}
 
 	return h.templateStore.Execute(
 		templates.TMPL_COMPONENT_ERRORS,
 		w,
-		templates.TemplateArgs{Data: te},
+		templates.TemplateArgs{
+			PageConfig: pageConfig,
+			Data:       appErr,
+		},
 	)
 }
