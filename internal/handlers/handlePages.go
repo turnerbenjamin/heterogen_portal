@@ -43,7 +43,7 @@ func GetRootHandler(ts TemplateStore) AppHandler[UserState] {
 		}
 
 		err := ts.Execute(
-			templates.TMPL_PAGE_APP,
+			templates.TmplPageApp,
 			w,
 			templates.TemplateArgs{PageConfig: pageConfig, Data: c.state},
 		)
@@ -63,7 +63,7 @@ func GetSignInHandler(ts TemplateStore) AppHandler[NoState] {
 		}
 
 		err := ts.Execute(
-			templates.TMPL_PAGE_USER_SIGN_IN,
+			templates.TmplPageUserSignIn,
 			w,
 			templates.TemplateArgs{PageConfig: pageConfig, Data: nil},
 		)
@@ -87,7 +87,7 @@ func GetSignInRedirectHandler(ts TemplateStore) AppHandler[NoState] {
 		}
 
 		err := ts.Execute(
-			templates.TMPL_PAGE_USER_SIGN_IN_REDIRECT,
+			templates.TmpPageUserSignInRedirect,
 			w,
 			templates.TemplateArgs{PageConfig: pageConfig, Data: nil},
 		)
@@ -115,7 +115,7 @@ func GetSignOutHandler(ts TemplateStore) AppHandler[NoState] {
 		}
 
 		err := ts.Execute(
-			templates.TMPL_PAGE_USER_SIGN_OUT,
+			templates.TmplPageUserSignOut,
 			w,
 			templates.TemplateArgs{PageConfig: pageConfig, Data: nil},
 		)
@@ -142,7 +142,7 @@ func GetSignedOutHandler(ts TemplateStore) AppHandler[NoState] {
 		}
 
 		err := ts.Execute(
-			templates.TMPL_PAGE_USER_SIGNED_OUT,
+			templates.TmplPageUserSignedOut,
 			w,
 			templates.TemplateArgs{PageConfig: pageConfig, Data: nil},
 		)

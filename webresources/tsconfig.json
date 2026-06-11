@@ -26,9 +26,8 @@
     "allowJs": false,
     "resolveJsonModule": true,
     "noEmitOnError": true,
-    "types": ["node"],
     "lib": ["dom", "ES2020"],
-    "typeRoots": ["./node_modules/@types"],
+    "typeRoots": ["./node_modules/@types"]
   },
     "include": ["**/*.ts", "**/*.tsx"],
   "exclude": ["node_modules", "dist", "tests"]

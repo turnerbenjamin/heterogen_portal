@@ -5,7 +5,7 @@ import (
 )
 
 var TemplateDataMap = map[templates.TemplateIdentifier]templates.TemplateData{
-	templates.TMPL_PAGE_APP: {
+	templates.TmplPageApp: {
 		Name: "page-app",
 		Dependencies: []string{
 			"layout-top",
@@ -15,7 +15,7 @@ var TemplateDataMap = map[templates.TemplateIdentifier]templates.TemplateData{
 		},
 		WebResources: templates.WebResourceDependencies{},
 	},
-	templates.TMPL_PAGE_USER_SIGN_IN: {
+	templates.TmplPageUserSignIn: {
 		Name: "page-user-sign-in",
 		Dependencies: []string{
 			"layout-top",
@@ -27,7 +27,7 @@ var TemplateDataMap = map[templates.TemplateIdentifier]templates.TemplateData{
 			HG_AUTH: true,
 		},
 	},
-	templates.TMPL_PAGE_USER_SIGN_IN_REDIRECT: {
+	templates.TmpPageUserSignInRedirect: {
 		Name: "page-user-sign-in-redirect",
 		Dependencies: []string{
 			"layout-top",
@@ -39,7 +39,7 @@ var TemplateDataMap = map[templates.TemplateIdentifier]templates.TemplateData{
 			HG_AUTH: true,
 		},
 	},
-	templates.TMPL_PAGE_USER_SIGN_OUT: {
+	templates.TmplPageUserSignOut: {
 		Name: "page-user-sign-out",
 		Dependencies: []string{
 			"layout-top",
@@ -51,7 +51,7 @@ var TemplateDataMap = map[templates.TemplateIdentifier]templates.TemplateData{
 			HG_AUTH: true,
 		},
 	},
-	templates.TMPL_PAGE_USER_SIGNED_OUT: {
+	templates.TmplPageUserSignedOut: {
 		Name: "page-user-signed-out",
 		Dependencies: []string{
 			"layout-top",
@@ -61,11 +61,11 @@ var TemplateDataMap = map[templates.TemplateIdentifier]templates.TemplateData{
 		},
 		WebResources: templates.WebResourceDependencies{},
 	},
-	templates.TMPL_COMPONENT_ERRORS: {
+	templates.TmplComponentErrors: {
 		Name:         "component-errors",
 		Dependencies: []string{},
 	},
-	templates.TMPL_COMPONENT_TOAST: {
+	templates.TmplComponentToast: {
 		Name:         "component-toast",
 		Dependencies: []string{},
 	},

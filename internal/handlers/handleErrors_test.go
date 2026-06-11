@@ -14,7 +14,7 @@ func TestWrite_HandlesErrorResponse(t *testing.T) {
 	t.Parallel()
 
 	wantExecuteCallCount := 1
-	wantTemplate := templates.TMPL_COMPONENT_ERRORS
+	wantTemplate := templates.TmplComponentErrors
 	wantStatusCode := 418
 	wantContentOnlyValue := true
 

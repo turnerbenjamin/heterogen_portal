@@ -29,7 +29,7 @@ func TestMakeTemplateStore_ReturnsStore(t *testing.T) {
 		t,
 		root,
 		map[TemplateIdentifier]TemplateData{
-			TMPL_COMPONENT_ERRORS: testTemplate,
+			TmplComponentErrors: testTemplate,
 		},
 	)
 
@@ -66,10 +66,10 @@ func TestMakeTemplateStore_HandlesMissingTemplateData(t *testing.T) {
 		map[TemplateIdentifier]TemplateData{},
 	)
 
-	delete(templateData, TMPL_PAGE_USER_SIGNED_OUT)
+	delete(templateData, TmplPageUserSignedOut)
 
 	_, err := MakeTemplateStore(fs, root, templateData)
-	want := fmt.Errorf("%s%d", Err_MissingTemplateDataPrefix, TMPL_PAGE_USER_SIGNED_OUT)
+	want := fmt.Errorf("%s%d", Err_MissingTemplateDataPrefix, TmplPageUserSignedOut)
 	testhelpers.AssertErrorEqual(t, err, want)
 }
 
@@ -83,7 +83,7 @@ func TestMakeTemplateStore_HandlesMissingTemplate(t *testing.T) {
 		map[TemplateIdentifier]TemplateData{},
 	)
 
-	missingTemplate := templateData[TMPL_COMPONENT_TOAST]
+	missingTemplate := templateData[TmplComponentToast]
 	delete(fs, filepath.Join(root, missingTemplate.Name+".tmpl"))
 
 	_, err := MakeTemplateStore(fs, root, templateData)
@@ -107,7 +107,7 @@ func TestMakeTemplateStore_HandlesMissingDependency(t *testing.T) {
 		t,
 		root,
 		map[TemplateIdentifier]TemplateData{
-			TMPL_PAGE_APP: testTemplate,
+			TmplPageApp: testTemplate,
 		},
 	)
 
@@ -134,7 +134,7 @@ func TestMakeTemplateStore_HandlesInvalidTemplateSyntax(t *testing.T) {
 		t,
 		root,
 		map[TemplateIdentifier]TemplateData{
-			TMPL_PAGE_APP: testTemplate,
+			TmplPageApp: testTemplate,
 		},
 	)
 
@@ -156,7 +156,7 @@ func TestMakeTemplateStore_HandlesWalkDirErr(t *testing.T) {
 		t,
 		root,
 		map[TemplateIdentifier]TemplateData{
-			TMPL_PAGE_APP: {
+			TmplPageApp: {
 				Name:         "tmpl_0",
 				Dependencies: []string{},
 			},
@@ -177,7 +177,7 @@ func TestMakeTemplateStore_HandlesReadFileErr(t *testing.T) {
 		t,
 		root,
 		map[TemplateIdentifier]TemplateData{
-			TMPL_PAGE_APP: {
+			TmplPageApp: {
 				Name:         "tmpl_0",
 				Dependencies: []string{},
 			},
@@ -194,13 +194,13 @@ func TestExecute_HandlesMissingData(t *testing.T) {
 	var w bytes.Buffer
 	testStore := makeTestStore(
 		t,
-		TMPL_PAGE_APP,
+		TmplPageApp,
 		WebResourceDependencies{},
 		"",
 	)
 
 	err := testStore.Execute(
-		TMPL_PAGE_USER_SIGNED_OUT,
+		TmplPageUserSignedOut,
 		&w,
 		TemplateArgs{
 			PageConfig: PageConfig{},
@@ -208,7 +208,7 @@ func TestExecute_HandlesMissingData(t *testing.T) {
 		},
 	)
 
-	want := fmt.Errorf("%s%d", Err_MissingTemplateDataPrefix, TMPL_PAGE_USER_SIGNED_OUT)
+	want := fmt.Errorf("%s%d", Err_MissingTemplateDataPrefix, TmplPageUserSignedOut)
 	testhelpers.AssertErrorEqual(t, err, want)
 }
 
@@ -218,7 +218,7 @@ func TestExecute_SetsWebResources(t *testing.T) {
 	var w bytes.Buffer
 	testStore := makeTestStore(
 		t,
-		TMPL_PAGE_APP,
+		TmplPageApp,
 		WebResourceDependencies{
 			HG_AUTH: true,
 		},
@@ -226,7 +226,7 @@ func TestExecute_SetsWebResources(t *testing.T) {
 	)
 
 	err := testStore.Execute(
-		TMPL_PAGE_APP,
+		TmplPageApp,
 		&w,
 		TemplateArgs{
 			PageConfig: PageConfig{},
@@ -253,7 +253,7 @@ func TestExecute_PassesDataCorrectly(t *testing.T) {
 
 	testStore := makeTestStore(
 		t,
-		TMPL_PAGE_APP,
+		TmplPageApp,
 		WebResourceDependencies{
 			HG_AUTH: true,
 		},
@@ -263,7 +263,7 @@ func TestExecute_PassesDataCorrectly(t *testing.T) {
 	)
 
 	err := testStore.Execute(
-		TMPL_PAGE_APP,
+		TmplPageApp,
 		&w,
 		data,
 	)
@@ -282,7 +282,7 @@ func makeTestFileStoreAndData(
 	td := make(map[TemplateIdentifier]TemplateData)
 
 	// Create default fs and data for all template identifiers
-	for i := range TMPL_ENUM_END {
+	for i := range _tmplEnumEnd {
 		id := TemplateIdentifier(i)
 		name := fmt.Sprintf("tmpl_%d", i)
 		content := fmt.Sprintf(`{{define "%s"}}TITLE:{{.PageConfig.Title}} ID:%d{{end}}`, name, i)
