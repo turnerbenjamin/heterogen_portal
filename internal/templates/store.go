@@ -1,8 +1,4 @@
-// Package templates provides helpers for parsing and executing HTML
-// templates stored in an fs.FS. It offers a small `Store` abstraction that
-// reads `.tmpl` files from a root directory, validates that template
-// identifiers have associated metadata (names and dependencies), and exposes
-// a simple `Execute` method to render a named template to an io.Writer.
+// Package templates is responsible for parsing and executing templates
 package templates
 
 import (
@@ -27,6 +23,7 @@ const (
 	TMPL_PAGE_APP TemplateIdentifier = iota
 	TMPL_PAGE_USER_SIGN_IN
 	TMPL_PAGE_USER_SIGN_IN_REDIRECT
+	TMPL_PAGE_USER_SIGN_OUT
 	TMPL_PAGE_USER_SIGNED_OUT
 	TMPL_COMPONENT_ERRORS
 	TMPL_COMPONENT_TOAST

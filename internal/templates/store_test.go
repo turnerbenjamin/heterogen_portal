@@ -15,6 +15,8 @@ import (
 )
 
 func TestMakeTemplateStore_ReturnsStore(t *testing.T) {
+	t.Parallel()
+
 	root := "templates"
 
 	testTemplate := TemplateData{
@@ -40,6 +42,8 @@ func TestMakeTemplateStore_ReturnsStore(t *testing.T) {
 }
 
 func TestMakeTemplateStore_HandlesNilFS(t *testing.T) {
+	t.Parallel()
+
 	root := "test_templates"
 	_, templateData := makeTestFileStoreAndData(
 		t,
@@ -53,6 +57,8 @@ func TestMakeTemplateStore_HandlesNilFS(t *testing.T) {
 }
 
 func TestMakeTemplateStore_HandlesMissingTemplateData(t *testing.T) {
+	t.Parallel()
+
 	root := "test_templates"
 	fs, templateData := makeTestFileStoreAndData(
 		t,
@@ -68,6 +74,8 @@ func TestMakeTemplateStore_HandlesMissingTemplateData(t *testing.T) {
 }
 
 func TestMakeTemplateStore_HandlesMissingTemplate(t *testing.T) {
+	t.Parallel()
+
 	root := "test_templates"
 	fs, templateData := makeTestFileStoreAndData(
 		t,
@@ -85,6 +93,8 @@ func TestMakeTemplateStore_HandlesMissingTemplate(t *testing.T) {
 }
 
 func TestMakeTemplateStore_HandlesMissingDependency(t *testing.T) {
+	t.Parallel()
+
 	root := "templates"
 
 	testTemplate := TemplateData{
@@ -111,6 +121,8 @@ func TestMakeTemplateStore_HandlesMissingDependency(t *testing.T) {
 }
 
 func TestMakeTemplateStore_HandlesInvalidTemplateSyntax(t *testing.T) {
+	t.Parallel()
+
 	root := "templates"
 	testTemplate := TemplateData{
 		Name:         "invalid_syntax_template",
@@ -135,6 +147,8 @@ func TestMakeTemplateStore_HandlesInvalidTemplateSyntax(t *testing.T) {
 }
 
 func TestMakeTemplateStore_HandlesWalkDirErr(t *testing.T) {
+	t.Parallel()
+
 	root := "templates"
 	testErr := errors.New("walk dir failed")
 
@@ -154,6 +168,8 @@ func TestMakeTemplateStore_HandlesWalkDirErr(t *testing.T) {
 }
 
 func TestMakeTemplateStore_HandlesReadFileErr(t *testing.T) {
+	t.Parallel()
+
 	root := "templates"
 	testErr := errors.New("read file failed")
 
@@ -173,6 +189,8 @@ func TestMakeTemplateStore_HandlesReadFileErr(t *testing.T) {
 }
 
 func TestExecute_HandlesMissingData(t *testing.T) {
+	t.Parallel()
+
 	var w bytes.Buffer
 	testStore := makeTestStore(
 		t,
@@ -195,6 +213,8 @@ func TestExecute_HandlesMissingData(t *testing.T) {
 }
 
 func TestExecute_SetsWebResources(t *testing.T) {
+	t.Parallel()
+
 	var w bytes.Buffer
 	testStore := makeTestStore(
 		t,
@@ -219,6 +239,8 @@ func TestExecute_SetsWebResources(t *testing.T) {
 }
 
 func TestExecute_PassesDataCorrectly(t *testing.T) {
+	t.Parallel()
+
 	var w bytes.Buffer
 
 	data := TemplateArgs{

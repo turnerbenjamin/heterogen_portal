@@ -20,7 +20,7 @@ type JwtCookie struct {
 }
 
 const (
-	JWT_COOKIE_IDENTIFIER = "hg_login_jwt"
+	jwtCookieIdentifier = "hg_login_jwt"
 )
 
 var (
@@ -30,26 +30,18 @@ var (
 	VALIDATION_MSG_LAST_NAME_TOO_LONG  = fmt.Sprintf("Last name cannot exceed %d characters", db.DB_CONSTRAINT_FAMILY_NAME_MAX)
 )
 
-var (
-	ErrServer = etc.ToastAndPageErrors(
-		500,
-		"An unexpected error has occurred. Please try again later",
-		"An unexpected error has occurred. Please try again later",
-	)
-)
-
-type UserRaft struct {
+type UserState struct {
 	User         *db.User
 	ToastSuccess string
 }
 
-func POST_UserSignIn(appSettings config.AppSettings, ts *templates.Store, userRepo db.UserRepo) AppHandler[NoPipelineState] {
-	return func(w http.ResponseWriter, r *http.Request, c *PipelineContext[NoPipelineState]) *etc.AppError {
+func POST_UserSignIn(appSettings config.AppSettings, ts *templates.Store, userRepo db.UserRepo) AppHandler[NoState] {
+	return func(w http.ResponseWriter, r *http.Request, c *PipelineContext[NoState]) *etc.AppError {
 		// Parse bearer token
 		bearerToken := r.Header.Get("Authorization")
 		tokenClaims, err := auth.ValidateToken(r.Context(), bearerToken)
 		if err != nil {
-			return ErrServer
+			return etc.NewServerError(err)
 		}
 
 		user, err := userRepo.UpsertUser(
@@ -61,7 +53,7 @@ func POST_UserSignIn(appSettings config.AppSettings, ts *templates.Store, userRe
 			tokenClaims.EmailAddress,
 		)
 		if err != nil {
-			return ErrServer
+			return etc.NewServerError(err)
 		}
 
 		// Create new JWT Token
@@ -74,33 +66,24 @@ func POST_UserSignIn(appSettings config.AppSettings, ts *templates.Store, userRe
 
 		tokenString, err := token.SignedString([]byte(appSettings.JwtPrivateKey))
 		if err != nil {
-			return ErrServer
+			return etc.NewServerError(err)
 		}
 		setJWTCookie(w, tokenString)
 
-		w.Header().Add("HX-Push-Url", "/")
-		conf := templates.PageConfig{
-			ContentOnly:  r.Header.Get("HX-Request") != "",
-			Title:        "HETEROGEN",
-			ToastSuccess: "You've been signed-in successfully",
-		}
-
-		err = ts.Execute(
-			templates.TMPL_PAGE_APP,
-			w,
-			templates.TemplateArgs{PageConfig: conf, Data: UserRaft{User: user}},
-		)
-		if err != nil {
-			return ErrServer
+		if r.Header.Get("HX-Request") != "" {
+			w.Header().Set("HX-Redirect", "/")
+			w.WriteHeader(http.StatusSeeOther)
+		} else {
+			http.Redirect(w, r, "/", http.StatusSeeOther)
 		}
 		return nil
 	}
 }
 
-func NewParseJWTMiddleware(settings config.AppSettings, userRepo db.UserRepo) Middleware[UserRaft] {
-	return func(next AppHandler[UserRaft]) AppHandler[UserRaft] {
-		return func(w http.ResponseWriter, r *http.Request, c *PipelineContext[UserRaft]) *etc.AppError {
-			if jwtCookie, err := r.Cookie(JWT_COOKIE_IDENTIFIER); err == nil {
+func NewParseJWTMiddleware(settings config.AppSettings, userRepo db.UserRepo) Middleware[UserState] {
+	return func(next AppHandler[UserState]) AppHandler[UserState] {
+		return func(w http.ResponseWriter, r *http.Request, c *PipelineContext[UserState]) *etc.AppError {
+			if jwtCookie, err := r.Cookie(jwtCookieIdentifier); err == nil {
 				payload, ok := parseUserJwtCookie(jwtCookie, settings)
 				if ok {
 					c.AddLoggerKV(slog.String("TOKEN ID", payload.id))
@@ -149,7 +132,7 @@ func parseUserJwtCookie(jwtCookie *http.Cookie, settings config.AppSettings) (*J
 
 func setJWTCookie(w http.ResponseWriter, tokenString string) {
 	http.SetCookie(w, &http.Cookie{
-		Name:        JWT_COOKIE_IDENTIFIER,
+		Name:        jwtCookieIdentifier,
 		Value:       tokenString,
 		SameSite:    http.SameSiteStrictMode,
 		MaxAge:      int((time.Hour * 24) / time.Second),
@@ -161,10 +144,10 @@ func setJWTCookie(w http.ResponseWriter, tokenString string) {
 
 func unsetJWTCookie(w http.ResponseWriter) {
 	http.SetCookie(w, &http.Cookie{
-		Name:        JWT_COOKIE_IDENTIFIER,
+		Name:        jwtCookieIdentifier,
 		SameSite:    http.SameSiteStrictMode,
 		MaxAge:      -1,
-		Expires:     time.Unix(0, 0),
+		Expires:     time.Unix(0, 0).UTC(),
 		Secure:      true,
 		Partitioned: true,
 		HttpOnly:    true,

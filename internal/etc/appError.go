@@ -5,21 +5,20 @@ import (
 	"strings"
 )
 
-var (
-	ErrServer = ToastAndPageErrors(
-		500,
-		"An unexpected error has occurred. Please try again later",
-		"An unexpected error has occurred. Please try again later",
-	)
-)
-
 type AppError struct {
 	Code       int
 	ToastError string
 	PageErrors []string
+	InnerError error
 }
 
+const ErrMessageInternalServerError = "An unexpected error has occurred. Please try again later"
+
 func (e *AppError) String() string {
+	if e.InnerError != nil {
+		return e.InnerError.Error()
+	}
+
 	sb := strings.Builder{}
 	if e.ToastError != "" {
 		sb.WriteString(": ")
@@ -34,8 +33,14 @@ func (e *AppError) String() string {
 	return sb.String()
 }
 
-func (e *AppError) Error() string {
-	return e.String()
+func NewServerError(err error) *AppError {
+	appErr := ToastAndPageErrors(
+		500,
+		ErrMessageInternalServerError,
+		ErrMessageInternalServerError,
+	)
+	appErr.InnerError = err
+	return appErr
 }
 
 func ToastError(httpCode int, message string) *AppError {

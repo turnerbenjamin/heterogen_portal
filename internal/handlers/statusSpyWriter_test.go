@@ -9,6 +9,8 @@ import (
 )
 
 func TestStatusSpyWriter_Write_CallsWriteOnUnderlyingWriter(t *testing.T) {
+	t.Parallel()
+
 	w := httptest.NewRecorder()
 	ssw := statusSpyWriter{ResponseWriter: w}
 
@@ -38,6 +40,8 @@ func TestStatusSpyWriter_Write_CallsWriteOnUnderlyingWriter(t *testing.T) {
 }
 
 func TestStatusSpyWriter_Write_DefaultsStatusCodeTo200(t *testing.T) {
+	t.Parallel()
+
 	w := httptest.NewRecorder()
 	ssw := statusSpyWriter{ResponseWriter: w}
 
@@ -51,6 +55,8 @@ func TestStatusSpyWriter_Write_DefaultsStatusCodeTo200(t *testing.T) {
 }
 
 func TestStatusSpyWriter_WriteHeader_TracksFinalStatusCode(t *testing.T) {
+	t.Parallel()
+
 	w := httptest.NewRecorder()
 	ssw := statusSpyWriter{ResponseWriter: w}
 
