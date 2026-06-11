@@ -20,9 +20,9 @@ func addRoutes(
 ) {
 	errorHandler := h.NewErrorHandler(ts)
 
-	pipeline := h.NewPipelineBuilder[h.NoPipelineState](errorHandler, os.Stdout)
+	pipeline := h.NewPipelineBuilder[h.NoState](errorHandler, os.Stdout)
 
-	pipelineWithUserState := h.NewPipelineBuilder[h.UserRaft](
+	pipelineWithUserState := h.NewPipelineBuilder[h.UserState](
 		errorHandler,
 		os.Stdout,
 	)
@@ -38,39 +38,47 @@ func addRoutes(
 	mux.Handle(
 		"GET /",
 		pipelineWithUserState.New(
-			[]h.Middleware[h.UserRaft]{parseAdminJWT},
-			h.GET_ROOT(ts),
+			[]h.Middleware[h.UserState]{parseAdminJWT},
+			h.GetRootHandler(ts),
 		),
 	)
 
 	mux.Handle(
 		"GET /sign-in",
 		pipeline.New(
-			[]h.Middleware[h.NoPipelineState]{},
-			h.GET_SIGN_IN(ts),
+			[]h.Middleware[h.NoState]{},
+			h.GetSignInHandler(ts),
 		),
 	)
 
 	mux.Handle(
 		"GET /sign-in-redirect",
 		pipeline.New(
-			[]h.Middleware[h.NoPipelineState]{},
-			h.GET_SIGN_IN_REDIRECT(ts),
+			[]h.Middleware[h.NoState]{},
+			h.GetSignInRedirectHandler(ts),
+		),
+	)
+
+	mux.Handle(
+		"GET /sign-out",
+		pipeline.New(
+			[]h.Middleware[h.NoState]{},
+			h.GetSignOutHandler(ts),
 		),
 	)
 
 	mux.Handle(
 		"GET /signed-out",
 		pipeline.New(
-			[]h.Middleware[h.NoPipelineState]{},
-			h.GET_SIGNED_OUT(ts),
+			[]h.Middleware[h.NoState]{},
+			h.GetSignedOutHandler(ts),
 		),
 	)
 
 	mux.Handle(
 		"POST /sign-in",
 		pipeline.New(
-			[]h.Middleware[h.NoPipelineState]{},
+			[]h.Middleware[h.NoState]{},
 			h.POST_UserSignIn(settings, ts, adminRepo),
 		),
 	)

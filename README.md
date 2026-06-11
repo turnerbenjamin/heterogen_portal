@@ -10,3 +10,12 @@ Quick overview
 - **Languages**: Go + Typescript
 - **Frameworks**: HTMX
 - **Cloud**: Azure AD, Azure SQL, Azure Container Apps
+
+## Unit Tests
+
+To run unit tests and view test coverage for the project:
+
+```terminal
+go test ./internal/... -cover -coverprofile=test-coverage.out
+go tool cover -html=test-coverage.out
+```

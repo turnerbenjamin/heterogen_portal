@@ -5,7 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"regexp"
+	"strings"
 	"testing"
+
+	"github.com/turnerbenjamin/heterogen_portal/internal/etc"
 )
 
 func AssertErrorNil(t testing.TB, err error) {
@@ -13,6 +16,14 @@ func AssertErrorNil(t testing.TB, err error) {
 
 	if err != nil {
 		t.Fatalf("got %s, but want nil", err.Error())
+	}
+}
+
+func AssertAppErrorNil(t testing.TB, err *etc.AppError) {
+	t.Helper()
+
+	if err != nil {
+		t.Fatalf("got %s, but want nil", err.String())
 	}
 }
 
@@ -24,6 +35,23 @@ func AssertErrorNotNil(t testing.TB, got, want error) {
 	}
 }
 
+func AssertNotNil(t testing.TB, got, want any) {
+	t.Helper()
+
+	if got == nil {
+		t.Fatalf("got nil, but want %v", want)
+	}
+}
+
+func AssertEqual(t testing.TB, got, want any) {
+	t.Helper()
+
+	AssertNotNil(t, got, want)
+	if got != want {
+		t.Fatalf("got %v, but want %v", got, want)
+	}
+}
+
 func AssertErrorEqual(t testing.TB, got, want error) {
 	t.Helper()
 
@@ -31,6 +59,47 @@ func AssertErrorEqual(t testing.TB, got, want error) {
 	if got.Error() != want.Error() {
 		t.Fatalf("got %s, but want %s", got.Error(), want.Error())
 	}
+}
+
+func AssertAppErrorEqual(t testing.TB, got, want *etc.AppError) {
+	t.Helper()
+
+	if got == nil {
+		t.Fatalf("got nil, but want %s", want.String())
+		return
+	}
+
+	if got.Code != want.Code {
+		t.Fatalf("got status code %d, but want %d", got.Code, want.Code)
+	}
+
+	if got.InnerError != want.InnerError {
+		t.Fatalf("got innerError %v, but want innerError %v", got.InnerError, want.InnerError)
+	}
+
+	if got.ToastError != want.ToastError {
+		t.Fatalf("got toastError %s, but want toastError %s", got.ToastError, want.ToastError)
+	}
+
+	AssertStringSliceEqual(t, got.PageErrors, want.PageErrors)
+}
+
+func AssertStringSliceEqual(t testing.TB, got, want []string) {
+	if got != nil && want == nil {
+		t.Fatalf("got %s, but want nil", strings.Join(got, ", "))
+	}
+
+	if got == nil && want != nil {
+		t.Fatalf("got nil, but want %s", strings.Join(want, ", "))
+	}
+
+	if got == nil && want == nil {
+		return
+	}
+
+	gotString := strings.Join(got, ", ")
+	wantString := strings.Join(want, ", ")
+	AssertStringEqual(t, gotString, wantString)
 }
 
 func AssertIntEqual(t testing.TB, got, want int) {

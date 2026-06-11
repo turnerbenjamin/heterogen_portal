@@ -20,7 +20,9 @@
     <script src="/static/js/htmx.min.js" defer></script>
     <script src="/static/js/msal-browser.min.js" defer></script>
     <script type="module" src="/static/js/scripts/hgCommon.js" defer></script>
+    {{- if .WebResources.HG_AUTH}}
     <script type="module" src="/static/js/scripts/hgAuth.js" defer></script>
+    {{- end}}
 		<link href="/static/css/style.css" rel="stylesheet">
     <link rel="icon" type="image/x-icon" href="/static/images/favicon.ico">
 	</head> 

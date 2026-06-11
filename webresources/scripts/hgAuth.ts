@@ -12,7 +12,9 @@ class HeterogenAuth {
   private readonly openIdEndpoint = "v2.0/.well-known/openid-configuration";
   private readonly userFlowName = "Default";
   private readonly signInEndpoint = "sign-in";
-  private readonly redirectEndpoint = "sign-in-redirect";
+  private readonly signInRedirectEndpoint = "sign-in-redirect";
+  private readonly signOutEndpoint = "sign-out";
+  private readonly signOutRedirectEndpoint = "signed-out";
 
   public async init() {
     try {
@@ -20,7 +22,7 @@ class HeterogenAuth {
         auth: {
           clientId: this.clientId,
           authority: `${this.domain}/${this.tenantId}/${this.openIdEndpoint}?p=${this.userFlowName}`,
-          redirectUri: `${utils.getAppBase()}/${this.redirectEndpoint}`,
+          redirectUri: `${utils.getAppBase()}/${this.signInRedirectEndpoint}`,
         },
         system: {},
       });
@@ -28,8 +30,8 @@ class HeterogenAuth {
       await this.msalInstance.initialize();
       await this.handleEndpointTriggers();
 
-      this.initialiseSignOut();
-      this.initialiseManualRedirectLink();
+      this.initialiseManualSignInRedirectLink();
+      this.initialiseManualSignOutRedirectLink();
       this.initialiseManualSignInLink();
     } catch (err: unknown) {
       utils.handleScriptError(err);
@@ -39,7 +41,8 @@ class HeterogenAuth {
   private handleEndpointTriggers = async () => {
     const endpointTriggerMap: Partial<Record<string, () => Promise<void>>> = {
       [this.signInEndpoint]: this.handleSignIn,
-      [this.redirectEndpoint]: this.handleRedirectFromEntraId,
+      [this.signInRedirectEndpoint]: this.handleRedirectFromEntraId,
+      [this.signOutEndpoint]: this.handleSignOut,
     };
 
     const triggerAction = endpointTriggerMap[this.getEndpoint()];
@@ -52,13 +55,7 @@ class HeterogenAuth {
     if (this.msalInstance === null) {
       throw new Error("msal instance is not instantiated");
     }
-
-    // flush any pending interactions
-    try {
-      await this.msalInstance.handleRedirectPromise({
-        navigateToLoginRequestUrl: false,
-      });
-    } catch {}
+    this.flushMSALInstance();
 
     const activeAccount =
       this.msalInstance.getActiveAccount() ??
@@ -73,15 +70,26 @@ class HeterogenAuth {
     }
   };
 
-  private initialiseManualRedirectLink = () => {
+  private initialiseManualSignInRedirectLink = () => {
     const manualRedirectLink = document.getElementById(
-      constants.MANUAL_REDIRECT_LINK_ID,
+      constants.MANUAL_SIGN_IN_REDIRECT_LINK_ID,
     );
     if (!manualRedirectLink) {
       return;
     }
 
     manualRedirectLink.addEventListener("click", this.handleSignIn);
+  };
+
+  private initialiseManualSignOutRedirectLink = () => {
+    const manualRedirectLink = document.getElementById(
+      constants.MANUAL_SIGN_OUT_REDIRECT_LINK_ID,
+    );
+    if (!manualRedirectLink) {
+      return;
+    }
+
+    manualRedirectLink.addEventListener("click", this.handleSignOut);
   };
 
   private initialiseManualSignInLink = () => {
@@ -114,28 +122,19 @@ class HeterogenAuth {
     await this.signActiveUserIntoApp(response.account);
   };
 
-  private initialiseSignOut = () => {
-    document.addEventListener("click", (e) => {
-      const target = utils.GetEventTarget(e);
-      if (!target) {
-        return;
+  private handleSignOut = async () => {
+    try {
+      if (this.msalInstance === null) {
+        throw new Error("msal instance is not instantiated");
       }
+      this.flushMSALInstance();
 
-      if (!target.closest("#sign-out-button")) {
-        return;
-      }
-
-      try {
-        if (this.msalInstance === null) {
-          throw new Error("msal instance is not instantiated");
-        }
-        this.msalInstance.logoutRedirect({
-          postLogoutRedirectUri: "/signed-out",
-        });
-      } catch (err: unknown) {
-        utils.handleScriptError(err);
-      }
-    });
+      await this.msalInstance.logoutRedirect({
+        postLogoutRedirectUri: `/${this.signOutRedirectEndpoint}`,
+      });
+    } catch (err: unknown) {
+      utils.handleScriptError(err);
+    }
   };
 
   private signActiveUserIntoApp = async (activeUser: AccountInfo) => {
@@ -164,6 +163,19 @@ class HeterogenAuth {
 
   private getEndpoint = () => {
     return window.location.pathname.split("/").filter(Boolean).pop() || "";
+  };
+
+  private flushMSALInstance = async () => {
+    if (this.msalInstance === null) {
+      return;
+    }
+
+    // flush any pending interactions
+    try {
+      await this.msalInstance.handleRedirectPromise({
+        navigateToLoginRequestUrl: false,
+      });
+    } catch {}
   };
 }
 

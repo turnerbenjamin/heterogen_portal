@@ -13,9 +13,7 @@ var TemplateDataMap = map[templates.TemplateIdentifier]templates.TemplateData{
 			"main-user-dash",
 			"main-user-login",
 		},
-		WebResources: templates.WebResourceDependencies{
-			HG_AUTH: true,
-		},
+		WebResources: templates.WebResourceDependencies{},
 	},
 	templates.TMPL_PAGE_USER_SIGN_IN: {
 		Name: "page-user-sign-in",
@@ -41,8 +39,8 @@ var TemplateDataMap = map[templates.TemplateIdentifier]templates.TemplateData{
 			HG_AUTH: true,
 		},
 	},
-	templates.TMPL_PAGE_USER_SIGNED_OUT: {
-		Name: "page-user-signed-out",
+	templates.TMPL_PAGE_USER_SIGN_OUT: {
+		Name: "page-user-sign-out",
 		Dependencies: []string{
 			"layout-top",
 			"layout-bottom",
@@ -52,6 +50,16 @@ var TemplateDataMap = map[templates.TemplateIdentifier]templates.TemplateData{
 		WebResources: templates.WebResourceDependencies{
 			HG_AUTH: true,
 		},
+	},
+	templates.TMPL_PAGE_USER_SIGNED_OUT: {
+		Name: "page-user-signed-out",
+		Dependencies: []string{
+			"layout-top",
+			"layout-bottom",
+			"main-user-dash",
+			"main-user-login",
+		},
+		WebResources: templates.WebResourceDependencies{},
 	},
 	templates.TMPL_COMPONENT_ERRORS: {
 		Name:         "component-errors",
