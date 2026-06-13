@@ -73,9 +73,7 @@ func AssertAppErrorEqual(t testing.TB, got, want *etc.AppError) {
 		t.Fatalf("got status code %d, but want %d", got.Code, want.Code)
 	}
 
-	if got.InnerError != want.InnerError {
-		t.Fatalf("got innerError %v, but want innerError %v", got.InnerError, want.InnerError)
-	}
+	AssertErrorEqual(t, got.InnerError, want.InnerError)
 
 	if got.ToastError != want.ToastError {
 		t.Fatalf("got toastError %s, but want toastError %s", got.ToastError, want.ToastError)

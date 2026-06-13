@@ -15,14 +15,7 @@ type Crypt interface {
 	CompareHashAndPassword(hashed, password []byte) error
 }
 
-type UserRepo interface {
-	Close()
-	UpsertUser(context context.Context, oid, givenName, familyName, userName, emailAddress string) (*User, error)
-	RetrieveUserById(id string) (*User, error)
-	RetrieveUserByOid(id string) (*User, error)
-}
-
-type userRepo struct {
+type UserRepo struct {
 	db         *sql.DB
 	statements map[statementKey]*sql.Stmt
 	crypt      Crypt
@@ -65,16 +58,15 @@ var (
 	)
 )
 
-func BuildUserRepo(db *sql.DB, crypt Crypt) UserRepo {
-	ur := userRepo{
+func BuildUserRepo(db *sql.DB, crypt Crypt) *UserRepo {
+	return &UserRepo{
 		db:         db,
 		crypt:      crypt,
 		statements: make(map[statementKey]*sql.Stmt),
 	}
-	return &ur
 }
 
-func (r *userRepo) Close() {
+func (r *UserRepo) Close() {
 	for _, stmt := range r.statements {
 		err := stmt.Close()
 		if err != nil {
@@ -83,7 +75,7 @@ func (r *userRepo) Close() {
 	}
 }
 
-func (r *userRepo) UpsertUser(ctx context.Context, oid, givenName, familyName, userName, emailAddress string) (*User, error) {
+func (r *UserRepo) UpsertUser(ctx context.Context, oid, givenName, familyName, userName, emailAddress string) (*User, error) {
 
 	var err error
 	id := uuid.New().String()
@@ -190,15 +182,15 @@ func (r *userRepo) UpsertUser(ctx context.Context, oid, givenName, familyName, u
 	return parseUserFromQueryResponse(row)
 }
 
-func (r *userRepo) RetrieveUserById(id string) (*User, error) {
+func (r *UserRepo) RetrieveUserById(id string) (*User, error) {
 	return r.retrieveUser(STMT_KEY_RETRIEVE_USER_BY_ID, id)
 }
 
-func (r *userRepo) RetrieveUserByOid(oid string) (*User, error) {
+func (r *UserRepo) RetrieveUserByOid(oid string) (*User, error) {
 	return r.retrieveUser(STMT_KEY_RETRIEVE_USER_BY_OID, oid)
 }
 
-func (r *userRepo) retrieveUser(
+func (r *UserRepo) retrieveUser(
 	statementKey statementKey,
 	identifier string,
 ) (*User, error) {
@@ -240,8 +232,8 @@ func (r *userRepo) retrieveUser(
 func parseUserFromQueryResponse(res *sql.Row) (*User, error) {
 	u := &User{}
 	err := res.Scan(
-		&u.ID,
-		&u.OID,
+		&u.Id,
+		&u.Oid,
 		&u.GivenName,
 		&u.FamilyName,
 		&u.UserName,
@@ -257,7 +249,7 @@ func parseUserFromQueryResponse(res *sql.Row) (*User, error) {
 	return u, err
 }
 
-func (r *userRepo) preCheckConstraintViolations(givenName, familyName, username, email string) error {
+func (r *UserRepo) preCheckConstraintViolations(givenName, familyName, username, email string) error {
 	givenNameLen := len(givenName)
 	if givenNameLen == 0 {
 		return ErrGivenNameEmpty

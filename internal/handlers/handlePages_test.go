@@ -11,10 +11,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/turnerbenjamin/heterogen_portal/internal/constants"
 	"github.com/turnerbenjamin/heterogen_portal/internal/db"
 	"github.com/turnerbenjamin/heterogen_portal/internal/etc"
 	"github.com/turnerbenjamin/heterogen_portal/internal/templates"
-	"github.com/turnerbenjamin/heterogen_portal/testhelpers"
+	"github.com/turnerbenjamin/heterogen_portal/internal/testhelpers"
 )
 
 func TestGetRoot_Returns404_WhenPathIsNotRoot(t *testing.T) {
@@ -122,8 +123,8 @@ func TestGetRoot_ReturnsServerError_WhenExecuteReturnsAnError(t *testing.T) {
 	wantInnerError := errors.New("expected_test_error")
 	wantAppError := &etc.AppError{
 		Code:       http.StatusInternalServerError,
-		ToastError: etc.ErrMessageInternalServerError,
-		PageErrors: []string{etc.ErrMessageInternalServerError},
+		ToastError: constants.ErrMsgInternalServerError,
+		PageErrors: []string{constants.ErrMsgInternalServerError},
 		InnerError: wantInnerError,
 	}
 
@@ -187,8 +188,8 @@ func TestGetSignInHandler_ReturnsServerError_WhenExecuteReturnsAnError(t *testin
 	wantInnerError := errors.New("expected_test_error")
 	wantAppError := &etc.AppError{
 		Code:       http.StatusInternalServerError,
-		ToastError: etc.ErrMessageInternalServerError,
-		PageErrors: []string{etc.ErrMessageInternalServerError},
+		ToastError: constants.ErrMsgInternalServerError,
+		PageErrors: []string{constants.ErrMsgInternalServerError},
 		InnerError: wantInnerError,
 	}
 
@@ -206,7 +207,12 @@ func TestGetSignInHandler_ReturnsServerError_WhenExecuteReturnsAnError(t *testin
 func TestMsalFlowHandlers_ReturnServerError_WhenHTMXRequest(t *testing.T) {
 	t.Parallel()
 
-	wantAppError := errHtmxNotSupported
+	wantAppError := &etc.AppError{
+		Code:       http.StatusInternalServerError,
+		ToastError: constants.ErrMsgInternalServerError,
+		PageErrors: []string{constants.ErrMsgInternalServerError},
+		InnerError: errors.New(constants.ErrMsgHtmxNotSupported),
+	}
 
 	templateStore := mockTemplateStore{t: t}
 
@@ -236,8 +242,8 @@ func TestMsalFlowHandlers_ReturnServerError_WhenExecuteReturnsAnError(t *testing
 	wantInnerError := errors.New("expected_test_error")
 	wantAppError := &etc.AppError{
 		Code:       http.StatusInternalServerError,
-		ToastError: etc.ErrMessageInternalServerError,
-		PageErrors: []string{etc.ErrMessageInternalServerError},
+		ToastError: constants.ErrMsgInternalServerError,
+		PageErrors: []string{constants.ErrMsgInternalServerError},
 		InnerError: wantInnerError,
 	}
 
@@ -320,16 +326,6 @@ func TestGetSignOutHandler_ReturnsSignOutPage(t *testing.T) {
 func TestGetSignOutHandler_SetsHeadersToUnsetJWT(t *testing.T) {
 	t.Parallel()
 
-	wantCookie := &http.Cookie{
-		Name:        jwtCookieIdentifier,
-		SameSite:    http.SameSiteStrictMode,
-		MaxAge:      -1,
-		Expires:     time.Unix(0, 0).UTC(),
-		Secure:      true,
-		Partitioned: true,
-		HttpOnly:    true,
-	}
-
 	templateStore := mockTemplateStore{t: t, returns: nil}
 	handler := GetSignOutHandler(&templateStore)
 
@@ -341,21 +337,7 @@ func TestGetSignOutHandler_SetsHeadersToUnsetJWT(t *testing.T) {
 	err := handler(w, r, c)
 
 	testhelpers.AssertAppErrorNil(t, err)
-	var gotCookie *http.Cookie
-	for _, c := range w.Result().Cookies() {
-		if c.Name == wantCookie.Name {
-			gotCookie = c
-			break
-		}
-	}
-
-	testhelpers.AssertNotNil(t, gotCookie, wantCookie)
-	testhelpers.AssertEqual(t, gotCookie.SameSite, wantCookie.SameSite)
-	testhelpers.AssertIntEqual(t, gotCookie.MaxAge, wantCookie.MaxAge)
-	testhelpers.AssertEqual(t, gotCookie.Expires, wantCookie.Expires)
-	testhelpers.AssertEqual(t, gotCookie.Secure, wantCookie.Secure)
-	testhelpers.AssertEqual(t, gotCookie.Partitioned, wantCookie.Partitioned)
-	testhelpers.AssertEqual(t, gotCookie.HttpOnly, wantCookie.HttpOnly)
+	assertJWTCookieUnset(t, w)
 }
 
 func TestGetSignedOutHandler_ReturnsSignedOutPage(t *testing.T) {
@@ -426,4 +408,33 @@ func makeUserStatePipelineContext(
 		logger: slog.New(slog.NewJSONHandler(logSink, &slog.HandlerOptions{})),
 		state:  state,
 	}
+}
+
+func assertJWTCookieUnset(t testing.TB, w *httptest.ResponseRecorder) {
+	t.Helper()
+	wantCookie := &http.Cookie{
+		Name:        constants.IdentifierJwtCookie,
+		SameSite:    http.SameSiteStrictMode,
+		MaxAge:      -1,
+		Expires:     time.Unix(0, 0).UTC(),
+		Secure:      true,
+		Partitioned: true,
+		HttpOnly:    true,
+	}
+
+	var gotCookie *http.Cookie
+	for _, c := range w.Result().Cookies() {
+		if c.Name == wantCookie.Name {
+			gotCookie = c
+			break
+		}
+	}
+
+	testhelpers.AssertNotNil(t, gotCookie, wantCookie)
+	testhelpers.AssertEqual(t, gotCookie.SameSite, wantCookie.SameSite)
+	testhelpers.AssertIntEqual(t, gotCookie.MaxAge, wantCookie.MaxAge)
+	testhelpers.AssertEqual(t, gotCookie.Expires, wantCookie.Expires)
+	testhelpers.AssertEqual(t, gotCookie.Secure, wantCookie.Secure)
+	testhelpers.AssertEqual(t, gotCookie.Partitioned, wantCookie.Partitioned)
+	testhelpers.AssertEqual(t, gotCookie.HttpOnly, wantCookie.HttpOnly)
 }

@@ -10,8 +10,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/turnerbenjamin/heterogen_portal/internal/constants"
 	"github.com/turnerbenjamin/heterogen_portal/internal/etc"
-	"github.com/turnerbenjamin/heterogen_portal/testhelpers"
+	"github.com/turnerbenjamin/heterogen_portal/internal/testhelpers"
 )
 
 func TestPipelineBuilder_New_invokesHandler(t *testing.T) {
@@ -156,7 +157,6 @@ func TestPipelineBuilder_New_middlewareCanModifyRequest_andHandlerSeesChange(t *
 	p := b.New(middlewareStack.stack, testHandler.handle)
 
 	r := httptest.NewRequest("POST", "/test", strings.NewReader(""))
-
 	w := httptest.NewRecorder()
 
 	p.ServeHTTP(w, r)
@@ -456,8 +456,8 @@ func TestPipelineBuilder_New_handlesErrorWriterReturningError(t *testing.T) {
 		t,
 		logSink.Bytes(),
 		map[string]any{
-			"writer_error":   writeError.Error(),
-			"response_error": testAppError.String(),
+			constants.SlogKeyResponseWriterErr: writeError.Error(),
+			constants.SlogKeyRequestErr:        testAppError.String(),
 		},
 	)
 	testhelpers.AssertIntEqual(t, w.Result().StatusCode, 500)
@@ -534,7 +534,7 @@ func TestPipelineBuilder_New_logsResponseErrorWhenErrorWriterSucceeds(t *testing
 		t,
 		logSink.Bytes(),
 		map[string]any{
-			"response_error": testAppError.String(),
+			constants.SlogKeyRequestErr: testAppError.String(),
 		},
 	)
 }
@@ -567,11 +567,11 @@ func TestPipelineBuilder_New_includesRequestDataInLogs(t *testing.T) {
 		t,
 		logSink.Bytes(),
 		map[string]any{
-			"request_method":       r.Method,
-			"request_path":         r.URL.Path,
-			"request_time":         testhelpers.AnySlogValue,
-			"request_duration_ms":  testhelpers.AnySlogValue,
-			"response_status_code": wantStatusCode,
+			constants.SlogKeyRequestMethod:      r.Method,
+			constants.SlogKeyRequestPath:        r.URL.Path,
+			constants.SlogKeyRequestTime:        testhelpers.AnySlogValue,
+			constants.SlogKeyRequestDurationMs:  testhelpers.AnySlogValue,
+			constants.SlogKeyResponseStatusCode: wantStatusCode,
 		},
 	)
 }

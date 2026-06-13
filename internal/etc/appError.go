@@ -3,6 +3,8 @@ package etc
 import (
 	"fmt"
 	"strings"
+
+	"github.com/turnerbenjamin/heterogen_portal/internal/constants"
 )
 
 type AppError struct {
@@ -11,8 +13,6 @@ type AppError struct {
 	PageErrors []string
 	InnerError error
 }
-
-const ErrMessageInternalServerError = "An unexpected error has occurred. Please try again later"
 
 func (e *AppError) String() string {
 	if e.InnerError != nil {
@@ -36,8 +36,8 @@ func (e *AppError) String() string {
 func NewServerError(err error) *AppError {
 	appErr := ToastAndPageErrors(
 		500,
-		ErrMessageInternalServerError,
-		ErrMessageInternalServerError,
+		constants.ErrMsgInternalServerError,
+		constants.ErrMsgInternalServerError,
 	)
 	appErr.InnerError = err
 	return appErr

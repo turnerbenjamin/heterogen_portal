@@ -5,8 +5,6 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/turnerbenjamin/heterogen_portal/internal/config"
-	"github.com/turnerbenjamin/heterogen_portal/internal/db"
 	h "github.com/turnerbenjamin/heterogen_portal/internal/handlers"
 	"github.com/turnerbenjamin/heterogen_portal/internal/templates"
 )
@@ -15,8 +13,9 @@ func addRoutes(
 	mux *http.ServeMux,
 	ts *templates.Store,
 	staticFileSystem fs.FS,
-	settings config.AppSettings,
-	adminRepo db.UserRepo,
+	tokenValidator h.TokenValidator,
+	tokenSignerAndParser h.TokenSignerAndParser,
+	userRepo h.UserRepo,
 ) {
 	errorHandler := h.NewErrorHandler(ts)
 
@@ -27,7 +26,7 @@ func addRoutes(
 		os.Stdout,
 	)
 
-	parseAdminJWT := h.NewParseJWTMiddleware(settings, adminRepo)
+	parseAdminJWT := h.NewParseJwtMiddleware(tokenSignerAndParser, userRepo)
 
 	if sub, err := fs.Sub(staticFileSystem, "static"); err == nil {
 		mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServer(http.FS(sub))))
@@ -79,7 +78,7 @@ func addRoutes(
 		"POST /sign-in",
 		pipeline.New(
 			[]h.Middleware[h.NoState]{},
-			h.POST_UserSignIn(settings, ts, adminRepo),
+			h.PostSignInHandler(tokenValidator, tokenSignerAndParser, ts, userRepo),
 		),
 	)
 }
