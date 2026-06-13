@@ -5,7 +5,6 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/turnerbenjamin/heterogen_portal/internal/etc"
 	"github.com/turnerbenjamin/heterogen_portal/internal/templates"
 	"github.com/turnerbenjamin/heterogen_portal/internal/testhelpers"
 )
@@ -18,7 +17,7 @@ func TestWrite_HandlesErrorResponse(t *testing.T) {
 	wantStatusCode := 418
 	wantContentOnlyValue := true
 
-	testAppError := &etc.AppError{
+	testAppError := &AppError{
 		Code:       wantStatusCode,
 		ToastError: "Some toast error",
 		PageErrors: []string{"A page error", "and another"},
@@ -49,7 +48,7 @@ func TestWrite_ShouldReturnErrorsReturnedFromExecute(t *testing.T) {
 	w := httptest.NewRecorder()
 	h := NewErrorHandler(ts)
 
-	gotErr := h.Write(w, &etc.AppError{Code: 200})
+	gotErr := h.Write(w, &AppError{Code: 200})
 
 	testhelpers.AssertErrorNotNil(t, gotErr, wantError)
 	testhelpers.AssertErrorEqual(t, gotErr, wantError)

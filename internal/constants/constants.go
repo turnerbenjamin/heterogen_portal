@@ -30,7 +30,8 @@ const (
 	SlogKeyNonFatalErrRetrieveUserById = "non_fatal_err_retrieve_user_by_id"
 )
 
-// Identifiers
+// Other
 const (
-	IdentifierJwtCookie = "hg_login_jwt"
+	IdentifierJwtCookie   = "hg_login_jwt"
+	DefaultAppErrorString = "default app error"
 )

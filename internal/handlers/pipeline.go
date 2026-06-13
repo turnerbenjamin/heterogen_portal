@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"github.com/turnerbenjamin/heterogen_portal/internal/constants"
-	"github.com/turnerbenjamin/heterogen_portal/internal/etc"
 )
 
 // PipelineContext holds per-request logger and state for the pipeline.
@@ -32,7 +31,7 @@ type (
 	// AppHandler is the signature for a handler in the pipeline. Pipeline state
 	// is passed to the handler in PipelineContext and any AppErrors returned
 	// will be handled by the pipeline.
-	AppHandler[T any] func(http.ResponseWriter, *http.Request, *PipelineContext[T]) *etc.AppError
+	AppHandler[T any] func(http.ResponseWriter, *http.Request, *PipelineContext[T]) *AppError
 
 	// Middleware is the signature for a middleware function in the pipeline.
 	// This receives the next AppHandler in the pipeline and returns a new
@@ -45,7 +44,7 @@ type (
 
 // ErrorWriter writes an AppError to the provided ResponseWriter.
 type ErrorWriter interface {
-	Write(http.ResponseWriter, *etc.AppError) error
+	Write(http.ResponseWriter, *AppError) error
 }
 
 // PipelineBuilder is used as a factory for building a Pipeline

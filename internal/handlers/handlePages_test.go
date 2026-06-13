@@ -13,7 +13,6 @@ import (
 
 	"github.com/turnerbenjamin/heterogen_portal/internal/constants"
 	"github.com/turnerbenjamin/heterogen_portal/internal/db"
-	"github.com/turnerbenjamin/heterogen_portal/internal/etc"
 	"github.com/turnerbenjamin/heterogen_portal/internal/templates"
 	"github.com/turnerbenjamin/heterogen_portal/internal/testhelpers"
 )
@@ -35,7 +34,7 @@ func TestGetRoot_Returns404_WhenPathIsNotRoot(t *testing.T) {
 
 	err := handler(w, r, c)
 
-	testhelpers.AssertAppErrorNil(t, err)
+	AssertAppErrorNil(t, err)
 	testhelpers.AssertIntEqual(t, w.Code, wantStatusCode)
 }
 
@@ -67,7 +66,7 @@ func TestGetRoot_RedirectsToSignIn_WhenUserIsNil(t *testing.T) {
 
 		err := handler(w, r, c)
 
-		testhelpers.AssertAppErrorNil(t, err)
+		AssertAppErrorNil(t, err)
 		testhelpers.AssertIntEqual(t, w.Code, wantStatusCode)
 		testhelpers.AssertStringEqual(t, w.Result().Header.Get(td.redirectKey), wantRedirectPath)
 	}
@@ -105,7 +104,7 @@ func TestGetRoot_ReturnsAppPage_WhenUserIsNotNil(t *testing.T) {
 
 		err := handler(w, r, c)
 
-		testhelpers.AssertAppErrorNil(t, err)
+		AssertAppErrorNil(t, err)
 		testhelpers.AssertIntEqual(t, w.Code, wantStatusCode)
 		testhelpers.AssertIntEqual(t, len(templateStore.calls), 1)
 
@@ -121,7 +120,7 @@ func TestGetRoot_ReturnsServerError_WhenExecuteReturnsAnError(t *testing.T) {
 	t.Parallel()
 
 	wantInnerError := errors.New("expected_test_error")
-	wantAppError := &etc.AppError{
+	wantAppError := &AppError{
 		Code:       http.StatusInternalServerError,
 		ToastError: constants.ErrMsgInternalServerError,
 		PageErrors: []string{constants.ErrMsgInternalServerError},
@@ -139,7 +138,7 @@ func TestGetRoot_ReturnsServerError_WhenExecuteReturnsAnError(t *testing.T) {
 	c := makeUserStatePipelineContext(t, s, &bytes.Buffer{})
 
 	gotErr := handler(w, r, c)
-	testhelpers.AssertAppErrorEqual(t, gotErr, wantAppError)
+	AssertAppErrorEqual(t, gotErr, wantAppError)
 }
 
 func TestGetSignInHandler_ReturnsSignInPage(t *testing.T) {
@@ -171,7 +170,7 @@ func TestGetSignInHandler_ReturnsSignInPage(t *testing.T) {
 
 		err := handler(w, r, c)
 
-		testhelpers.AssertAppErrorNil(t, err)
+		AssertAppErrorNil(t, err)
 		testhelpers.AssertIntEqual(t, w.Code, wantStatusCode)
 		testhelpers.AssertIntEqual(t, len(templateStore.calls), 1)
 
@@ -186,7 +185,7 @@ func TestGetSignInHandler_ReturnsServerError_WhenExecuteReturnsAnError(t *testin
 	t.Parallel()
 
 	wantInnerError := errors.New("expected_test_error")
-	wantAppError := &etc.AppError{
+	wantAppError := &AppError{
 		Code:       http.StatusInternalServerError,
 		ToastError: constants.ErrMsgInternalServerError,
 		PageErrors: []string{constants.ErrMsgInternalServerError},
@@ -201,13 +200,13 @@ func TestGetSignInHandler_ReturnsServerError_WhenExecuteReturnsAnError(t *testin
 	c := &PipelineContext[NoState]{}
 
 	gotErr := handler(w, r, c)
-	testhelpers.AssertAppErrorEqual(t, gotErr, wantAppError)
+	AssertAppErrorEqual(t, gotErr, wantAppError)
 }
 
 func TestMsalFlowHandlers_ReturnServerError_WhenHTMXRequest(t *testing.T) {
 	t.Parallel()
 
-	wantAppError := &etc.AppError{
+	wantAppError := &AppError{
 		Code:       http.StatusInternalServerError,
 		ToastError: constants.ErrMsgInternalServerError,
 		PageErrors: []string{constants.ErrMsgInternalServerError},
@@ -232,7 +231,7 @@ func TestMsalFlowHandlers_ReturnServerError_WhenHTMXRequest(t *testing.T) {
 		c := &PipelineContext[NoState]{}
 
 		gotErr := handler(w, r, c)
-		testhelpers.AssertAppErrorEqual(t, gotErr, wantAppError)
+		AssertAppErrorEqual(t, gotErr, wantAppError)
 	}
 }
 
@@ -240,7 +239,7 @@ func TestMsalFlowHandlers_ReturnServerError_WhenExecuteReturnsAnError(t *testing
 	t.Parallel()
 
 	wantInnerError := errors.New("expected_test_error")
-	wantAppError := &etc.AppError{
+	wantAppError := &AppError{
 		Code:       http.StatusInternalServerError,
 		ToastError: constants.ErrMsgInternalServerError,
 		PageErrors: []string{constants.ErrMsgInternalServerError},
@@ -263,7 +262,7 @@ func TestMsalFlowHandlers_ReturnServerError_WhenExecuteReturnsAnError(t *testing
 		c := &PipelineContext[NoState]{}
 
 		gotErr := handler(w, r, c)
-		testhelpers.AssertAppErrorEqual(t, gotErr, wantAppError)
+		AssertAppErrorEqual(t, gotErr, wantAppError)
 	}
 }
 
@@ -285,7 +284,7 @@ func TestGetSignInRedirectHandler_ReturnsSignInRedirectPage(t *testing.T) {
 
 	err := handler(w, r, c)
 
-	testhelpers.AssertAppErrorNil(t, err)
+	AssertAppErrorNil(t, err)
 	testhelpers.AssertIntEqual(t, w.Code, wantStatusCode)
 	testhelpers.AssertIntEqual(t, len(templateStore.calls), 1)
 
@@ -313,7 +312,7 @@ func TestGetSignOutHandler_ReturnsSignOutPage(t *testing.T) {
 
 	err := handler(w, r, c)
 
-	testhelpers.AssertAppErrorNil(t, err)
+	AssertAppErrorNil(t, err)
 	testhelpers.AssertIntEqual(t, w.Code, wantStatusCode)
 	testhelpers.AssertIntEqual(t, len(templateStore.calls), 1)
 
@@ -336,7 +335,7 @@ func TestGetSignOutHandler_SetsHeadersToUnsetJWT(t *testing.T) {
 
 	err := handler(w, r, c)
 
-	testhelpers.AssertAppErrorNil(t, err)
+	AssertAppErrorNil(t, err)
 	assertJWTCookieUnset(t, w)
 }
 
@@ -357,7 +356,7 @@ func TestGetSignedOutHandler_ReturnsSignedOutPage(t *testing.T) {
 
 	err := handler(w, r, c)
 
-	testhelpers.AssertAppErrorNil(t, err)
+	AssertAppErrorNil(t, err)
 	testhelpers.AssertIntEqual(t, w.Code, wantStatusCode)
 	testhelpers.AssertIntEqual(t, len(templateStore.calls), 1)
 

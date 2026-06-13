@@ -13,7 +13,6 @@ import (
 	"github.com/turnerbenjamin/heterogen_portal/internal/auth"
 	"github.com/turnerbenjamin/heterogen_portal/internal/constants"
 	"github.com/turnerbenjamin/heterogen_portal/internal/db"
-	"github.com/turnerbenjamin/heterogen_portal/internal/etc"
 )
 
 // UserState is passed in PipelineContext in pipelines using
@@ -71,11 +70,11 @@ func PostSignInHandler(
 	ts TemplateStore,
 	userRepo UserRepo,
 ) AppHandler[NoState] {
-	return func(w http.ResponseWriter, r *http.Request, c *PipelineContext[NoState]) *etc.AppError {
+	return func(w http.ResponseWriter, r *http.Request, c *PipelineContext[NoState]) *AppError {
 		bearerToken := r.Header.Get("Authorization")
 		tokenClaims, err := tokenValidator.ValidatePortalToken(r.Context(), bearerToken)
 		if err != nil {
-			return &etc.AppError{
+			return &AppError{
 				Code:       http.StatusUnauthorized,
 				ToastError: constants.ErrMsgUnauthorised,
 				PageErrors: []string{constants.ErrMsgUnauthorised},
@@ -92,7 +91,7 @@ func PostSignInHandler(
 			tokenClaims.EmailAddress,
 		)
 		if err != nil {
-			return etc.NewServerError(err)
+			return NewServerError(err)
 		}
 
 		// Create new JWT Token
@@ -105,7 +104,7 @@ func PostSignInHandler(
 
 		tokenString, err := tokenSigner.Sign(token)
 		if err != nil {
-			return etc.NewServerError(err)
+			return NewServerError(err)
 		}
 		setJwtCookie(w, tokenString)
 
@@ -125,7 +124,7 @@ func PostSignInHandler(
 // errors, unset invalid cookies and continue, unfazed, to the next handler
 func NewParseJwtMiddleware(tokenParser TokenParser, userRepo UserRepo) Middleware[UserState] {
 	return func(next AppHandler[UserState]) AppHandler[UserState] {
-		return func(w http.ResponseWriter, r *http.Request, c *PipelineContext[UserState]) *etc.AppError {
+		return func(w http.ResponseWriter, r *http.Request, c *PipelineContext[UserState]) *AppError {
 			jwtCookie, err := r.Cookie(constants.IdentifierJwtCookie)
 			if err != nil {
 				return next(w, r, c)

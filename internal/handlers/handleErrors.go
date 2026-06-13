@@ -6,7 +6,6 @@ package handlers
 import (
 	"net/http"
 
-	"github.com/turnerbenjamin/heterogen_portal/internal/etc"
 	"github.com/turnerbenjamin/heterogen_portal/internal/templates"
 )
 
@@ -25,7 +24,7 @@ func NewErrorHandler(templateStore TemplateStore) *ErrorHandler {
 
 // Write is responsible for writing AppErrors to a response. It handles setting
 // the status code and passing error data to the error component template
-func (h *ErrorHandler) Write(w http.ResponseWriter, appErr *etc.AppError) error {
+func (h *ErrorHandler) Write(w http.ResponseWriter, appErr *AppError) error {
 	w.WriteHeader(appErr.Code)
 
 	pageConfig := templates.PageConfig{
