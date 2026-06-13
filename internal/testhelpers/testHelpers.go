@@ -7,8 +7,6 @@ import (
 	"regexp"
 	"strings"
 	"testing"
-
-	"github.com/turnerbenjamin/heterogen_portal/internal/etc"
 )
 
 func AssertErrorNil(t testing.TB, err error) {
@@ -16,14 +14,6 @@ func AssertErrorNil(t testing.TB, err error) {
 
 	if err != nil {
 		t.Fatalf("got %s, but want nil", err.Error())
-	}
-}
-
-func AssertAppErrorNil(t testing.TB, err *etc.AppError) {
-	t.Helper()
-
-	if err != nil {
-		t.Fatalf("got %s, but want nil", err.String())
 	}
 }
 
@@ -59,27 +49,6 @@ func AssertErrorEqual(t testing.TB, got, want error) {
 	if got.Error() != want.Error() {
 		t.Fatalf("got %s, but want %s", got.Error(), want.Error())
 	}
-}
-
-func AssertAppErrorEqual(t testing.TB, got, want *etc.AppError) {
-	t.Helper()
-
-	if got == nil {
-		t.Fatalf("got nil, but want %s", want.String())
-		return
-	}
-
-	if got.Code != want.Code {
-		t.Fatalf("got status code %d, but want %d", got.Code, want.Code)
-	}
-
-	AssertErrorEqual(t, got.InnerError, want.InnerError)
-
-	if got.ToastError != want.ToastError {
-		t.Fatalf("got toastError %s, but want toastError %s", got.ToastError, want.ToastError)
-	}
-
-	AssertStringSliceEqual(t, got.PageErrors, want.PageErrors)
 }
 
 func AssertStringSliceEqual(t testing.TB, got, want []string) {

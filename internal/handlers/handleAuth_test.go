@@ -12,10 +12,8 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/turnerbenjamin/heterogen_portal/internal/auth"
 	"github.com/turnerbenjamin/heterogen_portal/internal/constants"
 	"github.com/turnerbenjamin/heterogen_portal/internal/db"
-	"github.com/turnerbenjamin/heterogen_portal/internal/etc"
 	"github.com/turnerbenjamin/heterogen_portal/internal/testhelpers"
 )
 
@@ -28,7 +26,7 @@ var testUser = db.User{
 	EmailAddress: "email_address",
 }
 
-var testPortalClaims = auth.PortalTokenClaims{
+var testPortalClaims = PortalTokenClaims{
 	Oid:          testUser.Oid,
 	GivenName:    testUser.GivenName,
 	FamilyName:   testUser.FamilyName,
@@ -37,6 +35,8 @@ var testPortalClaims = auth.PortalTokenClaims{
 }
 
 func TestPostSignIn_CallsValidatePortalTokenCorrectly(t *testing.T) {
+	t.Parallel()
+
 	tokenValidator := &mockTokenValidator{t: t, returnsClaims: &testPortalClaims}
 	userRepo := &mockUserRepo{
 		t: t,
@@ -57,7 +57,7 @@ func TestPostSignIn_CallsValidatePortalTokenCorrectly(t *testing.T) {
 
 	err := h(w, r, &PipelineContext[NoState]{})
 
-	testhelpers.AssertAppErrorNil(t, err)
+	AssertAppErrorNil(t, err)
 	testhelpers.AssertIntEqual(t, len(tokenValidator.calls), 1)
 
 	validatorCall := tokenValidator.calls[0]
@@ -66,12 +66,14 @@ func TestPostSignIn_CallsValidatePortalTokenCorrectly(t *testing.T) {
 }
 
 func TestPostSignIn_ReturnsUnauthorisedWhenValidatePortalTokenReturnsAnError(t *testing.T) {
+	t.Parallel()
+
 	validatorError := errors.New("some validator error")
-	wantAppErr := &etc.AppError{
+	wantAppErr := &AppError{
 		Code:       http.StatusUnauthorized,
 		ToastError: constants.ErrMsgUnauthorised,
 		PageErrors: []string{constants.ErrMsgUnauthorised},
-		InnerError: validatorError,
+		innerError: validatorError,
 	}
 
 	tokenValidator := &mockTokenValidator{t: t, returnsError: validatorError}
@@ -88,10 +90,12 @@ func TestPostSignIn_ReturnsUnauthorisedWhenValidatePortalTokenReturnsAnError(t *
 
 	gotAppErr := h(w, r, &PipelineContext[NoState]{})
 
-	testhelpers.AssertAppErrorEqual(t, gotAppErr, wantAppErr)
+	AssertAppErrorEqual(t, gotAppErr, wantAppErr)
 }
 
 func TestPostSignIn_ShouldCallUpsertWithUserData(t *testing.T) {
+	t.Parallel()
+
 	tokenValidator := &mockTokenValidator{t: t, returnsClaims: &testPortalClaims}
 	userRepo := &mockUserRepo{
 		t: t,
@@ -111,7 +115,7 @@ func TestPostSignIn_ShouldCallUpsertWithUserData(t *testing.T) {
 
 	err := h(w, r, &PipelineContext[NoState]{})
 
-	testhelpers.AssertAppErrorNil(t, err)
+	AssertAppErrorNil(t, err)
 	testhelpers.AssertIntEqual(t, len(userRepo.upsertUserCalls), 1)
 
 	gotUpsertCall := userRepo.upsertUserCalls[0]
@@ -124,12 +128,14 @@ func TestPostSignIn_ShouldCallUpsertWithUserData(t *testing.T) {
 }
 
 func TestPostSignIn_ReturnsServerErrorWhenUpsertUserReturnsAnError(t *testing.T) {
+	t.Parallel()
+
 	upsertError := errors.New("some upsert error")
-	wantAppErr := &etc.AppError{
+	wantAppErr := &AppError{
 		Code:       http.StatusInternalServerError,
 		ToastError: constants.ErrMsgInternalServerError,
 		PageErrors: []string{constants.ErrMsgInternalServerError},
-		InnerError: upsertError,
+		innerError: upsertError,
 	}
 
 	tokenValidator := &mockTokenValidator{t: t, returnsClaims: &testPortalClaims}
@@ -152,16 +158,18 @@ func TestPostSignIn_ReturnsServerErrorWhenUpsertUserReturnsAnError(t *testing.T)
 
 	gotAppErr := h(w, r, &PipelineContext[NoState]{})
 
-	testhelpers.AssertAppErrorEqual(t, gotAppErr, wantAppErr)
+	AssertAppErrorEqual(t, gotAppErr, wantAppErr)
 }
 
 func TestPostSignIn_ReturnsServerErrorWhenTokenSignerReturnsAnError(t *testing.T) {
+	t.Parallel()
+
 	signError := errors.New("some sign error")
-	wantAppErr := &etc.AppError{
+	wantAppErr := &AppError{
 		Code:       http.StatusInternalServerError,
 		ToastError: constants.ErrMsgInternalServerError,
 		PageErrors: []string{constants.ErrMsgInternalServerError},
-		InnerError: signError,
+		innerError: signError,
 	}
 
 	tokenValidator := &mockTokenValidator{t: t, returnsClaims: &testPortalClaims}
@@ -184,10 +192,12 @@ func TestPostSignIn_ReturnsServerErrorWhenTokenSignerReturnsAnError(t *testing.T
 
 	gotAppErr := h(w, r, &PipelineContext[NoState]{})
 
-	testhelpers.AssertAppErrorEqual(t, gotAppErr, wantAppErr)
+	AssertAppErrorEqual(t, gotAppErr, wantAppErr)
 }
 
 func TestPostSignIn_SetsCookieWithJwtToken(t *testing.T) {
+	t.Parallel()
+
 	testTokenString := "test_jwt_token_string"
 	wantCookie := &http.Cookie{
 		Name:        constants.IdentifierJwtCookie,
@@ -218,7 +228,7 @@ func TestPostSignIn_SetsCookieWithJwtToken(t *testing.T) {
 
 	err := h(w, r, &PipelineContext[NoState]{})
 
-	testhelpers.AssertAppErrorNil(t, err)
+	AssertAppErrorNil(t, err)
 
 	var gotCookie *http.Cookie = nil
 	for _, c := range w.Result().Cookies() {
@@ -238,6 +248,8 @@ func TestPostSignIn_SetsCookieWithJwtToken(t *testing.T) {
 }
 
 func TestPostSignIn_RedirectsUserToRoot(t *testing.T) {
+	t.Parallel()
+
 	tokenValidator := &mockTokenValidator{t: t, returnsClaims: &testPortalClaims}
 	userRepo := &mockUserRepo{
 		t: t,
@@ -272,13 +284,15 @@ func TestPostSignIn_RedirectsUserToRoot(t *testing.T) {
 
 		err := h(w, r, &PipelineContext[NoState]{})
 
-		testhelpers.AssertAppErrorNil(t, err)
+		AssertAppErrorNil(t, err)
 		testhelpers.AssertIntEqual(t, w.Code, wantStatusCode)
 		testhelpers.AssertStringEqual(t, w.Result().Header.Get(td.redirectKey), wantRedirectPath)
 	}
 }
 
 func TestParseJWTMiddleware_ShouldRetrieveUserAndUpdatePipelineContext(t *testing.T) {
+	t.Parallel()
+
 	nextHandlerCallCount := 0
 	var userReceivedInHandler *db.User = nil
 
@@ -287,7 +301,7 @@ func TestParseJWTMiddleware_ShouldRetrieveUserAndUpdatePipelineContext(t *testin
 		fn: func(
 			r *http.Request,
 			c *PipelineContext[UserState],
-		) (request *http.Request, statusCode *int, response []byte, err *etc.AppError) {
+		) (request *http.Request, statusCode *int, response []byte, err *AppError) {
 			nextHandlerCallCount = nextHandlerCallCount + 1
 			userReceivedInHandler = c.state.User
 			return r, nil, []byte("body"), nil
@@ -323,7 +337,7 @@ func TestParseJWTMiddleware_ShouldRetrieveUserAndUpdatePipelineContext(t *testin
 	h := mw(nextHandler.handle)
 	err := h(w, r, c)
 
-	testhelpers.AssertAppErrorNil(t, err)
+	AssertAppErrorNil(t, err)
 	testhelpers.AssertIntEqual(t, nextHandlerCallCount, 1)
 	testhelpers.AssertEqual(t, userReceivedInHandler, &testUser)
 }
@@ -406,7 +420,7 @@ func TestParseJWTMiddleware_IsIndestuctable(t *testing.T) {
 			fn: func(
 				r *http.Request,
 				c *PipelineContext[UserState],
-			) (request *http.Request, statusCode *int, response []byte, err *etc.AppError) {
+			) (request *http.Request, statusCode *int, response []byte, err *AppError) {
 				nextHandlerCallCount = nextHandlerCallCount + 1
 				return r, nil, []byte("body"), nil
 			},
@@ -446,7 +460,7 @@ func TestParseJWTMiddleware_IsIndestuctable(t *testing.T) {
 		err := h(w, r, c)
 
 		// Should always continue to handler without returning an error
-		testhelpers.AssertAppErrorNil(t, err)
+		AssertAppErrorNil(t, err)
 		testhelpers.AssertIntEqual(t, nextHandlerCallCount, 1)
 
 		// pipeline state user should always be nil
@@ -474,7 +488,7 @@ type validatePortalTokenCallArgs struct {
 
 type mockTokenValidator struct {
 	t             testing.TB
-	returnsClaims *auth.PortalTokenClaims
+	returnsClaims *PortalTokenClaims
 	returnsError  error
 	calls         []validatePortalTokenCallArgs
 }
@@ -482,7 +496,7 @@ type mockTokenValidator struct {
 func (v *mockTokenValidator) ValidatePortalToken(
 	ctx context.Context,
 	tokenString string,
-) (*auth.PortalTokenClaims, error) {
+) (*PortalTokenClaims, error) {
 	if v.calls == nil {
 		v.calls = []validatePortalTokenCallArgs{}
 	}

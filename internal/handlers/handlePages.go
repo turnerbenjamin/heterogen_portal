@@ -8,11 +8,10 @@ import (
 	"net/http"
 
 	"github.com/turnerbenjamin/heterogen_portal/internal/constants"
-	"github.com/turnerbenjamin/heterogen_portal/internal/etc"
 	"github.com/turnerbenjamin/heterogen_portal/internal/templates"
 )
 
-var errHtmxNotSupported *etc.AppError = etc.NewServerError(
+var errHtmxNotSupported *AppError = NewServerError(
 	errors.New(constants.ErrMsgHtmxNotSupported),
 )
 
@@ -21,7 +20,7 @@ var errHtmxNotSupported *etc.AppError = etc.NewServerError(
 // It redirects unauthenticated users to the sign-in page and renders the
 // main app template for authenticated users.
 func GetRootHandler(ts TemplateStore) AppHandler[UserState] {
-	return func(w http.ResponseWriter, r *http.Request, c *PipelineContext[UserState]) *etc.AppError {
+	return func(w http.ResponseWriter, r *http.Request, c *PipelineContext[UserState]) *AppError {
 		if r.URL.Path != "/" {
 			http.NotFound(w, r)
 			return nil
@@ -48,7 +47,7 @@ func GetRootHandler(ts TemplateStore) AppHandler[UserState] {
 			templates.TemplateArgs{PageConfig: pageConfig, Data: c.state},
 		)
 		if err != nil {
-			return etc.NewServerError(err)
+			return NewServerError(err)
 		}
 		return nil
 	}
@@ -56,7 +55,7 @@ func GetRootHandler(ts TemplateStore) AppHandler[UserState] {
 
 // GetSignInHandler returns the sign-in page handler.
 func GetSignInHandler(ts TemplateStore) AppHandler[NoState] {
-	return func(w http.ResponseWriter, r *http.Request, c *PipelineContext[NoState]) *etc.AppError {
+	return func(w http.ResponseWriter, r *http.Request, c *PipelineContext[NoState]) *AppError {
 		pageConfig := templates.PageConfig{
 			ContentOnly: false,
 			Title:       "HETEROGEN | SIGN-IN",
@@ -68,7 +67,7 @@ func GetSignInHandler(ts TemplateStore) AppHandler[NoState] {
 			templates.TemplateArgs{PageConfig: pageConfig, Data: nil},
 		)
 		if err != nil {
-			return etc.NewServerError(err)
+			return NewServerError(err)
 		}
 		return nil
 	}
@@ -76,7 +75,7 @@ func GetSignInHandler(ts TemplateStore) AppHandler[NoState] {
 
 // GetSignInRedirectHandler returns the sign-in redirect page handler.
 func GetSignInRedirectHandler(ts TemplateStore) AppHandler[NoState] {
-	return func(w http.ResponseWriter, r *http.Request, c *PipelineContext[NoState]) *etc.AppError {
+	return func(w http.ResponseWriter, r *http.Request, c *PipelineContext[NoState]) *AppError {
 		if r.Header.Get("HX-Request") != "" {
 			return errHtmxNotSupported
 		}
@@ -92,7 +91,7 @@ func GetSignInRedirectHandler(ts TemplateStore) AppHandler[NoState] {
 			templates.TemplateArgs{PageConfig: pageConfig, Data: nil},
 		)
 		if err != nil {
-			return etc.NewServerError(err)
+			return NewServerError(err)
 		}
 		return nil
 	}
@@ -103,7 +102,7 @@ func GetSignInRedirectHandler(ts TemplateStore) AppHandler[NoState] {
 // It clears the JWT cookie and renders the sign-out template. The sign-out page
 // will then redirect to allow the user to sign-out from EntraId.
 func GetSignOutHandler(ts TemplateStore) AppHandler[NoState] {
-	return func(w http.ResponseWriter, r *http.Request, c *PipelineContext[NoState]) *etc.AppError {
+	return func(w http.ResponseWriter, r *http.Request, c *PipelineContext[NoState]) *AppError {
 		if r.Header.Get("HX-Request") != "" {
 			return errHtmxNotSupported
 		}
@@ -120,7 +119,7 @@ func GetSignOutHandler(ts TemplateStore) AppHandler[NoState] {
 			templates.TemplateArgs{PageConfig: pageConfig, Data: nil},
 		)
 		if err != nil {
-			return etc.NewServerError(err)
+			return NewServerError(err)
 		}
 		return nil
 	}
@@ -131,7 +130,7 @@ func GetSignOutHandler(ts TemplateStore) AppHandler[NoState] {
 // The signed out page can be redirected to by EntraId after the user has
 // successfully signed out.
 func GetSignedOutHandler(ts TemplateStore) AppHandler[NoState] {
-	return func(w http.ResponseWriter, r *http.Request, c *PipelineContext[NoState]) *etc.AppError {
+	return func(w http.ResponseWriter, r *http.Request, c *PipelineContext[NoState]) *AppError {
 		if r.Header.Get("HX-Request") != "" {
 			return errHtmxNotSupported
 		}
@@ -147,7 +146,7 @@ func GetSignedOutHandler(ts TemplateStore) AppHandler[NoState] {
 			templates.TemplateArgs{PageConfig: pageConfig, Data: nil},
 		)
 		if err != nil {
-			return etc.NewServerError(err)
+			return NewServerError(err)
 		}
 		return nil
 	}
