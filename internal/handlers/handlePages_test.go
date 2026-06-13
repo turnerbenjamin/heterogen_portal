@@ -124,7 +124,7 @@ func TestGetRoot_ReturnsServerError_WhenExecuteReturnsAnError(t *testing.T) {
 		Code:       http.StatusInternalServerError,
 		ToastError: constants.ErrMsgInternalServerError,
 		PageErrors: []string{constants.ErrMsgInternalServerError},
-		InnerError: wantInnerError,
+		innerError: wantInnerError,
 	}
 
 	templateStore := mockTemplateStore{t: t, returns: wantInnerError}
@@ -189,7 +189,7 @@ func TestGetSignInHandler_ReturnsServerError_WhenExecuteReturnsAnError(t *testin
 		Code:       http.StatusInternalServerError,
 		ToastError: constants.ErrMsgInternalServerError,
 		PageErrors: []string{constants.ErrMsgInternalServerError},
-		InnerError: wantInnerError,
+		innerError: wantInnerError,
 	}
 
 	templateStore := mockTemplateStore{t: t, returns: wantInnerError}
@@ -210,7 +210,7 @@ func TestMsalFlowHandlers_ReturnServerError_WhenHTMXRequest(t *testing.T) {
 		Code:       http.StatusInternalServerError,
 		ToastError: constants.ErrMsgInternalServerError,
 		PageErrors: []string{constants.ErrMsgInternalServerError},
-		InnerError: errors.New(constants.ErrMsgHtmxNotSupported),
+		innerError: errors.New(constants.ErrMsgHtmxNotSupported),
 	}
 
 	templateStore := mockTemplateStore{t: t}
@@ -243,7 +243,7 @@ func TestMsalFlowHandlers_ReturnServerError_WhenExecuteReturnsAnError(t *testing
 		Code:       http.StatusInternalServerError,
 		ToastError: constants.ErrMsgInternalServerError,
 		PageErrors: []string{constants.ErrMsgInternalServerError},
-		InnerError: wantInnerError,
+		innerError: wantInnerError,
 	}
 
 	msalFlowHandlerBuilders := []func(TemplateStore) AppHandler[NoState]{

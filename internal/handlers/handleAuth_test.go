@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/turnerbenjamin/heterogen_portal/internal/auth"
 	"github.com/turnerbenjamin/heterogen_portal/internal/constants"
 	"github.com/turnerbenjamin/heterogen_portal/internal/db"
 	"github.com/turnerbenjamin/heterogen_portal/internal/testhelpers"
@@ -27,7 +26,7 @@ var testUser = db.User{
 	EmailAddress: "email_address",
 }
 
-var testPortalClaims = auth.PortalTokenClaims{
+var testPortalClaims = PortalTokenClaims{
 	Oid:          testUser.Oid,
 	GivenName:    testUser.GivenName,
 	FamilyName:   testUser.FamilyName,
@@ -36,6 +35,8 @@ var testPortalClaims = auth.PortalTokenClaims{
 }
 
 func TestPostSignIn_CallsValidatePortalTokenCorrectly(t *testing.T) {
+	t.Parallel()
+
 	tokenValidator := &mockTokenValidator{t: t, returnsClaims: &testPortalClaims}
 	userRepo := &mockUserRepo{
 		t: t,
@@ -65,12 +66,14 @@ func TestPostSignIn_CallsValidatePortalTokenCorrectly(t *testing.T) {
 }
 
 func TestPostSignIn_ReturnsUnauthorisedWhenValidatePortalTokenReturnsAnError(t *testing.T) {
+	t.Parallel()
+
 	validatorError := errors.New("some validator error")
 	wantAppErr := &AppError{
 		Code:       http.StatusUnauthorized,
 		ToastError: constants.ErrMsgUnauthorised,
 		PageErrors: []string{constants.ErrMsgUnauthorised},
-		InnerError: validatorError,
+		innerError: validatorError,
 	}
 
 	tokenValidator := &mockTokenValidator{t: t, returnsError: validatorError}
@@ -91,6 +94,8 @@ func TestPostSignIn_ReturnsUnauthorisedWhenValidatePortalTokenReturnsAnError(t *
 }
 
 func TestPostSignIn_ShouldCallUpsertWithUserData(t *testing.T) {
+	t.Parallel()
+
 	tokenValidator := &mockTokenValidator{t: t, returnsClaims: &testPortalClaims}
 	userRepo := &mockUserRepo{
 		t: t,
@@ -123,12 +128,14 @@ func TestPostSignIn_ShouldCallUpsertWithUserData(t *testing.T) {
 }
 
 func TestPostSignIn_ReturnsServerErrorWhenUpsertUserReturnsAnError(t *testing.T) {
+	t.Parallel()
+
 	upsertError := errors.New("some upsert error")
 	wantAppErr := &AppError{
 		Code:       http.StatusInternalServerError,
 		ToastError: constants.ErrMsgInternalServerError,
 		PageErrors: []string{constants.ErrMsgInternalServerError},
-		InnerError: upsertError,
+		innerError: upsertError,
 	}
 
 	tokenValidator := &mockTokenValidator{t: t, returnsClaims: &testPortalClaims}
@@ -155,12 +162,14 @@ func TestPostSignIn_ReturnsServerErrorWhenUpsertUserReturnsAnError(t *testing.T)
 }
 
 func TestPostSignIn_ReturnsServerErrorWhenTokenSignerReturnsAnError(t *testing.T) {
+	t.Parallel()
+
 	signError := errors.New("some sign error")
 	wantAppErr := &AppError{
 		Code:       http.StatusInternalServerError,
 		ToastError: constants.ErrMsgInternalServerError,
 		PageErrors: []string{constants.ErrMsgInternalServerError},
-		InnerError: signError,
+		innerError: signError,
 	}
 
 	tokenValidator := &mockTokenValidator{t: t, returnsClaims: &testPortalClaims}
@@ -187,6 +196,8 @@ func TestPostSignIn_ReturnsServerErrorWhenTokenSignerReturnsAnError(t *testing.T
 }
 
 func TestPostSignIn_SetsCookieWithJwtToken(t *testing.T) {
+	t.Parallel()
+
 	testTokenString := "test_jwt_token_string"
 	wantCookie := &http.Cookie{
 		Name:        constants.IdentifierJwtCookie,
@@ -237,6 +248,8 @@ func TestPostSignIn_SetsCookieWithJwtToken(t *testing.T) {
 }
 
 func TestPostSignIn_RedirectsUserToRoot(t *testing.T) {
+	t.Parallel()
+
 	tokenValidator := &mockTokenValidator{t: t, returnsClaims: &testPortalClaims}
 	userRepo := &mockUserRepo{
 		t: t,
@@ -278,6 +291,8 @@ func TestPostSignIn_RedirectsUserToRoot(t *testing.T) {
 }
 
 func TestParseJWTMiddleware_ShouldRetrieveUserAndUpdatePipelineContext(t *testing.T) {
+	t.Parallel()
+
 	nextHandlerCallCount := 0
 	var userReceivedInHandler *db.User = nil
 
@@ -473,7 +488,7 @@ type validatePortalTokenCallArgs struct {
 
 type mockTokenValidator struct {
 	t             testing.TB
-	returnsClaims *auth.PortalTokenClaims
+	returnsClaims *PortalTokenClaims
 	returnsError  error
 	calls         []validatePortalTokenCallArgs
 }
@@ -481,7 +496,7 @@ type mockTokenValidator struct {
 func (v *mockTokenValidator) ValidatePortalToken(
 	ctx context.Context,
 	tokenString string,
-) (*auth.PortalTokenClaims, error) {
+) (*PortalTokenClaims, error) {
 	if v.calls == nil {
 		v.calls = []validatePortalTokenCallArgs{}
 	}

@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/turnerbenjamin/heterogen_portal/internal/auth"
 	"github.com/turnerbenjamin/heterogen_portal/internal/constants"
 	"github.com/turnerbenjamin/heterogen_portal/internal/db"
 )
@@ -26,7 +25,7 @@ type TokenValidator interface {
 	ValidatePortalToken(
 		ctx context.Context,
 		tokenString string,
-	) (*auth.PortalTokenClaims, error)
+	) (*PortalTokenClaims, error)
 }
 
 // UserRepo performs database operations on the user table
@@ -78,7 +77,7 @@ func PostSignInHandler(
 				Code:       http.StatusUnauthorized,
 				ToastError: constants.ErrMsgUnauthorised,
 				PageErrors: []string{constants.ErrMsgUnauthorised},
-				InnerError: err,
+				innerError: err,
 			}
 		}
 

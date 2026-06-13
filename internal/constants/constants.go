@@ -24,7 +24,7 @@ const (
 	SlogKeyRequestDurationMs           = "request_duration_ms"
 	SlogKeyRequestErr                  = "request_error"
 	SlogKeyResponseWriterErr           = "response_writer_error"
-	SlogKeyResponseStatusCode          = "response_status_error"
+	SlogKeyResponseStatusCode          = "response_status"
 	SlogKeyNonFatalErrParseWithClaims  = "non_fatal_err_parse_with_claims"
 	SlogKeyNonFatalErrClaimsGetSubject = "non_fatal_err_claims_get_subject"
 	SlogKeyNonFatalErrRetrieveUserById = "non_fatal_err_retrieve_user_by_id"

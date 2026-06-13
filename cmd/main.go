@@ -15,9 +15,8 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/turnerbenjamin/heterogen_portal/internal/app"
-	"github.com/turnerbenjamin/heterogen_portal/internal/auth"
-	"github.com/turnerbenjamin/heterogen_portal/internal/config"
 	"github.com/turnerbenjamin/heterogen_portal/internal/db"
+	"github.com/turnerbenjamin/heterogen_portal/internal/handlers"
 	"github.com/turnerbenjamin/heterogen_portal/internal/templates"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -68,13 +67,13 @@ func run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	appConfig, err := config.GetAppSettings(ctx, dotenvPath, isRunningLocally)
+	appConfig, err := app.GetAppSettings(ctx, dotenvPath, isRunningLocally)
 
 	if err != nil {
 		return err
 	}
 
-	ts, err := templates.MakeTemplateStore(embeddedFiles, "templates", config.TemplateDataMap)
+	ts, err := templates.MakeTemplateStore(embeddedFiles, "templates", templates.TemplateDataMap)
 	if err != nil {
 		return err
 	}
@@ -94,7 +93,7 @@ func run(ctx context.Context) error {
 	userRepo := db.BuildUserRepo(db_conn, crypt{})
 	defer userRepo.Close()
 
-	tokenValidator := &auth.PortalTokenValidator{}
+	tokenValidator := &handlers.PortalTokenValidator{}
 
 	srv, err := app.NewServer(
 		ts,

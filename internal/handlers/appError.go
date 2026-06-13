@@ -1,3 +1,6 @@
+// Package handlers contains HTTP handlers for the application.
+//
+// This file provides AppError an error type returned from http handlers
 package handlers
 
 import (
@@ -8,14 +11,14 @@ import (
 	"github.com/turnerbenjamin/heterogen_portal/internal/constants"
 )
 
-// AppError holds errors returned from http handlers. It includes data intended
-// for users such as toast messages and page errors. It can also hold an
-// inner error which may be logged.
+// AppError holds data for errors returned from http handlers. It includes data
+// intended for end users such as toast messages and page errors. It can also
+// hold an inner error which may be logged.
 type AppError struct {
 	Code       int
 	ToastError string
 	PageErrors []string
-	InnerError error
+	innerError error
 }
 
 // NewServerError is a helper for creating a server error which will display the
@@ -26,14 +29,14 @@ func NewServerError(err error) *AppError {
 		Code:       http.StatusInternalServerError,
 		ToastError: constants.ErrMsgInternalServerError,
 		PageErrors: []string{constants.ErrMsgInternalServerError},
-		InnerError: err,
+		innerError: err,
 	}
 }
 
 // String returns a string representation of the error for logging purposes
 func (e *AppError) String() string {
-	if e.InnerError != nil {
-		return e.InnerError.Error()
+	if e.innerError != nil {
+		return e.innerError.Error()
 	}
 
 	if e.ToastError != "" {
@@ -41,7 +44,7 @@ func (e *AppError) String() string {
 	}
 
 	if len(e.PageErrors) > 0 {
-		return fmt.Sprintf("[%ss]", strings.Join(e.PageErrors, ","))
+		return fmt.Sprintf("[%s]", strings.Join(e.PageErrors, ","))
 	}
 
 	return constants.DefaultAppErrorString

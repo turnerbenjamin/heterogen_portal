@@ -26,7 +26,9 @@ func AssertAppErrorEqual(t testing.TB, got, want *AppError) {
 		t.Fatalf("got status code %d, but want %d", got.Code, want.Code)
 	}
 
-	testhelpers.AssertErrorEqual(t, got.InnerError, want.InnerError)
+	if want.innerError != nil {
+		testhelpers.AssertErrorEqual(t, got.innerError, want.innerError)
+	}
 
 	if got.ToastError != want.ToastError {
 		t.Fatalf("got toastError %s, but want toastError %s", got.ToastError, want.ToastError)
