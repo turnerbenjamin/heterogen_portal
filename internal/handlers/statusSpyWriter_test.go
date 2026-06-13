@@ -5,7 +5,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/turnerbenjamin/heterogen_portal/testhelpers"
+	"github.com/turnerbenjamin/heterogen_portal/internal/testhelpers"
 )
 
 func TestStatusSpyWriter_Write_CallsWriteOnUnderlyingWriter(t *testing.T) {

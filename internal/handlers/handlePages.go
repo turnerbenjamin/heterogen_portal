@@ -7,13 +7,13 @@ import (
 	"errors"
 	"net/http"
 
+	"github.com/turnerbenjamin/heterogen_portal/internal/constants"
 	"github.com/turnerbenjamin/heterogen_portal/internal/etc"
 	"github.com/turnerbenjamin/heterogen_portal/internal/templates"
 )
 
-// errHtmxNotSupported is returned from routes that do not support HTMX requests
 var errHtmxNotSupported *etc.AppError = etc.NewServerError(
-	errors.New("HTMX requests are not supported on this route"),
+	errors.New(constants.ErrMsgHtmxNotSupported),
 )
 
 // GetRootHandler returns a handler for the application root.
@@ -108,7 +108,7 @@ func GetSignOutHandler(ts TemplateStore) AppHandler[NoState] {
 			return errHtmxNotSupported
 		}
 
-		unsetJWTCookie(w)
+		unsetJwtCookie(w)
 		pageConfig := templates.PageConfig{
 			ContentOnly: false,
 			Title:       "HETEROGEN | SIGN-OUT",

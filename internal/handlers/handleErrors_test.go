@@ -7,7 +7,7 @@ import (
 
 	"github.com/turnerbenjamin/heterogen_portal/internal/etc"
 	"github.com/turnerbenjamin/heterogen_portal/internal/templates"
-	"github.com/turnerbenjamin/heterogen_portal/testhelpers"
+	"github.com/turnerbenjamin/heterogen_portal/internal/testhelpers"
 )
 
 func TestWrite_HandlesErrorResponse(t *testing.T) {

@@ -14,6 +14,7 @@ import (
 	"runtime/debug"
 	"time"
 
+	"github.com/turnerbenjamin/heterogen_portal/internal/constants"
 	"github.com/turnerbenjamin/heterogen_portal/internal/etc"
 )
 
@@ -85,17 +86,17 @@ func (p *PipelineBuilder[T]) New(
 
 		startTime := time.Now()
 		slogger := p.rootLogger.With(
-			slog.String("request_method", r.Method),
-			slog.String("request_path", r.URL.Path),
-			slog.String("request_time", startTime.Format(time.RFC3339Nano)),
+			slog.String(constants.SlogKeyRequestMethod, r.Method),
+			slog.String(constants.SlogKeyRequestPath, r.URL.Path),
+			slog.String(constants.SlogKeyRequestTime, startTime.Format(time.RFC3339Nano)),
 		)
 
 		defer func() {
 			if rec := recover(); rec != nil {
 				slogger.Error(
 					"panic",
-					slog.String("panic", fmt.Sprint(rec)),
-					slog.String("stack", string(debug.Stack())),
+					slog.String(constants.SlogKeyRequestPanicMsg, fmt.Sprint(rec)),
+					slog.String(constants.SlogKeyRequestPanicStack, string(debug.Stack())),
 				)
 				http.Error(sw, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 			}
@@ -106,15 +107,10 @@ func (p *PipelineBuilder[T]) New(
 			state:  new(T),
 		}
 
-		pipelineData.AddLoggerKV(
-			slog.String("request_method", r.Method),
-			slog.String("request_path", r.URL.Path),
-			slog.String("request_time", startTime.Format(time.RFC3339Nano)),
-		)
 		defer func() {
 			pipelineData.logger.Info(
 				"",
-				slog.Int64("request_duration_ms", time.Since(startTime).Milliseconds()),
+				slog.Int64(constants.SlogKeyRequestDurationMs, time.Since(startTime).Milliseconds()),
 			)
 		}()
 
@@ -123,19 +119,19 @@ func (p *PipelineBuilder[T]) New(
 			err := p.errorHandler.Write(sw, appError)
 			if err != nil {
 				pipelineData.AddLoggerKV(
-					slog.String("writer_error", err.Error()),
-					slog.String("response_error", appError.String()),
+					slog.String(constants.SlogKeyResponseWriterErr, err.Error()),
+					slog.String(constants.SlogKeyRequestErr, appError.String()),
 				)
 				http.Error(sw, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 			} else {
 				pipelineData.AddLoggerKV(
-					slog.String("response_error", appError.String()),
+					slog.String(constants.SlogKeyRequestErr, appError.String()),
 				)
 			}
 		}
 
 		pipelineData.logger = pipelineData.logger.With(
-			slog.Int("response_status_code", sw.statusCode),
+			slog.Int(constants.SlogKeyResponseStatusCode, sw.statusCode),
 		)
 	})
 }

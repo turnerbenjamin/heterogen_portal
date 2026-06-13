@@ -16,6 +16,6 @@ Quick overview
 To run unit tests and view test coverage for the project:
 
 ```terminal
-go test ./internal/... -cover -coverprofile=test-coverage.out
+go test $(go list ./internal/... | grep -E -v '/constants|/testhelpers') -cover -coverprofile=test-coverage.out
 go tool cover -html=test-coverage.out
 ```

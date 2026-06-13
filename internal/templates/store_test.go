@@ -11,7 +11,8 @@ import (
 	"testing"
 	"testing/fstest"
 
-	"github.com/turnerbenjamin/heterogen_portal/testhelpers"
+	"github.com/turnerbenjamin/heterogen_portal/internal/constants"
+	"github.com/turnerbenjamin/heterogen_portal/internal/testhelpers"
 )
 
 func TestMakeTemplateStore_ReturnsStore(t *testing.T) {
@@ -51,7 +52,7 @@ func TestMakeTemplateStore_HandlesNilFS(t *testing.T) {
 		map[TemplateIdentifier]TemplateData{},
 	)
 	_, err := MakeTemplateStore(nil, root, templateData)
-	want := errors.New(Err_FileSystemIsNil)
+	want := errors.New(constants.ErrMsgFileSystemIsNil)
 
 	testhelpers.AssertErrorEqual(t, err, want)
 }
@@ -69,7 +70,7 @@ func TestMakeTemplateStore_HandlesMissingTemplateData(t *testing.T) {
 	delete(templateData, TmplPageUserSignedOut)
 
 	_, err := MakeTemplateStore(fs, root, templateData)
-	want := fmt.Errorf("%s%d", Err_MissingTemplateDataPrefix, TmplPageUserSignedOut)
+	want := fmt.Errorf("%s%d", constants.ErrMsgPrefixMissingTemplateData, TmplPageUserSignedOut)
 	testhelpers.AssertErrorEqual(t, err, want)
 }
 
@@ -88,7 +89,7 @@ func TestMakeTemplateStore_HandlesMissingTemplate(t *testing.T) {
 
 	_, err := MakeTemplateStore(fs, root, templateData)
 
-	want := fmt.Errorf("%s%s", Err_MissingTemplateFilePrefix, missingTemplate.Name)
+	want := fmt.Errorf("%s%s", constants.ErrMsgPrefixMissingTemplateFile, missingTemplate.Name)
 	testhelpers.AssertErrorEqual(t, err, want)
 }
 
@@ -116,7 +117,7 @@ func TestMakeTemplateStore_HandlesMissingDependency(t *testing.T) {
 
 	_, err := MakeTemplateStore(testFS, root, templateData)
 
-	want := fmt.Errorf("%s%s", Err_MissingTemplateFilePrefix, missingDepName)
+	want := fmt.Errorf("%s%s", constants.ErrMsgPrefixMissingTemplateFile, missingDepName)
 	testhelpers.AssertErrorEqual(t, err, want)
 }
 
@@ -208,7 +209,7 @@ func TestExecute_HandlesMissingData(t *testing.T) {
 		},
 	)
 
-	want := fmt.Errorf("%s%d", Err_MissingTemplateDataPrefix, TmplPageUserSignedOut)
+	want := fmt.Errorf("%s%d", constants.ErrMsgPrefixMissingTemplateData, TmplPageUserSignedOut)
 	testhelpers.AssertErrorEqual(t, err, want)
 }
 

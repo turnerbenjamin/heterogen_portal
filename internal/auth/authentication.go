@@ -33,56 +33,10 @@ type PortalTokenClaims struct {
 	EmailAddress string
 }
 
-func initOIDC() error {
-	initOnce.Do(func() {
-		authority := "https://heterogenportalusers.ciamlogin.com/09af08d8-4dbc-4605-b414-2c6d9c7a0e70/v2.0"
-		audience = "bb3c49a3-171c-49ab-a96b-8b247f600c44"
-
-		resp, err := http.Get(authority + "/.well-known/openid-configuration")
-		if err != nil {
-			initErr = err
-			return
-		}
-
-		defer func() {
-			if cerr := resp.Body.Close(); err == nil {
-				initErr = cerr
-			}
-		}()
-
-		var cfg struct {
-			JwksURI string `json:"jwks_uri"`
-			Issuer  string `json:"issuer"`
-		}
-		if err := json.NewDecoder(resp.Body).Decode(&cfg); err != nil {
-			initErr = err
-			return
-		}
-		if cfg.JwksURI == "" {
-			initErr = errors.New("jwks_uri missing from openid config")
-			return
-		}
-		jwksURL = cfg.JwksURI
-		issuer = cfg.Issuer
-
-		j, err := keyfunc.Get(jwksURL, keyfunc.Options{
-			RefreshInterval:   refreshIn,
-			RefreshUnknownKID: true,
-			RefreshTimeout:    10 * time.Second,
-		})
-		if err != nil {
-			initErr = err
-			return
-		}
-		jwksMu.Lock()
-		jwks = j
-		jwksMu.Unlock()
-	})
-	return initErr
-}
+type PortalTokenValidator struct{}
 
 // ValidateToken validates and returns claims; uses cached JWKS.
-func ValidateToken(ctx context.Context, tokenString string) (*PortalTokenClaims, error) {
+func (v *PortalTokenValidator) ValidatePortalToken(ctx context.Context, tokenString string) (*PortalTokenClaims, error) {
 	if tokenString == "" {
 		return nil, errors.New("invalid token string")
 	}
@@ -173,6 +127,54 @@ func parsePortalTokenClaims(claims jwt.MapClaims) (*PortalTokenClaims, error) {
 		UserName:     userName,
 		EmailAddress: emailAddress,
 	}, nil
+}
+
+func initOIDC() error {
+	initOnce.Do(func() {
+		authority := "https://heterogenportalusers.ciamlogin.com/09af08d8-4dbc-4605-b414-2c6d9c7a0e70/v2.0"
+		audience = "bb3c49a3-171c-49ab-a96b-8b247f600c44"
+
+		resp, err := http.Get(authority + "/.well-known/openid-configuration")
+		if err != nil {
+			initErr = err
+			return
+		}
+
+		defer func() {
+			if cerr := resp.Body.Close(); err == nil {
+				initErr = cerr
+			}
+		}()
+
+		var cfg struct {
+			JwksURI string `json:"jwks_uri"`
+			Issuer  string `json:"issuer"`
+		}
+		if err := json.NewDecoder(resp.Body).Decode(&cfg); err != nil {
+			initErr = err
+			return
+		}
+		if cfg.JwksURI == "" {
+			initErr = errors.New("jwks_uri missing from openid config")
+			return
+		}
+		jwksURL = cfg.JwksURI
+		issuer = cfg.Issuer
+
+		j, err := keyfunc.Get(jwksURL, keyfunc.Options{
+			RefreshInterval:   refreshIn,
+			RefreshUnknownKID: true,
+			RefreshTimeout:    10 * time.Second,
+		})
+		if err != nil {
+			initErr = err
+			return
+		}
+		jwksMu.Lock()
+		jwks = j
+		jwksMu.Unlock()
+	})
+	return initErr
 }
 
 func parseClaim(claims jwt.MapClaims, claim string) (string, error) {

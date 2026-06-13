@@ -10,8 +10,8 @@ const (
 )
 
 type User struct {
-	ID           string       `json:"id"`
-	OID          string       `json:"oid"`
+	Id           string       `json:"id"`
+	Oid          string       `json:"oid"`
 	GivenName    string       `json:"given_name"`
 	FamilyName   string       `json:"family_name"`
 	UserName     string       `json:"user_name"`

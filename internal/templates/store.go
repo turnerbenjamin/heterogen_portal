@@ -9,6 +9,8 @@ import (
 	"io/fs"
 	"path/filepath"
 	"sort"
+
+	"github.com/turnerbenjamin/heterogen_portal/internal/constants"
 )
 
 // Store holds the parsed templates and metadata required to execute them.
@@ -58,19 +60,6 @@ type executeTemplateData struct {
 	WebResources WebResourceDependencies
 }
 
-const (
-	// Err_FileSystemIsNil is returned when a nil fs.FS is passed to MakeTemplateStore.
-	Err_FileSystemIsNil = "filesystem is nil"
-
-	// Err_MissingTemplateDataPrefix prefixes errors where template-data for an
-	// identifier is missing.
-	Err_MissingTemplateDataPrefix = "template data not found: "
-
-	// Err_MissingTemplateFilePrefix prefixes errors where a template file or
-	// dependency cannot be found in the provided file system.
-	Err_MissingTemplateFilePrefix = "template file not found: "
-)
-
 // MakeTemplateStore builds a `Store` by reading and parsing all templates
 // found under `root` in `fileSystem`. Validates that all template identifiers
 // have corresponding template data and that files exist for all templates and
@@ -80,7 +69,7 @@ const (
 // filesystem is nil, required template files are missing, or parsing fails.
 func MakeTemplateStore(fileSystem fs.FS, root string, templateData map[TemplateIdentifier]TemplateData) (*Store, error) {
 	if fileSystem == nil {
-		return nil, errors.New(Err_FileSystemIsNil)
+		return nil, errors.New(constants.ErrMsgFileSystemIsNil)
 	}
 
 	buildPaths, err := getTemplatePaths(fileSystem, root)
@@ -107,18 +96,18 @@ func MakeTemplateStore(fileSystem fs.FS, root string, templateData map[TemplateI
 	for i := range _tmplEnumEnd {
 		data, ok := templateData[TemplateIdentifier(i)]
 		if !ok {
-			return nil, fmt.Errorf("%s%d", Err_MissingTemplateDataPrefix, i)
+			return nil, fmt.Errorf("%s%d", constants.ErrMsgPrefixMissingTemplateData, i)
 		}
 
 		currentT := t.Lookup(data.Name)
 		if currentT == nil {
-			return nil, fmt.Errorf("%s%s", Err_MissingTemplateFilePrefix, data.Name)
+			return nil, fmt.Errorf("%s%s", constants.ErrMsgPrefixMissingTemplateFile, data.Name)
 		}
 
 		for _, dependency := range data.Dependencies {
 			tmpl := t.Lookup(dependency)
 			if tmpl == nil {
-				return nil, fmt.Errorf("%s%s", Err_MissingTemplateFilePrefix, dependency)
+				return nil, fmt.Errorf("%s%s", constants.ErrMsgPrefixMissingTemplateFile, dependency)
 			}
 		}
 	}
@@ -137,7 +126,7 @@ func (ts *Store) Execute(
 ) error {
 	td, ok := ts.templateData[id]
 	if !ok {
-		return fmt.Errorf("%s%d", Err_MissingTemplateDataPrefix, id)
+		return fmt.Errorf("%s%d", constants.ErrMsgPrefixMissingTemplateData, id)
 	}
 
 	d := &executeTemplateData{

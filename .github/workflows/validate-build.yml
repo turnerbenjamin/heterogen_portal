@@ -62,4 +62,4 @@ jobs:
 
       - name: Run Go Tests
         run: |
-          go test ./internal/... -cover
+          go test $(go list ./internal/... | grep -E -v '/constants|/testhelpers') -cover

@@ -13,7 +13,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/turnerbenjamin/heterogen_portal/internal/app"
+	"github.com/turnerbenjamin/heterogen_portal/internal/auth"
 	"github.com/turnerbenjamin/heterogen_portal/internal/config"
 	"github.com/turnerbenjamin/heterogen_portal/internal/db"
 	"github.com/turnerbenjamin/heterogen_portal/internal/templates"
@@ -31,6 +33,27 @@ func (c crypt) GenerateFromPassword(password []byte, cost int) ([]byte, error) {
 
 func (c crypt) CompareHashAndPassword(hashedPassword, password []byte) error {
 	return bcrypt.CompareHashAndPassword(hashedPassword, password)
+}
+
+type tokenSignerAndParser struct {
+	privateKey []byte
+}
+
+func (sp *tokenSignerAndParser) Sign(token *jwt.Token) (string, error) {
+	return token.SignedString(sp.privateKey)
+}
+
+func (sp *tokenSignerAndParser) ParseWithClaims(
+	tokenString string,
+	claims *jwt.RegisteredClaims,
+) (*jwt.Token, error) {
+	return jwt.ParseWithClaims(
+		tokenString,
+		claims,
+		func(token *jwt.Token) (any, error) {
+			return []byte(sp.privateKey), nil
+		},
+	)
 }
 
 func run(ctx context.Context) error {
@@ -68,10 +91,18 @@ func run(ctx context.Context) error {
 		}
 	}()
 
-	adminRepo := db.BuildUserRepo(db_conn, crypt{})
-	defer adminRepo.Close()
+	userRepo := db.BuildUserRepo(db_conn, crypt{})
+	defer userRepo.Close()
 
-	srv, err := app.NewServer(*appConfig, ts, embeddedFiles, adminRepo)
+	tokenValidator := &auth.PortalTokenValidator{}
+
+	srv, err := app.NewServer(
+		ts,
+		embeddedFiles,
+		tokenValidator,
+		&tokenSignerAndParser{privateKey: []byte(appConfig.JwtPrivateKey)},
+		userRepo,
+	)
 	if err != nil {
 		return err
 	}
