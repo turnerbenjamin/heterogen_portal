@@ -16,7 +16,8 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/turnerbenjamin/heterogen_portal/internal/app"
 	"github.com/turnerbenjamin/heterogen_portal/internal/db"
-	"github.com/turnerbenjamin/heterogen_portal/internal/handlers"
+	"github.com/turnerbenjamin/heterogen_portal/internal/etc"
+	"github.com/turnerbenjamin/heterogen_portal/internal/services"
 	"github.com/turnerbenjamin/heterogen_portal/internal/templates"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -35,23 +36,23 @@ func (c crypt) CompareHashAndPassword(hashedPassword, password []byte) error {
 }
 
 type tokenSignerAndParser struct {
-	privateKey []byte
 }
 
-func (sp *tokenSignerAndParser) Sign(token *jwt.Token) (string, error) {
-	return token.SignedString(sp.privateKey)
+func (sp *tokenSignerAndParser) Sign(token *jwt.Token, key []byte) (string, error) {
+	return token.SignedString(key)
 }
 
 func (sp *tokenSignerAndParser) ParseWithClaims(
 	tokenString string,
-	claims *jwt.RegisteredClaims,
+	claims jwt.Claims,
+	keyFunc jwt.Keyfunc,
+	parserOptions ...jwt.ParserOption,
 ) (*jwt.Token, error) {
 	return jwt.ParseWithClaims(
 		tokenString,
 		claims,
-		func(token *jwt.Token) (any, error) {
-			return []byte(sp.privateKey), nil
-		},
+		keyFunc,
+		parserOptions...,
 	)
 }
 
@@ -67,7 +68,23 @@ func run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	appConfig, err := app.GetAppSettings(ctx, dotenvPath, isRunningLocally)
+	privateKeyPath, err := filepath.Abs("private-key.pem")
+	if err != nil {
+		return err
+	}
+
+	publicCertPath, err := filepath.Abs("public-cert.pem")
+	if err != nil {
+		return err
+	}
+
+	appSettings, err := etc.GetAppSettings(
+		ctx,
+		dotenvPath,
+		privateKeyPath,
+		publicCertPath,
+		isRunningLocally,
+	)
 
 	if err != nil {
 		return err
@@ -78,7 +95,7 @@ func run(ctx context.Context) error {
 		return err
 	}
 
-	db_conn, err := db.SetUpDB(appConfig.SqlServerDsn)
+	db_conn, err := db.SetUpDB(appSettings.SqlServerDsn)
 	if err != nil {
 		return err
 	}
@@ -93,14 +110,23 @@ func run(ctx context.Context) error {
 	userRepo := db.BuildUserRepo(db_conn, crypt{})
 	defer userRepo.Close()
 
-	tokenValidator := &handlers.PortalTokenValidator{}
+	jwtSignerAndParser := &tokenSignerAndParser{}
+	authService, err := services.NewAuthService(
+		ctx,
+		appSettings,
+		&http.Client{},
+		userRepo,
+		jwtSignerAndParser,
+	)
+	if err != nil {
+		return err
+	}
 
 	srv, err := app.NewServer(
+		appSettings,
 		ts,
 		embeddedFiles,
-		tokenValidator,
-		&tokenSignerAndParser{privateKey: []byte(appConfig.JwtPrivateKey)},
-		userRepo,
+		authService,
 	)
 	if err != nil {
 		return err

@@ -82,7 +82,7 @@ func TestAppError_String_ReturnsCorrectString(t *testing.T) {
 				PageErrors: []string{},
 				innerError: nil,
 			},
-			want: constants.DefaultAppErrorString,
+			want: constants.EmptyAppErrorString,
 		},
 	}
 

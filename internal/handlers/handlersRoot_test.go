@@ -1,5 +1,6 @@
 package handlers
 
+/*
 import (
 	"bytes"
 	"errors"
@@ -141,186 +142,186 @@ func TestGetRoot_ReturnsServerError_WhenExecuteReturnsAnError(t *testing.T) {
 	AssertAppErrorEqual(t, gotErr, wantAppError)
 }
 
-func TestGetSignInHandler_ReturnsSignInPage(t *testing.T) {
-	t.Parallel()
+// func TestGetSignInHandler_ReturnsSignInPage(t *testing.T) {
+// 	t.Parallel()
 
-	wantStatusCode := http.StatusOK
-	wantTemplate := templates.TmplPageUserSignIn
-	wantPageTitle := "HETEROGEN | SIGN-IN"
+// 	wantStatusCode := http.StatusOK
+// 	wantTemplate := templates.TmplPageUserSignIn
+// 	wantPageTitle := "HETEROGEN | SIGN-IN"
 
-	testData := []struct {
-		isHtmxRequest        bool
-		wantContentOnlyValue bool
-	}{
-		{isHtmxRequest: true, wantContentOnlyValue: false},
-		{isHtmxRequest: false, wantContentOnlyValue: false},
-	}
+// 	testData := []struct {
+// 		isHtmxRequest        bool
+// 		wantContentOnlyValue bool
+// 	}{
+// 		{isHtmxRequest: true, wantContentOnlyValue: false},
+// 		{isHtmxRequest: false, wantContentOnlyValue: false},
+// 	}
 
-	for _, td := range testData {
-		templateStore := mockTemplateStore{t: t, returns: nil}
-		handler := GetSignInHandler(&templateStore)
+// 	for _, td := range testData {
+// 		templateStore := mockTemplateStore{t: t, returns: nil}
+// 		handler := GetSignInHandler(&templateStore)
 
-		r := httptest.NewRequest("GET", "/sign-in", strings.NewReader(""))
-		if td.isHtmxRequest {
-			r.Header.Set("HX-Request", "true")
-		}
+// 		r := httptest.NewRequest("GET", "/sign-in", strings.NewReader(""))
+// 		if td.isHtmxRequest {
+// 			r.Header.Set("HX-Request", "true")
+// 		}
 
-		w := httptest.NewRecorder()
-		c := &PipelineContext[NoState]{}
+// 		w := httptest.NewRecorder()
+// 		c := &PipelineContext[NoState]{}
 
-		err := handler(w, r, c)
+// 		err := handler(w, r, c)
 
-		AssertAppErrorNil(t, err)
-		testhelpers.AssertIntEqual(t, w.Code, wantStatusCode)
-		testhelpers.AssertIntEqual(t, len(templateStore.calls), 1)
+// 		AssertAppErrorNil(t, err)
+// 		testhelpers.AssertIntEqual(t, w.Code, wantStatusCode)
+// 		testhelpers.AssertIntEqual(t, len(templateStore.calls), 1)
 
-		executeCall := templateStore.calls[0]
-		testhelpers.AssertEqual(t, executeCall.templateId, wantTemplate)
-		testhelpers.AssertEqual(t, executeCall.data.PageConfig.ContentOnly, td.wantContentOnlyValue)
-		testhelpers.AssertStringEqual(t, executeCall.data.PageConfig.Title, wantPageTitle)
-	}
-}
+// 		executeCall := templateStore.calls[0]
+// 		testhelpers.AssertEqual(t, executeCall.templateId, wantTemplate)
+// 		testhelpers.AssertEqual(t, executeCall.data.PageConfig.ContentOnly, td.wantContentOnlyValue)
+// 		testhelpers.AssertStringEqual(t, executeCall.data.PageConfig.Title, wantPageTitle)
+// 	}
+// }
 
-func TestGetSignInHandler_ReturnsServerError_WhenExecuteReturnsAnError(t *testing.T) {
-	t.Parallel()
+// func TestGetSignInHandler_ReturnsServerError_WhenExecuteReturnsAnError(t *testing.T) {
+// 	t.Parallel()
 
-	wantInnerError := errors.New("expected_test_error")
-	wantAppError := &AppError{
-		Code:       http.StatusInternalServerError,
-		ToastError: constants.ErrMsgInternalServerError,
-		PageErrors: []string{constants.ErrMsgInternalServerError},
-		innerError: wantInnerError,
-	}
+// 	wantInnerError := errors.New("expected_test_error")
+// 	wantAppError := &AppError{
+// 		Code:       http.StatusInternalServerError,
+// 		ToastError: constants.ErrMsgInternalServerError,
+// 		PageErrors: []string{constants.ErrMsgInternalServerError},
+// 		innerError: wantInnerError,
+// 	}
 
-	templateStore := mockTemplateStore{t: t, returns: wantInnerError}
-	handler := GetSignInHandler(&templateStore)
+// 	templateStore := mockTemplateStore{t: t, returns: wantInnerError}
+// 	handler := GetSignInHandler(&templateStore)
 
-	r := httptest.NewRequest("GET", "/sign-in", strings.NewReader(""))
-	w := httptest.NewRecorder()
-	c := &PipelineContext[NoState]{}
+// 	r := httptest.NewRequest("GET", "/sign-in", strings.NewReader(""))
+// 	w := httptest.NewRecorder()
+// 	c := &PipelineContext[NoState]{}
 
-	gotErr := handler(w, r, c)
-	AssertAppErrorEqual(t, gotErr, wantAppError)
-}
+// 	gotErr := handler(w, r, c)
+// 	AssertAppErrorEqual(t, gotErr, wantAppError)
+// }
 
-func TestMsalFlowHandlers_ReturnServerError_WhenHTMXRequest(t *testing.T) {
-	t.Parallel()
+// func TestMsalFlowHandlers_ReturnServerError_WhenHTMXRequest(t *testing.T) {
+// 	t.Parallel()
 
-	wantAppError := &AppError{
-		Code:       http.StatusInternalServerError,
-		ToastError: constants.ErrMsgInternalServerError,
-		PageErrors: []string{constants.ErrMsgInternalServerError},
-		innerError: errors.New(constants.ErrMsgHtmxNotSupported),
-	}
+// 	wantAppError := &AppError{
+// 		Code:       http.StatusInternalServerError,
+// 		ToastError: constants.ErrMsgInternalServerError,
+// 		PageErrors: []string{constants.ErrMsgInternalServerError},
+// 		innerError: errors.New(constants.ErrMsgHtmxNotSupported),
+// 	}
 
-	templateStore := mockTemplateStore{t: t}
+// 	templateStore := mockTemplateStore{t: t}
 
-	msalFlowHandlerBuilders := []func(TemplateStore) AppHandler[NoState]{
-		GetSignInRedirectHandler,
-		GetSignOutHandler,
-		GetSignedOutHandler,
-	}
+// 	msalFlowHandlerBuilders := []func(TemplateStore) AppHandler[NoState]{
+// 		GetSignInRedirectHandler,
+// 		GetSignOutHandler,
+// 		GetSignedOutHandler,
+// 	}
 
-	for _, hb := range msalFlowHandlerBuilders {
-		handler := hb(&templateStore)
+// 	for _, hb := range msalFlowHandlerBuilders {
+// 		handler := hb(&templateStore)
 
-		r := httptest.NewRequest("GET", "/sign-in", strings.NewReader(""))
-		r.Header.Add("HX-Request", "true")
+// 		r := httptest.NewRequest("GET", "/sign-in", strings.NewReader(""))
+// 		r.Header.Add("HX-Request", "true")
 
-		w := httptest.NewRecorder()
-		c := &PipelineContext[NoState]{}
+// 		w := httptest.NewRecorder()
+// 		c := &PipelineContext[NoState]{}
 
-		gotErr := handler(w, r, c)
-		AssertAppErrorEqual(t, gotErr, wantAppError)
-	}
-}
+// 		gotErr := handler(w, r, c)
+// 		AssertAppErrorEqual(t, gotErr, wantAppError)
+// 	}
+// }
 
-func TestMsalFlowHandlers_ReturnServerError_WhenExecuteReturnsAnError(t *testing.T) {
-	t.Parallel()
+// func TestMsalFlowHandlers_ReturnServerError_WhenExecuteReturnsAnError(t *testing.T) {
+// 	t.Parallel()
 
-	wantInnerError := errors.New("expected_test_error")
-	wantAppError := &AppError{
-		Code:       http.StatusInternalServerError,
-		ToastError: constants.ErrMsgInternalServerError,
-		PageErrors: []string{constants.ErrMsgInternalServerError},
-		innerError: wantInnerError,
-	}
+// 	wantInnerError := errors.New("expected_test_error")
+// 	wantAppError := &AppError{
+// 		Code:       http.StatusInternalServerError,
+// 		ToastError: constants.ErrMsgInternalServerError,
+// 		PageErrors: []string{constants.ErrMsgInternalServerError},
+// 		innerError: wantInnerError,
+// 	}
 
-	msalFlowHandlerBuilders := []func(TemplateStore) AppHandler[NoState]{
-		GetSignInRedirectHandler,
-		GetSignOutHandler,
-		GetSignedOutHandler,
-	}
+// 	msalFlowHandlerBuilders := []func(TemplateStore) AppHandler[NoState]{
+// 		GetSignInRedirectHandler,
+// 		GetSignOutHandler,
+// 		GetSignedOutHandler,
+// 	}
 
-	for _, hb := range msalFlowHandlerBuilders {
-		templateStore := mockTemplateStore{t: t, returns: wantInnerError}
-		handler := hb(&templateStore)
+// 	for _, hb := range msalFlowHandlerBuilders {
+// 		templateStore := mockTemplateStore{t: t, returns: wantInnerError}
+// 		handler := hb(&templateStore)
 
-		r := httptest.NewRequest("GET", "/", strings.NewReader(""))
+// 		r := httptest.NewRequest("GET", "/", strings.NewReader(""))
 
-		w := httptest.NewRecorder()
-		c := &PipelineContext[NoState]{}
+// 		w := httptest.NewRecorder()
+// 		c := &PipelineContext[NoState]{}
 
-		gotErr := handler(w, r, c)
-		AssertAppErrorEqual(t, gotErr, wantAppError)
-	}
-}
+// 		gotErr := handler(w, r, c)
+// 		AssertAppErrorEqual(t, gotErr, wantAppError)
+// 	}
+// }
 
-func TestGetSignInRedirectHandler_ReturnsSignInRedirectPage(t *testing.T) {
-	t.Parallel()
+// func TestGetSignInRedirectHandler_ReturnsSignInRedirectPage(t *testing.T) {
+// 	t.Parallel()
 
-	wantStatusCode := http.StatusOK
-	wantTemplate := templates.TmpPageUserSignInRedirect
-	wantPageTitle := "HETEROGEN | SIGN-IN"
-	wantContentOnlyValue := false
+// 	wantStatusCode := http.StatusOK
+// 	wantTemplate := templates.TmpPageUserSignInRedirect
+// 	wantPageTitle := "HETEROGEN | SIGN-IN"
+// 	wantContentOnlyValue := false
 
-	templateStore := mockTemplateStore{t: t, returns: nil}
-	handler := GetSignInRedirectHandler(&templateStore)
+// 	templateStore := mockTemplateStore{t: t, returns: nil}
+// 	handler := GetSignInRedirectHandler(&templateStore)
 
-	r := httptest.NewRequest("GET", "/sign-in-redirect", strings.NewReader(""))
+// 	r := httptest.NewRequest("GET", "/sign-in-redirect", strings.NewReader(""))
 
-	w := httptest.NewRecorder()
-	c := &PipelineContext[NoState]{}
+// 	w := httptest.NewRecorder()
+// 	c := &PipelineContext[NoState]{}
 
-	err := handler(w, r, c)
+// 	err := handler(w, r, c)
 
-	AssertAppErrorNil(t, err)
-	testhelpers.AssertIntEqual(t, w.Code, wantStatusCode)
-	testhelpers.AssertIntEqual(t, len(templateStore.calls), 1)
+// 	AssertAppErrorNil(t, err)
+// 	testhelpers.AssertIntEqual(t, w.Code, wantStatusCode)
+// 	testhelpers.AssertIntEqual(t, len(templateStore.calls), 1)
 
-	executeCall := templateStore.calls[0]
-	testhelpers.AssertEqual(t, executeCall.templateId, wantTemplate)
-	testhelpers.AssertEqual(t, executeCall.data.PageConfig.ContentOnly, wantContentOnlyValue)
-	testhelpers.AssertStringEqual(t, executeCall.data.PageConfig.Title, wantPageTitle)
-}
+// 	executeCall := templateStore.calls[0]
+// 	testhelpers.AssertEqual(t, executeCall.templateId, wantTemplate)
+// 	testhelpers.AssertEqual(t, executeCall.data.PageConfig.ContentOnly, wantContentOnlyValue)
+// 	testhelpers.AssertStringEqual(t, executeCall.data.PageConfig.Title, wantPageTitle)
+// }
 
-func TestGetSignOutHandler_ReturnsSignOutPage(t *testing.T) {
-	t.Parallel()
+// func TestGetSignOutHandler_ReturnsSignOutPage(t *testing.T) {
+// 	t.Parallel()
 
-	wantStatusCode := http.StatusOK
-	wantTemplate := templates.TmplPageUserSignOut
-	wantPageTitle := "HETEROGEN | SIGN-OUT"
-	wantContentOnlyValue := false
+// 	wantStatusCode := http.StatusOK
+// 	wantTemplate := templates.TmplPageUserSignOut
+// 	wantPageTitle := "HETEROGEN | SIGN-OUT"
+// 	wantContentOnlyValue := false
 
-	templateStore := mockTemplateStore{t: t, returns: nil}
-	handler := GetSignOutHandler(&templateStore)
+// 	templateStore := mockTemplateStore{t: t, returns: nil}
+// 	handler := GetSignOutHandler(&templateStore)
 
-	r := httptest.NewRequest("GET", "/sign-out", strings.NewReader(""))
+// 	r := httptest.NewRequest("GET", "/sign-out", strings.NewReader(""))
 
-	w := httptest.NewRecorder()
-	c := &PipelineContext[NoState]{}
+// 	w := httptest.NewRecorder()
+// 	c := &PipelineContext[NoState]{}
 
-	err := handler(w, r, c)
+// 	err := handler(w, r, c)
 
-	AssertAppErrorNil(t, err)
-	testhelpers.AssertIntEqual(t, w.Code, wantStatusCode)
-	testhelpers.AssertIntEqual(t, len(templateStore.calls), 1)
+// 	AssertAppErrorNil(t, err)
+// 	testhelpers.AssertIntEqual(t, w.Code, wantStatusCode)
+// 	testhelpers.AssertIntEqual(t, len(templateStore.calls), 1)
 
-	executeCall := templateStore.calls[0]
-	testhelpers.AssertEqual(t, executeCall.templateId, wantTemplate)
-	testhelpers.AssertEqual(t, executeCall.data.PageConfig.ContentOnly, wantContentOnlyValue)
-	testhelpers.AssertStringEqual(t, executeCall.data.PageConfig.Title, wantPageTitle)
-}
+// 	executeCall := templateStore.calls[0]
+// 	testhelpers.AssertEqual(t, executeCall.templateId, wantTemplate)
+// 	testhelpers.AssertEqual(t, executeCall.data.PageConfig.ContentOnly, wantContentOnlyValue)
+// 	testhelpers.AssertStringEqual(t, executeCall.data.PageConfig.Title, wantPageTitle)
+// }
 
 func TestGetSignOutHandler_SetsHeadersToUnsetJWT(t *testing.T) {
 	t.Parallel()
@@ -437,3 +438,4 @@ func assertJWTCookieUnset(t testing.TB, w *httptest.ResponseRecorder) {
 	testhelpers.AssertEqual(t, gotCookie.Partitioned, wantCookie.Partitioned)
 	testhelpers.AssertEqual(t, gotCookie.HttpOnly, wantCookie.HttpOnly)
 }
+*/

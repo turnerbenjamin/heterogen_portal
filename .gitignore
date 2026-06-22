@@ -39,6 +39,7 @@ docker-compose.override.yml
 
 # Other
 heterogen
-notes.md
+_notes
 /bash-scripts
 *.out
+*.pem

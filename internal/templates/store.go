@@ -23,9 +23,6 @@ type TemplateIdentifier int
 
 const (
 	TmplPageApp TemplateIdentifier = iota
-	TmplPageUserSignIn
-	TmpPageUserSignInRedirect
-	TmplPageUserSignOut
 	TmplPageUserSignedOut
 	TmplComponentErrors
 	TmplComponentToast
