@@ -33,7 +33,12 @@ func NewParseJwtMiddleware(
 				return next(w, r, c)
 			}
 
-			user, err := authService.ParseUserJwtCookie(jwtCookie.Value)
+			var user *db.User = nil
+			cookieClaims, err := authService.ParseUserJwtCookie(jwtCookie.Value)
+			if err == nil {
+				user, err = authService.RetrieveUserById(cookieClaims.UserId)
+			}
+
 			if err != nil {
 				c.AddLoggerKV(slog.String(
 					constants.EmptyAppErrorString,

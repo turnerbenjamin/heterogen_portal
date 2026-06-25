@@ -62,7 +62,7 @@ func addRoutes(
 		"GET /sign-out",
 		pipeline.New(
 			[]h.Middleware[h.NoState]{},
-			h.GetSignOutHandler(ts, appSettings),
+			h.GetSignOutHandler(ts, appSettings, authService),
 		),
 	)
 

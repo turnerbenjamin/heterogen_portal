@@ -3,9 +3,6 @@ package etc
 import (
 	"bufio"
 	"context"
-	"crypto/rsa"
-	"crypto/x509"
-	"encoding/pem"
 	"errors"
 	"fmt"
 	"os"
@@ -17,26 +14,24 @@ var (
 
 	ErrInvalidDotenvFile = errors.New("invalid dotenv file. Each line should contain a key and value separated by whitespace")
 
-	ErrUnableToReadAppUrlBase                 = errors.New("unable to read app url base")
-	ErrUnableToReadAppJWTSecret               = errors.New("unable to read app jwt secret")
-	ErrUnableToReadOIDCStateSecret            = errors.New("unable to read oidc state secret")
-	ErrUnableToReadDBConnectionString         = errors.New("unable to read db connection string")
-	ErrUnableToReadUserPortalClientId         = errors.New("unable to read user portal client id")
-	ErrUnableToReadUserPortalOAuthUrl         = errors.New("unable to read user portal oauth url")
-	ErrUnableToReadUserPortalGetOIDCConfigUrl = errors.New("unable to read user portal get oidc config url")
+	ErrUnableToReadAppUrlBase             = errors.New("unable to read app url base")
+	ErrUnableToReadAppJwtSecret           = errors.New("unable to read app jwt secret")
+	ErrUnableToReadOidcStateSecret        = errors.New("unable to read oidc state secret")
+	ErrUnableToReadDbConnectionString     = errors.New("unable to read db connection string")
+	ErrUnableToReadUserPortalClientId     = errors.New("unable to read user portal client id")
+	ErrUnableToReadUserPortalClientSecret = errors.New("unable to read user portal client secret")
+	ErrUnableToReadUserPortalIssuerUrl    = errors.New("unable to read user portal issuer url")
 )
 
 type AppSettings struct {
-	IsRunningLocally           bool
-	AppUrlBase                 string
-	AppJWTSecret               []byte
-	OIDCStateSecret            []byte
-	SqlServerDsn               string
-	UserPortalClientId         string
-	UserPortalOAuthUrl         string
-	UserPortalGetOidcConfigUrl string
-	RsaKey                     *rsa.PrivateKey
-	Cert                       *x509.Certificate
+	IsRunningLocally       bool
+	AppUrlBase             string
+	AppJwtSecret           []byte
+	OidcStateSecret        []byte
+	SqlServerDsn           string
+	UserPortalClientId     string
+	UserPortalClientSecret string
+	UserPortalIssuerUrl    string
 }
 
 func GetAppSettings(ctx context.Context, dotenvPath string, privateKeyPath string, publicCertPath string, isRunningLocally bool) (*AppSettings, error) {
@@ -45,39 +40,6 @@ func GetAppSettings(ctx context.Context, dotenvPath string, privateKeyPath strin
 		IsRunningLocally: isRunningLocally,
 	}
 
-	// Read private key for authenticating with Azure
-	pemBytes, err := os.ReadFile(privateKeyPath)
-	if err != nil {
-		return nil, err
-	}
-	block, _ := pem.Decode(pemBytes)
-
-	privateKey, err := x509.ParsePKCS8PrivateKey(block.Bytes)
-	if err != nil {
-		return nil, err
-	}
-
-	if settings.RsaKey, ok = privateKey.(*rsa.PrivateKey); !ok {
-		return nil, ErrUnableToReadAppJWTSecret
-	}
-
-	// Read public certificate for authenticating with Azure
-	certBytes, err := os.ReadFile(publicCertPath)
-	if err != nil {
-		return nil, err
-	}
-
-	block, _ = pem.Decode(certBytes)
-	if block == nil {
-		return nil, errors.New("invalid cert PEM")
-	}
-
-	settings.Cert, err = x509.ParseCertificate(block.Bytes)
-	if err != nil {
-		return nil, err
-	}
-
-	// Load environment Variables
 	if settings.IsRunningLocally {
 		err := parseDotEnv(dotenvPath)
 		if err != nil {
@@ -91,30 +53,30 @@ func GetAppSettings(ctx context.Context, dotenvPath string, privateKeyPath strin
 
 	appJWTSecret := ""
 	if appJWTSecret, ok = os.LookupEnv("APP_JWT_SECRET"); !ok {
-		return nil, ErrUnableToReadAppJWTSecret
+		return nil, ErrUnableToReadAppJwtSecret
 	}
-	settings.AppJWTSecret = []byte(appJWTSecret)
+	settings.AppJwtSecret = []byte(appJWTSecret)
 
 	oidcStateSecret := ""
-	if appJWTSecret, ok = os.LookupEnv("OIDC_STATE_SECRET"); !ok {
-		return nil, ErrUnableToReadOIDCStateSecret
+	if oidcStateSecret, ok = os.LookupEnv("OIDC_STATE_SECRET"); !ok {
+		return nil, ErrUnableToReadOidcStateSecret
 	}
-	settings.OIDCStateSecret = []byte(oidcStateSecret)
+	settings.OidcStateSecret = []byte(oidcStateSecret)
 
 	if settings.SqlServerDsn, ok = os.LookupEnv("SQL_SERVER_DSN"); !ok {
-		return nil, ErrUnableToReadDBConnectionString
+		return nil, ErrUnableToReadDbConnectionString
 	}
 
 	if settings.UserPortalClientId, ok = os.LookupEnv("USER_PORTAL_CLIENT_ID"); !ok {
 		return nil, ErrUnableToReadUserPortalClientId
 	}
 
-	if settings.UserPortalOAuthUrl, ok = os.LookupEnv("USER_PORTAL_OAUTH_URL"); !ok {
-		return nil, ErrUnableToReadUserPortalOAuthUrl
+	if settings.UserPortalClientSecret, ok = os.LookupEnv("USER_PORTAL_CLIENT_SECRET"); !ok {
+		return nil, ErrUnableToReadUserPortalClientSecret
 	}
 
-	if settings.UserPortalGetOidcConfigUrl, ok = os.LookupEnv("USER_PORTAL_GET_OIDC_CONFIG_URL"); !ok {
-		return nil, ErrUnableToReadUserPortalGetOIDCConfigUrl
+	if settings.UserPortalIssuerUrl, ok = os.LookupEnv("USER_PORTAL_ISSUER_URL"); !ok {
+		return nil, ErrUnableToReadUserPortalIssuerUrl
 	}
 
 	return &settings, nil

@@ -7,10 +7,8 @@ import (
 	"context"
 	"errors"
 	"net/http"
-	"net/url"
 	"time"
 
-	"github.com/golang-jwt/jwt/v5"
 	"github.com/turnerbenjamin/heterogen_portal/internal/constants"
 	"github.com/turnerbenjamin/heterogen_portal/internal/db"
 	"github.com/turnerbenjamin/heterogen_portal/internal/etc"
@@ -23,15 +21,16 @@ var errHtmxNotSupported *AppError = NewServerError(
 )
 
 type AuthService interface {
-	ParseUserJwtCookie(tokenString string) (*db.User, error)
+	ParseUserJwtCookie(tokenString string) (*services.AppClaims, error)
+	RetrieveUserById(userId string) (*db.User, error)
 	BuildSignInRedirectRequest() (*services.SignInRedirectRequest, error)
+	BuildSignOutRedirectRequest(email string) string
 	AuthenticateUser(
 		ctx context.Context,
 		authorisationCode string,
 		returnedState string,
 		signedOidcState string,
-	) (*db.User, error)
-	SignJWT(tokenToSign *jwt.Token, secret []byte) (string, error)
+	) (appToken string, err error)
 }
 
 type TokenResponse struct {
@@ -117,7 +116,7 @@ func GetSignInRedirectHandler(
 		clearOidcCookie(w)
 
 		// authenticate the user
-		user, err := authService.AuthenticateUser(
+		appToken, err := authService.AuthenticateUser(
 			r.Context(),
 			code,
 			returnedState,
@@ -128,19 +127,7 @@ func GetSignInRedirectHandler(
 			return NewServerError(err)
 		}
 
-		// issue app jwt
-		appToken := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.RegisteredClaims{
-			Subject:   user.Id,
-			IssuedAt:  jwt.NewNumericDate(time.Now()),
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(24 * time.Hour)),
-		})
-
-		signedToken, err := authService.SignJWT(appToken, appSettings.AppJWTSecret)
-		if err != nil {
-			return NewServerError(err)
-		}
-
-		setJwtCookie(w, signedToken)
+		setJwtCookie(w, appToken)
 
 		// redirect user to the app
 		http.Redirect(w, r, "/", http.StatusSeeOther)
@@ -152,19 +139,27 @@ func GetSignInRedirectHandler(
 //
 // It clears the JWT cookie and renders the sign-out template. The sign-out page
 // will then redirect to allow the user to sign-out from EntraId.
-func GetSignOutHandler(ts TemplateStore, appSettings *etc.AppSettings) AppHandler[NoState] {
+func GetSignOutHandler(ts TemplateStore, appSettings *etc.AppSettings, authService AuthService) AppHandler[NoState] {
 	return func(w http.ResponseWriter, r *http.Request, c *PipelineContext[NoState]) *AppError {
 		if r.Header.Get(constants.HxRequestHeaderRequest) != "" {
 			return errHtmxNotSupported
 		}
 
+		jwtCookie, err := r.Cookie(constants.IdentifierJwtCookie)
+		if err != nil {
+			http.Redirect(w, r, "signed-out", http.StatusSeeOther)
+		}
+
+		claims, err := authService.ParseUserJwtCookie(jwtCookie.Value)
+		if err != nil {
+			unsetJwtCookie(w)
+			http.Redirect(w, r, "signed-out", http.StatusSeeOther)
+		}
+
+		redirectUrl := authService.BuildSignOutRedirectRequest(claims.IdToken)
 		unsetJwtCookie(w)
 
-		logoutURL := appSettings.UserPortalOAuthUrl + "/logout"
-		postLogoutRedirectURI := appSettings.AppUrlBase + "/signed-out"
-		redirect := logoutURL + "?post_logout_redirect_uri=" + url.QueryEscape(postLogoutRedirectURI)
-
-		http.Redirect(w, r, redirect, http.StatusSeeOther)
+		http.Redirect(w, r, redirectUrl, http.StatusSeeOther)
 		return nil
 	}
 }
