@@ -284,19 +284,19 @@ func (s *authService) ParseUserJwtCookie(tokenString string) (*AppClaims, error)
 	}
 
 	if !token.Valid {
-		return nil, errors.New("Invalid token")
+		return nil, errors.New("invalid token")
 	}
 
 	if claims.UserId == "" {
-		return nil, errors.New("Unable to read user id from claims")
+		return nil, errors.New("unable to read user id from claims")
 	}
 
 	if claims.UserOid == "" {
-		return nil, errors.New("Unable to read user oid from claims")
+		return nil, errors.New("unable to read user oid from claims")
 	}
 
 	if claims.UserEmail == "" {
-		return nil, errors.New("Unable to read user email from claims")
+		return nil, errors.New("unable to read user email from claims")
 	}
 
 	return &AppClaims{
