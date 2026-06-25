@@ -47,5 +47,5 @@ func (e *AppError) String() string {
 		return fmt.Sprintf("[%s]", strings.Join(e.PageErrors, ","))
 	}
 
-	return constants.DefaultAppErrorString
+	return constants.EmptyAppErrorString
 }

@@ -1,8 +1,10 @@
 package handlers
 
 import (
+	"io"
 	"testing"
 
+	"github.com/turnerbenjamin/heterogen_portal/internal/templates"
 	"github.com/turnerbenjamin/heterogen_portal/internal/testhelpers"
 )
 
@@ -35,4 +37,35 @@ func AssertAppErrorEqual(t testing.TB, got, want *AppError) {
 	}
 
 	testhelpers.AssertStringSliceEqual(t, got.PageErrors, want.PageErrors)
+}
+
+type mockTemplateStoreExecuteCallArgs struct {
+	templateId templates.TemplateIdentifier
+	writer     io.Writer
+	data       templates.TemplateArgs
+}
+
+type mockTemplateStore struct {
+	t       testing.TB
+	returns error
+	calls   []mockTemplateStoreExecuteCallArgs
+}
+
+func (is *mockTemplateStore) Execute(
+	id templates.TemplateIdentifier,
+	w io.Writer,
+	data templates.TemplateArgs,
+) error {
+	is.t.Helper()
+	if is.calls == nil {
+		is.calls = []mockTemplateStoreExecuteCallArgs{}
+	}
+
+	is.calls = append(is.calls, mockTemplateStoreExecuteCallArgs{
+		templateId: id,
+		writer:     w,
+		data:       data,
+	})
+
+	return is.returns
 }

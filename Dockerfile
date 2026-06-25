@@ -16,7 +16,6 @@ COPY . .
 COPY --from=web-build /src/webresources /src/webresources
 
 # copy built static files into cmd/static (rollup output goes to cmd/static/js)
-RUN cp -r webresources/node_modules/@azure/msal-browser/lib/msal-browser.min.js cmd/static/js/ 2>/dev/null || true
 RUN cp -r webresources/node_modules/htmx.org/dist/htmx.min.js cmd/static/js/ 2>/dev/null || true
 
 # Build the Go binary
