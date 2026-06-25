@@ -9,16 +9,17 @@ import typescript from "@rollup/plugin-typescript";
 
 const inputFiles = glob.sync("./scripts/*.ts");
 
+const root = path.resolve(import.meta.dirname, "..");
+
 export default inputFiles.map((file) => ({
   input: file,
   output: {
-    file: `../cmd/static/js/${file.replace(/\.ts$/, ".js")}`,
+    file: path.join(root, "cmd/static/js", file.replace(/\.ts$/, ".js")),
     format: "iife",
     name: path.basename(file, ".ts"),
     sourcemap: false,
     globals: {
       "htmx.org": "htmx",
-      "@azure/msal-browser": "msal",
     },
   },
   plugins: [resolve(), commonjs(), typescript({ tsconfig: "./tsconfig.json" })],
