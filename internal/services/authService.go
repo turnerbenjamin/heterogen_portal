@@ -43,7 +43,7 @@ type JWTSignerAndParser interface {
 
 type SignInRedirectRequest struct {
 	Url             string
-	SignedOIDCState string
+	SignedOidcState string
 }
 
 type portalTokenClaims struct {
@@ -140,10 +140,10 @@ func (s *authService) BuildSignInRedirectRequest() (*SignInRedirectRequest, erro
 	state := generateRandomString(32)
 	nonce := generateRandomString(32)
 	codeVerifier := generateRandomString(64)
-
 	codeChallenge := sha256Base64URL(codeVerifier)
 
-	// Store OIDC security values in a signed cookie
+	// Store OIDC security values in a hmac signed string. The handler will
+	// persist this in a http-only cookie
 	oidcState := oidcState{
 		State:        state,
 		Nonce:        nonce,
@@ -154,8 +154,9 @@ func (s *authService) BuildSignInRedirectRequest() (*SignInRedirectRequest, erro
 	if err != nil {
 		return nil, err
 	}
-	r.SignedOIDCState = signPayload(s.appSettings.OidcStateSecret, oidcStateString)
+	r.SignedOidcState = signPayload(s.appSettings.OidcStateSecret, oidcStateString)
 
+	// Construct url to redirect user to sign-in
 	r.Url = s.oauthConfig.AuthCodeURL(
 		state,
 		oidc.Nonce(nonce),
@@ -170,6 +171,9 @@ func (s *authService) BuildSignInRedirectRequest() (*SignInRedirectRequest, erro
 		oauth2.SetAuthURLParam("prompt", "select_account"),
 	)
 
+	// Return the request containing the redirect url and the signed oidc state
+	// used to verify responses to that request and meet the code challenge when
+	// exchanging the returned code for a token
 	return r, nil
 }
 
@@ -207,11 +211,14 @@ func (s *authService) AuthenticateUser(
 		return "", err
 	}
 
-	// Validate returned state against state stored in the cookie
+	// Validate that the state value matches that of the original redirect
+	// request
 	if oidcState.State != returnedState {
 		return "", errors.New("state mismatch")
 	}
 
+	// Exchange the auth code for an id token using the oidc code verifier to
+	// meet the code challenge sent in the original redirect request
 	oauthToken, err := s.oauthConfig.Exchange(
 		ctx,
 		authorisationCode,
@@ -224,6 +231,7 @@ func (s *authService) AuthenticateUser(
 		return "", err
 	}
 
+	// Validate the id token
 	rawIDToken, ok := oauthToken.Extra("id_token").(string)
 	if !ok {
 		return "", errors.New("missing id_token")
@@ -237,13 +245,13 @@ func (s *authService) AuthenticateUser(
 		return "", err
 	}
 
+	// Extract claims from the id token and validate that the nonce value
+	// matches that of the original redirect request
 	var claims portalTokenClaims
-
 	if err := idToken.Claims(&claims); err != nil {
 		return "", err
 	}
 
-	// Validate nonce against oidc state
 	if claims.Nonce != oidcState.Nonce {
 		return "", errors.New("nonce mismatch")
 	}

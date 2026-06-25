@@ -68,21 +68,10 @@ func run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	privateKeyPath, err := filepath.Abs("private-key.pem")
-	if err != nil {
-		return err
-	}
-
-	publicCertPath, err := filepath.Abs("public-cert.pem")
-	if err != nil {
-		return err
-	}
 
 	appSettings, err := etc.GetAppSettings(
 		ctx,
 		dotenvPath,
-		privateKeyPath,
-		publicCertPath,
 		isRunningLocally,
 	)
 

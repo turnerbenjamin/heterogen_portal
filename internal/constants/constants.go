@@ -40,5 +40,5 @@ const (
 const (
 	IdentifierJwtCookie       = "hg_login_jwt"
 	IdentifierOidcStateCookie = "hg_oidc_state"
-	EmptyAppErrorString       = "default app error"
+	EmptyAppErrorString       = "empty"
 )

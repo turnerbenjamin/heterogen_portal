@@ -61,13 +61,13 @@ func GetRootHandler(
 			if err != nil {
 				return NewServerError(err)
 			}
-			setOidcCookie(w, redirectReq.SignedOIDCState)
+			setOidcCookie(w, redirectReq.SignedOidcState)
 			redirect(w, r, redirectReq.Url)
 			return nil
 		}
 
 		pageConfig := templates.PageConfig{
-			ContentOnly: r.Header.Get("HX-Request") != "",
+			ContentOnly: r.Header.Get(constants.HxRequestHeaderRequest) != "",
 			Title:       "HETEROGEN",
 		}
 
@@ -83,18 +83,11 @@ func GetRootHandler(
 	}
 }
 
-func GetSignInHandler(ts TemplateStore, appSettings *etc.AppSettings) AppHandler[NoState] {
-	return func(w http.ResponseWriter, r *http.Request, c *PipelineContext[NoState]) *AppError {
-		return nil
-	}
-}
-
 func GetSignInRedirectHandler(
 	ts TemplateStore,
 	appSettings *etc.AppSettings,
 	authService AuthService,
 ) AppHandler[NoState] {
-
 	return func(w http.ResponseWriter, r *http.Request, c *PipelineContext[NoState]) *AppError {
 		// extract query params
 		code := r.URL.Query().Get("code")

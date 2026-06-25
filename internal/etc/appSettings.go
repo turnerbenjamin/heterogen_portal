@@ -10,8 +10,6 @@ import (
 )
 
 var (
-	ErrUnableToCastRsaPrivateKey = errors.New("unable to cast RSA private key")
-
 	ErrInvalidDotenvFile = errors.New("invalid dotenv file. Each line should contain a key and value separated by whitespace")
 
 	ErrUnableToReadAppUrlBase             = errors.New("unable to read app url base")
@@ -34,7 +32,11 @@ type AppSettings struct {
 	UserPortalIssuerUrl    string
 }
 
-func GetAppSettings(ctx context.Context, dotenvPath string, privateKeyPath string, publicCertPath string, isRunningLocally bool) (*AppSettings, error) {
+func GetAppSettings(
+	ctx context.Context,
+	dotenvPath string,
+	isRunningLocally bool,
+) (*AppSettings, error) {
 	var ok bool
 	settings := AppSettings{
 		IsRunningLocally: isRunningLocally,

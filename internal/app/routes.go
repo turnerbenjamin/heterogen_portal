@@ -43,14 +43,6 @@ func addRoutes(
 	)
 
 	mux.Handle(
-		"GET /sign-in",
-		pipeline.New(
-			[]h.Middleware[h.NoState]{},
-			h.GetSignInHandler(ts, appSettings),
-		),
-	)
-
-	mux.Handle(
 		"GET /sign-in-redirect",
 		pipeline.New(
 			[]h.Middleware[h.NoState]{},
