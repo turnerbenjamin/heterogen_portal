@@ -1,22 +1,23 @@
 # Stage 1: build web resources
-FROM node:20 as web-build
+FROM node:24 AS web-build
 WORKDIR /src/webresources
+
 COPY webresources/package.json webresources/package-lock.json* webresources/tsconfig.json webresources/rollup.config.js ./ 
-COPY webresources ./webresources
-RUN cd webresources && npm ci && npm run build
+COPY webresources ./
+RUN npm ci && npm run build
 
 # Stage 2: build Go binary
-FROM golang:1.25 as builder
+FROM golang:1.25 AS builder
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go env -w GOPROXY=https://proxy.golang.org
 COPY . .
 
-# bring built webresources from web-build into the builder stage
-COPY --from=web-build /src/webresources /src/webresources
+# Bring built webresources from web-build into the builder stage
+COPY --from=web-build /src /src
 
-# copy built static files into cmd/static (rollup output goes to cmd/static/js)
-RUN cp -r webresources/node_modules/htmx.org/dist/htmx.min.js cmd/static/js/ 2>/dev/null || true
+# Copy built static files into cmd/static
+RUN mkdir -p cmd/static/js && cp webresources/node_modules/htmx.org/dist/htmx.min.js cmd/static/js/
 
 # Build the Go binary
 WORKDIR /src/cmd
