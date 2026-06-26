@@ -22,7 +22,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-//go:embed templates/* static/*
+//go:embed templates static
 var embeddedFiles embed.FS
 
 type crypt struct{}
