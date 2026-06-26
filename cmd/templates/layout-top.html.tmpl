@@ -17,10 +17,15 @@
 		<title>{{.PageConfig.Title}}</title>
     {{- end}}
 
-    <script src="/static/js/htmx.min.js" defer></script>
-    <script type="module" src="/static/js/scripts/hgCommon.js" defer></script>
 		<link href="/static/css/style.css" rel="stylesheet">
     <link rel="icon" type="image/x-icon" href="/static/images/favicon.ico">
+
+    {{- if .WebResources.HTMX}}
+    <script src="/static/js/htmx.min.js" defer></script>
+    {{- end}}
+    {{- if .WebResources.HG_COMMON}}
+    <script type="module" src="/static/js/scripts/hgCommon.js" defer></script>
+    {{- end}}
 	</head> 
   <body>
   <div id="toast-container"></div>

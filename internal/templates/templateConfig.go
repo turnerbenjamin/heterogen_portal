@@ -7,17 +7,25 @@ var TemplateDataMap = map[TemplateIdentifier]TemplateData{
 			"layout-top",
 			"layout-bottom",
 			"main-user-dash",
-			"main-user-login",
 		},
-		WebResources: WebResourceDependencies{},
+		WebResources: WebResourceDependencies{
+			HTMX:      true,
+			HG_COMMON: true,
+		},
 	},
 	TmplPageUserSignedOut: {
 		Name: "page-user-signed-out",
 		Dependencies: []string{
 			"layout-top",
 			"layout-bottom",
-			"main-user-dash",
-			"main-user-login",
+		},
+		WebResources: WebResourceDependencies{},
+	},
+	TmplPageOutOfAppErr: {
+		Name: "page-out-of-app-err",
+		Dependencies: []string{
+			"layout-top",
+			"layout-bottom",
 		},
 		WebResources: WebResourceDependencies{},
 	},

@@ -24,6 +24,7 @@ type TemplateIdentifier int
 const (
 	TmplPageApp TemplateIdentifier = iota
 	TmplPageUserSignedOut
+	TmplPageOutOfAppErr
 	TmplComponentErrors
 	TmplComponentToast
 	_tmplEnumEnd
@@ -41,7 +42,8 @@ type TemplateArgs struct {
 }
 
 type WebResourceDependencies struct {
-	HG_AUTH bool
+	HTMX      bool
+	HG_COMMON bool
 }
 
 type TemplateData struct {

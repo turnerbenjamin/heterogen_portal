@@ -3,6 +3,7 @@ package handlers
 import (
 	"errors"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/turnerbenjamin/heterogen_portal/internal/templates"
@@ -24,10 +25,11 @@ func TestWrite_HandlesErrorResponse(t *testing.T) {
 	}
 	ts := &mockTemplateStore{t: t}
 
+	r := httptest.NewRequest("GET", "/", strings.NewReader(""))
 	w := httptest.NewRecorder()
 	h := NewErrorHandler(ts)
 
-	err := h.Write(w, testAppError)
+	err := h.Write(w, r, testAppError)
 
 	testhelpers.AssertErrorNil(t, err)
 	testhelpers.AssertIntEqual(t, w.Code, wantStatusCode)
@@ -48,7 +50,8 @@ func TestWrite_ShouldReturnErrorsReturnedFromExecute(t *testing.T) {
 	w := httptest.NewRecorder()
 	h := NewErrorHandler(ts)
 
-	gotErr := h.Write(w, &AppError{Code: 200})
+	r := httptest.NewRequest("GET", "/", strings.NewReader(""))
+	gotErr := h.Write(w, r, &AppError{Code: 200})
 
 	testhelpers.AssertErrorNotNil(t, gotErr, wantError)
 	testhelpers.AssertErrorEqual(t, gotErr, wantError)

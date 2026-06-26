@@ -221,7 +221,7 @@ func TestExecute_SetsWebResources(t *testing.T) {
 		t,
 		TmplPageApp,
 		WebResourceDependencies{
-			HG_AUTH: true,
+			HG_COMMON: true,
 		},
 		"{{- if .WebResources.HG_AUTH}}PASS{{- else}}FAIL{{end}}",
 	)
@@ -256,7 +256,7 @@ func TestExecute_PassesDataCorrectly(t *testing.T) {
 		t,
 		TmplPageApp,
 		WebResourceDependencies{
-			HG_AUTH: true,
+			HG_COMMON: true,
 		},
 		`{{- if .PageConfig.ContentOnly}}PASS{{- else}}FAIL{{end}},
 		{{- if eq .PageConfig.ToastSuccess "TOAST_SUCCESS"}}PASS{{- else}}FAIL{{end}},

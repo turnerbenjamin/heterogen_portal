@@ -645,7 +645,7 @@ type testErrorHandler struct {
 	Err error
 }
 
-func (eh *testErrorHandler) Write(w http.ResponseWriter, e *AppError) error {
+func (eh *testErrorHandler) Write(w http.ResponseWriter, r *http.Request, e *AppError) error {
 	if eh.Err != nil {
 		return eh.Err
 	}

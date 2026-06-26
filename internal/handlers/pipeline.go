@@ -44,7 +44,7 @@ type (
 
 // ErrorWriter writes an AppError to the provided ResponseWriter.
 type ErrorWriter interface {
-	Write(http.ResponseWriter, *AppError) error
+	Write(http.ResponseWriter, *http.Request, *AppError) error
 }
 
 // PipelineBuilder is used as a factory for building a Pipeline
@@ -115,7 +115,7 @@ func (p *PipelineBuilder[T]) New(
 
 		appError := pipeline(sw, r, pipelineData)
 		if appError != nil {
-			err := p.errorHandler.Write(sw, appError)
+			err := p.errorHandler.Write(sw, r, appError)
 			if err != nil {
 				pipelineData.AddLoggerKV(
 					slog.String(constants.SlogKeyResponseWriterErr, err.Error()),
