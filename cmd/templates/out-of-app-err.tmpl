@@ -1,0 +1,13 @@
+{{- define "page-out-of-app-err"}}
+{{- template "layout-top" . }}
+    <main class="focussed-main">
+    <div class="flex col justify-content-center align-items-center gap-4 mt-8">
+      <h1>Heterogen</h1>
+      <h2>Portal</h2>
+      <p class="error-container show mt-4 txt-center">
+        There has been an unexpected error, please try again later.
+      </p>
+    </div>
+    </main>
+{{- template "layout-bottom" . }}
+{{- end}}  

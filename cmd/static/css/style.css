@@ -160,6 +160,10 @@ input {
     max-width: 30rem;
 }
 
+p {
+    max-width: 60ch;
+}
+
 button {
     background-color: transparent;
     padding: var(--ws-3) var(--ws-5);

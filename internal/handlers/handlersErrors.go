@@ -6,6 +6,7 @@ package handlers
 import (
 	"net/http"
 
+	"github.com/turnerbenjamin/heterogen_portal/internal/constants"
 	"github.com/turnerbenjamin/heterogen_portal/internal/templates"
 )
 
@@ -23,16 +24,29 @@ func NewErrorHandler(templateStore TemplateStore) *ErrorHandler {
 }
 
 // Write is responsible for writing AppErrors to a response. It handles setting
-// the status code and passing error data to the error component template
-func (h *ErrorHandler) Write(w http.ResponseWriter, appErr *AppError) error {
-	w.WriteHeader(appErr.Code)
-
+// the status code and passing error data to the error template
+func (h *ErrorHandler) Write(
+	w http.ResponseWriter,
+	r *http.Request,
+	appErr *AppError,
+) error {
+	// Default to handling errors with a the component error template returned
+	// to a htmx app
+	t := templates.TmplComponentErrors
 	pageConfig := templates.PageConfig{
 		ContentOnly: true,
 	}
 
+	// If the request is not from htmx, return a full page, out of app error
+	// template
+	if r.Header.Get(constants.HxRequestHeaderRequest) == "" {
+		t = templates.TmplPageOutOfAppErr
+		pageConfig.ContentOnly = false
+	}
+
+	w.WriteHeader(appErr.Code)
 	return h.templateStore.Execute(
-		templates.TmplComponentErrors,
+		t,
 		w,
 		templates.TemplateArgs{
 			PageConfig: pageConfig,

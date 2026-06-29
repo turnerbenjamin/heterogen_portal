@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"regexp"
 	"strings"
 	"testing"
@@ -98,6 +99,20 @@ func AssertStringMatches(t testing.TB, got, wantPattern string) {
 		t.Fatalf("got %s, but want %s", got, want)
 	}
 
+}
+
+func AssertCookieEqual(t testing.TB, got, want *http.Cookie) {
+	t.Helper()
+
+	AssertNotNil(t, got, want)
+	AssertStringEqual(t, got.Value, want.Value)
+	AssertStringEqual(t, got.Path, want.Path)
+	AssertEqual(t, got.SameSite, want.SameSite)
+	AssertIntEqual(t, got.MaxAge, want.MaxAge)
+	AssertEqual(t, got.Expires, want.Expires)
+	AssertEqual(t, got.Secure, want.Secure)
+	AssertEqual(t, got.Partitioned, want.Partitioned)
+	AssertEqual(t, got.HttpOnly, want.HttpOnly)
 }
 
 func AssertBytesEqual(t testing.TB, got, want []byte) {

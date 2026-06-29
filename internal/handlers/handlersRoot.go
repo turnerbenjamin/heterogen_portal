@@ -11,26 +11,21 @@ import (
 
 	"github.com/turnerbenjamin/heterogen_portal/internal/constants"
 	"github.com/turnerbenjamin/heterogen_portal/internal/db"
-	"github.com/turnerbenjamin/heterogen_portal/internal/etc"
 	"github.com/turnerbenjamin/heterogen_portal/internal/services"
 	"github.com/turnerbenjamin/heterogen_portal/internal/templates"
-)
-
-var errHtmxNotSupported *AppError = NewServerError(
-	errors.New(constants.ErrMsgHtmxNotSupported),
 )
 
 type AuthService interface {
 	ParseUserJwtCookie(tokenString string) (*services.AppClaims, error)
 	RetrieveUserById(userId string) (*db.User, error)
-	BuildSignInRedirectRequest() (*services.SignInRedirectRequest, error)
-	BuildSignOutRedirectRequest(email string) string
+	BuildSignInRedirectRequest(requestedPath string) (*services.SignInRedirectRequest, error)
+	BuildSignOutRedirectRequest() string
 	AuthenticateUser(
 		ctx context.Context,
 		authorisationCode string,
 		returnedState string,
 		signedOidcState string,
-	) (appToken string, err error)
+	) (resp *services.AuthenticateUserResponse, err error)
 }
 
 type TokenResponse struct {
@@ -41,28 +36,10 @@ type TokenResponse struct {
 }
 
 // GetRootHandler returns a handler for the application root.
-//
-// It redirects unauthenticated users to the sign-in page and renders the
-// main app template for authenticated users.
-func GetRootHandler(
-	ts TemplateStore,
-	appSettings *etc.AppSettings,
-	authService AuthService,
-) AppHandler[UserState] {
+func GetRootHandler(ts TemplateStore) AppHandler[UserState] {
 	return func(w http.ResponseWriter, r *http.Request, c *PipelineContext[UserState]) *AppError {
 		if r.URL.Path != "/" {
 			http.NotFound(w, r)
-			return nil
-		}
-
-		// If user is nil, redirect to sign-in service
-		if c.state.User == nil {
-			redirectReq, err := authService.BuildSignInRedirectRequest()
-			if err != nil {
-				return NewServerError(err)
-			}
-			setOidcCookie(w, redirectReq.SignedOidcState)
-			redirect(w, r, redirectReq.Url)
 			return nil
 		}
 
@@ -83,12 +60,18 @@ func GetRootHandler(
 	}
 }
 
-func GetSignInRedirectHandler(
-	ts TemplateStore,
-	appSettings *etc.AppSettings,
-	authService AuthService,
-) AppHandler[NoState] {
+// GetSignInRedirectHandler handles redirects from the auth provider. It will
+// authenticate the user and then redirects to the path requested by the user
+func GetSignInRedirectHandler(authService AuthService) AppHandler[NoState] {
 	return func(w http.ResponseWriter, r *http.Request, c *PipelineContext[NoState]) *AppError {
+		// access signed oidc state from the cookie and clear it up
+		cookie, err := r.Cookie(constants.IdentifierOidcStateCookie)
+		if err != nil {
+			return NewServerError(errors.New(constants.ErrMissingOIDCStateCookie))
+		}
+		signedOidcState := cookie.Value
+		unsetOidcStateCookie(w)
+
 		// extract query params
 		code := r.URL.Query().Get("code")
 		if code == "" {
@@ -96,75 +79,46 @@ func GetSignInRedirectHandler(
 		}
 
 		returnedState := r.URL.Query().Get("state")
-		if code == "" {
+		if returnedState == "" {
 			return NewServerError(errors.New(constants.ErrMissingOIDCStateParam))
 		}
 
-		// access signed oidc state from the cookie and clear it up
-		cookie, err := r.Cookie(constants.IdentifierOidcStateCookie)
-		if err != nil {
-			return NewServerError(errors.New("missing oidc state cookie"))
-		}
-		signedOidcState := cookie.Value
-		clearOidcCookie(w)
-
 		// authenticate the user
-		appToken, err := authService.AuthenticateUser(
+		authenticateUserResponse, err := authService.AuthenticateUser(
 			r.Context(),
 			code,
 			returnedState,
 			signedOidcState,
 		)
-
 		if err != nil {
 			return NewServerError(err)
 		}
 
-		setJwtCookie(w, appToken)
+		setJwtCookie(w, authenticateUserResponse.AppToken)
 
 		// redirect user to the app
-		http.Redirect(w, r, "/", http.StatusSeeOther)
+		redirect(w, r, authenticateUserResponse.RequestedPath)
 		return nil
 	}
 }
 
-// GetSignedOutHandler returns the sign-out page handler.
-//
-// It clears the JWT cookie and renders the sign-out template. The sign-out page
-// will then redirect to allow the user to sign-out from EntraId.
-func GetSignOutHandler(ts TemplateStore, appSettings *etc.AppSettings, authService AuthService) AppHandler[NoState] {
+// GetSignOutHandler unsets the app jwt cookie and redirects the user to sign
+// out from the auth provider
+func GetSignOutHandler(authService AuthService) AppHandler[NoState] {
 	return func(w http.ResponseWriter, r *http.Request, c *PipelineContext[NoState]) *AppError {
-		if r.Header.Get(constants.HxRequestHeaderRequest) != "" {
-			return errHtmxNotSupported
-		}
-
-		jwtCookie, err := r.Cookie(constants.IdentifierJwtCookie)
-		if err != nil {
-			http.Redirect(w, r, "signed-out", http.StatusSeeOther)
-		}
-
-		claims, err := authService.ParseUserJwtCookie(jwtCookie.Value)
-		if err != nil {
-			unsetJwtCookie(w)
-			http.Redirect(w, r, "signed-out", http.StatusSeeOther)
-		}
-
-		redirectUrl := authService.BuildSignOutRedirectRequest(claims.IdToken)
 		unsetJwtCookie(w)
+		redirectUrl := authService.BuildSignOutRedirectRequest()
 
-		http.Redirect(w, r, redirectUrl, http.StatusSeeOther)
+		redirect(w, r, redirectUrl)
 		return nil
 	}
 }
 
-// GetSignedOutHandler returns the signed-out page handler.
-//
-// The signed out page can be redirected to by EntraId after the user has
-// successfully signed out.
+// GetSignedOutHandler returns the signed-out page handler
 func GetSignedOutHandler(ts TemplateStore) AppHandler[NoState] {
 	return func(w http.ResponseWriter, r *http.Request, c *PipelineContext[NoState]) *AppError {
 		if r.Header.Get(constants.HxRequestHeaderRequest) != "" {
-			return errHtmxNotSupported
+			return NewServerError(errors.New(constants.ErrMsgHtmxNotSupported))
 		}
 
 		pageConfig := templates.PageConfig{
@@ -194,12 +148,11 @@ func setJwtCookie(w http.ResponseWriter, tokenString string) {
 		Partitioned: true,
 		SameSite:    http.SameSiteLaxMode,
 		Path:        "/",
-		MaxAge:      int((time.Hour * 24) / time.Second),
+		MaxAge:      int(time.Second) * 60 * 60,
 	})
 }
 
-// unsetJwtCookie unsets the cookie set by setJwtCookie using a negative max age
-// and an expiry date in the past
+// unsetJwtCookie unsets the cookie set by setJwtCookie
 func unsetJwtCookie(w http.ResponseWriter) {
 	http.SetCookie(w, &http.Cookie{
 		Name:        constants.IdentifierJwtCookie,
@@ -213,10 +166,12 @@ func unsetJwtCookie(w http.ResponseWriter) {
 	})
 }
 
-func setOidcCookie(w http.ResponseWriter, tokenString string) {
+// setOidcStateCookie sets an oidc state cookie with the given signed state
+// string
+func setOidcStateCookie(w http.ResponseWriter, oidcState string) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     constants.IdentifierOidcStateCookie,
-		Value:    tokenString,
+		Value:    oidcState,
 		HttpOnly: true,
 		Secure:   true,
 		SameSite: http.SameSiteLaxMode,
@@ -225,7 +180,8 @@ func setOidcCookie(w http.ResponseWriter, tokenString string) {
 	})
 }
 
-func clearOidcCookie(w http.ResponseWriter) {
+// unsetOidcStateCookie unsets the cookie set by setOidcStateCookie
+func unsetOidcStateCookie(w http.ResponseWriter) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     constants.IdentifierOidcStateCookie,
 		Value:    "",
@@ -237,6 +193,7 @@ func clearOidcCookie(w http.ResponseWriter) {
 	})
 }
 
+// redirect redirects to the given url for both htmx and non-htmx requests
 func redirect(w http.ResponseWriter, r *http.Request, url string) {
 	if r.Header.Get(constants.HxRequestHeaderRequest) != "" {
 		w.Header().Set(constants.HxResponseHeaderRedirect, url)
