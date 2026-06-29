@@ -36,9 +36,6 @@ type TokenResponse struct {
 }
 
 // GetRootHandler returns a handler for the application root.
-//
-// It redirects unauthenticated users to sign-in and renders the main app
-// template for authenticated users.
 func GetRootHandler(ts TemplateStore) AppHandler[UserState] {
 	return func(w http.ResponseWriter, r *http.Request, c *PipelineContext[UserState]) *AppError {
 		if r.URL.Path != "/" {
@@ -63,10 +60,9 @@ func GetRootHandler(ts TemplateStore) AppHandler[UserState] {
 	}
 }
 
-func GetSignInRedirectHandler(
-	ts TemplateStore,
-	authService AuthService,
-) AppHandler[NoState] {
+// GetSignInRedirectHandler handles redirects from the auth provider. It will
+// authenticate the user and then redirects to the path requested by the user
+func GetSignInRedirectHandler(authService AuthService) AppHandler[NoState] {
 	return func(w http.ResponseWriter, r *http.Request, c *PipelineContext[NoState]) *AppError {
 		// access signed oidc state from the cookie and clear it up
 		cookie, err := r.Cookie(constants.IdentifierOidcStateCookie)
@@ -74,7 +70,7 @@ func GetSignInRedirectHandler(
 			return NewServerError(errors.New(constants.ErrMissingOIDCStateCookie))
 		}
 		signedOidcState := cookie.Value
-		clearOidcStateCookie(w)
+		unsetOidcStateCookie(w)
 
 		// extract query params
 		code := r.URL.Query().Get("code")
@@ -106,24 +102,19 @@ func GetSignInRedirectHandler(
 	}
 }
 
-// GetSignedOutHandler returns the sign-out page handler.
-//
-// It clears the JWT cookie and renders the sign-out template. The sign-out page
-// will then redirect to allow the user to sign-out from EntraId.
+// GetSignOutHandler unsets the app jwt cookie and redirects the user to sign
+// out from the auth provider
 func GetSignOutHandler(authService AuthService) AppHandler[NoState] {
 	return func(w http.ResponseWriter, r *http.Request, c *PipelineContext[NoState]) *AppError {
-		redirectUrl := authService.BuildSignOutRedirectRequest()
 		unsetJwtCookie(w)
+		redirectUrl := authService.BuildSignOutRedirectRequest()
 
 		redirect(w, r, redirectUrl)
 		return nil
 	}
 }
 
-// GetSignedOutHandler returns the signed-out page handler.
-//
-// The signed out page can be redirected to by EntraId after the user has
-// successfully signed out.
+// GetSignedOutHandler returns the signed-out page handler
 func GetSignedOutHandler(ts TemplateStore) AppHandler[NoState] {
 	return func(w http.ResponseWriter, r *http.Request, c *PipelineContext[NoState]) *AppError {
 		if r.Header.Get(constants.HxRequestHeaderRequest) != "" {
@@ -161,8 +152,7 @@ func setJwtCookie(w http.ResponseWriter, tokenString string) {
 	})
 }
 
-// unsetJwtCookie unsets the cookie set by setJwtCookie using a negative max age
-// and an expiry date in the past
+// unsetJwtCookie unsets the cookie set by setJwtCookie
 func unsetJwtCookie(w http.ResponseWriter) {
 	http.SetCookie(w, &http.Cookie{
 		Name:        constants.IdentifierJwtCookie,
@@ -176,6 +166,8 @@ func unsetJwtCookie(w http.ResponseWriter) {
 	})
 }
 
+// setOidcStateCookie sets an oidc state cookie with the given signed state
+// string
 func setOidcStateCookie(w http.ResponseWriter, oidcState string) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     constants.IdentifierOidcStateCookie,
@@ -188,7 +180,8 @@ func setOidcStateCookie(w http.ResponseWriter, oidcState string) {
 	})
 }
 
-func clearOidcStateCookie(w http.ResponseWriter) {
+// unsetOidcStateCookie unsets the cookie set by setOidcStateCookie
+func unsetOidcStateCookie(w http.ResponseWriter) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     constants.IdentifierOidcStateCookie,
 		Value:    "",
@@ -200,6 +193,7 @@ func clearOidcStateCookie(w http.ResponseWriter) {
 	})
 }
 
+// redirect redirects to the given url for both htmx and non-htmx requests
 func redirect(w http.ResponseWriter, r *http.Request, url string) {
 	if r.Header.Get(constants.HxRequestHeaderRequest) != "" {
 		w.Header().Set(constants.HxResponseHeaderRedirect, url)

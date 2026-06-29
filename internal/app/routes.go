@@ -48,7 +48,7 @@ func addRoutes(
 		"GET /sign-in-redirect",
 		pipeline.New(
 			[]h.Middleware[h.NoState]{},
-			h.GetSignInRedirectHandler(ts, authService),
+			h.GetSignInRedirectHandler(authService),
 		),
 	)
 

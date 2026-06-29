@@ -162,9 +162,8 @@ func TestGetSignInRedirectHandler_ReturnsErrorWhenCodeStateOrOidcStateMissing(t 
 		w := httptest.NewRecorder()
 		c := &PipelineContext[NoState]{}
 
-		ts := &mockTemplateStore{t: t}
 		as := &mockAuthService{t: t}
-		h := GetSignInRedirectHandler(ts, as)
+		h := GetSignInRedirectHandler(as)
 
 		err := h(w, r, c)
 
@@ -204,12 +203,11 @@ func TestGetSignInRedirectHandler_HandlesAuthServiceErrors(t *testing.T) {
 	w := httptest.NewRecorder()
 	c := &PipelineContext[NoState]{}
 
-	ts := &mockTemplateStore{t: t}
 	as := &mockAuthService{
 		t:                          t,
 		authenticateUserReturnsErr: wantInnerError,
 	}
-	h := GetSignInRedirectHandler(ts, as)
+	h := GetSignInRedirectHandler(as)
 
 	err := h(w, r, c)
 
@@ -268,7 +266,6 @@ func TestGetSignInRedirectHandler_SetsAppCookieAndRedirectsUser(t *testing.T) {
 		w := httptest.NewRecorder()
 		c := &PipelineContext[NoState]{}
 
-		ts := &mockTemplateStore{t: t}
 		as := &mockAuthService{
 			t: t,
 			authenticateUserReturnsResp: &services.AuthenticateUserResponse{
@@ -276,7 +273,7 @@ func TestGetSignInRedirectHandler_SetsAppCookieAndRedirectsUser(t *testing.T) {
 				RequestedPath: td.wantRedirectPath,
 			},
 		}
-		h := GetSignInRedirectHandler(ts, as)
+		h := GetSignInRedirectHandler(as)
 
 		err := h(w, r, c)
 

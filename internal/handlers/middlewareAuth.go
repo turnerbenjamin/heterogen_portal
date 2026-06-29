@@ -11,10 +11,9 @@ import (
 	"github.com/turnerbenjamin/heterogen_portal/internal/db"
 )
 
-// NewParseJwtMiddleware will, on the happy path, access and parse a JWT cookie
-// from the request, retrieve the user from the token's subject and attach the
-// user record to the pipeline context. For all other paths, it will log any
-// errors, unset invalid cookies and continue, unfazed, to the next handler
+// NewParseJwtMiddleware parses app jwt cookies, retrieves the user and adds it
+// to pipeline context. If there is no cookie, or it cannot be parsed, user will
+// not be set on the pipeline context
 func NewParseJwtMiddleware(authService AuthService) Middleware[UserState] {
 	return func(next AppHandler[UserState]) AppHandler[UserState] {
 		return func(w http.ResponseWriter, r *http.Request, c *PipelineContext[UserState]) *AppError {
@@ -44,6 +43,9 @@ func NewParseJwtMiddleware(authService AuthService) Middleware[UserState] {
 	}
 }
 
+// NewRequireSignInMiddleware accesses user state from the pipeline context. If
+// user is nil, they will be redirected to authenticate with the auth provider.
+// This middleware should be called after NewParseJwtMiddleware
 func NewRequireSignInMiddleware(authService AuthService) Middleware[UserState] {
 	return func(next AppHandler[UserState]) AppHandler[UserState] {
 		return func(w http.ResponseWriter, r *http.Request, c *PipelineContext[UserState]) *AppError {
