@@ -20,12 +20,8 @@ import (
 // PipelineContext holds per-request logger and state for the pipeline.
 type PipelineContext[T any] struct {
 	logger *slog.Logger
-	state  *T
+	state  T
 }
-
-// NoState is a placeholder type for handlers that do not require
-// pipeline state.
-type NoState struct{}
 
 type (
 	// AppHandler is the signature for a handler in the pipeline. Pipeline state
@@ -49,8 +45,9 @@ type ErrorWriter interface {
 
 // PipelineBuilder is used as a factory for building a Pipeline
 type PipelineBuilder[T any] struct {
-	errorHandler ErrorWriter
-	rootLogger   *slog.Logger
+	errorHandler     ErrorWriter
+	rootLogger       *slog.Logger
+	stateInitialiser func() T
 }
 
 // NewPipelineBuilder creates a PipelineBuilder using the given error writer
@@ -58,10 +55,12 @@ type PipelineBuilder[T any] struct {
 func NewPipelineBuilder[T any](
 	errorHandler ErrorWriter,
 	logSink io.Writer,
+	stateInitialiser func() T,
 ) *PipelineBuilder[T] {
 	return &PipelineBuilder[T]{
-		errorHandler: errorHandler,
-		rootLogger:   slog.New(slog.NewJSONHandler(logSink, &slog.HandlerOptions{})),
+		errorHandler:     errorHandler,
+		rootLogger:       slog.New(slog.NewJSONHandler(logSink, &slog.HandlerOptions{})),
+		stateInitialiser: stateInitialiser,
 	}
 }
 
@@ -103,7 +102,7 @@ func (p *PipelineBuilder[T]) New(
 
 		pipelineData := &PipelineContext[T]{
 			logger: slogger,
-			state:  new(T),
+			state:  p.stateInitialiser(),
 		}
 
 		defer func() {

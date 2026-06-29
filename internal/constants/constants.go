@@ -4,10 +4,11 @@ package constants
 const (
 	ErrMsgInternalServerError = "An unexpected error has occurred. Please try again later"
 	ErrMsgFileSystemIsNil     = "filesystem is nil"
-	ErrMsgHtmxNotSupported    = "HTMX requests are not supported on this route"
 	ErrMsgUnauthorised        = "unable to authorise user with bearer token"
 	ErrMissingOIDCCodeParam   = "missing code param in sign-in redirect request"
 	ErrMissingOIDCStateParam  = "missing state param in sign-in redirect request"
+	ErrMissingOIDCStateCookie = "missing oidc state cookie in sign-in redirect request"
+	ErrMsgHtmxNotSupported    = "HTMX requests are not supported on this route"
 )
 
 // Error message prefixes

@@ -1,6 +1,6 @@
 {{- define "main-user-dash"}}
 <main>
-  <h1>Welcome {{ .Data.User.UserName}} </h1>
+  <h1>Welcome {{ .Data.GetUser.UserName}} </h1>
     <a href="/sign-out">
       <button>
         Sign-out

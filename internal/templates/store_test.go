@@ -223,7 +223,7 @@ func TestExecute_SetsWebResources(t *testing.T) {
 		WebResourceDependencies{
 			HG_COMMON: true,
 		},
-		"{{- if .WebResources.HG_AUTH}}PASS{{- else}}FAIL{{end}}",
+		"{{- if .WebResources.HG_COMMON}}PASS{{- else}}FAIL{{end}}",
 	)
 
 	err := testStore.Execute(

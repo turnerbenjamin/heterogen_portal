@@ -46,6 +46,11 @@ type SignInRedirectRequest struct {
 	SignedOidcState string
 }
 
+type AuthenticateUserResponse struct {
+	AppToken string
+	RequestedPath  string
+}
+
 type portalTokenClaims struct {
 	Nonce        string `json:"nonce"`
 	Oid          string `json:"oid"`
@@ -59,6 +64,7 @@ type oidcState struct {
 	State        string
 	Nonce        string
 	CodeVerifier string
+	RequestedPath      string
 }
 
 type AppClaims struct {
@@ -133,7 +139,9 @@ func NewAuthService(
 // BuildSignInRedirectRequest generates OIDC state, used to validate any Id
 // token provided in a response. It returns a struct containing a redirect Url
 // and the OIDC state as a signed string
-func (s *authService) BuildSignInRedirectRequest() (*SignInRedirectRequest, error) {
+func (s *authService) BuildSignInRedirectRequest(
+	requestedPath string,
+) (*SignInRedirectRequest, error) {
 	r := &SignInRedirectRequest{}
 
 	// Generate OIDC security values
@@ -148,6 +156,7 @@ func (s *authService) BuildSignInRedirectRequest() (*SignInRedirectRequest, erro
 		State:        state,
 		Nonce:        nonce,
 		CodeVerifier: codeVerifier,
+		RequestedPath:      requestedPath,
 	}
 
 	oidcStateString, err := json.Marshal(oidcState)
@@ -177,7 +186,7 @@ func (s *authService) BuildSignInRedirectRequest() (*SignInRedirectRequest, erro
 	return r, nil
 }
 
-func (s *authService) BuildSignOutRedirectRequest(idToken string) string {
+func (s *authService) BuildSignOutRedirectRequest() string {
 	logoutURL := s.appSettings.UserPortalIssuerUrl + "/oauth2/v2.0/logout"
 	postLogoutRedirectURI := s.appSettings.AppUrlBase + "/signed-out"
 
@@ -199,22 +208,22 @@ func (s *authService) AuthenticateUser(
 	authorisationCode string,
 	returnedState string,
 	signedOidcState string,
-) (appToken string, err error) {
+) (resp *AuthenticateUserResponse, err error) {
 	// validate and parse OIDC state obtained from cookie
 	raw, ok := verifySignedCookie(s.appSettings.OidcStateSecret, signedOidcState)
 	if !ok {
-		return "", errors.New("invalid oidc state signature")
+		return nil, errors.New("invalid oidc state signature")
 	}
 
 	var oidcState oidcState
 	if err := json.Unmarshal(raw, &oidcState); err != nil {
-		return "", err
+		return nil, err
 	}
 
 	// Validate that the state value matches that of the original redirect
 	// request
 	if oidcState.State != returnedState {
-		return "", errors.New("state mismatch")
+		return nil, errors.New("state mismatch")
 	}
 
 	// Exchange the auth code for an id token using the oidc code verifier to
@@ -228,13 +237,13 @@ func (s *authService) AuthenticateUser(
 		),
 	)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	// Validate the id token
 	rawIDToken, ok := oauthToken.Extra("id_token").(string)
 	if !ok {
-		return "", errors.New("missing id_token")
+		return nil, errors.New("missing id_token")
 	}
 
 	idToken, err := s.verifier.Verify(
@@ -242,18 +251,18 @@ func (s *authService) AuthenticateUser(
 		rawIDToken,
 	)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	// Extract claims from the id token and validate that the nonce value
 	// matches that of the original redirect request
 	var claims portalTokenClaims
 	if err := idToken.Claims(&claims); err != nil {
-		return "", err
+		return nil, err
 	}
 
 	if claims.Nonce != oidcState.Nonce {
-		return "", errors.New("nonce mismatch")
+		return nil, errors.New("nonce mismatch")
 	}
 
 	// Upsert the user with the data from the claims
@@ -266,10 +275,18 @@ func (s *authService) AuthenticateUser(
 		claims.EmailAddress,
 	)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
-	return s.buildAppToken(user, rawIDToken)
+	appToken, err := s.buildAppToken(user, rawIDToken)
+	if err != nil {
+		return nil, err
+	}
+
+	return &AuthenticateUserResponse{
+		AppToken: appToken,
+		RequestedPath:  oidcState.RequestedPath,
+	}, nil
 }
 
 // ParseUserJwtCookie is a helper method for parsing a jwt token stored in a

@@ -19,14 +19,13 @@ func addRoutes(
 ) {
 	errorHandler := h.NewErrorHandler(ts)
 
-	pipeline := h.NewPipelineBuilder[h.NoState](errorHandler, os.Stdout)
+	pipeline := h.NewPipelineBuilder(errorHandler, os.Stdout, h.NoStateInit)
 
-	pipelineWithUserState := h.NewPipelineBuilder[h.UserState](
+	pipelineWithUserState := h.NewPipelineBuilder(
 		errorHandler,
 		os.Stdout,
+		h.UserStateInit,
 	)
-
-	parseAdminJWT := h.NewParseJwtMiddleware(appSettings, authService)
 
 	if sub, err := fs.Sub(staticFileSystem, "static"); err == nil {
 		mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServer(http.FS(sub))))
@@ -37,8 +36,11 @@ func addRoutes(
 	mux.Handle(
 		"GET /",
 		pipelineWithUserState.New(
-			[]h.Middleware[h.UserState]{parseAdminJWT},
-			h.GetRootHandler(ts, appSettings, authService),
+			[]h.Middleware[h.UserState]{
+				h.NewParseJwtMiddleware(authService),
+				h.NewRequireSignInMiddleware(authService),
+			},
+			h.GetRootHandler(ts),
 		),
 	)
 
@@ -46,7 +48,7 @@ func addRoutes(
 		"GET /sign-in-redirect",
 		pipeline.New(
 			[]h.Middleware[h.NoState]{},
-			h.GetSignInRedirectHandler(ts, appSettings, authService),
+			h.GetSignInRedirectHandler(ts, authService),
 		),
 	)
 
@@ -54,7 +56,7 @@ func addRoutes(
 		"GET /sign-out",
 		pipeline.New(
 			[]h.Middleware[h.NoState]{},
-			h.GetSignOutHandler(ts, appSettings, authService),
+			h.GetSignOutHandler(authService),
 		),
 	)
 
