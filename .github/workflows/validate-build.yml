@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up Go
         uses: actions/setup-go@v6
@@ -21,12 +21,12 @@ jobs:
           go-version: '1.25.7'
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: '25'
 
       - name: Cache npm modules
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: webresources/node_modules
           key: ${{ runner.os }}-node-${{ hashFiles('webresources/package-lock.json') }}
@@ -34,7 +34,7 @@ jobs:
             ${{ runner.os }}-node-
 
       - name: Cache Go modules
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: |
             ~/.cache/go-build
