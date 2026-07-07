@@ -1,20 +1,20 @@
+// Package services is responsible for the service layer of the application
+//
+// This file implements an oAuth 2.0 auth code + PKCE flow to authenticate the
+// user
 package services
 
 import (
 	"context"
-	"crypto/hmac"
-	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
-	"encoding/json"
 	"errors"
 	"net/http"
-	"net/url"
-	"strings"
 	"time"
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/turnerbenjamin/heterogen_portal/internal/constants"
 	"github.com/turnerbenjamin/heterogen_portal/internal/db"
 	"github.com/turnerbenjamin/heterogen_portal/internal/etc"
 	"golang.org/x/oauth2"
@@ -23,15 +23,18 @@ import (
 // UserRepo performs database operations on the user table
 type UserRepo interface {
 	UpsertUser(
-		ctx context.Context,
-		oid, givenName, familyName, userName, emailAddress string,
+		oid string,
+		givenName string,
+		familyName string,
+		userName string,
+		emailAddress string,
 	) (*db.User, error)
 	RetrieveUserById(id string) (*db.User, error)
 	RetrieveUserByOid(id string) (*db.User, error)
 }
 
-// JWTSignerAndParser can sign and parse JWT tokens
-type JWTSignerAndParser interface {
+// JwtSigner can sign and parse JWT tokens
+type JwtSigner interface {
 	ParseWithClaims(
 		tokenString string,
 		claims jwt.Claims,
@@ -41,16 +44,66 @@ type JWTSignerAndParser interface {
 	Sign(token *jwt.Token, privateKey []byte) (string, error)
 }
 
+// PayloadSigner can sign and verify payloads
+type PayloadSigner interface {
+	Sign(secret []byte, data []byte) (signedData string)
+	Verify(secret []byte, value string) (data []byte, ok bool)
+}
+
+// OAuthClient can provide a Url to the auth provider and exchange
+// authorisation codes received from the provider with an id token
+type OAuthClient interface {
+	AuthCodeURL(state string, opts ...oauth2.AuthCodeOption) string
+	Exchange(
+		ctx context.Context,
+		code string,
+		opts ...oauth2.AuthCodeOption,
+	) (*oauth2.Token, error)
+}
+
+// RandReader reads random bytes into b
+type RandReader func(b []byte) (n int, err error)
+
+// IdToken exposes a method to read token claims
+type IdToken interface {
+	Claims(v any) error
+}
+
+// IdTokenVerifier can parse and verify a raw id token string
+type IdTokenVerifier interface {
+	Verify(ctx context.Context, rawIDToken string) (IdToken, error)
+}
+
+// OidcProvider can provide an endpoint to the auth provider and a token
+// verifier for the provider
+type OidcProvider interface {
+	Endpoint() oauth2.Endpoint
+	Verifier(config *oidc.Config) IdTokenVerifier
+}
+
+// Jsonserialiser can marshall and unmarshal json payloads
+type JsonSerialiser interface {
+	Marshal(v any) ([]byte, error)
+	Unmarshal(data []byte, v any) error
+}
+
+// SignInRedirectRequest contains a redirect url to the auth provider and signed
+// oidc state which must be persisted to handle the response from the auth
+// provider
 type SignInRedirectRequest struct {
 	Url             string
 	SignedOidcState string
 }
 
+// AuthenticateUserResponse includes a signed jwt app token and the original
+// path requested by the user before the sign-in redirect
 type AuthenticateUserResponse struct {
-	AppToken string
-	RequestedPath  string
+	AppToken      string
+	RequestedPath string
 }
 
+// portalTokenClaims contains the claims expected in the id token returned from
+// the auth provider
 type portalTokenClaims struct {
 	Nonce        string `json:"nonce"`
 	Oid          string `json:"oid"`
@@ -60,13 +113,15 @@ type portalTokenClaims struct {
 	EmailAddress string `json:"email"`
 }
 
+// oidcState contains state persisted during the oidc code + pkce auth flow
 type oidcState struct {
-	State        string
-	Nonce        string
-	CodeVerifier string
-	RequestedPath      string
+	State         string
+	Nonce         string
+	CodeVerifier  string
+	RequestedPath string
 }
 
+// AppClaims contains claims from the app jwt token
 type AppClaims struct {
 	IdToken   string
 	UserId    string
@@ -74,6 +129,8 @@ type AppClaims struct {
 	UserEmail string
 }
 
+// appClaims is struct for internal use within the package to parse app jwt
+// tokens
 type appClaims struct {
 	jwt.RegisteredClaims
 	IdToken   string `json:"id_token"`
@@ -82,91 +139,105 @@ type appClaims struct {
 	UserEmail string `json:"email"`
 }
 
-type authService struct {
-	appSettings        *etc.AppSettings
-	userRepo           UserRepo
-	jwtSignerAndParser JWTSignerAndParser
-
-	oauthConfig *oauth2.Config
-	verifier    *oidc.IDTokenVerifier
+// AuthService is responsible for the auth flow in the application
+type AuthService struct {
+	appSettings    *etc.AppSettings
+	userRepo       UserRepo
+	jsonSerialiser JsonSerialiser
+	jwtSigner      JwtSigner
+	payloadSigner  PayloadSigner
+	randRead       RandReader
+	oauthClient    OAuthClient
+	verifier       IdTokenVerifier
 }
 
+// NewAuthService builds a new authService
 func NewAuthService(
 	ctx context.Context,
 	appSettings *etc.AppSettings,
 	httpClient *http.Client,
+	jsonSerialiser JsonSerialiser,
+	randReader RandReader,
+	jwtSigner JwtSigner,
+	payloadSigner PayloadSigner,
+	newOidcProvider func(ctx context.Context, issuer string) (OidcProvider, error),
 	userRepo UserRepo,
-	jwtSignerAndParser JWTSignerAndParser,
-) (*authService, error) {
+) (*AuthService, error) {
 	oidcCtx := oidc.ClientContext(ctx, httpClient)
 
-	provider, err := oidc.NewProvider(
+	provider, err := newOidcProvider(
 		oidcCtx,
 		appSettings.UserPortalIssuerUrl+"/v2.0",
 	)
 	if err != nil {
 		return nil, err
 	}
-	provider.Endpoint()
+
+	oauthClient := buildOAuthConfig(
+		appSettings,
+		provider,
+	)
 	verifier := provider.Verifier(&oidc.Config{
 		ClientID: appSettings.UserPortalClientId,
 	})
 
-	oauthConfig := &oauth2.Config{
-		ClientID:     appSettings.UserPortalClientId,
-		ClientSecret: appSettings.UserPortalClientSecret,
-		RedirectURL:  appSettings.AppUrlBase + "/sign-in-redirect",
-
-		Endpoint: provider.Endpoint(),
-
-		Scopes: []string{
-			oidc.ScopeOpenID,
-			"profile",
-			"email",
-			"offline_access",
-		},
-	}
-
-	return &authService{
-		appSettings:        appSettings,
-		userRepo:           userRepo,
-		jwtSignerAndParser: jwtSignerAndParser,
-		oauthConfig:        oauthConfig,
-		verifier:           verifier,
+	return &AuthService{
+		appSettings:    appSettings,
+		userRepo:       userRepo,
+		jsonSerialiser: jsonSerialiser,
+		jwtSigner:      jwtSigner,
+		payloadSigner:  payloadSigner,
+		randRead:       randReader,
+		oauthClient:    oauthClient,
+		verifier:       verifier,
 	}, nil
 }
 
 // BuildSignInRedirectRequest generates OIDC state, used to validate any Id
 // token provided in a response. It returns a struct containing a redirect Url
 // and the OIDC state as a signed string
-func (s *authService) BuildSignInRedirectRequest(
+func (s *AuthService) BuildSignInRedirectRequest(
 	requestedPath string,
 ) (*SignInRedirectRequest, error) {
 	r := &SignInRedirectRequest{}
 
 	// Generate OIDC security values
-	state := generateRandomString(32)
-	nonce := generateRandomString(32)
-	codeVerifier := generateRandomString(64)
-	codeChallenge := sha256Base64URL(codeVerifier)
+	state, err := s.generateRandomString(32)
+	if err != nil {
+		return nil, errors.New(constants.ErrMsgFailedToGenerateOidcStateValue)
+	}
+
+	nonce, err := s.generateRandomString(32)
+	if err != nil {
+		return nil, errors.New(constants.ErrMsgFailedToGenerateOidcNonceValue)
+	}
+
+	codeVerifier, err := s.generateRandomString(64)
+	if err != nil {
+		return nil, errors.New(constants.ErrMsgFailedToGenerateOidcCodeVerifierValue)
+	}
+	codeChallenge := sha256Base64Url(codeVerifier)
 
 	// Store OIDC security values in a hmac signed string. The handler will
 	// persist this in a http-only cookie
 	oidcState := oidcState{
-		State:        state,
-		Nonce:        nonce,
-		CodeVerifier: codeVerifier,
-		RequestedPath:      requestedPath,
+		State:         state,
+		Nonce:         nonce,
+		CodeVerifier:  codeVerifier,
+		RequestedPath: requestedPath,
 	}
 
-	oidcStateString, err := json.Marshal(oidcState)
+	oidcStateBytes, err := s.jsonSerialiser.Marshal(oidcState)
 	if err != nil {
 		return nil, err
 	}
-	r.SignedOidcState = signPayload(s.appSettings.OidcStateSecret, oidcStateString)
+	r.SignedOidcState = s.payloadSigner.Sign(
+		s.appSettings.OidcStateSecret,
+		oidcStateBytes,
+	)
 
 	// Construct url to redirect user to sign-in
-	r.Url = s.oauthConfig.AuthCodeURL(
+	r.Url = s.oauthClient.AuthCodeURL(
 		state,
 		oidc.Nonce(nonce),
 		oauth2.SetAuthURLParam(
@@ -186,49 +257,52 @@ func (s *authService) BuildSignInRedirectRequest(
 	return r, nil
 }
 
-func (s *authService) BuildSignOutRedirectRequest() string {
-	logoutURL := s.appSettings.UserPortalIssuerUrl + "/oauth2/v2.0/logout"
-	postLogoutRedirectURI := s.appSettings.AppUrlBase + "/signed-out"
+// BuildSignOutRedirectRequest returns a url to redirect to so that the user can
+// lock out from the auth provider
+func (s *AuthService) BuildSignOutRedirectRequest() string {
+	postLogoutRedirectUri := s.appSettings.AppUrlBase + "/signed-out"
 
-	u, err := url.Parse(logoutURL)
-	if err != nil {
-		return logoutURL
-	}
+	logoutUrl := s.appSettings.UserPortalIssuerUrl +
+		"/oauth2/v2.0/logout" +
+		"?post_logout_redirect_uri=" +
+		postLogoutRedirectUri
 
-	q := u.Query()
-	q.Set("post_logout_redirect_uri", postLogoutRedirectURI)
-
-	u.RawQuery = q.Encode()
-
-	return u.String()
+	return logoutUrl
 }
 
-func (s *authService) AuthenticateUser(
+// AuthenticateUser uses an authorisation code and oidc state to retrieve user
+// information from an id token. Once authenticated, the user is upserted into
+// the database and a signed token is returned to allow direct authentication
+// with the app for subsequent requests
+func (s *AuthService) AuthenticateUser(
 	ctx context.Context,
 	authorisationCode string,
-	returnedState string,
+	returnedStateValue string,
 	signedOidcState string,
 ) (resp *AuthenticateUserResponse, err error) {
 	// validate and parse OIDC state obtained from cookie
-	raw, ok := verifySignedCookie(s.appSettings.OidcStateSecret, signedOidcState)
+	raw, ok := s.payloadSigner.Verify(
+		s.appSettings.OidcStateSecret,
+		signedOidcState,
+	)
 	if !ok {
-		return nil, errors.New("invalid oidc state signature")
+		return nil, errors.New(constants.ErrMsgInvalidOidcState)
 	}
 
 	var oidcState oidcState
-	if err := json.Unmarshal(raw, &oidcState); err != nil {
+	if err := s.jsonSerialiser.Unmarshal(raw, &oidcState); err != nil {
 		return nil, err
 	}
 
 	// Validate that the state value matches that of the original redirect
 	// request
-	if oidcState.State != returnedState {
-		return nil, errors.New("state mismatch")
+	if oidcState.State != returnedStateValue {
+		return nil, errors.New(constants.ErrMsgOidcStateValueMismatch)
 	}
 
 	// Exchange the auth code for an id token using the oidc code verifier to
 	// meet the code challenge sent in the original redirect request
-	oauthToken, err := s.oauthConfig.Exchange(
+	oauthToken, err := s.oauthClient.Exchange(
 		ctx,
 		authorisationCode,
 		oauth2.SetAuthURLParam(
@@ -243,7 +317,7 @@ func (s *authService) AuthenticateUser(
 	// Validate the id token
 	rawIDToken, ok := oauthToken.Extra("id_token").(string)
 	if !ok {
-		return nil, errors.New("missing id_token")
+		return nil, errors.New(constants.ErrMsgUnableToAccessIdToken)
 	}
 
 	idToken, err := s.verifier.Verify(
@@ -262,12 +336,11 @@ func (s *authService) AuthenticateUser(
 	}
 
 	if claims.Nonce != oidcState.Nonce {
-		return nil, errors.New("nonce mismatch")
+		return nil, errors.New(constants.ErrMsgOidcNonceValueMismatch)
 	}
 
 	// Upsert the user with the data from the claims
 	user, err := s.userRepo.UpsertUser(
-		ctx,
 		claims.Oid,
 		claims.GivenName,
 		claims.FamilyName,
@@ -284,8 +357,8 @@ func (s *authService) AuthenticateUser(
 	}
 
 	return &AuthenticateUserResponse{
-		AppToken: appToken,
-		RequestedPath:  oidcState.RequestedPath,
+		AppToken:      appToken,
+		RequestedPath: oidcState.RequestedPath,
 	}, nil
 }
 
@@ -293,9 +366,9 @@ func (s *authService) AuthenticateUser(
 // jwt cookie and returning the user id, contained in the token's subject claim.
 // It will handle any errors with logging and return false if there is any issue
 // parsing the cookie.
-func (s *authService) ParseUserJwtCookie(tokenString string) (*AppClaims, error) {
+func (s *AuthService) ParseUserJwtCookie(tokenString string) (*AppClaims, error) {
 	claims := &appClaims{}
-	token, err := s.jwtSignerAndParser.ParseWithClaims(
+	_, err := s.jwtSigner.ParseWithClaims(
 		tokenString,
 		claims,
 		func(token *jwt.Token) (any, error) {
@@ -303,25 +376,24 @@ func (s *authService) ParseUserJwtCookie(tokenString string) (*AppClaims, error)
 		},
 		jwt.WithExpirationRequired(),
 	)
-
 	if err != nil {
 		return nil, err
 	}
 
-	if !token.Valid {
-		return nil, errors.New("invalid token")
+	if claims.IdToken == "" {
+		return nil, errors.New(constants.ErrMsgParseAppJwtErrUnableToReadIdToken)
 	}
 
 	if claims.UserId == "" {
-		return nil, errors.New("unable to read user id from claims")
+		return nil, errors.New(constants.ErrMsgParseAppJwtErrUnableToReadUserId)
 	}
 
 	if claims.UserOid == "" {
-		return nil, errors.New("unable to read user oid from claims")
+		return nil, errors.New(constants.ErrMsgParseAppJwtErrUnableToReadUserOid)
 	}
 
 	if claims.UserEmail == "" {
-		return nil, errors.New("unable to read user email from claims")
+		return nil, errors.New(constants.ErrMsgParseAppJwtErrUnableToReadUserEmail)
 	}
 
 	return &AppClaims{
@@ -332,11 +404,15 @@ func (s *authService) ParseUserJwtCookie(tokenString string) (*AppClaims, error)
 	}, nil
 }
 
-func (s *authService) RetrieveUserById(userId string) (*db.User, error) {
+// RetrieveUserById returns the user with the matching id or an error if the
+// user cannot be accessed
+func (s *AuthService) RetrieveUserById(userId string) (*db.User, error) {
 	return s.userRepo.RetrieveUserById(userId)
 }
 
-func (s *authService) buildAppToken(user *db.User, idToken string) (string, error) {
+// buildAppToken creates an app token containing user details and the original
+// idToken used to authenticate the user with the auth provider
+func (s *AuthService) buildAppToken(user *db.User, idToken string) (string, error) {
 	appToken := jwt.NewWithClaims(jwt.SigningMethodHS256, appClaims{
 		RegisteredClaims: jwt.RegisteredClaims{
 			Subject:   user.Id,
@@ -349,62 +425,45 @@ func (s *authService) buildAppToken(user *db.User, idToken string) (string, erro
 		UserEmail: user.EmailAddress,
 	})
 
-	return s.jwtSignerAndParser.Sign(appToken, s.appSettings.AppJwtSecret)
+	return s.jwtSigner.Sign(appToken, s.appSettings.AppJwtSecret)
 }
 
-func generateRandomString(nBytes int) string {
+// generateRandomString returns a random string with raw url base64 encoding
+func (s *AuthService) generateRandomString(nBytes int) (string, error) {
 	b := make([]byte, nBytes)
-	_, err := rand.Read(b)
+	_, err := s.randRead(b)
 	if err != nil {
-		panic("failed to generate secure random string")
+		return "", errors.New(constants.ErrMsgFailedToGenerateRandomString)
 	}
 
-	return base64.RawURLEncoding.EncodeToString(b)
+	return base64.RawURLEncoding.EncodeToString(b), nil
 }
 
-func sha256Base64URL(input string) string {
+// sha256Base64Url returns the checksum of the input with raw url base64
+// encoding
+func sha256Base64Url(input string) string {
 	sum := sha256.Sum256([]byte(input))
 	return base64.RawURLEncoding.EncodeToString(sum[:])
 }
 
-func signPayload(secret []byte, data []byte) string {
-	mac := hmac.New(sha256.New, secret)
-	mac.Write(data)
+// buildOAuthConfig uses the app settings and oidc provider to configure an
+// oauth client
+func buildOAuthConfig(
+	appSettings *etc.AppSettings,
+	provider OidcProvider,
+) *oauth2.Config {
+	return &oauth2.Config{
+		ClientID:     appSettings.UserPortalClientId,
+		ClientSecret: appSettings.UserPortalClientSecret,
+		RedirectURL:  appSettings.AppUrlBase + "/sign-in-redirect",
 
-	sig := mac.Sum(nil)
+		Endpoint: provider.Endpoint(),
 
-	payload := base64.RawURLEncoding.EncodeToString(data)
-	signature := base64.RawURLEncoding.EncodeToString(sig)
-
-	return payload + "." + signature
-}
-
-func verifySignedCookie(cookieSecret []byte, value string) ([]byte, bool) {
-	parts := strings.Split(value, ".")
-	if len(parts) != 2 {
-		return nil, false
+		Scopes: []string{
+			oidc.ScopeOpenID,
+			"profile",
+			"email",
+			"offline_access",
+		},
 	}
-
-	payloadB64 := parts[0]
-	sigB64 := parts[1]
-
-	payload, err := base64.RawURLEncoding.DecodeString(payloadB64)
-	if err != nil {
-		return nil, false
-	}
-
-	sig, err := base64.RawURLEncoding.DecodeString(sigB64)
-	if err != nil {
-		return nil, false
-	}
-
-	mac := hmac.New(sha256.New, cookieSecret)
-	mac.Write(payload)
-	expected := mac.Sum(nil)
-
-	if !hmac.Equal(sig, expected) {
-		return nil, false
-	}
-
-	return payload, true
 }

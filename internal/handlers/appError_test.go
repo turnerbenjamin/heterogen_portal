@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/turnerbenjamin/heterogen_portal/internal/constants"
-	"github.com/turnerbenjamin/heterogen_portal/internal/testhelpers"
 )
 
 func TestNewServerError_ReturnsAppErrorWithCorrectProperties(t *testing.T) {
@@ -28,7 +28,7 @@ func TestNewServerError_ReturnsAppErrorWithCorrectProperties(t *testing.T) {
 
 		gotErr := NewServerError(innerError)
 
-		AssertAppErrorEqual(t, gotErr, wantErr)
+		assert.EqualValues(t, gotErr, wantErr)
 	}
 }
 
@@ -88,6 +88,6 @@ func TestAppError_String_ReturnsCorrectString(t *testing.T) {
 
 	for _, td := range testData {
 		got := td.appError.String()
-		testhelpers.AssertStringEqual(t, got, td.want)
+		assert.Equal(t, td.want, got)
 	}
 }

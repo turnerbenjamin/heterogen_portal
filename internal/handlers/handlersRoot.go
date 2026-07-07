@@ -35,107 +35,119 @@ type TokenResponse struct {
 	ExpiresIn   int    `json:"expires_in"`
 }
 
+type AuthHandler struct {
+	templateStore TemplateStore
+	authService   AuthService
+}
+
+func NewAuthHandler(templateStore TemplateStore, authService AuthService) *AuthHandler {
+	return &AuthHandler{
+		templateStore: templateStore,
+		authService:   authService,
+	}
+}
+
 // GetRootHandler returns a handler for the application root.
-func GetRootHandler(ts TemplateStore) AppHandler[UserState] {
-	return func(w http.ResponseWriter, r *http.Request, c *PipelineContext[UserState]) *AppError {
-		if r.URL.Path != "/" {
-			http.NotFound(w, r)
-			return nil
-		}
-
-		pageConfig := templates.PageConfig{
-			ContentOnly: r.Header.Get(constants.HxRequestHeaderRequest) != "",
-			Title:       "HETEROGEN",
-		}
-
-		err := ts.Execute(
-			templates.TmplPageApp,
-			w,
-			templates.TemplateArgs{PageConfig: pageConfig, Data: c.state},
-		)
-		if err != nil {
-			return NewServerError(err)
-		}
+func (h AuthHandler) GetRoot(w http.ResponseWriter, r *http.Request, c *PipelineContext[UserState]) *AppError {
+	if r.URL.Path != "/" {
+		http.NotFound(w, r)
 		return nil
 	}
+
+	pageConfig := templates.PageConfig{
+		ContentOnly: r.Header.Get(constants.HxRequestHeaderRequest) != "",
+		Title:       "HETEROGEN",
+	}
+
+	err := h.templateStore.Execute(
+		templates.TmplPageApp,
+		w,
+		templates.TemplateArgs{PageConfig: pageConfig, Data: c.state},
+	)
+	if err != nil {
+		return NewServerError(err)
+	}
+	return nil
 }
 
 // GetSignInRedirectHandler handles redirects from the auth provider. It will
 // authenticate the user and then redirects to the path requested by the user
-func GetSignInRedirectHandler(authService AuthService) AppHandler[NoState] {
-	return func(w http.ResponseWriter, r *http.Request, c *PipelineContext[NoState]) *AppError {
-		// access signed oidc state from the cookie and clear it up
-		cookie, err := r.Cookie(constants.IdentifierOidcStateCookie)
-		if err != nil {
-			return NewServerError(errors.New(constants.ErrMissingOIDCStateCookie))
-		}
-		signedOidcState := cookie.Value
-		unsetOidcStateCookie(w)
-
-		// extract query params
-		code := r.URL.Query().Get("code")
-		if code == "" {
-			return NewServerError(errors.New(constants.ErrMissingOIDCCodeParam))
-		}
-
-		returnedState := r.URL.Query().Get("state")
-		if returnedState == "" {
-			return NewServerError(errors.New(constants.ErrMissingOIDCStateParam))
-		}
-
-		// authenticate the user
-		authenticateUserResponse, err := authService.AuthenticateUser(
-			r.Context(),
-			code,
-			returnedState,
-			signedOidcState,
-		)
-		if err != nil {
-			return NewServerError(err)
-		}
-
-		setJwtCookie(w, authenticateUserResponse.AppToken)
-
-		// redirect user to the app
-		redirect(w, r, authenticateUserResponse.RequestedPath)
-		return nil
+func (h AuthHandler) GetSignInRedirect(
+	w http.ResponseWriter,
+	r *http.Request,
+	c *PipelineContext[NoState],
+) *AppError {
+	// access signed oidc state from the cookie and clear it up
+	cookie, err := r.Cookie(constants.IdentifierOidcStateCookie)
+	if err != nil {
+		return NewServerError(errors.New(constants.ErrMissingOIDCStateCookie))
 	}
+	signedOidcState := cookie.Value
+	unsetOidcStateCookie(w)
+
+	// extract query params
+	code := r.URL.Query().Get("code")
+	if code == "" {
+		return NewServerError(errors.New(constants.ErrMissingOIDCCodeParam))
+	}
+
+	returnedState := r.URL.Query().Get("state")
+	if returnedState == "" {
+		return NewServerError(errors.New(constants.ErrMissingOIDCStateParam))
+	}
+
+	// authenticate the user
+	authenticateUserResponse, err := h.authService.AuthenticateUser(
+		r.Context(),
+		code,
+		returnedState,
+		signedOidcState,
+	)
+	if err != nil {
+		return NewServerError(err)
+	}
+
+	setJwtCookie(w, authenticateUserResponse.AppToken)
+
+	// redirect user to the app
+	redirect(w, r, authenticateUserResponse.RequestedPath)
+	return nil
 }
 
 // GetSignOutHandler unsets the app jwt cookie and redirects the user to sign
 // out from the auth provider
-func GetSignOutHandler(authService AuthService) AppHandler[NoState] {
-	return func(w http.ResponseWriter, r *http.Request, c *PipelineContext[NoState]) *AppError {
-		unsetJwtCookie(w)
-		redirectUrl := authService.BuildSignOutRedirectRequest()
+func (h AuthHandler) GetSignOut(
+	w http.ResponseWriter,
+	r *http.Request,
+	c *PipelineContext[NoState],
+) *AppError {
+	unsetJwtCookie(w)
+	redirectUrl := h.authService.BuildSignOutRedirectRequest()
 
-		redirect(w, r, redirectUrl)
-		return nil
-	}
+	redirect(w, r, redirectUrl)
+	return nil
 }
 
 // GetSignedOutHandler returns the signed-out page handler
-func GetSignedOutHandler(ts TemplateStore) AppHandler[NoState] {
-	return func(w http.ResponseWriter, r *http.Request, c *PipelineContext[NoState]) *AppError {
-		if r.Header.Get(constants.HxRequestHeaderRequest) != "" {
-			return NewServerError(errors.New(constants.ErrMsgHtmxNotSupported))
-		}
-
-		pageConfig := templates.PageConfig{
-			ContentOnly: false,
-			Title:       "HETEROGEN | SIGNED-OUT",
-		}
-
-		err := ts.Execute(
-			templates.TmplPageUserSignedOut,
-			w,
-			templates.TemplateArgs{PageConfig: pageConfig, Data: nil},
-		)
-		if err != nil {
-			return NewServerError(err)
-		}
-		return nil
+func (h AuthHandler) GetSignedOut(w http.ResponseWriter, r *http.Request, c *PipelineContext[NoState]) *AppError {
+	if r.Header.Get(constants.HxRequestHeaderRequest) != "" {
+		return NewServerError(errors.New(constants.ErrMsgHtmxNotSupported))
 	}
+
+	pageConfig := templates.PageConfig{
+		ContentOnly: false,
+		Title:       "HETEROGEN | SIGNED-OUT",
+	}
+
+	err := h.templateStore.Execute(
+		templates.TmplPageUserSignedOut,
+		w,
+		templates.TemplateArgs{PageConfig: pageConfig, Data: nil},
+	)
+	if err != nil {
+		return NewServerError(err)
+	}
+	return nil
 }
 
 // setJwtCookie sets a cookie on the response with a jwt token as the value

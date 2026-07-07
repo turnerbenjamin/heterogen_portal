@@ -11,12 +11,12 @@ import (
 	"github.com/turnerbenjamin/heterogen_portal/internal/db"
 )
 
-// NewParseJwtMiddleware parses app jwt cookies, retrieves the user and adds it
+// ParseJwtMiddleware parses app jwt cookies, retrieves the user and adds it
 // to pipeline context. If there is no cookie, or it cannot be parsed, user will
 // not be set on the pipeline context
-func NewParseJwtMiddleware(authService AuthService) Middleware[UserState] {
-	return func(next AppHandler[UserState]) AppHandler[UserState] {
-		return func(w http.ResponseWriter, r *http.Request, c *PipelineContext[UserState]) *AppError {
+func ParseJwtMiddleware[T UserState](authService AuthService) Middleware[T] {
+	return func(next AppHandler[T]) AppHandler[T] {
+		return func(w http.ResponseWriter, r *http.Request, c *PipelineContext[T]) *AppError {
 			jwtCookie, err := r.Cookie(constants.IdentifierJwtCookie)
 			if err != nil {
 				return next(w, r, c)
@@ -43,12 +43,12 @@ func NewParseJwtMiddleware(authService AuthService) Middleware[UserState] {
 	}
 }
 
-// NewRequireSignInMiddleware accesses user state from the pipeline context. If
+// RequireSignInMiddleware accesses user state from the pipeline context. If
 // user is nil, they will be redirected to authenticate with the auth provider.
 // This middleware should be called after NewParseJwtMiddleware
-func NewRequireSignInMiddleware(authService AuthService) Middleware[UserState] {
-	return func(next AppHandler[UserState]) AppHandler[UserState] {
-		return func(w http.ResponseWriter, r *http.Request, c *PipelineContext[UserState]) *AppError {
+func RequireSignInMiddleware[T UserState](authService AuthService) Middleware[T] {
+	return func(next AppHandler[T]) AppHandler[T] {
+		return func(w http.ResponseWriter, r *http.Request, c *PipelineContext[T]) *AppError {
 			// If user is nil, redirect to sign-in service
 			if c.state.GetUser() == nil {
 				redirectReq, err := authService.BuildSignInRedirectRequest(r.URL.Path)
