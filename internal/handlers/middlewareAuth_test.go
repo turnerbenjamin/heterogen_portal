@@ -3,6 +3,7 @@ package handlers
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"log/slog"
 	"net/http"
@@ -10,32 +11,34 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 	"github.com/turnerbenjamin/heterogen_portal/internal/constants"
 	"github.com/turnerbenjamin/heterogen_portal/internal/db"
 	"github.com/turnerbenjamin/heterogen_portal/internal/services"
-	"github.com/turnerbenjamin/heterogen_portal/internal/testhelpers"
 )
 
-func TestNewParseJwtMiddleware_CallsNextWithUserNilWhenNoCookie(t *testing.T) {
+func TestParseJwtMiddleware_CallsNextWithUserNilWhenNoCookie(t *testing.T) {
 	r := httptest.NewRequest("GET", "/", strings.NewReader(""))
 	w := httptest.NewRecorder()
 	c := &PipelineContext[UserState]{state: UserStateInit()}
 
 	next := testHandler[UserState]{t: t}
 
-	as := &mockAuthService{t: t}
-	mw := NewParseJwtMiddleware(as)(next.handle)
+	as := NewMockAuthService(t)
+	mw := ParseJwtMiddleware[UserState](as)(next.handle)
 
 	err := mw(w, r, c)
 
-	AssertAppErrorNil(t, err)
-	testhelpers.AssertIntEqual(t, next.callCount, 1)
+	assert.Nil(t, err)
+	assert.Equal(t, 1, next.callCount)
 
 	var wantUser *db.User = nil
-	testhelpers.AssertEqual(t, c.state.GetUser(), wantUser)
+	assert.Equal(t, wantUser, c.state.GetUser())
 }
 
-func TestNewParseJwtMiddleware_HandlesErrorsReturnedFromAuthService(t *testing.T) {
+func TestParseJwtMiddleware_HandlesErrorsReturnedFromAuthService(t *testing.T) {
 	testData := []struct {
 		testUserId       string
 		parseUserErr     error
@@ -70,33 +73,36 @@ func TestNewParseJwtMiddleware_HandlesErrorsReturnedFromAuthService(t *testing.T
 
 		next := testHandler[UserState]{t: t}
 
-		as := &mockAuthService{
-			t:                               t,
-			parseUserJwtCookieReturnsClaims: &services.AppClaims{UserId: td.testUserId},
-			parseUserJwtCookieReturnsErr:    td.parseUserErr,
-			retrieveUserByIdReturnsUser:     &db.User{},
-			retrieveUserByIdReturnsErr:      td.retrieveUserErr,
-		}
-		mw := NewParseJwtMiddleware(as)(next.handle)
+		as := NewMockAuthService(t)
+		as.
+			EXPECT().ParseUserJwtCookie(testCookieJwtToken).
+			Return(&services.AppClaims{UserId: td.testUserId}, td.parseUserErr)
+		as.
+			EXPECT().RetrieveUserById(td.testUserId).
+			Maybe().
+			Return(&db.User{}, td.retrieveUserErr)
 
-		err := mw(w, r, c)
+		mw := ParseJwtMiddleware[UserState](as)(next.handle)
+
+		appErr := mw(w, r, c)
 		c.logger.Log(context.Background(), slog.LevelInfo, "test")
 
-		AssertAppErrorNil(t, err)
-		testhelpers.AssertIntEqual(t, next.callCount, 1)
+		assert.Nil(t, appErr)
+		assert.Equal(t, 1, next.callCount)
 
 		var wantUser *db.User = nil
-		testhelpers.AssertEqual(t, c.state.GetUser(), wantUser)
+		assert.Equal(t, wantUser, c.state.GetUser())
 
-		testhelpers.AssertIntEqual(t, len(w.Result().Cookies()), 1)
+		require.Equal(t, 1, len(w.Result().Cookies()))
 		gotUnsetCookie := w.Result().Cookies()[0]
+		gotUnsetCookie.Raw = ""
+		gotUnsetCookie.RawExpires = ""
+
 		wantUnsetCookie := buildExpectedUnsetAppJwtCookie()
-
-		testhelpers.AssertCookieEqual(t, gotUnsetCookie, wantUnsetCookie)
-
-		testhelpers.AssertSlogsContain(
+		assert.EqualValues(t, wantUnsetCookie, gotUnsetCookie)
+		assertLogsContain(
 			t,
-			logSink.Bytes(),
+			logSink,
 			map[string]any{
 				constants.SlogKeyNonFatalErrParseAppJWT: td.wantErrorMessage,
 			},
@@ -104,7 +110,7 @@ func TestNewParseJwtMiddleware_HandlesErrorsReturnedFromAuthService(t *testing.T
 	}
 }
 
-func TestNewParseJwtMiddleware_SetsUserOnContextOnSuccessfulParse(t *testing.T) {
+func TestParseJwtMiddleware_SetsUserOnContextOnSuccessfulParse(t *testing.T) {
 	testCookieJwtToken := "some-jwt-token"
 	testUserId := "test-user-id"
 	testUser := &db.User{Id: testUserId}
@@ -116,22 +122,25 @@ func TestNewParseJwtMiddleware_SetsUserOnContextOnSuccessfulParse(t *testing.T) 
 	c := &PipelineContext[UserState]{state: UserStateInit()}
 	next := testHandler[UserState]{t: t}
 
-	as := &mockAuthService{
-		t:                               t,
-		parseUserJwtCookieReturnsClaims: &services.AppClaims{UserId: testUserId},
-		retrieveUserByIdReturnsUser:     testUser,
-	}
+	as := NewMockAuthService(t)
+	as.
+		EXPECT().ParseUserJwtCookie(testCookieJwtToken).
+		Return(&services.AppClaims{UserId: testUserId}, nil)
 
-	mw := NewParseJwtMiddleware(as)(next.handle)
+	as.
+		EXPECT().RetrieveUserById(testUserId).
+		Return(testUser, nil)
+
+	mw := ParseJwtMiddleware[UserState](as)(next.handle)
 
 	err := mw(w, r, c)
 
-	AssertAppErrorNil(t, err)
-	testhelpers.AssertIntEqual(t, next.callCount, 1)
-	testhelpers.AssertEqual(t, c.state.GetUser(), testUser)
+	assert.Nil(t, err)
+	assert.Equal(t, 1, next.callCount)
+	assert.Equal(t, testUser, c.state.GetUser())
 }
 
-func TestNewRequireSignIn_RedirectsUserToSignInWhenUserIsNil(t *testing.T) {
+func TestRequireSignInMiddleware_RedirectsUserToSignInWhenUserIsNil(t *testing.T) {
 	t.Parallel()
 
 	testData := []struct {
@@ -169,6 +178,7 @@ func TestNewRequireSignIn_RedirectsUserToSignInWhenUserIsNil(t *testing.T) {
 			SameSite: http.SameSiteLaxMode,
 			Path:     "/sign-in-redirect",
 			MaxAge:   600,
+			Quoted:   true,
 		}
 
 		r := httptest.NewRequest("GET", "/", strings.NewReader(""))
@@ -179,33 +189,31 @@ func TestNewRequireSignIn_RedirectsUserToSignInWhenUserIsNil(t *testing.T) {
 		w := httptest.NewRecorder()
 		c := &PipelineContext[UserState]{state: UserStateInit()}
 
-		as := &mockAuthService{
-			t:                                    t,
-			buildSignInRedirectRequestReturnsReq: td.signInRedirectReq,
-			buildSignInRedirectRequestReturnsErr: nil,
-		}
+		as := NewMockAuthService(t)
+		as.
+			EXPECT().BuildSignInRedirectRequest(mock.Anything).
+			Return(td.signInRedirectReq, nil)
 
 		testHandler := &testHandler[UserState]{t: t}
-		mw := NewRequireSignInMiddleware(as)(testHandler.handle)
+		mw := RequireSignInMiddleware[UserState](as)(testHandler.handle)
 		err := mw(w, r, c)
 
-		AssertAppErrorNil(t, err)
-		testhelpers.AssertIntEqual(t, w.Code, wantCode)
-		testhelpers.AssertStringEqual(
-			t,
-			w.Result().Header.Get(td.redirectKey),
-			wantPath,
-		)
-		cookies := w.Result().Cookies()
+		assert.Nil(t, err)
+		assert.Equal(t, wantCode, w.Code)
+		assert.Equal(t, wantPath, w.Result().Header.Get(td.redirectKey))
 
-		testhelpers.AssertIntEqual(t, len(cookies), 1)
+		cookies := w.Result().Cookies()
+		assert.Equal(t, 1, len(cookies))
+
 		gotCookie := cookies[0]
-		testhelpers.AssertCookieEqual(t, gotCookie, wantCookie)
-		testhelpers.AssertIntEqual(t, testHandler.callCount, wantTestHandlerCallCount)
+		gotCookie.Raw = ""
+
+		assert.EqualValues(t, wantCookie, gotCookie)
+		assert.Equal(t, wantTestHandlerCallCount, testHandler.callCount)
 	}
 }
 
-func TestNewRequireSignInMiddleware_HandlesAuthServicesErrors(t *testing.T) {
+func TestRequireSignInMiddleware_HandlesAuthServicesErrors(t *testing.T) {
 	t.Parallel()
 
 	wantInnerError := errors.New("test auth services err")
@@ -221,20 +229,20 @@ func TestNewRequireSignInMiddleware_HandlesAuthServicesErrors(t *testing.T) {
 	w := httptest.NewRecorder()
 	c := &PipelineContext[UserState]{state: UserStateInit()}
 
-	as := &mockAuthService{
-		t:                                    t,
-		buildSignInRedirectRequestReturnsErr: wantInnerError,
-	}
+	as := NewMockAuthService(t)
+	as.
+		EXPECT().BuildSignInRedirectRequest(mock.Anything).
+		Return(nil, wantInnerError)
 
 	testHandler := &testHandler[UserState]{t: t}
-	mw := NewRequireSignInMiddleware(as)(testHandler.handle)
+	mw := RequireSignInMiddleware[UserState](as)(testHandler.handle)
 	err := mw(w, r, c)
 
-	AssertAppErrorEqual(t, err, wantAppError)
-	testhelpers.AssertIntEqual(t, testHandler.callCount, wantTestHandlerCallCount)
+	assert.EqualValues(t, wantAppError, err)
+	assert.Equal(t, wantTestHandlerCallCount, testHandler.callCount)
 }
 
-func TestNewRequireSignInMiddleware_CallsNextWhenUserIsNotNil(t *testing.T) {
+func TestRequireSignInMiddleware_CallsNextWhenUserIsNotNil(t *testing.T) {
 	t.Parallel()
 	wantTestHandlerCallCount := 1
 
@@ -248,14 +256,14 @@ func TestNewRequireSignInMiddleware_CallsNextWhenUserIsNotNil(t *testing.T) {
 		EmailAddress: "test@user.com",
 	})
 
-	as := &mockAuthService{t: t}
+	as := NewMockAuthService(t)
 
 	testHandler := &testHandler[UserState]{t: t}
-	mw := NewRequireSignInMiddleware(as)(testHandler.handle)
+	mw := RequireSignInMiddleware[UserState](as)(testHandler.handle)
 	err := mw(w, r, c)
 
-	AssertAppErrorNil(t, err)
-	testhelpers.AssertIntEqual(t, testHandler.callCount, wantTestHandlerCallCount)
+	assert.Nil(t, err)
+	assert.Equal(t, wantTestHandlerCallCount, testHandler.callCount)
 }
 
 type testHandler[T any] struct {
@@ -269,4 +277,21 @@ func (m *testHandler[T]) handle(_ http.ResponseWriter, _ *http.Request, _ *Pipel
 
 	m.callCount = m.callCount + 1
 	return m.returnsErr
+}
+
+func assertLogsContain(t testing.TB, logSink *bytes.Buffer, wantAttributes map[string]any) {
+	t.Helper()
+
+	gotLogAttributes := map[string]any{}
+	err := json.Unmarshal(logSink.Bytes(), &gotLogAttributes)
+	require.NoError(t, err)
+
+	for k, v := range wantAttributes {
+		gotV, ok := gotLogAttributes[k]
+		require.Equal(t, true, ok)
+
+		if v != mock.Anything {
+			assert.Equal(t, v, gotV)
+		}
+	}
 }

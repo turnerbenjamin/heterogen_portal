@@ -5,66 +5,64 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/turnerbenjamin/heterogen_portal/internal/etc"
 	h "github.com/turnerbenjamin/heterogen_portal/internal/handlers"
-	"github.com/turnerbenjamin/heterogen_portal/internal/templates"
 )
 
-func addRoutes(
-	mux *http.ServeMux,
-	appSettings *etc.AppSettings,
-	ts *templates.Store,
-	staticFileSystem fs.FS,
-	authService h.AuthService,
-) {
-	errorHandler := h.NewErrorHandler(ts)
+func (app *application) addRoute(pattern string, handler http.Handler) {
+	app.serveMux.Handle(pattern, handler)
+}
 
-	pipeline := h.NewPipelineBuilder(errorHandler, os.Stdout, h.NoStateInit)
+func (app *application) addRoutes() {
+	pipeline := h.NewPipelineBuilder(
+		app.handlers.errorHandler,
+		os.Stdout,
+		h.NoStateInit,
+	)
 
 	pipelineWithUserState := h.NewPipelineBuilder(
-		errorHandler,
+		app.handlers.errorHandler,
 		os.Stdout,
 		h.UserStateInit,
 	)
 
-	if sub, err := fs.Sub(staticFileSystem, "static"); err == nil {
-		mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServer(http.FS(sub))))
+	if sub, err := fs.Sub(app.staticFileSystem, "static"); err == nil {
+		app.addRoute("GET /static/", http.StripPrefix("/static/", http.FileServer(http.FS(sub))))
 	} else {
-		mux.Handle("GET /static/", http.FileServer(http.FS(staticFileSystem)))
+		app.addRoute("GET /static/", http.FileServer(http.FS(app.staticFileSystem)))
 	}
 
-	mux.Handle(
+	app.addRoute(
 		"GET /",
 		pipelineWithUserState.New(
 			[]h.Middleware[h.UserState]{
-				h.NewParseJwtMiddleware(authService),
-				h.NewRequireSignInMiddleware(authService),
+				h.ParseJwtMiddleware[h.UserState](app.services.authService),
+				h.RequireSignInMiddleware[h.UserState](app.services.authService),
 			},
-			h.GetRootHandler(ts),
+			app.handlers.authHandler.GetRoot,
 		),
 	)
 
-	mux.Handle(
+	app.addRoute(
 		"GET /sign-in-redirect",
 		pipeline.New(
 			[]h.Middleware[h.NoState]{},
-			h.GetSignInRedirectHandler(authService),
+			app.handlers.authHandler.GetSignInRedirect,
 		),
 	)
 
-	mux.Handle(
+	app.addRoute(
 		"GET /sign-out",
 		pipeline.New(
 			[]h.Middleware[h.NoState]{},
-			h.GetSignOutHandler(authService),
+			app.handlers.authHandler.GetSignOut,
 		),
 	)
 
-	mux.Handle(
+	app.addRoute(
 		"GET /signed-out",
 		pipeline.New(
 			[]h.Middleware[h.NoState]{},
-			h.GetSignedOutHandler(ts),
+			app.handlers.authHandler.GetSignedOut,
 		),
 	)
 }

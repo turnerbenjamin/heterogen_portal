@@ -1,11 +1,11 @@
 package handlers
 
 import (
-	"io"
 	"net/http/httptest"
 	"testing"
 
-	"github.com/turnerbenjamin/heterogen_portal/internal/testhelpers"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestStatusSpyWriter_Write_CallsWriteOnUnderlyingWriter(t *testing.T) {
@@ -20,23 +20,16 @@ func TestStatusSpyWriter_Write_CallsWriteOnUnderlyingWriter(t *testing.T) {
 
 	ssw.WriteHeader(wantStatusCode)
 	gotWritten, err := ssw.Write(wantBody)
-	testhelpers.AssertErrorNil(t, err)
+	require.Nil(t, err)
 
 	res := w.Result()
 
 	gotStatusCode := res.StatusCode
-	gotBody, err := io.ReadAll(res.Body)
-	defer func() {
-		err := res.Body.Close()
-		if err != nil {
-			t.Fatal(err.Error())
-		}
-	}()
 
-	testhelpers.AssertErrorNil(t, err)
-	testhelpers.AssertIntEqual(t, gotStatusCode, wantStatusCode)
-	testhelpers.AssertBytesEqual(t, gotBody, wantBody)
-	testhelpers.AssertIntEqual(t, gotWritten, wantWritten)
+	assert.Nil(t, err)
+	assert.Equal(t, wantStatusCode, gotStatusCode)
+	assert.Equal(t, string(wantBody), w.Body.String())
+	assert.Equal(t, wantWritten, gotWritten)
 }
 
 func TestStatusSpyWriter_Write_DefaultsStatusCodeTo200(t *testing.T) {
@@ -46,12 +39,12 @@ func TestStatusSpyWriter_Write_DefaultsStatusCodeTo200(t *testing.T) {
 	ssw := statusSpyWriter{ResponseWriter: w}
 
 	_, err := ssw.Write([]byte("body"))
-	testhelpers.AssertErrorNil(t, err)
+	require.Nil(t, err)
 
 	wantStatusCode := 200
 	gotStatusCode := w.Result().StatusCode
 
-	testhelpers.AssertIntEqual(t, gotStatusCode, wantStatusCode)
+	assert.Equal(t, wantStatusCode, gotStatusCode)
 }
 
 func TestStatusSpyWriter_WriteHeader_TracksFinalStatusCode(t *testing.T) {
@@ -68,11 +61,11 @@ func TestStatusSpyWriter_WriteHeader_TracksFinalStatusCode(t *testing.T) {
 	ssw.WriteHeader(want)
 
 	_, err := ssw.Write([]byte("body"))
-	testhelpers.AssertErrorNil(t, err)
+	require.Nil(t, err)
 
 	gotTracked := ssw.statusCode
 	gotWritten := w.Result().StatusCode
 
-	testhelpers.AssertIntEqual(t, gotTracked, want)
-	testhelpers.AssertIntEqual(t, gotWritten, want)
+	assert.Equal(t, want, gotTracked)
+	assert.Equal(t, want, gotWritten)
 }

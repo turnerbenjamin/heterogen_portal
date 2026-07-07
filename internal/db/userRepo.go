@@ -16,9 +16,9 @@ type Crypt interface {
 }
 
 type UserRepo struct {
+	ctx        context.Context
 	db         *sql.DB
 	statements map[statementKey]*sql.Stmt
-	crypt      Crypt
 }
 
 type statementKey = int
@@ -58,10 +58,10 @@ var (
 	)
 )
 
-func BuildUserRepo(db *sql.DB, crypt Crypt) *UserRepo {
+func BuildUserRepo(ctx context.Context, db *sql.DB) *UserRepo {
 	return &UserRepo{
+		ctx:        ctx,
 		db:         db,
-		crypt:      crypt,
 		statements: make(map[statementKey]*sql.Stmt),
 	}
 }
@@ -75,7 +75,7 @@ func (r *UserRepo) Close() {
 	}
 }
 
-func (r *UserRepo) UpsertUser(ctx context.Context, oid, givenName, familyName, userName, emailAddress string) (*User, error) {
+func (r *UserRepo) UpsertUser(oid, givenName, familyName, userName, emailAddress string) (*User, error) {
 
 	var err error
 	id := uuid.New().String()
@@ -171,7 +171,8 @@ func (r *UserRepo) UpsertUser(ctx context.Context, oid, givenName, familyName, u
 		return nil, err
 	}
 
-	row := query.QueryRowContext(ctx,
+	row := query.QueryRowContext(
+		r.ctx,
 		sql.Named("id", id),
 		sql.Named("oid", oid),
 		sql.Named("givenName", givenName),

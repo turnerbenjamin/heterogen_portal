@@ -11,8 +11,9 @@ import (
 	"testing"
 	"testing/fstest"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/turnerbenjamin/heterogen_portal/internal/constants"
-	"github.com/turnerbenjamin/heterogen_portal/internal/testhelpers"
 )
 
 func TestMakeTemplateStore_ReturnsStore(t *testing.T) {
@@ -36,10 +37,10 @@ func TestMakeTemplateStore_ReturnsStore(t *testing.T) {
 
 	got, err := MakeTemplateStore(testFS, root, templateData)
 
-	testhelpers.AssertErrorNil(t, err)
-	if got == nil {
-		t.Fatal("expected store pointer but got nil")
-	}
+	assert.Nil(t, err)
+
+	require.NotNil(t, got)
+	assert.Equal(t, templateData, got.templateData)
 }
 
 func TestMakeTemplateStore_HandlesNilFS(t *testing.T) {
@@ -54,7 +55,7 @@ func TestMakeTemplateStore_HandlesNilFS(t *testing.T) {
 	_, err := MakeTemplateStore(nil, root, templateData)
 	want := errors.New(constants.ErrMsgFileSystemIsNil)
 
-	testhelpers.AssertErrorEqual(t, err, want)
+	assert.EqualError(t, err, want.Error())
 }
 
 func TestMakeTemplateStore_HandlesMissingTemplateData(t *testing.T) {
@@ -71,7 +72,7 @@ func TestMakeTemplateStore_HandlesMissingTemplateData(t *testing.T) {
 
 	_, err := MakeTemplateStore(fs, root, templateData)
 	want := fmt.Errorf("%s%d", constants.ErrMsgPrefixMissingTemplateData, TmplPageUserSignedOut)
-	testhelpers.AssertErrorEqual(t, err, want)
+	assert.EqualError(t, err, want.Error())
 }
 
 func TestMakeTemplateStore_HandlesMissingTemplate(t *testing.T) {
@@ -90,7 +91,7 @@ func TestMakeTemplateStore_HandlesMissingTemplate(t *testing.T) {
 	_, err := MakeTemplateStore(fs, root, templateData)
 
 	want := fmt.Errorf("%s%s", constants.ErrMsgPrefixMissingTemplateFile, missingTemplate.Name)
-	testhelpers.AssertErrorEqual(t, err, want)
+	assert.EqualError(t, err, want.Error())
 }
 
 func TestMakeTemplateStore_HandlesMissingDependency(t *testing.T) {
@@ -118,7 +119,7 @@ func TestMakeTemplateStore_HandlesMissingDependency(t *testing.T) {
 	_, err := MakeTemplateStore(testFS, root, templateData)
 
 	want := fmt.Errorf("%s%s", constants.ErrMsgPrefixMissingTemplateFile, missingDepName)
-	testhelpers.AssertErrorEqual(t, err, want)
+	assert.EqualError(t, err, want.Error())
 }
 
 func TestMakeTemplateStore_HandlesInvalidTemplateSyntax(t *testing.T) {
@@ -144,7 +145,8 @@ func TestMakeTemplateStore_HandlesInvalidTemplateSyntax(t *testing.T) {
 
 	_, err := MakeTemplateStore(testFS, root, templateData)
 
-	testhelpers.AssertErrorMessageMatches(t, err, "unclosed action")
+	require.NotNil(t, err)
+	assert.Contains(t, err.Error(), "unclosed action")
 }
 
 func TestMakeTemplateStore_HandlesWalkDirErr(t *testing.T) {
@@ -165,7 +167,7 @@ func TestMakeTemplateStore_HandlesWalkDirErr(t *testing.T) {
 	)
 
 	_, err := MakeTemplateStore(&errorWalkDirFS{MapFS: testFS, err: testErr}, root, templateData)
-	testhelpers.AssertErrorEqual(t, err, testErr)
+	assert.EqualError(t, err, testErr.Error())
 }
 
 func TestMakeTemplateStore_HandlesReadFileErr(t *testing.T) {
@@ -186,7 +188,7 @@ func TestMakeTemplateStore_HandlesReadFileErr(t *testing.T) {
 	)
 
 	_, err := MakeTemplateStore(&errorReadFileFS{MapFS: testFS, err: testErr}, root, templateData)
-	testhelpers.AssertErrorEqual(t, err, testErr)
+	assert.EqualError(t, err, testErr.Error())
 }
 
 func TestExecute_HandlesMissingData(t *testing.T) {
@@ -210,7 +212,7 @@ func TestExecute_HandlesMissingData(t *testing.T) {
 	)
 
 	want := fmt.Errorf("%s%d", constants.ErrMsgPrefixMissingTemplateData, TmplPageUserSignedOut)
-	testhelpers.AssertErrorEqual(t, err, want)
+	assert.EqualError(t, err, want.Error())
 }
 
 func TestExecute_SetsWebResources(t *testing.T) {
@@ -235,7 +237,7 @@ func TestExecute_SetsWebResources(t *testing.T) {
 		},
 	)
 
-	testhelpers.AssertErrorNil(t, err)
+	assert.Nil(t, err)
 	assertTemplateContentLooseMatch(t, w.String(), "PASS")
 }
 
@@ -269,7 +271,7 @@ func TestExecute_PassesDataCorrectly(t *testing.T) {
 		data,
 	)
 
-	testhelpers.AssertErrorNil(t, err)
+	assert.Nil(t, err)
 	assertTemplateContentLooseMatch(t, w.String(), "PASS,PASS,PASS")
 }
 

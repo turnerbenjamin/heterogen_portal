@@ -66,15 +66,9 @@ jobs:
         uses: azure/container-apps-deploy-action@v2
         with:
           appSourcePath: ${{ github.workspace }}
-          _dockerfilePathKey_: _dockerfilePath_
-          _targetLabelKey_: _targetLabel_
           registryUrl: heterogenportalcontainerregistry-cjd9bgd0gme8g6gc.azurecr.io
           registryUsername: ${{ secrets.HETEROGENPORTALAPPDEV_REGISTRY_USERNAME }}
           registryPassword: ${{ secrets.HETEROGENPORTALAPPDEV_REGISTRY_PASSWORD }}
           containerAppName: heterogen-portal-app-dev
           resourceGroup: heterogen-portal-resource-group
           imageToBuild: heterogenportalcontainerregistry-cjd9bgd0gme8g6gc.azurecr.io/heterogen-portal-app-dev:${{ github.sha }}
-          _buildArgumentsKey_: |
-            _buildArgumentsValues_
-
-

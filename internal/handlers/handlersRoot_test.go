@@ -1,19 +1,20 @@
 package handlers
 
 import (
-	"context"
 	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/turnerbenjamin/heterogen_portal/internal/constants"
 	"github.com/turnerbenjamin/heterogen_portal/internal/db"
 	"github.com/turnerbenjamin/heterogen_portal/internal/services"
 	"github.com/turnerbenjamin/heterogen_portal/internal/templates"
-	"github.com/turnerbenjamin/heterogen_portal/internal/testhelpers"
 )
 
 func TestGetRootHandler_Returns404WhenPathIsNotRoot(t *testing.T) {
@@ -35,13 +36,20 @@ func TestGetRootHandler_Returns404WhenPathIsNotRoot(t *testing.T) {
 		c := &PipelineContext[UserState]{state: UserStateInit()}
 		c.state.SetUser(&db.User{})
 
-		ts := &mockTemplateStore{t: t, returns: nil}
-		h := GetRootHandler(ts)
+		ts := NewMockTemplateStore(t)
+		ts.EXPECT().
+			Execute(mock.Anything, mock.Anything, mock.Anything).
+			Maybe().
+			Return(nil)
 
-		err := h(w, r, c)
+		as := NewMockAuthService(t)
 
-		AssertAppErrorNil(t, err)
-		testhelpers.AssertIntEqual(t, w.Code, td.wantCode)
+		h := NewAuthHandler(ts, as)
+
+		err := h.GetRoot(w, r, c)
+
+		assert.Nil(t, err)
+		assert.Equal(t, td.wantCode, w.Code)
 	}
 }
 
@@ -72,20 +80,26 @@ func TestGetRootHandler_ReturnsMainAppTemplate(t *testing.T) {
 		w := httptest.NewRecorder()
 		c := &PipelineContext[UserState]{state: wantState}
 
-		ts := &mockTemplateStore{t: t, returns: nil}
-		h := GetRootHandler(ts)
+		ts := NewMockTemplateStore(t)
+		var capturedTemplateArgs templates.TemplateArgs
+		ts.EXPECT().
+			Execute(wantTemplate, w, mock.Anything).
+			Run(func(_ templates.TemplateIdentifier, _ io.Writer, data templates.TemplateArgs) {
+				capturedTemplateArgs = data
+			}).
+			Return(nil)
 
-		err := h(w, r, c)
+		as := NewMockAuthService(t)
 
-		AssertAppErrorNil(t, err)
-		testhelpers.AssertIntEqual(t, w.Code, wantStatusCode)
-		testhelpers.AssertIntEqual(t, len(ts.calls), 1)
+		h := NewAuthHandler(ts, as)
 
-		executeCall := ts.calls[0]
-		testhelpers.AssertEqual(t, executeCall.templateId, wantTemplate)
-		testhelpers.AssertEqual(t, executeCall.data.PageConfig.ContentOnly, td.wantContentOnlyValue)
-		testhelpers.AssertEqual(t, executeCall.data.Data, wantState)
-		testhelpers.AssertStringEqual(t, executeCall.data.PageConfig.Title, wantPageTitle)
+		err := h.GetRoot(w, r, c)
+
+		assert.Nil(t, err)
+		assert.Equal(t, wantStatusCode, w.Code)
+		assert.Equal(t, td.wantContentOnlyValue, capturedTemplateArgs.PageConfig.ContentOnly)
+		assert.Equal(t, wantState, capturedTemplateArgs.Data)
+		assert.Equal(t, wantPageTitle, capturedTemplateArgs.PageConfig.Title)
 	}
 }
 
@@ -105,12 +119,15 @@ func TestGetRootHandler_HandlesExecuteTemplateErrors(t *testing.T) {
 	c := &PipelineContext[UserState]{state: UserStateInit()}
 	c.state.SetUser(&db.User{})
 
-	ts := &mockTemplateStore{t: t, returns: wantInnerError}
-	h := GetRootHandler(ts)
+	ts := NewMockTemplateStore(t)
+	ts.EXPECT().Execute(mock.Anything, mock.Anything, mock.Anything).Return(wantInnerError)
 
-	err := h(w, r, c)
+	as := NewMockAuthService(t)
+	h := NewAuthHandler(ts, as)
 
-	AssertAppErrorEqual(t, err, wantAppError)
+	err := h.GetRoot(w, r, c)
+
+	assert.EqualValues(t, wantAppError, err)
 }
 
 func TestGetSignInRedirectHandler_ReturnsErrorWhenCodeStateOrOidcStateMissing(t *testing.T) {
@@ -162,25 +179,30 @@ func TestGetSignInRedirectHandler_ReturnsErrorWhenCodeStateOrOidcStateMissing(t 
 		w := httptest.NewRecorder()
 		c := &PipelineContext[NoState]{}
 
-		as := &mockAuthService{t: t}
-		h := GetSignInRedirectHandler(as)
+		ts := NewMockTemplateStore(t)
+		as := NewMockAuthService(t)
 
-		err := h(w, r, c)
+		h := NewAuthHandler(ts, as)
 
-		AssertAppErrorEqual(t, err, wantAppError)
+		err := h.GetSignInRedirect(w, r, c)
+
+		assert.EqualValues(t, wantAppError, err)
 		if td.HasOidcStateCookie {
 			wantCookie := buildExpectedUnsetOidcStateCookie()
 
 			cookies := w.Result().Cookies()
-			testhelpers.AssertIntEqual(t, len(cookies), 1)
+			assert.Equal(t, 1, len(cookies))
 
 			gotCookie := cookies[0]
-			testhelpers.AssertCookieEqual(t, gotCookie, wantCookie)
+			gotCookie.Raw = ""
+			assert.EqualValues(t, wantCookie, gotCookie)
 		}
 	}
 }
 
 func TestGetSignInRedirectHandler_HandlesAuthServiceErrors(t *testing.T) {
+	t.Parallel()
+
 	wantInnerError := errors.New("test inner error")
 	wantAppError := &AppError{
 		Code:       http.StatusInternalServerError,
@@ -203,18 +225,25 @@ func TestGetSignInRedirectHandler_HandlesAuthServiceErrors(t *testing.T) {
 	w := httptest.NewRecorder()
 	c := &PipelineContext[NoState]{}
 
-	as := &mockAuthService{
-		t:                          t,
-		authenticateUserReturnsErr: wantInnerError,
-	}
-	h := GetSignInRedirectHandler(as)
+	ts := NewMockTemplateStore(t)
+	as := NewMockAuthService(t)
+	as.EXPECT().AuthenticateUser(
+		mock.Anything,
+		testCodeValue,
+		testStateValue,
+		testSignedOidcStateValue,
+	).Return(nil, wantInnerError)
 
-	err := h(w, r, c)
+	h := NewAuthHandler(ts, as)
 
-	AssertAppErrorEqual(t, err, wantAppError)
+	err := h.GetSignInRedirect(w, r, c)
+
+	assert.EqualValues(t, wantAppError, err)
 }
 
 func TestGetSignInRedirectHandler_SetsAppCookieAndRedirectsUser(t *testing.T) {
+	t.Parallel()
+
 	wantAppToken := "some-app-token"
 	wantStatusCode := http.StatusSeeOther
 
@@ -224,7 +253,7 @@ func TestGetSignInRedirectHandler_SetsAppCookieAndRedirectsUser(t *testing.T) {
 	testData := []struct {
 		isHtmx               bool
 		redirectKey          string
-		wantRedirectPath     string
+		wantRequestedPath    string
 		codeValue            string
 		stateValue           string
 		signedOidcStateValue string
@@ -233,7 +262,7 @@ func TestGetSignInRedirectHandler_SetsAppCookieAndRedirectsUser(t *testing.T) {
 		{
 			isHtmx:               true,
 			redirectKey:          "HX-Redirect",
-			wantRedirectPath:     "/some-protected-endpoint",
+			wantRequestedPath:    "/some-protected-endpoint",
 			codeValue:            "some-code",
 			stateValue:           "some-state-value",
 			signedOidcStateValue: "some-oidc-state-value",
@@ -242,7 +271,7 @@ func TestGetSignInRedirectHandler_SetsAppCookieAndRedirectsUser(t *testing.T) {
 		{
 			isHtmx:               false,
 			redirectKey:          "Location",
-			wantRedirectPath:     "/some-other-endpoint",
+			wantRequestedPath:    "/some-other-endpoint",
 			codeValue:            "some-other-code",
 			stateValue:           "some-other-state-value",
 			signedOidcStateValue: "some-other-oidc-state-value",
@@ -266,45 +295,44 @@ func TestGetSignInRedirectHandler_SetsAppCookieAndRedirectsUser(t *testing.T) {
 		w := httptest.NewRecorder()
 		c := &PipelineContext[NoState]{}
 
-		as := &mockAuthService{
-			t: t,
-			authenticateUserReturnsResp: &services.AuthenticateUserResponse{
+		ts := NewMockTemplateStore(t)
+		as := NewMockAuthService(t)
+		as.EXPECT().AuthenticateUser(
+			mock.Anything,
+			td.codeValue,
+			td.stateValue,
+			td.signedOidcStateValue,
+		).Return(
+			&services.AuthenticateUserResponse{
 				AppToken:      wantAppToken,
-				RequestedPath: td.wantRedirectPath,
+				RequestedPath: td.wantRequestedPath,
 			},
-		}
-		h := GetSignInRedirectHandler(as)
-
-		err := h(w, r, c)
-
-		AssertAppErrorNil(t, err)
-		testhelpers.AssertIntEqual(t, w.Code, wantStatusCode)
-		testhelpers.AssertStringEqual(
-			t,
-			w.Result().Header.Get(td.redirectKey),
-			td.wantRedirectPath,
+			nil,
 		)
 
-		testhelpers.AssertIntEqual(t, len(as.authenticateUserCallArgs), 1)
-		authenticateUserCall := as.authenticateUserCallArgs[0]
+		h := NewAuthHandler(ts, as)
 
-		testhelpers.AssertEqual(t, authenticateUserCall.ctx, r.Context())
-		testhelpers.AssertStringEqual(t, authenticateUserCall.authorisationCode, td.codeValue)
-		testhelpers.AssertStringEqual(t, authenticateUserCall.returnedState, td.stateValue)
-		testhelpers.AssertStringEqual(t, authenticateUserCall.signedOidcState, td.signedOidcStateValue)
+		err := h.GetSignInRedirect(w, r, c)
+
+		assert.Nil(t, err)
+		assert.Equal(t, wantStatusCode, w.Code)
+		assert.Equal(t, td.wantRequestedPath, w.Result().Header.Get(td.redirectKey))
 
 		cookies := w.Result().Cookies()
-		testhelpers.AssertIntEqual(t, len(cookies), 2)
+		assert.Equal(t, 2, len(cookies))
 
 		gotClearOidcStateCookie := cookies[0]
-		gotSetAppJwtCookie := cookies[1]
+		gotClearOidcStateCookie.Raw = ""
 
-		testhelpers.AssertCookieEqual(t, gotClearOidcStateCookie, wantClearOidcStateCookie)
-		testhelpers.AssertCookieEqual(t, gotSetAppJwtCookie, wantSetAppJwtCookie)
+		gotSetAppJwtCookie := cookies[1]
+		gotSetAppJwtCookie.Raw = ""
+
+		assert.EqualValues(t, wantClearOidcStateCookie, gotClearOidcStateCookie)
+		assert.EqualValues(t, wantSetAppJwtCookie, gotSetAppJwtCookie)
 	}
 }
 
-func TestGetSignOutHandler_UnsetsAppJwtCookieAndRedirectsUserToSignOut(t *testing.T) {
+func TestSignOutHandler_UnsetsAppJwtCookieAndRedirectsUserToSignOut(t *testing.T) {
 	t.Parallel()
 
 	testData := []struct {
@@ -334,32 +362,31 @@ func TestGetSignOutHandler_UnsetsAppJwtCookieAndRedirectsUserToSignOut(t *testin
 		w := httptest.NewRecorder()
 		c := &PipelineContext[NoState]{}
 
-		as := &mockAuthService{
-			t:                                     t,
-			buildSignOutRedirectRequestReturnsReq: td.redirectValue,
-		}
+		ts := NewMockTemplateStore(t)
+		as := NewMockAuthService(t)
+		as.EXPECT().BuildSignOutRedirectRequest().Return(td.redirectValue)
 
-		h := GetSignOutHandler(as)
-		err := h(w, r, c)
+		h := NewAuthHandler(ts, as)
 
-		AssertAppErrorNil(t, err)
-		testhelpers.AssertIntEqual(t, w.Result().StatusCode, http.StatusSeeOther)
-		testhelpers.AssertStringEqual(
-			t,
-			w.Result().Header.Get(td.redirectKey),
-			td.redirectValue,
-		)
+		err := h.GetSignOut(w, r, c)
+
+		assert.Nil(t, err)
+		assert.Equal(t, http.StatusSeeOther, w.Result().StatusCode)
+		assert.Equal(t, td.redirectValue, w.Result().Header.Get(td.redirectKey))
 
 		cookies := w.Result().Cookies()
-		testhelpers.AssertIntEqual(t, len(cookies), 1)
+		assert.Equal(t, 1, len(cookies))
 
 		gotUnsetAppJwtCookie := cookies[0]
+		gotUnsetAppJwtCookie.Raw = ""
+		gotUnsetAppJwtCookie.RawExpires = ""
+
 		wantUnsetAppJwtCookie := buildExpectedUnsetAppJwtCookie()
-		testhelpers.AssertCookieEqual(t, gotUnsetAppJwtCookie, wantUnsetAppJwtCookie)
+		assert.EqualValues(t, wantUnsetAppJwtCookie, gotUnsetAppJwtCookie)
 	}
 }
 
-func TestGetSignedOutHandler_ReturnsSignedOutPage(t *testing.T) {
+func TestSignedOutHandler_ReturnsSignedOutPage(t *testing.T) {
 	t.Parallel()
 
 	wantStatusCode := http.StatusOK
@@ -372,22 +399,27 @@ func TestGetSignedOutHandler_ReturnsSignedOutPage(t *testing.T) {
 	w := httptest.NewRecorder()
 	c := &PipelineContext[NoState]{}
 
-	ts := &mockTemplateStore{t: t, returns: nil}
-	h := GetSignedOutHandler(ts)
+	var capturedTemplateArgs templates.TemplateArgs
+	ts := NewMockTemplateStore(t)
+	ts.
+		EXPECT().Execute(wantTemplate, w, mock.Anything).
+		Run(func(_ templates.TemplateIdentifier, _ io.Writer, data templates.TemplateArgs) {
+			capturedTemplateArgs = data
+		}).
+		Return(nil)
 
-	err := h(w, r, c)
+	as := NewMockAuthService(t)
+	h := NewAuthHandler(ts, as)
 
-	AssertAppErrorNil(t, err)
-	testhelpers.AssertIntEqual(t, w.Code, wantStatusCode)
-	testhelpers.AssertIntEqual(t, len(ts.calls), 1)
+	err := h.GetSignedOut(w, r, c)
 
-	executeCall := ts.calls[0]
-	testhelpers.AssertEqual(t, executeCall.templateId, wantTemplate)
-	testhelpers.AssertEqual(t, executeCall.data.PageConfig.ContentOnly, wantContentOnlyValue)
-	testhelpers.AssertStringEqual(t, executeCall.data.PageConfig.Title, wantPageTitle)
+	assert.Nil(t, err)
+	assert.Equal(t, wantStatusCode, w.Code)
+	assert.Equal(t, wantContentOnlyValue, capturedTemplateArgs.PageConfig.ContentOnly)
+	assert.Equal(t, wantPageTitle, capturedTemplateArgs.PageConfig.Title)
 }
 
-func TestGetSignedOutHandler_ReturnsErrIfHtmxRequest(t *testing.T) {
+func TestSignedOutHandler_ReturnsErrIfHtmxRequest(t *testing.T) {
 	t.Parallel()
 
 	wantInnerError := errors.New(constants.ErrMsgHtmxNotSupported)
@@ -404,11 +436,13 @@ func TestGetSignedOutHandler_ReturnsErrIfHtmxRequest(t *testing.T) {
 	w := httptest.NewRecorder()
 	c := &PipelineContext[NoState]{}
 
-	ts := &mockTemplateStore{t: t, returns: nil}
-	h := GetSignedOutHandler(ts)
+	ts := NewMockTemplateStore(t)
+	as := NewMockAuthService(t)
 
-	err := h(w, r, c)
-	AssertAppErrorEqual(t, err, wantAppError)
+	h := NewAuthHandler(ts, as)
+
+	err := h.GetSignedOut(w, r, c)
+	assert.EqualValues(t, wantAppError, err)
 }
 
 func TestGetSignedOutHandler_HandlesExecuteErr(t *testing.T) {
@@ -427,11 +461,14 @@ func TestGetSignedOutHandler_HandlesExecuteErr(t *testing.T) {
 	w := httptest.NewRecorder()
 	c := &PipelineContext[NoState]{}
 
-	ts := &mockTemplateStore{t: t, returns: wantInnerError}
-	h := GetSignedOutHandler(ts)
+	ts := NewMockTemplateStore(t)
+	ts.EXPECT().Execute(mock.Anything, mock.Anything, mock.Anything).Return(wantInnerError)
+	as := NewMockAuthService(t)
 
-	err := h(w, r, c)
-	AssertAppErrorEqual(t, err, wantAppError)
+	h := NewAuthHandler(ts, as)
+
+	err := h.GetSignedOut(w, r, c)
+	assert.EqualValues(t, wantAppError, err)
 }
 
 func buildRedirectPathWithParams(path, code, state string) string {
@@ -486,89 +523,4 @@ func buildExpectedUnsetAppJwtCookie() *http.Cookie {
 		Partitioned: true,
 		HttpOnly:    true,
 	}
-}
-
-type mockAuthServiceAuthenticateUserArgs struct {
-	ctx               context.Context
-	authorisationCode string
-	returnedState     string
-	signedOidcState   string
-}
-
-type mockAuthService struct {
-	t testing.TB
-
-	parseUserJwtCookieCallArgs      []string
-	parseUserJwtCookieReturnsClaims *services.AppClaims
-	parseUserJwtCookieReturnsErr    error
-
-	retrieveUserByIdCallArgs    []string
-	retrieveUserByIdReturnsUser *db.User
-	retrieveUserByIdReturnsErr  error
-
-	buildSignInRedirectRequestCallArgs   []string
-	buildSignInRedirectRequestReturnsReq *services.SignInRedirectRequest
-	buildSignInRedirectRequestReturnsErr error
-
-	buildSignOutRedirectRequestCallCount  int
-	buildSignOutRedirectRequestReturnsReq string
-
-	authenticateUserCallArgs    []mockAuthServiceAuthenticateUserArgs
-	authenticateUserReturnsResp *services.AuthenticateUserResponse
-	authenticateUserReturnsErr  error
-}
-
-func (s *mockAuthService) ParseUserJwtCookie(
-	tokenString string,
-) (*services.AppClaims, error) {
-	s.t.Helper()
-
-	s.parseUserJwtCookieCallArgs = append(s.parseUserJwtCookieCallArgs, tokenString)
-	return s.parseUserJwtCookieReturnsClaims, s.parseUserJwtCookieReturnsErr
-}
-
-func (s *mockAuthService) RetrieveUserById(
-	userId string,
-) (*db.User, error) {
-	s.t.Helper()
-
-	s.retrieveUserByIdCallArgs = append(s.retrieveUserByIdCallArgs, userId)
-	return s.retrieveUserByIdReturnsUser, s.retrieveUserByIdReturnsErr
-}
-
-func (s *mockAuthService) BuildSignInRedirectRequest(requestedPath string) (*services.SignInRedirectRequest, error) {
-	s.t.Helper()
-
-	s.buildSignInRedirectRequestCallArgs = append(
-		s.buildSignInRedirectRequestCallArgs,
-		requestedPath,
-	)
-	return s.buildSignInRedirectRequestReturnsReq, s.buildSignInRedirectRequestReturnsErr
-}
-
-func (s *mockAuthService) BuildSignOutRedirectRequest() string {
-	s.t.Helper()
-
-	s.buildSignOutRedirectRequestCallCount = s.buildSignOutRedirectRequestCallCount + 1
-	return s.buildSignOutRedirectRequestReturnsReq
-}
-
-func (s *mockAuthService) AuthenticateUser(
-	ctx context.Context,
-	authorisationCode string,
-	returnedState string,
-	signedOidcState string,
-) (resp *services.AuthenticateUserResponse, err error) {
-	s.t.Helper()
-
-	s.authenticateUserCallArgs = append(
-		s.authenticateUserCallArgs,
-		mockAuthServiceAuthenticateUserArgs{
-			ctx:               ctx,
-			authorisationCode: authorisationCode,
-			returnedState:     returnedState,
-			signedOidcState:   signedOidcState,
-		},
-	)
-	return s.authenticateUserReturnsResp, s.authenticateUserReturnsErr
 }

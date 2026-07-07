@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"errors"
+	"flag"
 	"fmt"
 	"os"
 	"strings"
@@ -35,12 +36,12 @@ type AppSettings struct {
 func GetAppSettings(
 	ctx context.Context,
 	dotenvPath string,
-	isRunningLocally bool,
 ) (*AppSettings, error) {
 	var ok bool
-	settings := AppSettings{
-		IsRunningLocally: isRunningLocally,
-	}
+	settings := AppSettings{}
+
+	flag.BoolVar(&settings.IsRunningLocally, "local", false, "specify that running locally")
+	flag.Parse()
 
 	if settings.IsRunningLocally {
 		err := parseDotEnv(dotenvPath)

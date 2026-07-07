@@ -16,6 +16,15 @@ Quick overview
 To run unit tests and view test coverage for the project:
 
 ```terminal
-go test $(go list ./internal/... | grep -E -v '/constants|/testhelpers') -cover -coverprofile=test-coverage.out
+go test ./internal/*** -cover -coverprofile=test-coverage.out && \
 go tool cover -html=test-coverage.out
+```
+
+### Mocks
+
+Mocks are generated using [Mockery](https://github.com/vektra/mockery), the
+config can be found in .mockery.yml. To generate mocks install mockery and run:
+
+```terminal
+mockery
 ```
