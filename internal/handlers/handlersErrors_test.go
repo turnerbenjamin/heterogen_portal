@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/turnerbenjamin/heterogen_portal/internal/constants"
+	"github.com/turnerbenjamin/heterogen_portal/internal/etc"
 	"github.com/turnerbenjamin/heterogen_portal/internal/templates"
 )
 
@@ -40,10 +41,10 @@ func TestWrite_HandlesErrorResponse(t *testing.T) {
 	}
 
 	for _, td := range testData {
-		testAppError := &AppError{
-			Code:       td.wantStatusCode,
-			ToastError: "Some toast error",
-			PageErrors: []string{"A page error", "and another"},
+		testAppError := &etc.AppError{
+			Code:             td.wantStatusCode,
+			ErrorMessage:     "Some toast error",
+			SubErrorMessages: []string{"A page error", "and another"},
 		}
 
 		ts := NewMockTemplateStore(t)
@@ -89,7 +90,7 @@ func TestWrite_ShouldReturnErrorsReturnedFromExecute(t *testing.T) {
 	h := NewErrorHandler(ts)
 
 	r := httptest.NewRequest("GET", "/", strings.NewReader(""))
-	gotErr := h.Write(w, r, &AppError{Code: 200})
+	gotErr := h.Write(w, r, &etc.AppError{Code: 200})
 
 	assert.EqualError(t, gotErr, wantError.Error())
 }

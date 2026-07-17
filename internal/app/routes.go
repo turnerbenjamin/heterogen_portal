@@ -65,4 +65,12 @@ func (app *application) addRoutes() {
 			app.handlers.authHandler.GetSignedOut,
 		),
 	)
+
+	app.addRoute(
+		"GET /api/v0.1/{resource}",
+		pipeline.New(
+			[]h.Middleware[h.NoState]{},
+			app.handlers.queryHandler.ProcessQuery,
+		),
+	)
 }

@@ -1,6 +1,8 @@
 package handlers
 
-import "github.com/turnerbenjamin/heterogen_portal/internal/db"
+import (
+	"github.com/turnerbenjamin/heterogen_portal/internal/model"
+)
 
 // NoState is a placeholder type for handlers that do not require
 // pipeline state.
@@ -12,18 +14,18 @@ func NoStateInit() NoState {
 }
 
 type UserState interface {
-	GetUser() *db.User
-	SetUser(v *db.User)
+	GetUser() *model.UsersModel
+	SetUser(v *model.UsersModel)
 }
 type userState struct {
-	user *db.User
+	user *model.UsersModel
 }
 
-func (s *userState) GetUser() *db.User {
+func (s *userState) GetUser() *model.UsersModel {
 	return s.user
 }
 
-func (s *userState) SetUser(v *db.User) {
+func (s *userState) SetUser(v *model.UsersModel) {
 	s.user = v
 }
 

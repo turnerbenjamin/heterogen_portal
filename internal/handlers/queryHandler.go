@@ -1,0 +1,47 @@
+package handlers
+
+import (
+	"context"
+	"encoding/json"
+	"net/http"
+
+	"github.com/turnerbenjamin/heterogen_portal/internal/etc"
+	"github.com/turnerbenjamin/heterogen_portal/internal/model"
+)
+
+type QueryService interface {
+	Execute(ctx context.Context, resource string, queryString string) ([]model.TableModel, *etc.AppError)
+}
+
+type QueryHandler struct {
+	service QueryService
+}
+
+func NewQueryHandler(service QueryService) *QueryHandler {
+	return &QueryHandler{
+		service: service,
+	}
+}
+
+// GetSignOutHandler unsets the app jwt cookie and redirects the user to sign
+// out from the auth provider
+func (h QueryHandler) ProcessQuery(
+	w http.ResponseWriter,
+	r *http.Request,
+	c *PipelineContext[NoState],
+) *etc.AppError {
+	resource := r.PathValue("resource")
+
+	res, appErr := h.service.Execute(r.Context(), resource, r.URL.RawQuery)
+	if appErr != nil {
+		return appErr.WithJsonType()
+	}
+	jsonBody, err := json.Marshal(res)
+	if err != nil {
+		return etc.NewServerError(err).WithJsonType()
+	}
+
+	w.Header().Add("Content-Type", "application-json")
+	w.Write(jsonBody)
+	return nil
+}

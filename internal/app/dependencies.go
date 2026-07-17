@@ -8,6 +8,7 @@ import (
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/turnerbenjamin/heterogen_portal/internal/query"
 	"github.com/turnerbenjamin/heterogen_portal/internal/services"
 	"github.com/turnerbenjamin/heterogen_portal/internal/utils"
 	"golang.org/x/oauth2"
@@ -20,6 +21,7 @@ type appDependencies struct {
 	httpClient      *http.Client
 	newOidcProvider func(ctx context.Context, issuer string) (services.OidcProvider, error)
 	randReader      services.RandReader
+	queryParser     services.QueryParser
 }
 
 func initAppDependencies() *appDependencies {
@@ -28,6 +30,7 @@ func initAppDependencies() *appDependencies {
 		tokenSigner:     &jwtTokenSigner{},
 		payloadSigner:   &utils.PayloadSigner{},
 		httpClient:      &http.Client{},
+		queryParser:     &query.QueryParser{},
 		newOidcProvider: oidcNewProvider,
 		randReader:      rand.Read,
 	}
@@ -110,3 +113,5 @@ func (sp *jwtTokenSigner) ParseWithClaims(
 		parserOptions...,
 	)
 }
+
+

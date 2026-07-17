@@ -15,8 +15,8 @@ import (
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/turnerbenjamin/heterogen_portal/internal/constants"
-	"github.com/turnerbenjamin/heterogen_portal/internal/db"
 	"github.com/turnerbenjamin/heterogen_portal/internal/etc"
+	"github.com/turnerbenjamin/heterogen_portal/internal/model"
 	"golang.org/x/oauth2"
 )
 
@@ -28,9 +28,9 @@ type UserRepo interface {
 		familyName string,
 		userName string,
 		emailAddress string,
-	) (*db.User, error)
-	RetrieveUserById(id string) (*db.User, error)
-	RetrieveUserByOid(id string) (*db.User, error)
+	) (*model.UsersModel, error)
+	RetrieveUserById(id string) (*model.UsersModel, error)
+	RetrieveUserByOid(id string) (*model.UsersModel, error)
 }
 
 // JwtSigner can sign and parse JWT tokens
@@ -406,13 +406,13 @@ func (s *AuthService) ParseUserJwtCookie(tokenString string) (*AppClaims, error)
 
 // RetrieveUserById returns the user with the matching id or an error if the
 // user cannot be accessed
-func (s *AuthService) RetrieveUserById(userId string) (*db.User, error) {
+func (s *AuthService) RetrieveUserById(userId string) (*model.UsersModel, error) {
 	return s.userRepo.RetrieveUserById(userId)
 }
 
 // buildAppToken creates an app token containing user details and the original
 // idToken used to authenticate the user with the auth provider
-func (s *AuthService) buildAppToken(user *db.User, idToken string) (string, error) {
+func (s *AuthService) buildAppToken(user *model.UsersModel, idToken string) (string, error) {
 	appToken := jwt.NewWithClaims(jwt.SigningMethodHS256, appClaims{
 		RegisteredClaims: jwt.RegisteredClaims{
 			Subject:   user.Id,

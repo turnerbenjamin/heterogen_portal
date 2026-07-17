@@ -8,12 +8,8 @@ import (
 	"os"
 
 	"github.com/google/uuid"
+	"github.com/turnerbenjamin/heterogen_portal/internal/model"
 )
-
-type Crypt interface {
-	GenerateFromPassword(password []byte, cost int) ([]byte, error)
-	CompareHashAndPassword(hashed, password []byte) error
-}
 
 type UserRepo struct {
 	ctx        context.Context
@@ -42,19 +38,19 @@ var (
 	ErrEmailEmpty       = errors.New("email cannot be empty")
 	ErrGivenNameTooLong = fmt.Errorf(
 		"given cannot exceed %d chars",
-		DB_CONSTRAINT_GIVEN_NAME_MAX,
+		model.MaxLenUsersGivenName,
 	)
 	ErrFamilyNameTooLong = fmt.Errorf(
 		"family name cannot exceed %d chars",
-		DB_CONSTRAINT_GIVEN_NAME_MAX,
+		model.MaxLenUsersFamilyName,
 	)
 	ErrUserNameTooLong = fmt.Errorf(
 		"user name cannot exceed %d chars",
-		DB_CONSTRAINT_USER_NAME_MAX,
+		model.MaxLenUsersUserName,
 	)
 	ErrEmailTooLong = fmt.Errorf(
 		"email cannot exceed %d chars",
-		DB_CONSTRAINT_GIVEN_NAME_MAX,
+		model.MaxLenUsersEmailAddress,
 	)
 )
 
@@ -75,7 +71,7 @@ func (r *UserRepo) Close() {
 	}
 }
 
-func (r *UserRepo) UpsertUser(oid, givenName, familyName, userName, emailAddress string) (*User, error) {
+func (r *UserRepo) UpsertUser(oid, givenName, familyName, userName, emailAddress string) (*model.UsersModel, error) {
 
 	var err error
 	id := uuid.New().String()
@@ -94,7 +90,7 @@ func (r *UserRepo) UpsertUser(oid, givenName, familyName, userName, emailAddress
 				user_name NVARCHAR(128),
 				email_address NVARCHAR(320),
 				created_at DATETIME2,
-				updated_at DATETIME2
+				modified_at DATETIME2
 			);
 
 			-- try update
@@ -104,7 +100,7 @@ func (r *UserRepo) UpsertUser(oid, givenName, familyName, userName, emailAddress
 				family_name = @familyName, 
 				user_name = @userName, 
 				email_address = @emailAddress, 
-				updated_at = SYSUTCDATETIME()
+				modified_at = SYSUTCDATETIME()
 			OUTPUT 
 				inserted.id, 
 				inserted.oid, 
@@ -113,7 +109,7 @@ func (r *UserRepo) UpsertUser(oid, givenName, familyName, userName, emailAddress
 				inserted.user_name, 
 				inserted.email_address, 
 				inserted.created_at, 
-				inserted.updated_at INTO @out
+				inserted.modified_at INTO @out
 			WHERE oid = @oid;
 
 			IF @@ROWCOUNT = 0
@@ -127,7 +123,7 @@ func (r *UserRepo) UpsertUser(oid, givenName, familyName, userName, emailAddress
 				user_name, 
 				email_address, 
 				created_at, 
-				updated_at
+				modified_at
 			)
 			OUTPUT 
 				inserted.id, 
@@ -137,7 +133,7 @@ func (r *UserRepo) UpsertUser(oid, givenName, familyName, userName, emailAddress
 				inserted.user_name, 
 				inserted.email_address, 
 				inserted.created_at, 
-				inserted.updated_at INTO @out
+				inserted.modified_at INTO @out
 			VALUES (
 				@id, 
 				@oid, 
@@ -149,7 +145,7 @@ func (r *UserRepo) UpsertUser(oid, givenName, familyName, userName, emailAddress
 				SYSUTCDATETIME());
 			END
 
-			SELECT id, oid, given_name, family_name, user_name, email_address, created_at, updated_at FROM @out;
+			SELECT id, oid, given_name, family_name, user_name, email_address, created_at, modified_at FROM @out;
 
 			COMMIT TRAN;
 			END TRY
@@ -183,18 +179,18 @@ func (r *UserRepo) UpsertUser(oid, givenName, familyName, userName, emailAddress
 	return parseUserFromQueryResponse(row)
 }
 
-func (r *UserRepo) RetrieveUserById(id string) (*User, error) {
+func (r *UserRepo) RetrieveUserById(id string) (*model.UsersModel, error) {
 	return r.retrieveUser(STMT_KEY_RETRIEVE_USER_BY_ID, id)
 }
 
-func (r *UserRepo) RetrieveUserByOid(oid string) (*User, error) {
+func (r *UserRepo) RetrieveUserByOid(oid string) (*model.UsersModel, error) {
 	return r.retrieveUser(STMT_KEY_RETRIEVE_USER_BY_OID, oid)
 }
 
 func (r *UserRepo) retrieveUser(
 	statementKey statementKey,
 	identifier string,
-) (*User, error) {
+) (*model.UsersModel, error) {
 	if statementKey != STMT_KEY_RETRIEVE_USER_BY_ID &&
 		statementKey != STMT_KEY_RETRIEVE_USER_BY_OID {
 		return nil, errors.New("unsupported statement key")
@@ -203,7 +199,7 @@ func (r *UserRepo) retrieveUser(
 	_, ok := r.statements[STMT_KEY_RETRIEVE_USER_BY_ID]
 	if !ok {
 		query, err := (*r).db.Prepare(
-			`SELECT id, oid, given_name, family_name, user_name, email_address, created_at, updated_at
+			`SELECT id, oid, given_name, family_name, user_name, email_address, created_at, modified_at
 			 FROM hg.users WHERE id = @identifier`,
 		)
 		if err != nil {
@@ -215,7 +211,7 @@ func (r *UserRepo) retrieveUser(
 	_, ok = r.statements[STMT_KEY_RETRIEVE_USER_BY_OID]
 	if !ok {
 		query, err := (*r).db.Prepare(
-			`SELECT id, oid, given_name, family_name, user_name, email_address, created_at, updated_at
+			`SELECT id, oid, given_name, family_name, user_name, email_address, created_at, modified_at
 			 FROM hg.users WHERE oid = @identifier`,
 		)
 		if err != nil {
@@ -230,8 +226,8 @@ func (r *UserRepo) retrieveUser(
 	return parseUserFromQueryResponse(row)
 }
 
-func parseUserFromQueryResponse(res *sql.Row) (*User, error) {
-	u := &User{}
+func parseUserFromQueryResponse(res *sql.Row) (*model.UsersModel, error) {
+	u := &model.UsersModel{}
 	err := res.Scan(
 		&u.Id,
 		&u.Oid,
@@ -240,7 +236,7 @@ func parseUserFromQueryResponse(res *sql.Row) (*User, error) {
 		&u.UserName,
 		&u.EmailAddress,
 		&u.CreatedAt,
-		&u.UpdatedAt,
+		&u.ModifiedAt,
 	)
 
 	if err == sql.ErrNoRows {
@@ -255,7 +251,7 @@ func (r *UserRepo) preCheckConstraintViolations(givenName, familyName, username,
 	if givenNameLen == 0 {
 		return ErrGivenNameEmpty
 	}
-	if givenNameLen > DB_CONSTRAINT_GIVEN_NAME_MAX {
+	if givenNameLen > model.MaxLenUsersGivenName {
 		return ErrGivenNameTooLong
 	}
 
@@ -263,7 +259,7 @@ func (r *UserRepo) preCheckConstraintViolations(givenName, familyName, username,
 	if familyNameLen == 0 {
 		return ErrFamilyNameEmpty
 	}
-	if familyNameLen > DB_CONSTRAINT_FAMILY_NAME_MAX {
+	if familyNameLen > model.MaxLenUsersFamilyName {
 		return ErrFamilyNameTooLong
 	}
 
@@ -271,7 +267,7 @@ func (r *UserRepo) preCheckConstraintViolations(givenName, familyName, username,
 	if emailLen == 0 {
 		return ErrEmailEmpty
 	}
-	if familyNameLen > DB_CONSTRAINT_EMAIL_MAX {
+	if emailLen > model.MaxLenUsersEmailAddress {
 		return ErrEmailTooLong
 	}
 

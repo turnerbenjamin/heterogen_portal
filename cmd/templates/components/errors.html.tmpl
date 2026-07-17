@@ -1,19 +1,19 @@
 {{- define "component-errors"}}
-  {{- $toastErrLen := len .Data.ToastError}}
+  {{- $toastErrLen := len .Data.ErrorMessage}}
   {{- if ge $toastErrLen 0}}
   <div hx-swap-oob="afterbegin:#toast-container">
     <div class="toast show error">
-      <p>{{.Data.ToastError}}</p>
+      <p>{{.Data.ErrorMessage}}</p>
       <div class="progress-bar"></div>
     </div>
   </div>
   {{- end}}
-  {{- $pageErrorsLen := len .Data.PageErrors}}
+  {{- $pageErrorsLen := len .Data.SubErrorMessages}}
   {{- if eq $pageErrorsLen 1}}
-  <p class="error">{{index .Data.PageErrors 0}}</p>
+  <p class="error">{{index .Data.SubErrorMessages 0}}</p>
   {{- else if gt $pageErrorsLen 1}}
 <ul class = "errors">
-  {{- range .Data.PageErrors}}
+  {{- range .Data.SubErrorMessages}}
     <li>{{.}}</li>
   {{- end}}
 </ul>

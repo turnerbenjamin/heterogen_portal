@@ -10,14 +10,15 @@ import (
 	"time"
 
 	"github.com/turnerbenjamin/heterogen_portal/internal/constants"
-	"github.com/turnerbenjamin/heterogen_portal/internal/db"
+	"github.com/turnerbenjamin/heterogen_portal/internal/etc"
+	"github.com/turnerbenjamin/heterogen_portal/internal/model"
 	"github.com/turnerbenjamin/heterogen_portal/internal/services"
 	"github.com/turnerbenjamin/heterogen_portal/internal/templates"
 )
 
 type AuthService interface {
 	ParseUserJwtCookie(tokenString string) (*services.AppClaims, error)
-	RetrieveUserById(userId string) (*db.User, error)
+	RetrieveUserById(userId string) (*model.UsersModel, error)
 	BuildSignInRedirectRequest(requestedPath string) (*services.SignInRedirectRequest, error)
 	BuildSignOutRedirectRequest() string
 	AuthenticateUser(
@@ -48,7 +49,7 @@ func NewAuthHandler(templateStore TemplateStore, authService AuthService) *AuthH
 }
 
 // GetRootHandler returns a handler for the application root.
-func (h AuthHandler) GetRoot(w http.ResponseWriter, r *http.Request, c *PipelineContext[UserState]) *AppError {
+func (h AuthHandler) GetRoot(w http.ResponseWriter, r *http.Request, c *PipelineContext[UserState]) *etc.AppError {
 	if r.URL.Path != "/" {
 		http.NotFound(w, r)
 		return nil
@@ -65,7 +66,7 @@ func (h AuthHandler) GetRoot(w http.ResponseWriter, r *http.Request, c *Pipeline
 		templates.TemplateArgs{PageConfig: pageConfig, Data: c.state},
 	)
 	if err != nil {
-		return NewServerError(err)
+		return etc.NewServerError(err)
 	}
 	return nil
 }
@@ -76,11 +77,11 @@ func (h AuthHandler) GetSignInRedirect(
 	w http.ResponseWriter,
 	r *http.Request,
 	c *PipelineContext[NoState],
-) *AppError {
+) *etc.AppError {
 	// access signed oidc state from the cookie and clear it up
 	cookie, err := r.Cookie(constants.IdentifierOidcStateCookie)
 	if err != nil {
-		return NewServerError(errors.New(constants.ErrMissingOIDCStateCookie))
+		return etc.NewServerError(errors.New(constants.ErrMissingOIDCStateCookie))
 	}
 	signedOidcState := cookie.Value
 	unsetOidcStateCookie(w)
@@ -88,12 +89,12 @@ func (h AuthHandler) GetSignInRedirect(
 	// extract query params
 	code := r.URL.Query().Get("code")
 	if code == "" {
-		return NewServerError(errors.New(constants.ErrMissingOIDCCodeParam))
+		return etc.NewServerError(errors.New(constants.ErrMissingOIDCCodeParam))
 	}
 
 	returnedState := r.URL.Query().Get("state")
 	if returnedState == "" {
-		return NewServerError(errors.New(constants.ErrMissingOIDCStateParam))
+		return etc.NewServerError(errors.New(constants.ErrMissingOIDCStateParam))
 	}
 
 	// authenticate the user
@@ -104,7 +105,7 @@ func (h AuthHandler) GetSignInRedirect(
 		signedOidcState,
 	)
 	if err != nil {
-		return NewServerError(err)
+		return etc.NewServerError(err)
 	}
 
 	setJwtCookie(w, authenticateUserResponse.AppToken)
@@ -120,7 +121,7 @@ func (h AuthHandler) GetSignOut(
 	w http.ResponseWriter,
 	r *http.Request,
 	c *PipelineContext[NoState],
-) *AppError {
+) *etc.AppError {
 	unsetJwtCookie(w)
 	redirectUrl := h.authService.BuildSignOutRedirectRequest()
 
@@ -129,9 +130,9 @@ func (h AuthHandler) GetSignOut(
 }
 
 // GetSignedOutHandler returns the signed-out page handler
-func (h AuthHandler) GetSignedOut(w http.ResponseWriter, r *http.Request, c *PipelineContext[NoState]) *AppError {
+func (h AuthHandler) GetSignedOut(w http.ResponseWriter, r *http.Request, c *PipelineContext[NoState]) *etc.AppError {
 	if r.Header.Get(constants.HxRequestHeaderRequest) != "" {
-		return NewServerError(errors.New(constants.ErrMsgHtmxNotSupported))
+		return etc.NewServerError(errors.New(constants.ErrMsgHtmxNotSupported))
 	}
 
 	pageConfig := templates.PageConfig{
@@ -145,7 +146,7 @@ func (h AuthHandler) GetSignedOut(w http.ResponseWriter, r *http.Request, c *Pip
 		templates.TemplateArgs{PageConfig: pageConfig, Data: nil},
 	)
 	if err != nil {
-		return NewServerError(err)
+		return etc.NewServerError(err)
 	}
 	return nil
 }

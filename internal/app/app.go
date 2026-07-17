@@ -17,16 +17,19 @@ import (
 )
 
 type appRepos struct {
-	userRepo *db.UserRepo
+	userRepo  *db.UserRepo
+	queryRepo *db.QueryRepo
 }
 
 type appServices struct {
-	authService *services.AuthService
+	authService  *services.AuthService
+	queryService *services.QueryService
 }
 
 type appHandlers struct {
 	authHandler  *handlers.AuthHandler
 	errorHandler *handlers.ErrorHandler
+	queryHandler *handlers.QueryHandler
 }
 
 type application struct {
@@ -111,7 +114,8 @@ func Init(
 
 func initRepos(ctx context.Context, dbConnection *sql.DB) *appRepos {
 	return &appRepos{
-		userRepo: db.BuildUserRepo(ctx, dbConnection),
+		userRepo:  db.BuildUserRepo(ctx, dbConnection),
+		queryRepo: db.BuildQueryRepo(ctx, dbConnection),
 	}
 }
 
@@ -136,8 +140,14 @@ func initServices(
 		return nil, err
 	}
 
+	queryService := services.NewQueryService(
+		repos.queryRepo,
+		dependencies.queryParser,
+	)
+
 	return &appServices{
-		authService: authService,
+		authService:  authService,
+		queryService: queryService,
 	}, nil
 }
 
@@ -151,6 +161,7 @@ func initHandlers(
 			services.authService,
 		),
 		errorHandler: handlers.NewErrorHandler(templateStore),
+		queryHandler: handlers.NewQueryHandler(services.queryService),
 	}
 }
 

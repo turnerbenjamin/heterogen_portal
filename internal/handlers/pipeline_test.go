@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/turnerbenjamin/heterogen_portal/internal/constants"
+	"github.com/turnerbenjamin/heterogen_portal/internal/etc"
 )
 
 func TestPipelineBuilder_New_invokesHandler(t *testing.T) {
@@ -27,7 +28,7 @@ func TestPipelineBuilder_New_invokesHandler(t *testing.T) {
 		fn: func(
 			r *http.Request,
 			c *PipelineContext[NoState],
-		) (request *http.Request, statusCode *int, response []byte, err *AppError) {
+		) (request *http.Request, statusCode *int, response []byte, err *etc.AppError) {
 			return r, &wantStatusCode, wantBody, nil
 		},
 	}
@@ -53,7 +54,7 @@ func TestPipelineBuilder_New_defaultsStatusTo200_whenWriteWithoutHeader(t *testi
 		fn: func(
 			r *http.Request,
 			c *PipelineContext[NoState],
-		) (request *http.Request, statusCode *int, response []byte, err *AppError) {
+		) (request *http.Request, statusCode *int, response []byte, err *etc.AppError) {
 			return r, nil, []byte("expected-body"), nil
 		},
 	}
@@ -86,7 +87,7 @@ func TestPipelineBuilder_New_appliesMiddlewaresCorrectly(t *testing.T) {
 			fn: func(
 				r *http.Request,
 				c *PipelineContext[NoState],
-			) (request *http.Request, statusCode *int, response []byte, err *AppError) {
+			) (request *http.Request, statusCode *int, response []byte, err *etc.AppError) {
 				gotCalls = append(gotCalls, id)
 				return r, nil, nil, nil
 			},
@@ -99,7 +100,7 @@ func TestPipelineBuilder_New_appliesMiddlewaresCorrectly(t *testing.T) {
 		fn: func(
 			r *http.Request,
 			c *PipelineContext[NoState],
-		) (request *http.Request, statusCode *int, response []byte, err *AppError) {
+		) (request *http.Request, statusCode *int, response []byte, err *etc.AppError) {
 			return r, nil, []byte("expected-body"), nil
 		},
 	}
@@ -130,7 +131,7 @@ func TestPipelineBuilder_New_middlewareCanModifyRequest_andHandlerSeesChange(t *
 		fn: func(
 			r *http.Request,
 			c *PipelineContext[NoState],
-		) (request *http.Request, statusCode *int, response []byte, err *AppError) {
+		) (request *http.Request, statusCode *int, response []byte, err *etc.AppError) {
 			updatedRequest := r.WithContext(
 				context.WithValue(r.Context(), wantBodyKey, wantBodyValue),
 			)
@@ -144,7 +145,7 @@ func TestPipelineBuilder_New_middlewareCanModifyRequest_andHandlerSeesChange(t *
 		fn: func(
 			r *http.Request,
 			c *PipelineContext[NoState],
-		) (request *http.Request, statusCode *int, response []byte, err *AppError) {
+		) (request *http.Request, statusCode *int, response []byte, err *etc.AppError) {
 			gotWantBodyValue, ok := r.Context().Value(wantBodyKey).([]byte)
 			if !ok {
 				gotWantBodyValue = []byte("unexpected-body")
@@ -175,7 +176,7 @@ func TestPipelineBuilder_New_middlewareCanModifyResponseBeforeHandler(t *testing
 		fn: func(
 			r *http.Request,
 			c *PipelineContext[NoState],
-		) (request *http.Request, statusCode *int, response []byte, err *AppError) {
+		) (request *http.Request, statusCode *int, response []byte, err *etc.AppError) {
 			return r, &wantStatusCode, wantBody, nil
 		},
 	},
@@ -187,7 +188,7 @@ func TestPipelineBuilder_New_middlewareCanModifyResponseBeforeHandler(t *testing
 		fn: func(
 			r *http.Request,
 			c *PipelineContext[NoState],
-		) (request *http.Request, statusCode *int, response []byte, err *AppError) {
+		) (request *http.Request, statusCode *int, response []byte, err *etc.AppError) {
 			handlerCallCount = handlerCallCount + 1
 			sc := 200
 			return r, &sc, []byte("unexpected_body_value"), nil
@@ -221,7 +222,7 @@ func TestPipelineBuilder_New_invokesHandlerDirectly_WhenNoMiddlewares(t *testing
 		fn: func(
 			r *http.Request,
 			c *PipelineContext[NoState],
-		) (request *http.Request, statusCode *int, response []byte, err *AppError) {
+		) (request *http.Request, statusCode *int, response []byte, err *etc.AppError) {
 			return r, &wantStatusCode, wantBody, nil
 		},
 	}
@@ -248,7 +249,7 @@ func TestPipelineBuilder_New_invokesHandlerDirectly_WhenMiddlewaresIsNil(t *test
 		fn: func(
 			r *http.Request,
 			c *PipelineContext[NoState],
-		) (request *http.Request, statusCode *int, response []byte, err *AppError) {
+		) (request *http.Request, statusCode *int, response []byte, err *etc.AppError) {
 			return r, &wantStatusCode, wantBody, nil
 		},
 	}
@@ -276,7 +277,7 @@ func TestPipelineBuilder_New_initializesPipelineContext_withCorrectState(t *test
 		fn: func(
 			r *http.Request,
 			c *PipelineContext[testPipelineStateInterface],
-		) (request *http.Request, statusCode *int, response []byte, err *AppError) {
+		) (request *http.Request, statusCode *int, response []byte, err *etc.AppError) {
 			gotPipelineStateValue = c.state.getValue()
 			return r, nil, nil, nil
 		},
@@ -305,7 +306,7 @@ func TestPipelineBuilder_New_carriesPipelineContextState_throughMiddlewareChain(
 			fn: func(
 				r *http.Request,
 				c *PipelineContext[testPipelineStateInterface],
-			) (request *http.Request, statusCode *int, response []byte, err *AppError) {
+			) (request *http.Request, statusCode *int, response []byte, err *etc.AppError) {
 				c.state.setValue(c.state.getValue() + (i + 1))
 				return r, nil, nil, nil
 			},
@@ -319,7 +320,7 @@ func TestPipelineBuilder_New_carriesPipelineContextState_throughMiddlewareChain(
 		fn: func(
 			r *http.Request,
 			c *PipelineContext[testPipelineStateInterface],
-		) (request *http.Request, statusCode *int, response []byte, err *AppError) {
+		) (request *http.Request, statusCode *int, response []byte, err *etc.AppError) {
 			gotStateValue = c.state.getValue()
 			return r, nil, []byte("expected-body"), nil
 		},
@@ -339,9 +340,9 @@ func TestPipelineBuilder_New_carriesPipelineContextState_throughMiddlewareChain(
 func TestPipelineBuilder_New_invokesErrorHandler_whenHandlerReturnsError(t *testing.T) {
 	t.Parallel()
 
-	testAppError := &AppError{
-		Code:       403,
-		ToastError: "expected_error",
+	testAppError := &etc.AppError{
+		Code:         403,
+		ErrorMessage: "expected_error",
 	}
 
 	middlewareStack := newTestMiddlewareStack(t, []testMiddleware[NoState]{{}})
@@ -350,7 +351,7 @@ func TestPipelineBuilder_New_invokesErrorHandler_whenHandlerReturnsError(t *test
 		fn: func(
 			r *http.Request,
 			c *PipelineContext[NoState],
-		) (request *http.Request, statusCode *int, response []byte, err *AppError) {
+		) (request *http.Request, statusCode *int, response []byte, err *etc.AppError) {
 			return r, nil, []byte("expected_body"), testAppError
 		},
 	}
@@ -370,9 +371,9 @@ func TestPipelineBuilder_New_invokesErrorHandler_whenHandlerReturnsError(t *test
 func TestPipelineBuilder_New_invokesErrorHandler_whenMiddlewareReturnsError(t *testing.T) {
 	t.Parallel()
 
-	testAppError := &AppError{
-		Code:       405,
-		ToastError: "expected_error",
+	testAppError := &etc.AppError{
+		Code:         405,
+		ErrorMessage: "expected_error",
 	}
 
 	middlewareCount := 10
@@ -385,7 +386,7 @@ func TestPipelineBuilder_New_invokesErrorHandler_whenMiddlewareReturnsError(t *t
 			fn: func(
 				r *http.Request,
 				c *PipelineContext[NoState],
-			) (request *http.Request, statusCode *int, response []byte, err *AppError) {
+			) (request *http.Request, statusCode *int, response []byte, err *etc.AppError) {
 				gotMiddlewareCalls = gotMiddlewareCalls + 1
 				if i == failingMiddlewareIndex {
 					return r, nil, nil, testAppError
@@ -402,7 +403,7 @@ func TestPipelineBuilder_New_invokesErrorHandler_whenMiddlewareReturnsError(t *t
 		fn: func(
 			r *http.Request,
 			c *PipelineContext[NoState],
-		) (request *http.Request, statusCode *int, response []byte, err *AppError) {
+		) (request *http.Request, statusCode *int, response []byte, err *etc.AppError) {
 			gotHandlerCalls = gotHandlerCalls + 1
 			return r, nil, []byte("expected_body"), nil
 		},
@@ -427,9 +428,9 @@ func TestPipelineBuilder_New_invokesErrorHandler_whenMiddlewareReturnsError(t *t
 func TestPipelineBuilder_New_handlesErrorWriterReturningError(t *testing.T) {
 	t.Parallel()
 
-	testAppError := &AppError{
-		Code:       402,
-		ToastError: "some_error",
+	testAppError := &etc.AppError{
+		Code:         402,
+		ErrorMessage: "some_error",
 	}
 
 	middlewareStack := newTestMiddlewareStack(t, []testMiddleware[NoState]{{}})
@@ -438,7 +439,7 @@ func TestPipelineBuilder_New_handlesErrorWriterReturningError(t *testing.T) {
 		fn: func(
 			r *http.Request,
 			c *PipelineContext[NoState],
-		) (request *http.Request, statusCode *int, response []byte, err *AppError) {
+		) (request *http.Request, statusCode *int, response []byte, err *etc.AppError) {
 			return r, nil, []byte("expected_body"), testAppError
 		},
 	}
@@ -472,9 +473,9 @@ func TestPipelineBuilder_New_handlesErrorWriterReturningError(t *testing.T) {
 func TestPipelineBuilder_New_logsResponseErrorWhenErrorWriterSucceeds(t *testing.T) {
 	t.Parallel()
 
-	testAppError := &AppError{
-		Code:       402,
-		ToastError: "some_error",
+	testAppError := &etc.AppError{
+		Code:         402,
+		ErrorMessage: "some_error",
 	}
 
 	middlewareStack := newTestMiddlewareStack(t, []testMiddleware[NoState]{{}})
@@ -483,7 +484,7 @@ func TestPipelineBuilder_New_logsResponseErrorWhenErrorWriterSucceeds(t *testing
 		fn: func(
 			r *http.Request,
 			c *PipelineContext[NoState],
-		) (request *http.Request, statusCode *int, response []byte, err *AppError) {
+		) (request *http.Request, statusCode *int, response []byte, err *etc.AppError) {
 			return r, nil, []byte("expected_body"), testAppError
 		},
 	}
@@ -520,7 +521,7 @@ func TestPipelineBuilder_New_includesRequestDataInLogs(t *testing.T) {
 		fn: func(
 			r *http.Request,
 			c *PipelineContext[NoState],
-		) (request *http.Request, statusCode *int, response []byte, err *AppError) {
+		) (request *http.Request, statusCode *int, response []byte, err *etc.AppError) {
 			return r, &wantStatusCode, []byte("expected_body"), nil
 		},
 	}
@@ -556,7 +557,7 @@ func TestPipelineBuilder_New_RecoversFromHandlerPanic(t *testing.T) {
 		fn: func(
 			r *http.Request,
 			c *PipelineContext[NoState],
-		) (request *http.Request, statusCode *int, response []byte, err *AppError) {
+		) (request *http.Request, statusCode *int, response []byte, err *etc.AppError) {
 			panic("handler panic")
 		},
 	}
@@ -581,7 +582,7 @@ func TestPipelineBuilder_New_RecoversFromMiddlewarePanic(t *testing.T) {
 		fn: func(
 			r *http.Request,
 			c *PipelineContext[NoState],
-		) (request *http.Request, statusCode *int, response []byte, err *AppError) {
+		) (request *http.Request, statusCode *int, response []byte, err *etc.AppError) {
 			panic("middleware panic")
 		},
 	}})
@@ -591,7 +592,7 @@ func TestPipelineBuilder_New_RecoversFromMiddlewarePanic(t *testing.T) {
 		fn: func(
 			r *http.Request,
 			c *PipelineContext[NoState],
-		) (request *http.Request, statusCode *int, response []byte, err *AppError) {
+		) (request *http.Request, statusCode *int, response []byte, err *etc.AppError) {
 			return r, nil, nil, nil
 		},
 	}
@@ -632,10 +633,10 @@ func (s *testPipelineState) setValue(v int) {
 
 type testAppHandler[T any] struct {
 	t  testing.TB
-	fn func(r *http.Request, c *PipelineContext[T]) (request *http.Request, statusCode *int, response []byte, err *AppError)
+	fn func(r *http.Request, c *PipelineContext[T]) (request *http.Request, statusCode *int, response []byte, err *etc.AppError)
 }
 
-func (h *testAppHandler[T]) handle(w http.ResponseWriter, r *http.Request, c *PipelineContext[T]) *AppError {
+func (h *testAppHandler[T]) handle(w http.ResponseWriter, r *http.Request, c *PipelineContext[T]) *etc.AppError {
 	h.t.Helper()
 
 	_, statusCode, res, appErr := h.fn(r, c)
@@ -659,11 +660,11 @@ func (h *testAppHandler[T]) handle(w http.ResponseWriter, r *http.Request, c *Pi
 
 type testMiddleware[T any] struct {
 	t  testing.TB
-	fn func(r *http.Request, c *PipelineContext[T]) (request *http.Request, statusCode *int, response []byte, err *AppError)
+	fn func(r *http.Request, c *PipelineContext[T]) (request *http.Request, statusCode *int, response []byte, err *etc.AppError)
 }
 
 func (m *testMiddleware[T]) handle(h AppHandler[T]) AppHandler[T] {
-	return func(w http.ResponseWriter, r *http.Request, c *PipelineContext[T]) *AppError {
+	return func(w http.ResponseWriter, r *http.Request, c *PipelineContext[T]) *etc.AppError {
 		m.t.Helper()
 
 		if m.fn == nil {
@@ -696,7 +697,7 @@ func (m *testMiddleware[T]) handle(h AppHandler[T]) AppHandler[T] {
 type testMiddlewareStack[T any] struct {
 	stack  []Middleware[T]
 	calls  []string
-	errors []AppError
+	errors []etc.AppError
 	count  int
 }
 
@@ -707,7 +708,7 @@ func newTestMiddlewareStack[T any](t testing.TB, data []testMiddleware[T]) *test
 	s := &testMiddlewareStack[T]{
 		stack:  make([]Middleware[T], c),
 		calls:  make([]string, 0),
-		errors: make([]AppError, c),
+		errors: make([]etc.AppError, c),
 		count:  c,
 	}
 

@@ -10,7 +10,8 @@ import (
 	"net/http"
 
 	mock "github.com/stretchr/testify/mock"
-	"github.com/turnerbenjamin/heterogen_portal/internal/db"
+	"github.com/turnerbenjamin/heterogen_portal/internal/etc"
+	"github.com/turnerbenjamin/heterogen_portal/internal/model"
 	"github.com/turnerbenjamin/heterogen_portal/internal/services"
 	"github.com/turnerbenjamin/heterogen_portal/internal/templates"
 )
@@ -291,23 +292,23 @@ func (_c *MockAuthService_ParseUserJwtCookie_Call) RunAndReturn(run func(tokenSt
 }
 
 // RetrieveUserById provides a mock function for the type MockAuthService
-func (_mock *MockAuthService) RetrieveUserById(userId string) (*db.User, error) {
+func (_mock *MockAuthService) RetrieveUserById(userId string) (*model.UsersModel, error) {
 	ret := _mock.Called(userId)
 
 	if len(ret) == 0 {
 		panic("no return value specified for RetrieveUserById")
 	}
 
-	var r0 *db.User
+	var r0 *model.UsersModel
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(string) (*db.User, error)); ok {
+	if returnFunc, ok := ret.Get(0).(func(string) (*model.UsersModel, error)); ok {
 		return returnFunc(userId)
 	}
-	if returnFunc, ok := ret.Get(0).(func(string) *db.User); ok {
+	if returnFunc, ok := ret.Get(0).(func(string) *model.UsersModel); ok {
 		r0 = returnFunc(userId)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*db.User)
+			r0 = ret.Get(0).(*model.UsersModel)
 		}
 	}
 	if returnFunc, ok := ret.Get(1).(func(string) error); ok {
@@ -342,12 +343,12 @@ func (_c *MockAuthService_RetrieveUserById_Call) Run(run func(userId string)) *M
 	return _c
 }
 
-func (_c *MockAuthService_RetrieveUserById_Call) Return(user *db.User, err error) *MockAuthService_RetrieveUserById_Call {
+func (_c *MockAuthService_RetrieveUserById_Call) Return(user *model.UsersModel, err error) *MockAuthService_RetrieveUserById_Call {
 	_c.Call.Return(user, err)
 	return _c
 }
 
-func (_c *MockAuthService_RetrieveUserById_Call) RunAndReturn(run func(userId string) (*db.User, error)) *MockAuthService_RetrieveUserById_Call {
+func (_c *MockAuthService_RetrieveUserById_Call) RunAndReturn(run func(userId string) (*model.UsersModel, error)) *MockAuthService_RetrieveUserById_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -380,7 +381,7 @@ func (_m *MockErrorWriter) EXPECT() *MockErrorWriter_Expecter {
 }
 
 // Write provides a mock function for the type MockErrorWriter
-func (_mock *MockErrorWriter) Write(responseWriter http.ResponseWriter, request *http.Request, appError *AppError) error {
+func (_mock *MockErrorWriter) Write(responseWriter http.ResponseWriter, request *http.Request, appError *etc.AppError) error {
 	ret := _mock.Called(responseWriter, request, appError)
 
 	if len(ret) == 0 {
@@ -388,7 +389,7 @@ func (_mock *MockErrorWriter) Write(responseWriter http.ResponseWriter, request 
 	}
 
 	var r0 error
-	if returnFunc, ok := ret.Get(0).(func(http.ResponseWriter, *http.Request, *AppError) error); ok {
+	if returnFunc, ok := ret.Get(0).(func(http.ResponseWriter, *http.Request, *etc.AppError) error); ok {
 		r0 = returnFunc(responseWriter, request, appError)
 	} else {
 		r0 = ret.Error(0)
@@ -404,12 +405,12 @@ type MockErrorWriter_Write_Call struct {
 // Write is a helper method to define mock.On call
 //   - responseWriter http.ResponseWriter
 //   - request *http.Request
-//   - appError *AppError
+//   - appError *etc.AppError
 func (_e *MockErrorWriter_Expecter) Write(responseWriter any, request any, appError any) *MockErrorWriter_Write_Call {
 	return &MockErrorWriter_Write_Call{Call: _e.mock.On("Write", responseWriter, request, appError)}
 }
 
-func (_c *MockErrorWriter_Write_Call) Run(run func(responseWriter http.ResponseWriter, request *http.Request, appError *AppError)) *MockErrorWriter_Write_Call {
+func (_c *MockErrorWriter_Write_Call) Run(run func(responseWriter http.ResponseWriter, request *http.Request, appError *etc.AppError)) *MockErrorWriter_Write_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 http.ResponseWriter
 		if args[0] != nil {
@@ -419,9 +420,9 @@ func (_c *MockErrorWriter_Write_Call) Run(run func(responseWriter http.ResponseW
 		if args[1] != nil {
 			arg1 = args[1].(*http.Request)
 		}
-		var arg2 *AppError
+		var arg2 *etc.AppError
 		if args[2] != nil {
-			arg2 = args[2].(*AppError)
+			arg2 = args[2].(*etc.AppError)
 		}
 		run(
 			arg0,
@@ -437,7 +438,7 @@ func (_c *MockErrorWriter_Write_Call) Return(err error) *MockErrorWriter_Write_C
 	return _c
 }
 
-func (_c *MockErrorWriter_Write_Call) RunAndReturn(run func(responseWriter http.ResponseWriter, request *http.Request, appError *AppError) error) *MockErrorWriter_Write_Call {
+func (_c *MockErrorWriter_Write_Call) RunAndReturn(run func(responseWriter http.ResponseWriter, request *http.Request, appError *etc.AppError) error) *MockErrorWriter_Write_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -470,19 +471,19 @@ func (_m *MockUserState) EXPECT() *MockUserState_Expecter {
 }
 
 // GetUser provides a mock function for the type MockUserState
-func (_mock *MockUserState) GetUser() *db.User {
+func (_mock *MockUserState) GetUser() *model.UsersModel {
 	ret := _mock.Called()
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetUser")
 	}
 
-	var r0 *db.User
-	if returnFunc, ok := ret.Get(0).(func() *db.User); ok {
+	var r0 *model.UsersModel
+	if returnFunc, ok := ret.Get(0).(func() *model.UsersModel); ok {
 		r0 = returnFunc()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*db.User)
+			r0 = ret.Get(0).(*model.UsersModel)
 		}
 	}
 	return r0
@@ -505,18 +506,18 @@ func (_c *MockUserState_GetUser_Call) Run(run func()) *MockUserState_GetUser_Cal
 	return _c
 }
 
-func (_c *MockUserState_GetUser_Call) Return(user *db.User) *MockUserState_GetUser_Call {
+func (_c *MockUserState_GetUser_Call) Return(user *model.UsersModel) *MockUserState_GetUser_Call {
 	_c.Call.Return(user)
 	return _c
 }
 
-func (_c *MockUserState_GetUser_Call) RunAndReturn(run func() *db.User) *MockUserState_GetUser_Call {
+func (_c *MockUserState_GetUser_Call) RunAndReturn(run func() *model.UsersModel) *MockUserState_GetUser_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // SetUser provides a mock function for the type MockUserState
-func (_mock *MockUserState) SetUser(v *db.User) {
+func (_mock *MockUserState) SetUser(v *model.UsersModel) {
 	_mock.Called(v)
 	return
 }
@@ -532,11 +533,11 @@ func (_e *MockUserState_Expecter) SetUser(v any) *MockUserState_SetUser_Call {
 	return &MockUserState_SetUser_Call{Call: _e.mock.On("SetUser", v)}
 }
 
-func (_c *MockUserState_SetUser_Call) Run(run func(v *db.User)) *MockUserState_SetUser_Call {
+func (_c *MockUserState_SetUser_Call) Run(run func(v *model.UsersModel)) *MockUserState_SetUser_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		var arg0 *db.User
+		var arg0 *model.UsersModel
 		if args[0] != nil {
-			arg0 = args[0].(*db.User)
+			arg0 = args[0].(*model.UsersModel)
 		}
 		run(
 			arg0,
@@ -550,7 +551,7 @@ func (_c *MockUserState_SetUser_Call) Return() *MockUserState_SetUser_Call {
 	return _c
 }
 
-func (_c *MockUserState_SetUser_Call) RunAndReturn(run func(v *db.User)) *MockUserState_SetUser_Call {
+func (_c *MockUserState_SetUser_Call) RunAndReturn(run func(v *model.UsersModel)) *MockUserState_SetUser_Call {
 	_c.Run(run)
 	return _c
 }

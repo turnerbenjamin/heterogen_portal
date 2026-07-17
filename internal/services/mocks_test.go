@@ -10,7 +10,7 @@ import (
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/golang-jwt/jwt/v5"
 	mock "github.com/stretchr/testify/mock"
-	"github.com/turnerbenjamin/heterogen_portal/internal/db"
+	"github.com/turnerbenjamin/heterogen_portal/internal/model"
 	"golang.org/x/oauth2"
 )
 
@@ -42,23 +42,23 @@ func (_m *MockUserRepo) EXPECT() *MockUserRepo_Expecter {
 }
 
 // RetrieveUserById provides a mock function for the type MockUserRepo
-func (_mock *MockUserRepo) RetrieveUserById(id string) (*db.User, error) {
+func (_mock *MockUserRepo) RetrieveUserById(id string) (*model.UsersModel, error) {
 	ret := _mock.Called(id)
 
 	if len(ret) == 0 {
 		panic("no return value specified for RetrieveUserById")
 	}
 
-	var r0 *db.User
+	var r0 *model.UsersModel
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(string) (*db.User, error)); ok {
+	if returnFunc, ok := ret.Get(0).(func(string) (*model.UsersModel, error)); ok {
 		return returnFunc(id)
 	}
-	if returnFunc, ok := ret.Get(0).(func(string) *db.User); ok {
+	if returnFunc, ok := ret.Get(0).(func(string) *model.UsersModel); ok {
 		r0 = returnFunc(id)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*db.User)
+			r0 = ret.Get(0).(*model.UsersModel)
 		}
 	}
 	if returnFunc, ok := ret.Get(1).(func(string) error); ok {
@@ -93,34 +93,34 @@ func (_c *MockUserRepo_RetrieveUserById_Call) Run(run func(id string)) *MockUser
 	return _c
 }
 
-func (_c *MockUserRepo_RetrieveUserById_Call) Return(user *db.User, err error) *MockUserRepo_RetrieveUserById_Call {
+func (_c *MockUserRepo_RetrieveUserById_Call) Return(user *model.UsersModel, err error) *MockUserRepo_RetrieveUserById_Call {
 	_c.Call.Return(user, err)
 	return _c
 }
 
-func (_c *MockUserRepo_RetrieveUserById_Call) RunAndReturn(run func(id string) (*db.User, error)) *MockUserRepo_RetrieveUserById_Call {
+func (_c *MockUserRepo_RetrieveUserById_Call) RunAndReturn(run func(id string) (*model.UsersModel, error)) *MockUserRepo_RetrieveUserById_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // RetrieveUserByOid provides a mock function for the type MockUserRepo
-func (_mock *MockUserRepo) RetrieveUserByOid(id string) (*db.User, error) {
+func (_mock *MockUserRepo) RetrieveUserByOid(id string) (*model.UsersModel, error) {
 	ret := _mock.Called(id)
 
 	if len(ret) == 0 {
 		panic("no return value specified for RetrieveUserByOid")
 	}
 
-	var r0 *db.User
+	var r0 *model.UsersModel
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(string) (*db.User, error)); ok {
+	if returnFunc, ok := ret.Get(0).(func(string) (*model.UsersModel, error)); ok {
 		return returnFunc(id)
 	}
-	if returnFunc, ok := ret.Get(0).(func(string) *db.User); ok {
+	if returnFunc, ok := ret.Get(0).(func(string) *model.UsersModel); ok {
 		r0 = returnFunc(id)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*db.User)
+			r0 = ret.Get(0).(*model.UsersModel)
 		}
 	}
 	if returnFunc, ok := ret.Get(1).(func(string) error); ok {
@@ -155,34 +155,34 @@ func (_c *MockUserRepo_RetrieveUserByOid_Call) Run(run func(id string)) *MockUse
 	return _c
 }
 
-func (_c *MockUserRepo_RetrieveUserByOid_Call) Return(user *db.User, err error) *MockUserRepo_RetrieveUserByOid_Call {
+func (_c *MockUserRepo_RetrieveUserByOid_Call) Return(user *model.UsersModel, err error) *MockUserRepo_RetrieveUserByOid_Call {
 	_c.Call.Return(user, err)
 	return _c
 }
 
-func (_c *MockUserRepo_RetrieveUserByOid_Call) RunAndReturn(run func(id string) (*db.User, error)) *MockUserRepo_RetrieveUserByOid_Call {
+func (_c *MockUserRepo_RetrieveUserByOid_Call) RunAndReturn(run func(id string) (*model.UsersModel, error)) *MockUserRepo_RetrieveUserByOid_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // UpsertUser provides a mock function for the type MockUserRepo
-func (_mock *MockUserRepo) UpsertUser(oid string, givenName string, familyName string, userName string, emailAddress string) (*db.User, error) {
+func (_mock *MockUserRepo) UpsertUser(oid string, givenName string, familyName string, userName string, emailAddress string) (*model.UsersModel, error) {
 	ret := _mock.Called(oid, givenName, familyName, userName, emailAddress)
 
 	if len(ret) == 0 {
 		panic("no return value specified for UpsertUser")
 	}
 
-	var r0 *db.User
+	var r0 *model.UsersModel
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(string, string, string, string, string) (*db.User, error)); ok {
+	if returnFunc, ok := ret.Get(0).(func(string, string, string, string, string) (*model.UsersModel, error)); ok {
 		return returnFunc(oid, givenName, familyName, userName, emailAddress)
 	}
-	if returnFunc, ok := ret.Get(0).(func(string, string, string, string, string) *db.User); ok {
+	if returnFunc, ok := ret.Get(0).(func(string, string, string, string, string) *model.UsersModel); ok {
 		r0 = returnFunc(oid, givenName, familyName, userName, emailAddress)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*db.User)
+			r0 = ret.Get(0).(*model.UsersModel)
 		}
 	}
 	if returnFunc, ok := ret.Get(1).(func(string, string, string, string, string) error); ok {
@@ -241,12 +241,12 @@ func (_c *MockUserRepo_UpsertUser_Call) Run(run func(oid string, givenName strin
 	return _c
 }
 
-func (_c *MockUserRepo_UpsertUser_Call) Return(user *db.User, err error) *MockUserRepo_UpsertUser_Call {
+func (_c *MockUserRepo_UpsertUser_Call) Return(user *model.UsersModel, err error) *MockUserRepo_UpsertUser_Call {
 	_c.Call.Return(user, err)
 	return _c
 }
 
-func (_c *MockUserRepo_UpsertUser_Call) RunAndReturn(run func(oid string, givenName string, familyName string, userName string, emailAddress string) (*db.User, error)) *MockUserRepo_UpsertUser_Call {
+func (_c *MockUserRepo_UpsertUser_Call) RunAndReturn(run func(oid string, givenName string, familyName string, userName string, emailAddress string) (*model.UsersModel, error)) *MockUserRepo_UpsertUser_Call {
 	_c.Call.Return(run)
 	return _c
 }

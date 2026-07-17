@@ -4,9 +4,11 @@
 package handlers
 
 import (
+	"encoding/json"
 	"net/http"
 
 	"github.com/turnerbenjamin/heterogen_portal/internal/constants"
+	"github.com/turnerbenjamin/heterogen_portal/internal/etc"
 	"github.com/turnerbenjamin/heterogen_portal/internal/templates"
 )
 
@@ -28,8 +30,19 @@ func NewErrorHandler(templateStore TemplateStore) *ErrorHandler {
 func (h *ErrorHandler) Write(
 	w http.ResponseWriter,
 	r *http.Request,
-	appErr *AppError,
+	appErr *etc.AppError,
 ) error {
+
+	if appErr.ResponseType == etc.ResponseTypeJson {
+		w.WriteHeader(appErr.Code)
+		d, err := json.Marshal(appErr)
+		if err != nil {
+			return err
+		}
+		_, err = w.Write(d)
+		return err
+	}
+
 	// Default to handling errors with a the component error template returned
 	// to a htmx app
 	t := templates.TmplComponentErrors
