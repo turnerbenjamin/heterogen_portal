@@ -57,6 +57,9 @@ func (w *modelWriter) Write() {
 	w.writeNewLine()
 	w.WriteTableModelGetter()
 
+	w.writeNewLine()
+	w.WriteTableMetadataGetter()
+
 	raw := w.sb.String()
 	formatted, err := format.Source([]byte(raw))
 	if err != nil {
@@ -94,21 +97,24 @@ import (
 	"errors"
 )
 
-// dbDataTypeName represents a SQL Server data type name supported by the model metadata system.
-type dbDataTypeName string
+// DbDataTypeName represents a SQL Server data type name supported by the model metadata system.
+type DbDataTypeName string
 
 const (
 	// DbTypeNvarchar represents the SQL Server nvarchar data type.
-	DbTypeNvarchar dbDataTypeName = "nvarchar"
+	DbTypeNvarchar DbDataTypeName = "nvarchar"
 
 	// DbTypeInt represents the SQL Server int data type.
-	DbTypeInt dbDataTypeName = "int"
+	DbTypeInt DbDataTypeName = "int"
+
+	// DbTypeFloat represents the SQL Server float data type.
+	DbTypeFloat DbDataTypeName = "float"
 
 	// DbTypeGeography represents the SQL Server geography spatial data type.
-	DbTypeGeography dbDataTypeName = "geography"
+	DbTypeGeography DbDataTypeName = "geography"
 
 	// DbTypeDateTimeOffset represents the SQL Server datetimeoffset date/time data type.
-	DbTypeDateTimeOffset dbDataTypeName = "datetimeoffset"
+	DbTypeDateTimeOffset DbDataTypeName = "datetimeoffset"
 )
 
 // relationshipId represents a unique identifier for a given relationship
@@ -126,9 +132,10 @@ const (
 
 // SupportedDbTypes contains the SQL Server data types supported by the model
 // generation and mapping system.
-var SupportedDbTypes = map[dbDataTypeName]bool{
+var SupportedDbTypes = map[DbDataTypeName]bool{
 	DbTypeNvarchar:  true,
 	DbTypeInt:       true,
+	DbTypeFloat: 	 true,
 	DbTypeGeography: true,
 	DbTypeDateTimeOffset: true,
 }
@@ -136,7 +143,7 @@ var SupportedDbTypes = map[dbDataTypeName]bool{
 // ColumnMetadata describes the metadata associated with a database table column.
 type ColumnMetadata struct {
 	Name         string
-	Type         dbDataTypeName
+	Type         DbDataTypeName
 	MaxLength    int
 	IsPrimaryKey bool
 	IsRequired   bool
@@ -152,13 +159,47 @@ type Relationship struct {
 	ForeignColumn 		string
 }
 
+// GetTo returns metadata for the related table if it exists else nil
+func (r *Relationship) GetTo() *TableMetadata {
+	return GetTableMetadata(r.RelatedTable)
+}
+
 // TableMetadata describes the structure and relationships of a database table.
 type TableMetadata struct {
 	TableName          	string
 	SchemaName          string
+	FullyQualifiedName  string
 	PrimaryKey    		string
 	Columns       		map[string]ColumnMetadata
 	Relationships 		map[string]Relationship
+}
+
+// GetResourceShortName returns the table name without its schema namespace
+func (t *TableMetadata) GetResourceShortName() string {
+	return t.TableName
+}
+
+// GetResourceFullname returns the table name with its schema namespace
+func (t *TableMetadata) GetResourceFullname() string {
+	return t.FullyQualifiedName
+}
+
+// GetColumn returns column metadata if a column exists on the table, else nil
+func (t *TableMetadata) GetColumn(columnName string) *ColumnMetadata {
+	c, exists := t.Columns[columnName]
+	if !exists {
+		return nil
+	}
+	return &c
+}
+
+// GetRelationship returns relationship metadata if it exists, else nil
+func (t *TableMetadata) GetRelationship(relationshipName string) *Relationship {
+	r, exists := t.Relationships[relationshipName]
+	if !exists {
+		return nil
+	}
+	return &r
 }
 
 // TableModel is an interface shared by all database table models
@@ -279,6 +320,7 @@ func (w *modelWriter) writeTableMetadataDefinition(tableData *builderRepo.TableM
 	writeToBuilder(w.sb, fmt.Sprintf("var %s = TableMetadata{\n", modelMetadataStoreIdentifier(tableData)))
 	writeToBuilder(w.sb, fmt.Sprintf("TableName: \"%s\",\n", tableData.Name))
 	writeToBuilder(w.sb, fmt.Sprintf("SchemaName: \"%s\",\n", tableData.Schema))
+	writeToBuilder(w.sb, fmt.Sprintf("FullyQualifiedName: \"%s.%s\",\n", tableData.Schema, tableData.Name))
 	writeToBuilder(w.sb, fmt.Sprintf("PrimaryKey: \"%s\",\n", primaryKey))
 	writeToBuilder(w.sb, fmt.Sprintf("Columns: %s,\n", columnMapValue))
 	writeToBuilder(w.sb, fmt.Sprintf("Relationships: %s,\n", relationshipMapValue))
@@ -527,6 +569,27 @@ func (w *modelWriter) WriteTableModelGetter() {
 		metadataStoreId := modelMetadataStoreIdentifier(table)
 		writeToBuilder(w.sb, fmt.Sprintf("case %s.TableName:\n", metadataStoreId))
 		writeToBuilder(w.sb, fmt.Sprintf("return new(%s)\n", getModelStructName(table.Name)))
+	}
+
+	writeToBuilder(w.sb, "default:\n")
+	writeToBuilder(w.sb, "return nil\n")
+	writeToBuilder(w.sb, "}\n")
+	writeToBuilder(w.sb, "}\n")
+}
+
+func (w *modelWriter) WriteTableMetadataGetter() {
+	writeToBuilder(
+		w.sb,
+		"// GetTableMetadata returns the metadata for a given table or nill if \n"+
+			"// the table name is invalid\n",
+	)
+	writeToBuilder(w.sb, "func GetTableMetadata(tableName string) *TableMetadata{\n")
+	writeToBuilder(w.sb, "switch tableName {\n")
+
+	for _, table := range w.metadata.Tables {
+		metadataStoreId := modelMetadataStoreIdentifier(table)
+		writeToBuilder(w.sb, fmt.Sprintf("case %s.TableName:\n", metadataStoreId))
+		writeToBuilder(w.sb, fmt.Sprintf("return &%s\n", modelMetadataStoreIdentifier(table)))
 	}
 
 	writeToBuilder(w.sb, "default:\n")

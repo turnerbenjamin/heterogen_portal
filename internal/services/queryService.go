@@ -11,7 +11,7 @@ import (
 )
 
 type QueryRepo interface {
-	Execute(ctx context.Context, query string) (jsonResult []byte, err error)
+	Execute(ctx context.Context, statementString string, args []any) (jsonResult []byte, err error)
 }
 
 type QueryParser interface {
@@ -39,13 +39,23 @@ func (s *QueryService) Execute(ctx context.Context, resource string, queryString
 		}
 	}
 
-	q, appErr := query.NewQuery(ctx, s.queryRepo.Execute, resource, queryOperations)
-	if appErr != nil {
-		return nil, appErr
+	q, err := query.NewQuery(ctx, s.queryRepo.Execute, resource, queryOperations)
+	if err != nil {
+		return nil, &etc.AppError{
+			Code:         http.StatusBadRequest,
+			ErrorMessage: err.Error(),
+			InnerError:   err,
+			ResponseType: etc.ResponseTypeJson,
+		}
 	}
 	results, err := q.Execute()
 	if err != nil {
-		return nil, etc.NewServerError(err)
+		return nil, &etc.AppError{
+			Code:         http.StatusBadRequest,
+			ErrorMessage: err.Error(),
+			InnerError:   err,
+			ResponseType: etc.ResponseTypeJson,
+		}
 	}
 
 	return results, nil

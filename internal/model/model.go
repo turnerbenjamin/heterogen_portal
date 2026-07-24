@@ -11,21 +11,24 @@ import (
 	"time"
 )
 
-// dbDataTypeName represents a SQL Server data type name supported by the model metadata system.
-type dbDataTypeName string
+// DbDataTypeName represents a SQL Server data type name supported by the model metadata system.
+type DbDataTypeName string
 
 const (
 	// DbTypeNvarchar represents the SQL Server nvarchar data type.
-	DbTypeNvarchar dbDataTypeName = "nvarchar"
+	DbTypeNvarchar DbDataTypeName = "nvarchar"
 
 	// DbTypeInt represents the SQL Server int data type.
-	DbTypeInt dbDataTypeName = "int"
+	DbTypeInt DbDataTypeName = "int"
+
+	// DbTypeFloat represents the SQL Server float data type.
+	DbTypeFloat DbDataTypeName = "float"
 
 	// DbTypeGeography represents the SQL Server geography spatial data type.
-	DbTypeGeography dbDataTypeName = "geography"
+	DbTypeGeography DbDataTypeName = "geography"
 
 	// DbTypeDateTimeOffset represents the SQL Server datetimeoffset date/time data type.
-	DbTypeDateTimeOffset dbDataTypeName = "datetimeoffset"
+	DbTypeDateTimeOffset DbDataTypeName = "datetimeoffset"
 )
 
 // relationshipId represents a unique identifier for a given relationship
@@ -44,9 +47,10 @@ const (
 
 // SupportedDbTypes contains the SQL Server data types supported by the model
 // generation and mapping system.
-var SupportedDbTypes = map[dbDataTypeName]bool{
+var SupportedDbTypes = map[DbDataTypeName]bool{
 	DbTypeNvarchar:       true,
 	DbTypeInt:            true,
+	DbTypeFloat:          true,
 	DbTypeGeography:      true,
 	DbTypeDateTimeOffset: true,
 }
@@ -54,7 +58,7 @@ var SupportedDbTypes = map[dbDataTypeName]bool{
 // ColumnMetadata describes the metadata associated with a database table column.
 type ColumnMetadata struct {
 	Name         string
-	Type         dbDataTypeName
+	Type         DbDataTypeName
 	MaxLength    int
 	IsPrimaryKey bool
 	IsRequired   bool
@@ -70,13 +74,47 @@ type Relationship struct {
 	ForeignColumn      string
 }
 
+// GetTo returns metadata for the related table if it exists else nil
+func (r *Relationship) GetTo() *TableMetadata {
+	return GetTableMetadata(r.RelatedTable)
+}
+
 // TableMetadata describes the structure and relationships of a database table.
 type TableMetadata struct {
-	TableName     string
-	SchemaName    string
-	PrimaryKey    string
-	Columns       map[string]ColumnMetadata
-	Relationships map[string]Relationship
+	TableName          string
+	SchemaName         string
+	FullyQualifiedName string
+	PrimaryKey         string
+	Columns            map[string]ColumnMetadata
+	Relationships      map[string]Relationship
+}
+
+// GetResourceShortName returns the table name without its schema namespace
+func (t *TableMetadata) GetResourceShortName() string {
+	return t.TableName
+}
+
+// GetResourceFullname returns the table name with its schema namespace
+func (t *TableMetadata) GetResourceFullname() string {
+	return t.FullyQualifiedName
+}
+
+// GetColumn returns column metadata if a column exists on the table, else nil
+func (t *TableMetadata) GetColumn(columnName string) *ColumnMetadata {
+	c, exists := t.Columns[columnName]
+	if !exists {
+		return nil
+	}
+	return &c
+}
+
+// GetRelationship returns relationship metadata if it exists, else nil
+func (t *TableMetadata) GetRelationship(relationshipName string) *Relationship {
+	r, exists := t.Relationships[relationshipName]
+	if !exists {
+		return nil
+	}
+	return &r
 }
 
 // TableModel is an interface shared by all database table models
@@ -216,9 +254,10 @@ const (
 
 // businessesMetadata contains the database metadata for the hg.businesses table.
 var businessesMetadata = TableMetadata{
-	TableName:  "businesses",
-	SchemaName: "hg",
-	PrimaryKey: "id",
+	TableName:          "businesses",
+	SchemaName:         "hg",
+	FullyQualifiedName: "hg.businesses",
+	PrimaryKey:         "id",
 	Columns: map[string]ColumnMetadata{
 		"id": {
 			Name:         "id",
@@ -498,9 +537,10 @@ func (m *BusinessesModel) GetJoinOnValue(relationshipId relationshipId) (string,
 
 // farmFieldsMetadata contains the database metadata for the hg.farm_fields table.
 var farmFieldsMetadata = TableMetadata{
-	TableName:  "farm_fields",
-	SchemaName: "hg",
-	PrimaryKey: "id",
+	TableName:          "farm_fields",
+	SchemaName:         "hg",
+	FullyQualifiedName: "hg.farm_fields",
+	PrimaryKey:         "id",
 	Columns: map[string]ColumnMetadata{
 		"id": {
 			Name:         "id",
@@ -602,9 +642,9 @@ type FarmFieldsModel struct {
 	CreatedById  string           `json:"created_by_id,omitempty"`
 	ModifiedAt   *time.Time       `json:"modified_at,omitempty"`
 	ModifiedById string           `json:"modified_by_id,omitempty"`
-	ModifiedBy   *UsersModel      `json:"modified_by,omitempty"`
 	Business     *BusinessesModel `json:"business,omitempty"`
 	CreatedBy    *UsersModel      `json:"created_by,omitempty"`
+	ModifiedBy   *UsersModel      `json:"modified_by,omitempty"`
 }
 
 // GetMetadata returns metadata for the hg.farm_fields table.
@@ -676,9 +716,10 @@ func (m *FarmFieldsModel) GetJoinOnValue(relationshipId relationshipId) (string,
 
 // usersMetadata contains the database metadata for the hg.users table.
 var usersMetadata = TableMetadata{
-	TableName:  "users",
-	SchemaName: "hg",
-	PrimaryKey: "id",
+	TableName:          "users",
+	SchemaName:         "hg",
+	FullyQualifiedName: "hg.users",
+	PrimaryKey:         "id",
 	Columns: map[string]ColumnMetadata{
 		"id": {
 			Name:         "id",
@@ -880,6 +921,21 @@ func GetTableModel(tableName string) TableModel {
 		return new(FarmFieldsModel)
 	case usersMetadata.TableName:
 		return new(UsersModel)
+	default:
+		return nil
+	}
+}
+
+// GetTableMetadata returns the metadata for a given table or nill if
+// the table name is invalid
+func GetTableMetadata(tableName string) *TableMetadata {
+	switch tableName {
+	case businessesMetadata.TableName:
+		return &businessesMetadata
+	case farmFieldsMetadata.TableName:
+		return &farmFieldsMetadata
+	case usersMetadata.TableName:
+		return &usersMetadata
 	default:
 		return nil
 	}

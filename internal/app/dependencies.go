@@ -30,7 +30,7 @@ func initAppDependencies() *appDependencies {
 		tokenSigner:     &jwtTokenSigner{},
 		payloadSigner:   &utils.PayloadSigner{},
 		httpClient:      &http.Client{},
-		queryParser:     &query.QueryParser{},
+		queryParser:     &query.QuerySyntaxParser{},
 		newOidcProvider: oidcNewProvider,
 		randReader:      rand.Read,
 	}

@@ -32,7 +32,7 @@ CREATE TABLE hg.businesses (
     modified_by_id NVARCHAR(36) NOT NULL,
 
     CONSTRAINT CK_business_type
-    CHECK (business_type IN (0, 1)),
+    CHECK (business_type IN (1, 2)),
 
     CONSTRAINT FK_business_created_by_id
         FOREIGN KEY (created_by_id)

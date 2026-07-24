@@ -1,25 +1,55 @@
 package query
 
 import (
+	"errors"
 	"fmt"
+	"strings"
 )
 
 type tokenType uint64
 
 const (
-	TokenEOF   tokenType = iota
 	TokenEmpty tokenType = iota
+	TokenEOF
 	TokenIdentifier
-	TokenOperator
-	TokenNumber
+	TokenLogicalOperator
+	TokenComparisonOperator
+	TokenCollectionOperator
+	TokenNumberRaw
+	TokenStringRaw
 	TokenString
+	TokenNull
 	TokenParenL
 	TokenParenR
 	TokenAmper
 	TokenSemiColon
 	TokenComma
 	TokenEquals
+	TokenSlash
 )
+
+var comparisonOperators = map[string]ComparisonOperator{
+	"eq":         ComparisonEq,
+	"ne":         ComparisonNe,
+	"gt":         ComparisonGt,
+	"ge":         ComparisonGe,
+	"lt":         ComparisonLt,
+	"le":         ComparisonLe,
+	"in":         ComparisonIn,
+	"contains":   ComparisonContains,
+	"startswith": ComparisonStartsWith,
+	"endswith":   ComparisonEndsWith,
+}
+
+var logicalOperators = map[string]LogicalOperator{
+	"and": LogicalAnd,
+	"or":  LogicalOr,
+}
+
+var collectionOperators = map[string]CollectionOperator{
+	"any": CollectionAny,
+	"all": CollectionAll,
+}
 
 var singleCharTokenMap = map[byte]tokenType{
 	'(': TokenParenL,
@@ -28,6 +58,7 @@ var singleCharTokenMap = map[byte]tokenType{
 	';': TokenSemiColon,
 	',': TokenComma,
 	'=': TokenEquals,
+	'/': TokenSlash,
 }
 
 type token struct {
@@ -35,79 +66,121 @@ type token struct {
 	Value string
 }
 
-type newTokeniser struct {
+type Tokeniser struct {
 	input   string
 	idx     int
-	current token
+	buffIdx int
+	buffer  []token
 }
 
-func NewNewTokeniser(input string) *newTokeniser {
-	return &newTokeniser{
+func NewTokeniser(input string) *Tokeniser {
+	return &Tokeniser{
 		input:   input,
-		current: token{Type: TokenEmpty},
+		buffer:  make([]token, 0, 64),
+		buffIdx: -1,
 	}
 }
 
-func (t *newTokeniser) CurrentToken() token {
-	return t.current
+func (t *Tokeniser) Peek() token {
+	return t.PeekN(1)
 }
 
-func (t *newTokeniser) NextToken() (token, error) {
+func (t *Tokeniser) PeekN(n int) token {
+	o := token{Type: TokenEmpty}
+	savedBuffIdx := t.buffIdx
+	for range n {
+		o = t.Next()
+	}
+	t.buffIdx = savedBuffIdx
+	return o
+}
+
+func (t *Tokeniser) Current() token {
+	if t.buffIdx < 0 {
+		return token{Type: TokenEmpty}
+	}
+	return t.buffer[t.buffIdx]
+}
+
+func (t *Tokeniser) Next() token {
+	if (t.buffIdx + 1) < len(t.buffer) {
+		t.buffIdx++
+		return t.buffer[t.buffIdx]
+	}
+
 	for t.idx < len(t.input) && t.input[t.idx] == ' ' {
 		t.idx++
 	}
 
 	if t.idx >= (len(t.input)) {
-		t.current = token{Type: TokenEOF}
-		return t.current, nil
+		t.idx++
+
+		t.buffer = append(t.buffer, token{Type: TokenEOF})
+		t.buffIdx++
+
+		return t.buffer[t.buffIdx]
 	}
 
-	var err error = nil
+	var next = token{Type: TokenEmpty}
 	switch b := t.input[t.idx]; {
 	case b == '(':
 		t.idx++
-		t.current, err = token{Type: TokenParenL, Value: "("}, nil
+		next = token{Type: TokenParenL, Value: "("}
 	case b == ')':
 		t.idx++
-		t.current, err = token{Type: TokenParenR, Value: ")"}, nil
+		next = token{Type: TokenParenR, Value: ")"}
 	case b == '&':
 		t.idx++
-		t.current, err = token{Type: TokenAmper, Value: "&"}, nil
+		next = token{Type: TokenAmper, Value: "&"}
 	case b == ';':
 		t.idx++
-		t.current, err = token{Type: TokenSemiColon, Value: ";"}, nil
+		next = token{Type: TokenSemiColon, Value: ";"}
 	case b == ',':
 		t.idx++
-		t.current, err = token{Type: TokenComma, Value: ","}, nil
+		next = token{Type: TokenComma, Value: ","}
 	case b == '=':
 		t.idx++
-		t.current, err = token{Type: TokenEquals, Value: "="}, nil
-	case b == '\'':
-		t.current, err = t.readString()
-	case b >= '0' && b <= '9':
-		t.current, err = t.readNumber()
-	default:
-		t.current, err = t.readWord()
-	}
-	return t.current, err
-}
-
-func (t newTokeniser) readString() (token, error) {
-	t.idx++
-	start := t.idx
-	for t.idx < len(t.input) && t.input[t.idx] != '\'' {
+		next = token{Type: TokenEquals, Value: "="}
+	case b == '/':
 		t.idx++
+		next = token{Type: TokenSlash, Value: "/"}
+	case b == '\'', b == '"':
+		next = t.readString()
+	case b >= '0' && b <= '9':
+		next = t.readNumber()
+	default:
+		next = t.readIdentifier()
 	}
 
-	value := t.input[start:t.idx]
-	if t.input[t.idx-1] != '\'' {
-		return token{}, fmt.Errorf("unterminated string value: %s", value)
-	}
-
-	return token{Type: TokenString, Value: value}, nil
+	t.buffer = append(t.buffer, next)
+	t.buffIdx++
+	return t.buffer[t.buffIdx]
 }
 
-func (t newTokeniser) readNumber() (token, error) {
+func (t *Tokeniser) readString() token {
+	// opening and closing chars included in value so consumer can validate the
+	// syntax; avoids handling errors for token types that will never return an
+	// error
+	openingQuotationChar := t.input[t.idx]
+	start := t.idx
+	t.idx++
+
+	for t.idx < len(t.input) {
+		b := t.input[t.idx]
+		t.idx++
+
+		if b == openingQuotationChar {
+			break
+		}
+	}
+
+	return token{
+		Type:  TokenStringRaw,
+		Value: t.input[start:t.idx],
+	}
+}
+
+func (t *Tokeniser) readNumber() token {
 	start := t.idx
 	for t.idx < len(t.input) {
 		b := t.input[t.idx]
@@ -118,12 +191,12 @@ func (t newTokeniser) readNumber() (token, error) {
 	}
 
 	return token{
-		Type:  TokenNumber,
+		Type:  TokenNumberRaw,
 		Value: t.input[start:t.idx],
-	}, nil
+	}
 }
 
-func (t *newTokeniser) readWord() (token, error) {
+func (t *Tokeniser) readIdentifier() token {
 	start := t.idx
 
 	for t.idx < len(t.input) {
@@ -140,19 +213,63 @@ func (t *newTokeniser) readWord() (token, error) {
 		t.idx++
 	}
 
-	value := t.input[start:t.idx]
-
-	switch value {
-	case "eq", "ne", "gt", "lt", "and", "or":
+	value := strings.ToLower(t.input[start:t.idx])
+	if _, isLogicalOperation := logicalOperators[value]; isLogicalOperation {
 		return token{
-			Type:  TokenOperator,
+			Type:  TokenLogicalOperator,
 			Value: value,
-		}, nil
-
-	default:
-		return token{
-			Type:  TokenIdentifier,
-			Value: value,
-		}, nil
+		}
 	}
+
+	if _, isComparisonOperation := comparisonOperators[value]; isComparisonOperation {
+		return token{
+			Type:  TokenComparisonOperator,
+			Value: value,
+		}
+	}
+
+	if _, isCollectionOperation := collectionOperators[value]; isCollectionOperation {
+		return token{
+			Type:  TokenCollectionOperator,
+			Value: value,
+		}
+	}
+
+	if value == "null" {
+		return token{
+			Type:  TokenNull,
+			Value: value,
+		}
+	}
+
+	return token{
+		Type:  TokenIdentifier,
+		Value: value,
+	}
+}
+
+func (t *Tokeniser) processRawStringToken(raw token) (token, error) {
+	if raw.Type != TokenStringRaw {
+		return token{}, errors.New("unexpected token type received")
+	}
+
+	if len(raw.Value) < 2 {
+		return token{}, errors.New("raw string token should be at least 2 characters")
+	}
+
+	openingQuotationMark := raw.Value[0]
+	closingQuotationMark := raw.Value[len(raw.Value)-1]
+
+	if openingQuotationMark != '\'' && openingQuotationMark != '"' {
+		return token{}, errors.New("raw string token should be prefixed with a ' or \"")
+	}
+
+	if closingQuotationMark != openingQuotationMark {
+		return token{}, fmt.Errorf("unterminated string literal %s", raw.Value)
+	}
+
+	return token{
+		Type:  TokenString,
+		Value: raw.Value[1 : len(raw.Value)-1],
+	}, nil
 }
