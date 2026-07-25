@@ -6,133 +6,188 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"iter"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/turnerbenjamin/heterogen_portal/internal/query"
 )
 
-// DbDataTypeName represents a SQL Server data type name supported by the model metadata system.
-type DbDataTypeName string
+var metadataIsBound = false
 
-const (
-	// DbTypeNvarchar represents the SQL Server nvarchar data type.
-	DbTypeNvarchar DbDataTypeName = "nvarchar"
+type schemaMetadata struct{}
 
-	// DbTypeInt represents the SQL Server int data type.
-	DbTypeInt DbDataTypeName = "int"
-
-	// DbTypeFloat represents the SQL Server float data type.
-	DbTypeFloat DbDataTypeName = "float"
-
-	// DbTypeGeography represents the SQL Server geography spatial data type.
-	DbTypeGeography DbDataTypeName = "geography"
-
-	// DbTypeDateTimeOffset represents the SQL Server datetimeoffset date/time data type.
-	DbTypeDateTimeOffset DbDataTypeName = "datetimeoffset"
-)
-
-// relationshipId represents a unique identifier for a given relationship
-type relationshipId string
-
-// relationshipType represents different table relationships
-type relationshipType string
-
-const (
-	// RelationshipOneToMany represents a 1:N relationship
-	RelationshipOneToMany relationshipType = "1:N"
-
-	// RelationshipManyToOne represents an N:1 relationship
-	RelationshipManyToOne relationshipType = "N:1"
-)
-
-// SupportedDbTypes contains the SQL Server data types supported by the model
-// generation and mapping system.
-var SupportedDbTypes = map[DbDataTypeName]bool{
-	DbTypeNvarchar:       true,
-	DbTypeInt:            true,
-	DbTypeFloat:          true,
-	DbTypeGeography:      true,
-	DbTypeDateTimeOffset: true,
+func NewSchemaMetadata() *schemaMetadata {
+	s := &schemaMetadata{}
+	if !metadataIsBound {
+		bindMetadata()
+	}
+	return s
 }
 
-// ColumnMetadata describes the metadata associated with a database table column.
-type ColumnMetadata struct {
-	Name         string
-	Type         DbDataTypeName
-	MaxLength    int
-	IsPrimaryKey bool
-	IsRequired   bool
+// GetTableModel returns a new instance of a given table or nill if
+// the table name is invalid
+func (s *schemaMetadata) GetTableModel(tableName string) query.TableModel {
+	return getTableModel(tableName)
 }
 
-// Relationship describes a foreign key relationship between two database columns.
-type Relationship struct {
-	Id                 relationshipId
-	Type               relationshipType
-	RelationshipColumn string
-	RelatedTable       string
-	LocalColumn        string
-	ForeignColumn      string
+// GetTableMetadata returns the metadata for a given table or nill if
+// the table name is invalid
+func (s *schemaMetadata) GetTableMetadata(tableName string) query.TableMetadata {
+	return getTableMetadata(tableName)
 }
 
-// GetTo returns metadata for the related table if it exists else nil
-func (r *Relationship) GetTo() *TableMetadata {
-	return GetTableMetadata(r.RelatedTable)
+// columnMetadata describes the metadata associated with a database table column.
+type columnMetadata struct {
+	name         string
+	dbType       query.DbDataTypeName
+	maxLength    int
+	isPrimaryKey bool
+	isRequired   bool
 }
 
-// TableMetadata describes the structure and relationships of a database table.
-type TableMetadata struct {
-	TableName          string
-	SchemaName         string
-	FullyQualifiedName string
-	PrimaryKey         string
-	Columns            map[string]ColumnMetadata
-	Relationships      map[string]Relationship
+// Name returns the database name for the column
+func (c *columnMetadata) Name() string {
+	return c.name
 }
 
-// GetResourceShortName returns the table name without its schema namespace
-func (t *TableMetadata) GetResourceShortName() string {
-	return t.TableName
+// Type returns the column's type
+func (c *columnMetadata) Type() query.DbDataTypeName {
+	return c.dbType
 }
 
-// GetResourceFullname returns the table name with its schema namespace
-func (t *TableMetadata) GetResourceFullname() string {
-	return t.FullyQualifiedName
+// relationship describes a foreign key relationship between two database columns.
+type relationship struct {
+	id               string
+	name             string
+	relationshipType query.RelationshipType
+	from             query.TableMetadata
+	to               query.TableMetadata
+	fromColumn       query.ColumnMetadata
+	toColumn         query.ColumnMetadata
+	fromTableName    string
+	toTableName      string
+	fromColumnName   string
+	toColumnName     string
+	isInitialised    bool
 }
 
-// GetColumn returns column metadata if a column exists on the table, else nil
-func (t *TableMetadata) GetColumn(columnName string) *ColumnMetadata {
-	c, exists := t.Columns[columnName]
+// bindMetadata binds metadata references at runtime to avoid invalid initiation
+// cycle due to circular references
+func (r *relationship) bindMetadata() {
+	r.from = getTableMetadata(r.fromTableName)
+	r.fromColumn = r.from.GetColumnMetadata(r.fromColumnName)
+	r.to = getTableMetadata(r.toTableName)
+	r.toColumn = r.to.GetColumnMetadata(r.toColumnName)
+
+	if r.from == nil || r.fromColumn == nil || r.to == nil || r.toColumn == nil {
+		panic(fmt.Sprintf("unable to bind metadata for relationship %s", r.id))
+	}
+}
+
+// Id returns a unique identifier for a table relationship
+func (r *relationship) Id() string {
+	return r.id
+}
+
+// From returns table metadata for the from table
+func (r *relationship) From() query.TableMetadata {
+	return r.from
+}
+
+// To returns table metadata for the to table
+func (r *relationship) To() query.TableMetadata {
+	return r.to
+}
+
+// From returns table metadata for the from table
+func (r *relationship) FromColumn() query.ColumnMetadata {
+	return r.fromColumn
+}
+
+// To returns table metadata for the to table
+func (r *relationship) ToColumn() query.ColumnMetadata {
+	return r.toColumn
+}
+
+// Type returns the relationship type
+func (r *relationship) Type() query.RelationshipType {
+	return r.relationshipType
+}
+
+// tableMetadata describes the structure and relationships of a database table.
+type tableMetadata struct {
+	name               string
+	schemaName         string
+	fullyQualifiedName string
+	primaryKey         string
+	columns            map[string]*columnMetadata
+	columnCount        int
+	relationships      map[string]*relationship
+}
+
+// bindMetadata binds metadata references at runtime to avoid invalid initiation
+// cycle due to circular references
+func (t *tableMetadata) bindMetadata() {
+	for _, relationship := range t.relationships {
+		relationship.bindMetadata()
+	}
+}
+
+// GetColumnMetadata returns metadata for a given table column; returns nil if
+// the column does not exist on the table
+func (t *tableMetadata) GetColumnMetadata(columnName string) query.ColumnMetadata {
+	c, exists := t.columns[columnName]
 	if !exists {
 		return nil
 	}
-	return &c
+	return c
 }
 
-// GetRelationship returns relationship metadata if it exists, else nil
-func (t *TableMetadata) GetRelationship(relationshipName string) *Relationship {
-	r, exists := t.Relationships[relationshipName]
+// GetRelationshipMetadata returns metadata for a given table column; returns
+// nil if the relationship does not exist on the table
+func (t *tableMetadata) GetRelationshipMetadata(relationshipName string) query.RelationshipMetadata {
+	r, exists := t.relationships[relationshipName]
 	if !exists {
 		return nil
 	}
-	return &r
+	return r
 }
 
-// TableModel is an interface shared by all database table models
-type TableModel interface {
-	// GetMetadata returns metadata for the table
-	GetMetadata() TableMetadata
+// GetTableModel returns a model representing the table
+func (t *tableMetadata) GetModel() query.TableModel {
+	return getTableModel(t.name)
+}
 
-	// GetTableName returns the name of the table in the database
-	GetTableName() string
+// Name returns the table name as it appears in the database
+func (t *tableMetadata) Name() string {
+	return t.name
+}
 
-	// NewSlice unmarshals a json array and returns it as a slice
-	NewSlice(jsonData []byte) ([]TableModel, error)
+// FullyQualifiedName returns the fully-qualified table name including the
+// schema namespace
+func (t *tableMetadata) FullyQualifiedName() string {
+	return t.fullyQualifiedName
+}
 
-	// SetRelationshipField sets a given relationship field
-	SetRelationshipField(relationshipId relationshipId, value TableModel) error
+// Columns iterates over all columns associated with the table
+func (t *tableMetadata) Columns() iter.Seq[query.ColumnMetadata] {
+	return func(yield func(query.ColumnMetadata) bool) {
+		for _, col := range t.columns {
+			if !yield(col) {
+				return
+			}
+		}
+	}
+}
 
-	// GetJoinOnValue returns the value of the relevant column for a given relationship
-	GetJoinOnValue(relationshipId relationshipId) (string, error)
+// ColumnCount returns the total number of columns associated with the table
+func (t *tableMetadata) ColumnCount() int {
+	if t.columnCount == -1 {
+		t.columnCount = len(t.columns)
+	}
+	return t.columnCount
 }
 
 // Point represents a geographic point with a GeoJSON-compatible structure.
@@ -253,190 +308,194 @@ const (
 )
 
 // businessesMetadata contains the database metadata for the hg.businesses table.
-var businessesMetadata = TableMetadata{
-	TableName:          "businesses",
-	SchemaName:         "hg",
-	FullyQualifiedName: "hg.businesses",
-	PrimaryKey:         "id",
-	Columns: map[string]ColumnMetadata{
+var businessesMetadata = &tableMetadata{
+	name:               "businesses",
+	schemaName:         "hg",
+	fullyQualifiedName: "hg.businesses",
+	primaryKey:         "id",
+	columns: map[string]*columnMetadata{
 		"id": {
-			Name:         "id",
-			Type:         DbTypeNvarchar,
-			MaxLength:    72,
-			IsRequired:   true,
-			IsPrimaryKey: true,
+			name:         "id",
+			dbType:       query.DbTypeNvarchar,
+			maxLength:    72,
+			isRequired:   true,
+			isPrimaryKey: true,
 		},
 		"reference": {
-			Name:         "reference",
-			Type:         DbTypeNvarchar,
-			MaxLength:    16,
-			IsRequired:   true,
-			IsPrimaryKey: false,
+			name:         "reference",
+			dbType:       query.DbTypeNvarchar,
+			maxLength:    16,
+			isRequired:   true,
+			isPrimaryKey: false,
 		},
 		"trading_name": {
-			Name:         "trading_name",
-			Type:         DbTypeNvarchar,
-			MaxLength:    510,
-			IsRequired:   true,
-			IsPrimaryKey: false,
+			name:         "trading_name",
+			dbType:       query.DbTypeNvarchar,
+			maxLength:    510,
+			isRequired:   true,
+			isPrimaryKey: false,
 		},
 		"logo_url": {
-			Name:         "logo_url",
-			Type:         DbTypeNvarchar,
-			MaxLength:    4096,
-			IsRequired:   false,
-			IsPrimaryKey: false,
+			name:         "logo_url",
+			dbType:       query.DbTypeNvarchar,
+			maxLength:    4096,
+			isRequired:   false,
+			isPrimaryKey: false,
 		},
 		"description": {
-			Name:         "description",
-			Type:         DbTypeNvarchar,
-			MaxLength:    8000,
-			IsRequired:   false,
-			IsPrimaryKey: false,
+			name:         "description",
+			dbType:       query.DbTypeNvarchar,
+			maxLength:    8000,
+			isRequired:   false,
+			isPrimaryKey: false,
 		},
 		"business_type": {
-			Name:         "business_type",
-			Type:         DbTypeInt,
-			MaxLength:    4,
-			IsRequired:   true,
-			IsPrimaryKey: false,
+			name:         "business_type",
+			dbType:       query.DbTypeInt,
+			maxLength:    4,
+			isRequired:   true,
+			isPrimaryKey: false,
 		},
 		"cph_number": {
-			Name:         "cph_number",
-			Type:         DbTypeNvarchar,
-			MaxLength:    22,
-			IsRequired:   false,
-			IsPrimaryKey: false,
+			name:         "cph_number",
+			dbType:       query.DbTypeNvarchar,
+			maxLength:    22,
+			isRequired:   false,
+			isPrimaryKey: false,
 		},
 		"email_address": {
-			Name:         "email_address",
-			Type:         DbTypeNvarchar,
-			MaxLength:    640,
-			IsRequired:   false,
-			IsPrimaryKey: false,
+			name:         "email_address",
+			dbType:       query.DbTypeNvarchar,
+			maxLength:    640,
+			isRequired:   false,
+			isPrimaryKey: false,
 		},
 		"contact_number": {
-			Name:         "contact_number",
-			Type:         DbTypeNvarchar,
-			MaxLength:    100,
-			IsRequired:   false,
-			IsPrimaryKey: false,
+			name:         "contact_number",
+			dbType:       query.DbTypeNvarchar,
+			maxLength:    100,
+			isRequired:   false,
+			isPrimaryKey: false,
 		},
 		"website_url": {
-			Name:         "website_url",
-			Type:         DbTypeNvarchar,
-			MaxLength:    4096,
-			IsRequired:   false,
-			IsPrimaryKey: false,
+			name:         "website_url",
+			dbType:       query.DbTypeNvarchar,
+			maxLength:    4096,
+			isRequired:   false,
+			isPrimaryKey: false,
 		},
 		"address_line_1": {
-			Name:         "address_line_1",
-			Type:         DbTypeNvarchar,
-			MaxLength:    510,
-			IsRequired:   true,
-			IsPrimaryKey: false,
+			name:         "address_line_1",
+			dbType:       query.DbTypeNvarchar,
+			maxLength:    510,
+			isRequired:   true,
+			isPrimaryKey: false,
 		},
 		"address_line_2": {
-			Name:         "address_line_2",
-			Type:         DbTypeNvarchar,
-			MaxLength:    510,
-			IsRequired:   false,
-			IsPrimaryKey: false,
+			name:         "address_line_2",
+			dbType:       query.DbTypeNvarchar,
+			maxLength:    510,
+			isRequired:   false,
+			isPrimaryKey: false,
 		},
 		"town": {
-			Name:         "town",
-			Type:         DbTypeNvarchar,
-			MaxLength:    200,
-			IsRequired:   false,
-			IsPrimaryKey: false,
+			name:         "town",
+			dbType:       query.DbTypeNvarchar,
+			maxLength:    200,
+			isRequired:   false,
+			isPrimaryKey: false,
 		},
 		"county": {
-			Name:         "county",
-			Type:         DbTypeNvarchar,
-			MaxLength:    200,
-			IsRequired:   false,
-			IsPrimaryKey: false,
+			name:         "county",
+			dbType:       query.DbTypeNvarchar,
+			maxLength:    200,
+			isRequired:   false,
+			isPrimaryKey: false,
 		},
 		"country": {
-			Name:         "country",
-			Type:         DbTypeNvarchar,
-			MaxLength:    200,
-			IsRequired:   false,
-			IsPrimaryKey: false,
+			name:         "country",
+			dbType:       query.DbTypeNvarchar,
+			maxLength:    200,
+			isRequired:   false,
+			isPrimaryKey: false,
 		},
 		"postcode": {
-			Name:         "postcode",
-			Type:         DbTypeNvarchar,
-			MaxLength:    40,
-			IsRequired:   true,
-			IsPrimaryKey: false,
+			name:         "postcode",
+			dbType:       query.DbTypeNvarchar,
+			maxLength:    40,
+			isRequired:   true,
+			isPrimaryKey: false,
 		},
 		"location": {
-			Name:         "location",
-			Type:         DbTypeGeography,
-			MaxLength:    -1,
-			IsRequired:   true,
-			IsPrimaryKey: false,
+			name:         "location",
+			dbType:       query.DbTypeGeography,
+			maxLength:    -1,
+			isRequired:   true,
+			isPrimaryKey: false,
 		},
 		"created_at": {
-			Name:         "created_at",
-			Type:         DbTypeDateTimeOffset,
-			MaxLength:    10,
-			IsRequired:   true,
-			IsPrimaryKey: false,
+			name:         "created_at",
+			dbType:       query.DbTypeDateTimeOffset,
+			maxLength:    10,
+			isRequired:   true,
+			isPrimaryKey: false,
 		},
 		"created_by_id": {
-			Name:         "created_by_id",
-			Type:         DbTypeNvarchar,
-			MaxLength:    72,
-			IsRequired:   true,
-			IsPrimaryKey: false,
+			name:         "created_by_id",
+			dbType:       query.DbTypeNvarchar,
+			maxLength:    72,
+			isRequired:   true,
+			isPrimaryKey: false,
 		},
 		"modified_at": {
-			Name:         "modified_at",
-			Type:         DbTypeDateTimeOffset,
-			MaxLength:    10,
-			IsRequired:   true,
-			IsPrimaryKey: false,
+			name:         "modified_at",
+			dbType:       query.DbTypeDateTimeOffset,
+			maxLength:    10,
+			isRequired:   true,
+			isPrimaryKey: false,
 		},
 		"modified_by_id": {
-			Name:         "modified_by_id",
-			Type:         DbTypeNvarchar,
-			MaxLength:    72,
-			IsRequired:   true,
-			IsPrimaryKey: false,
+			name:         "modified_by_id",
+			dbType:       query.DbTypeNvarchar,
+			maxLength:    72,
+			isRequired:   true,
+			isPrimaryKey: false,
 		},
 	},
-	Relationships: map[string]Relationship{
+	relationships: map[string]*relationship{
 		"created_by_id": {
-			Id:                 relationshipId("businesses_created_by_id_users_id"),
-			Type:               RelationshipManyToOne,
-			RelationshipColumn: "created_by",
-			RelatedTable:       "users",
-			LocalColumn:        "created_by_id",
-			ForeignColumn:      "id",
+			id:               "businesses_created_by_id_users_id",
+			name:             "created_by",
+			relationshipType: query.RelationshipManyToOne,
+			fromTableName:    "businesses",
+			toTableName:      "users",
+			fromColumnName:   "created_by_id",
+			toColumnName:     "id",
 		},
 		"modified_by_id": {
-			Id:                 relationshipId("businesses_modified_by_id_users_id"),
-			Type:               RelationshipManyToOne,
-			RelationshipColumn: "modified_by",
-			RelatedTable:       "users",
-			LocalColumn:        "modified_by_id",
-			ForeignColumn:      "id",
+			id:               "businesses_modified_by_id_users_id",
+			name:             "modified_by",
+			relationshipType: query.RelationshipManyToOne,
+			fromTableName:    "businesses",
+			toTableName:      "users",
+			fromColumnName:   "modified_by_id",
+			toColumnName:     "id",
 		},
 		"farm_fields_businesses_business_id": {
-			Id:                 relationshipId("farm_fields_business_id_businesses_id"),
-			Type:               RelationshipOneToMany,
-			RelationshipColumn: "farm_fields_businesses_business_id",
-			RelatedTable:       "farm_fields",
-			LocalColumn:        "id",
-			ForeignColumn:      "business_id",
+			id:               "farm_fields_business_id_businesses_id",
+			name:             "farm_fields_businesses_business_id",
+			relationshipType: query.RelationshipOneToMany,
+			fromTableName:    "businesses",
+			toTableName:      "farm_fields",
+			fromColumnName:   "id",
+			toColumnName:     "business_id",
 		},
 	},
+	columnCount: -1,
 }
 
 // GetBusinessesMetadata returns the database metadata associated with the businesses.Businesses table.
-func GetBusinessesMetadata() TableMetadata {
+func GetBusinessesMetadata() *tableMetadata {
 	return businessesMetadata
 }
 
@@ -468,23 +527,13 @@ type BusinessesModel struct {
 	FarmFieldsBusinessesBusinessId []*FarmFieldsModel `json:"farm_fields_businesses_business_id,omitempty"`
 }
 
-// GetMetadata returns metadata for the hg.businesses table.
-func (m *BusinessesModel) GetMetadata() TableMetadata {
-	return businessesMetadata
-}
-
-// GetTableName returns the name of the hg.businesses table.
-func (m *BusinessesModel) GetTableName() string {
-	return businessesMetadata.TableName
-}
-
 // NewSlice unmarshals a json array of businesses and returns it as a slice
-func (m *BusinessesModel) NewSlice(jsonData []byte) ([]TableModel, error) {
+func (m *BusinessesModel) NewSlice(jsonData []byte) ([]query.TableModel, error) {
 	var concreteSlice []*BusinessesModel
 	if err := json.Unmarshal(jsonData, &concreteSlice); err != nil {
 		return nil, err
 	}
-	result := make([]TableModel, len(concreteSlice))
+	result := make([]query.TableModel, len(concreteSlice))
 	for i := range concreteSlice {
 		result[i] = concreteSlice[i]
 	}
@@ -492,8 +541,15 @@ func (m *BusinessesModel) NewSlice(jsonData []byte) ([]TableModel, error) {
 }
 
 // SetRelationshipField sets a given relationship field on the hg.businesses table
-func (m *BusinessesModel) SetRelationshipField(relationshipId relationshipId, value TableModel) error {
+func (m *BusinessesModel) SetRelationshipField(relationshipId string, value query.TableModel) error {
 	switch relationshipId {
+	case "farm_fields_business_id_businesses_id":
+		v, ok := value.(*FarmFieldsModel)
+		if !ok {
+			return errors.New("unexpected relationship type received")
+		}
+		m.FarmFieldsBusinessesBusinessId = append(m.FarmFieldsBusinessesBusinessId, v)
+
 	case "businesses_created_by_id_users_id":
 		v, ok := value.(*UsersModel)
 		if !ok {
@@ -508,13 +564,6 @@ func (m *BusinessesModel) SetRelationshipField(relationshipId relationshipId, va
 		}
 		m.ModifiedBy = v
 
-	case "farm_fields_business_id_businesses_id":
-		v, ok := value.(*FarmFieldsModel)
-		if !ok {
-			return errors.New("unexpected relationship type received")
-		}
-		m.FarmFieldsBusinessesBusinessId = append(m.FarmFieldsBusinessesBusinessId, v)
-
 	default:
 		return fmt.Errorf("unknown relationship: %s", relationshipId)
 	}
@@ -522,7 +571,7 @@ func (m *BusinessesModel) SetRelationshipField(relationshipId relationshipId, va
 }
 
 // GetJoinOnValue returns the value of the relevant column for a given relationship
-func (m *BusinessesModel) GetJoinOnValue(relationshipId relationshipId) (string, error) {
+func (m *BusinessesModel) GetJoinOnValue(relationshipId string) (string, error) {
 	switch relationshipId {
 	case "businesses_created_by_id_users_id":
 		return m.CreatedById, nil
@@ -536,99 +585,103 @@ func (m *BusinessesModel) GetJoinOnValue(relationshipId relationshipId) (string,
 }
 
 // farmFieldsMetadata contains the database metadata for the hg.farm_fields table.
-var farmFieldsMetadata = TableMetadata{
-	TableName:          "farm_fields",
-	SchemaName:         "hg",
-	FullyQualifiedName: "hg.farm_fields",
-	PrimaryKey:         "id",
-	Columns: map[string]ColumnMetadata{
+var farmFieldsMetadata = &tableMetadata{
+	name:               "farm_fields",
+	schemaName:         "hg",
+	fullyQualifiedName: "hg.farm_fields",
+	primaryKey:         "id",
+	columns: map[string]*columnMetadata{
 		"id": {
-			Name:         "id",
-			Type:         DbTypeNvarchar,
-			MaxLength:    72,
-			IsRequired:   true,
-			IsPrimaryKey: true,
+			name:         "id",
+			dbType:       query.DbTypeNvarchar,
+			maxLength:    72,
+			isRequired:   true,
+			isPrimaryKey: true,
 		},
 		"reference": {
-			Name:         "reference",
-			Type:         DbTypeNvarchar,
-			MaxLength:    510,
-			IsRequired:   true,
-			IsPrimaryKey: false,
+			name:         "reference",
+			dbType:       query.DbTypeNvarchar,
+			maxLength:    510,
+			isRequired:   true,
+			isPrimaryKey: false,
 		},
 		"business_id": {
-			Name:         "business_id",
-			Type:         DbTypeNvarchar,
-			MaxLength:    72,
-			IsRequired:   true,
-			IsPrimaryKey: false,
+			name:         "business_id",
+			dbType:       query.DbTypeNvarchar,
+			maxLength:    72,
+			isRequired:   true,
+			isPrimaryKey: false,
 		},
 		"location": {
-			Name:         "location",
-			Type:         DbTypeGeography,
-			MaxLength:    -1,
-			IsRequired:   true,
-			IsPrimaryKey: false,
+			name:         "location",
+			dbType:       query.DbTypeGeography,
+			maxLength:    -1,
+			isRequired:   true,
+			isPrimaryKey: false,
 		},
 		"created_at": {
-			Name:         "created_at",
-			Type:         DbTypeDateTimeOffset,
-			MaxLength:    10,
-			IsRequired:   true,
-			IsPrimaryKey: false,
+			name:         "created_at",
+			dbType:       query.DbTypeDateTimeOffset,
+			maxLength:    10,
+			isRequired:   true,
+			isPrimaryKey: false,
 		},
 		"created_by_id": {
-			Name:         "created_by_id",
-			Type:         DbTypeNvarchar,
-			MaxLength:    72,
-			IsRequired:   true,
-			IsPrimaryKey: false,
+			name:         "created_by_id",
+			dbType:       query.DbTypeNvarchar,
+			maxLength:    72,
+			isRequired:   true,
+			isPrimaryKey: false,
 		},
 		"modified_at": {
-			Name:         "modified_at",
-			Type:         DbTypeDateTimeOffset,
-			MaxLength:    10,
-			IsRequired:   true,
-			IsPrimaryKey: false,
+			name:         "modified_at",
+			dbType:       query.DbTypeDateTimeOffset,
+			maxLength:    10,
+			isRequired:   true,
+			isPrimaryKey: false,
 		},
 		"modified_by_id": {
-			Name:         "modified_by_id",
-			Type:         DbTypeNvarchar,
-			MaxLength:    72,
-			IsRequired:   true,
-			IsPrimaryKey: false,
+			name:         "modified_by_id",
+			dbType:       query.DbTypeNvarchar,
+			maxLength:    72,
+			isRequired:   true,
+			isPrimaryKey: false,
 		},
 	},
-	Relationships: map[string]Relationship{
+	relationships: map[string]*relationship{
 		"business_id": {
-			Id:                 relationshipId("farm_fields_business_id_businesses_id"),
-			Type:               RelationshipManyToOne,
-			RelationshipColumn: "business",
-			RelatedTable:       "businesses",
-			LocalColumn:        "business_id",
-			ForeignColumn:      "id",
+			id:               "farm_fields_business_id_businesses_id",
+			name:             "business",
+			relationshipType: query.RelationshipManyToOne,
+			fromTableName:    "farm_fields",
+			toTableName:      "businesses",
+			fromColumnName:   "business_id",
+			toColumnName:     "id",
 		},
 		"created_by_id": {
-			Id:                 relationshipId("farm_fields_created_by_id_users_id"),
-			Type:               RelationshipManyToOne,
-			RelationshipColumn: "created_by",
-			RelatedTable:       "users",
-			LocalColumn:        "created_by_id",
-			ForeignColumn:      "id",
+			id:               "farm_fields_created_by_id_users_id",
+			name:             "created_by",
+			relationshipType: query.RelationshipManyToOne,
+			fromTableName:    "farm_fields",
+			toTableName:      "users",
+			fromColumnName:   "created_by_id",
+			toColumnName:     "id",
 		},
 		"modified_by_id": {
-			Id:                 relationshipId("farm_fields_modified_by_id_users_id"),
-			Type:               RelationshipManyToOne,
-			RelationshipColumn: "modified_by",
-			RelatedTable:       "users",
-			LocalColumn:        "modified_by_id",
-			ForeignColumn:      "id",
+			id:               "farm_fields_modified_by_id_users_id",
+			name:             "modified_by",
+			relationshipType: query.RelationshipManyToOne,
+			fromTableName:    "farm_fields",
+			toTableName:      "users",
+			fromColumnName:   "modified_by_id",
+			toColumnName:     "id",
 		},
 	},
+	columnCount: -1,
 }
 
 // GetFarmFieldsMetadata returns the database metadata associated with the farm_fields.FarmFields table.
-func GetFarmFieldsMetadata() TableMetadata {
+func GetFarmFieldsMetadata() *tableMetadata {
 	return farmFieldsMetadata
 }
 
@@ -647,23 +700,13 @@ type FarmFieldsModel struct {
 	ModifiedBy   *UsersModel      `json:"modified_by,omitempty"`
 }
 
-// GetMetadata returns metadata for the hg.farm_fields table.
-func (m *FarmFieldsModel) GetMetadata() TableMetadata {
-	return farmFieldsMetadata
-}
-
-// GetTableName returns the name of the hg.farm_fields table.
-func (m *FarmFieldsModel) GetTableName() string {
-	return farmFieldsMetadata.TableName
-}
-
 // NewSlice unmarshals a json array of farm_fields and returns it as a slice
-func (m *FarmFieldsModel) NewSlice(jsonData []byte) ([]TableModel, error) {
+func (m *FarmFieldsModel) NewSlice(jsonData []byte) ([]query.TableModel, error) {
 	var concreteSlice []*FarmFieldsModel
 	if err := json.Unmarshal(jsonData, &concreteSlice); err != nil {
 		return nil, err
 	}
-	result := make([]TableModel, len(concreteSlice))
+	result := make([]query.TableModel, len(concreteSlice))
 	for i := range concreteSlice {
 		result[i] = concreteSlice[i]
 	}
@@ -671,7 +714,7 @@ func (m *FarmFieldsModel) NewSlice(jsonData []byte) ([]TableModel, error) {
 }
 
 // SetRelationshipField sets a given relationship field on the hg.farm_fields table
-func (m *FarmFieldsModel) SetRelationshipField(relationshipId relationshipId, value TableModel) error {
+func (m *FarmFieldsModel) SetRelationshipField(relationshipId string, value query.TableModel) error {
 	switch relationshipId {
 	case "farm_fields_business_id_businesses_id":
 		v, ok := value.(*BusinessesModel)
@@ -701,7 +744,7 @@ func (m *FarmFieldsModel) SetRelationshipField(relationshipId relationshipId, va
 }
 
 // GetJoinOnValue returns the value of the relevant column for a given relationship
-func (m *FarmFieldsModel) GetJoinOnValue(relationshipId relationshipId) (string, error) {
+func (m *FarmFieldsModel) GetJoinOnValue(relationshipId string) (string, error) {
 	switch relationshipId {
 	case "farm_fields_business_id_businesses_id":
 		return m.BusinessId, nil
@@ -715,107 +758,112 @@ func (m *FarmFieldsModel) GetJoinOnValue(relationshipId relationshipId) (string,
 }
 
 // usersMetadata contains the database metadata for the hg.users table.
-var usersMetadata = TableMetadata{
-	TableName:          "users",
-	SchemaName:         "hg",
-	FullyQualifiedName: "hg.users",
-	PrimaryKey:         "id",
-	Columns: map[string]ColumnMetadata{
+var usersMetadata = &tableMetadata{
+	name:               "users",
+	schemaName:         "hg",
+	fullyQualifiedName: "hg.users",
+	primaryKey:         "id",
+	columns: map[string]*columnMetadata{
 		"id": {
-			Name:         "id",
-			Type:         DbTypeNvarchar,
-			MaxLength:    72,
-			IsRequired:   true,
-			IsPrimaryKey: true,
+			name:         "id",
+			dbType:       query.DbTypeNvarchar,
+			maxLength:    72,
+			isRequired:   true,
+			isPrimaryKey: true,
 		},
 		"oid": {
-			Name:         "oid",
-			Type:         DbTypeNvarchar,
-			MaxLength:    72,
-			IsRequired:   true,
-			IsPrimaryKey: false,
+			name:         "oid",
+			dbType:       query.DbTypeNvarchar,
+			maxLength:    72,
+			isRequired:   true,
+			isPrimaryKey: false,
 		},
 		"given_name": {
-			Name:         "given_name",
-			Type:         DbTypeNvarchar,
-			MaxLength:    128,
-			IsRequired:   true,
-			IsPrimaryKey: false,
+			name:         "given_name",
+			dbType:       query.DbTypeNvarchar,
+			maxLength:    128,
+			isRequired:   true,
+			isPrimaryKey: false,
 		},
 		"family_name": {
-			Name:         "family_name",
-			Type:         DbTypeNvarchar,
-			MaxLength:    128,
-			IsRequired:   true,
-			IsPrimaryKey: false,
+			name:         "family_name",
+			dbType:       query.DbTypeNvarchar,
+			maxLength:    128,
+			isRequired:   true,
+			isPrimaryKey: false,
 		},
 		"user_name": {
-			Name:         "user_name",
-			Type:         DbTypeNvarchar,
-			MaxLength:    256,
-			IsRequired:   true,
-			IsPrimaryKey: false,
+			name:         "user_name",
+			dbType:       query.DbTypeNvarchar,
+			maxLength:    256,
+			isRequired:   true,
+			isPrimaryKey: false,
 		},
 		"email_address": {
-			Name:         "email_address",
-			Type:         DbTypeNvarchar,
-			MaxLength:    640,
-			IsRequired:   true,
-			IsPrimaryKey: false,
+			name:         "email_address",
+			dbType:       query.DbTypeNvarchar,
+			maxLength:    640,
+			isRequired:   true,
+			isPrimaryKey: false,
 		},
 		"created_at": {
-			Name:         "created_at",
-			Type:         DbTypeDateTimeOffset,
-			MaxLength:    10,
-			IsRequired:   true,
-			IsPrimaryKey: false,
+			name:         "created_at",
+			dbType:       query.DbTypeDateTimeOffset,
+			maxLength:    10,
+			isRequired:   true,
+			isPrimaryKey: false,
 		},
 		"modified_at": {
-			Name:         "modified_at",
-			Type:         DbTypeDateTimeOffset,
-			MaxLength:    10,
-			IsRequired:   true,
-			IsPrimaryKey: false,
+			name:         "modified_at",
+			dbType:       query.DbTypeDateTimeOffset,
+			maxLength:    10,
+			isRequired:   true,
+			isPrimaryKey: false,
 		},
 	},
-	Relationships: map[string]Relationship{
+	relationships: map[string]*relationship{
+		"businesses_users_created_by_id": {
+			id:               "businesses_created_by_id_users_id",
+			name:             "businesses_users_created_by_id",
+			relationshipType: query.RelationshipOneToMany,
+			fromTableName:    "users",
+			toTableName:      "businesses",
+			fromColumnName:   "id",
+			toColumnName:     "created_by_id",
+		},
 		"businesses_users_modified_by_id": {
-			Id:                 relationshipId("businesses_modified_by_id_users_id"),
-			Type:               RelationshipOneToMany,
-			RelationshipColumn: "businesses_users_modified_by_id",
-			RelatedTable:       "businesses",
-			LocalColumn:        "id",
-			ForeignColumn:      "modified_by_id",
+			id:               "businesses_modified_by_id_users_id",
+			name:             "businesses_users_modified_by_id",
+			relationshipType: query.RelationshipOneToMany,
+			fromTableName:    "users",
+			toTableName:      "businesses",
+			fromColumnName:   "id",
+			toColumnName:     "modified_by_id",
 		},
 		"farm_fields_users_created_by_id": {
-			Id:                 relationshipId("farm_fields_created_by_id_users_id"),
-			Type:               RelationshipOneToMany,
-			RelationshipColumn: "farm_fields_users_created_by_id",
-			RelatedTable:       "farm_fields",
-			LocalColumn:        "id",
-			ForeignColumn:      "created_by_id",
+			id:               "farm_fields_created_by_id_users_id",
+			name:             "farm_fields_users_created_by_id",
+			relationshipType: query.RelationshipOneToMany,
+			fromTableName:    "users",
+			toTableName:      "farm_fields",
+			fromColumnName:   "id",
+			toColumnName:     "created_by_id",
 		},
 		"farm_fields_users_modified_by_id": {
-			Id:                 relationshipId("farm_fields_modified_by_id_users_id"),
-			Type:               RelationshipOneToMany,
-			RelationshipColumn: "farm_fields_users_modified_by_id",
-			RelatedTable:       "farm_fields",
-			LocalColumn:        "id",
-			ForeignColumn:      "modified_by_id",
-		},
-		"businesses_users_created_by_id": {
-			Id:                 relationshipId("businesses_created_by_id_users_id"),
-			Type:               RelationshipOneToMany,
-			RelationshipColumn: "businesses_users_created_by_id",
-			RelatedTable:       "businesses",
-			LocalColumn:        "id",
-			ForeignColumn:      "created_by_id",
+			id:               "farm_fields_modified_by_id_users_id",
+			name:             "farm_fields_users_modified_by_id",
+			relationshipType: query.RelationshipOneToMany,
+			fromTableName:    "users",
+			toTableName:      "farm_fields",
+			fromColumnName:   "id",
+			toColumnName:     "modified_by_id",
 		},
 	},
+	columnCount: -1,
 }
 
 // GetUsersMetadata returns the database metadata associated with the users.Users table.
-func GetUsersMetadata() TableMetadata {
+func GetUsersMetadata() *tableMetadata {
 	return usersMetadata
 }
 
@@ -829,29 +877,19 @@ type UsersModel struct {
 	EmailAddress                string             `json:"email_address,omitempty"`
 	CreatedAt                   *time.Time         `json:"created_at,omitempty"`
 	ModifiedAt                  *time.Time         `json:"modified_at,omitempty"`
+	FarmFieldsUsersModifiedById []*FarmFieldsModel `json:"farm_fields_users_modified_by_id,omitempty"`
 	BusinessesUsersCreatedById  []*BusinessesModel `json:"businesses_users_created_by_id,omitempty"`
 	BusinessesUsersModifiedById []*BusinessesModel `json:"businesses_users_modified_by_id,omitempty"`
 	FarmFieldsUsersCreatedById  []*FarmFieldsModel `json:"farm_fields_users_created_by_id,omitempty"`
-	FarmFieldsUsersModifiedById []*FarmFieldsModel `json:"farm_fields_users_modified_by_id,omitempty"`
-}
-
-// GetMetadata returns metadata for the hg.users table.
-func (m *UsersModel) GetMetadata() TableMetadata {
-	return usersMetadata
-}
-
-// GetTableName returns the name of the hg.users table.
-func (m *UsersModel) GetTableName() string {
-	return usersMetadata.TableName
 }
 
 // NewSlice unmarshals a json array of users and returns it as a slice
-func (m *UsersModel) NewSlice(jsonData []byte) ([]TableModel, error) {
+func (m *UsersModel) NewSlice(jsonData []byte) ([]query.TableModel, error) {
 	var concreteSlice []*UsersModel
 	if err := json.Unmarshal(jsonData, &concreteSlice); err != nil {
 		return nil, err
 	}
-	result := make([]TableModel, len(concreteSlice))
+	result := make([]query.TableModel, len(concreteSlice))
 	for i := range concreteSlice {
 		result[i] = concreteSlice[i]
 	}
@@ -859,7 +897,7 @@ func (m *UsersModel) NewSlice(jsonData []byte) ([]TableModel, error) {
 }
 
 // SetRelationshipField sets a given relationship field on the hg.users table
-func (m *UsersModel) SetRelationshipField(relationshipId relationshipId, value TableModel) error {
+func (m *UsersModel) SetRelationshipField(relationshipId string, value query.TableModel) error {
 	switch relationshipId {
 	case "businesses_created_by_id_users_id":
 		v, ok := value.(*BusinessesModel)
@@ -896,7 +934,7 @@ func (m *UsersModel) SetRelationshipField(relationshipId relationshipId, value T
 }
 
 // GetJoinOnValue returns the value of the relevant column for a given relationship
-func (m *UsersModel) GetJoinOnValue(relationshipId relationshipId) (string, error) {
+func (m *UsersModel) GetJoinOnValue(relationshipId string) (string, error) {
 	switch relationshipId {
 	case "businesses_created_by_id_users_id":
 		return m.Id, nil
@@ -911,32 +949,40 @@ func (m *UsersModel) GetJoinOnValue(relationshipId relationshipId) (string, erro
 	}
 }
 
-// GetTableModel returns a new instance of a given table or nill if
+// getTableModel returns a new instance of a given table or nill if
 // the table name is invalid
-func GetTableModel(tableName string) TableModel {
+func getTableModel(tableName string) query.TableModel {
 	switch tableName {
-	case businessesMetadata.TableName:
+	case businessesMetadata.name:
 		return new(BusinessesModel)
-	case farmFieldsMetadata.TableName:
+	case farmFieldsMetadata.name:
 		return new(FarmFieldsModel)
-	case usersMetadata.TableName:
+	case usersMetadata.name:
 		return new(UsersModel)
 	default:
 		return nil
 	}
 }
 
-// GetTableMetadata returns the metadata for a given table or nill if
+// getTableMetadata returns the metadata for a given table or nill if
 // the table name is invalid
-func GetTableMetadata(tableName string) *TableMetadata {
+func getTableMetadata(tableName string) query.TableMetadata {
 	switch tableName {
-	case businessesMetadata.TableName:
-		return &businessesMetadata
-	case farmFieldsMetadata.TableName:
-		return &farmFieldsMetadata
-	case usersMetadata.TableName:
-		return &usersMetadata
+	case businessesMetadata.name:
+		return businessesMetadata
+	case farmFieldsMetadata.name:
+		return farmFieldsMetadata
+	case usersMetadata.name:
+		return usersMetadata
 	default:
 		return nil
 	}
+}
+
+// bindMetadata binds table references at runtime to avoid invalid initiation
+// cycle due to circular references
+func bindMetadata() {
+	businessesMetadata.bindMetadata()
+	farmFieldsMetadata.bindMetadata()
+	usersMetadata.bindMetadata()
 }

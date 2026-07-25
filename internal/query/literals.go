@@ -2,14 +2,12 @@ package query
 
 import (
 	"fmt"
-
-	"github.com/turnerbenjamin/heterogen_portal/internal/model"
 )
 
 type ValueExpression interface {
 	GetTypeName() string
 	IsCompatibleWithComparisonOperator(op ComparisonOperator) bool
-	IsSupportedByDbType(dbType model.DbDataTypeName) bool
+	IsSupportedByDbType(dbType DbDataTypeName) bool
 	WriteFilterExpression(o *sqlQuery, fieldName string, op ComparisonOperator) error
 }
 
@@ -29,7 +27,7 @@ func (l NullLiteral) IsCompatibleWithComparisonOperator(op ComparisonOperator) b
 	}
 }
 
-func (l NullLiteral) IsSupportedByDbType(_ model.DbDataTypeName) bool {
+func (l NullLiteral) IsSupportedByDbType(_ DbDataTypeName) bool {
 	return true
 }
 
@@ -67,11 +65,11 @@ func (l StringLiteral) IsCompatibleWithComparisonOperator(op ComparisonOperator)
 	}
 }
 
-func (l StringLiteral) IsSupportedByDbType(dbType model.DbDataTypeName) bool {
+func (l StringLiteral) IsSupportedByDbType(dbType DbDataTypeName) bool {
 	switch dbType {
-	case model.DbTypeNvarchar,
-		model.DbTypeGeography,
-		model.DbTypeDateTimeOffset:
+	case DbTypeNvarchar,
+		DbTypeGeography,
+		DbTypeDateTimeOffset:
 		return true
 	default:
 		return false
@@ -130,8 +128,8 @@ func (l IntLiteral) IsCompatibleWithComparisonOperator(op ComparisonOperator) bo
 	return isNumberCompatibleWith(op)
 }
 
-func (l IntLiteral) IsSupportedByDbType(dbType model.DbDataTypeName) bool {
-	return dbType == model.DbTypeInt
+func (l IntLiteral) IsSupportedByDbType(dbType DbDataTypeName) bool {
+	return dbType == DbTypeInt
 }
 
 func (l IntLiteral) WriteFilterExpression(
@@ -168,8 +166,8 @@ func (l FloatLiteral) IsCompatibleWithComparisonOperator(op ComparisonOperator) 
 	return isNumberCompatibleWith(op)
 }
 
-func (l FloatLiteral) IsSupportedByDbType(dbType model.DbDataTypeName) bool {
-	return dbType == model.DbTypeFloat
+func (l FloatLiteral) IsSupportedByDbType(dbType DbDataTypeName) bool {
+	return dbType == DbTypeFloat
 }
 
 func (l FloatLiteral) WriteFilterExpression(
@@ -229,7 +227,7 @@ func (l StringListLiteral) IsCompatibleWithComparisonOperator(op ComparisonOpera
 	return op == ComparisonIn
 }
 
-func (l StringListLiteral) IsSupportedByDbType(dbType model.DbDataTypeName) bool {
+func (l StringListLiteral) IsSupportedByDbType(dbType DbDataTypeName) bool {
 	return StringLiteral{}.IsSupportedByDbType(dbType)
 }
 
@@ -251,7 +249,7 @@ func (l IntListLiteral) IsCompatibleWithComparisonOperator(op ComparisonOperator
 	return op == ComparisonIn
 }
 
-func (l IntListLiteral) IsSupportedByDbType(dbType model.DbDataTypeName) bool {
+func (l IntListLiteral) IsSupportedByDbType(dbType DbDataTypeName) bool {
 	return IntLiteral{}.IsSupportedByDbType(dbType)
 }
 
@@ -273,8 +271,8 @@ func (l FloatListLiteral) IsCompatibleWithComparisonOperator(op ComparisonOperat
 	return op == ComparisonIn
 }
 
-func (l FloatListLiteral) IsSupportedByDbType(dbType model.DbDataTypeName) bool {
-	return FloatListLiteral{}.IsSupportedByDbType(dbType)
+func (l FloatListLiteral) IsSupportedByDbType(dbType DbDataTypeName) bool {
+	return FloatLiteral{}.IsSupportedByDbType(dbType)
 }
 
 func (l FloatListLiteral) WriteFilterExpression(

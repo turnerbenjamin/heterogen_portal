@@ -18,6 +18,8 @@ type QueryParser interface {
 	Parse(queryString string) (operations []query.QueryOperation, err error)
 }
 
+var schemaMetadata = model.NewSchemaMetadata()
+
 type QueryService struct {
 	queryRepo   QueryRepo
 	queryParser QueryParser
@@ -30,7 +32,7 @@ func NewQueryService(queryRepo QueryRepo, queryParser QueryParser) *QueryService
 	}
 }
 
-func (s *QueryService) Execute(ctx context.Context, resource string, queryString string) ([]model.TableModel, *etc.AppError) {
+func (s *QueryService) Execute(ctx context.Context, resource string, queryString string) ([]query.TableModel, *etc.AppError) {
 	queryOperations, err := s.queryParser.Parse(queryString)
 	if err != nil {
 		return nil, &etc.AppError{
@@ -39,7 +41,13 @@ func (s *QueryService) Execute(ctx context.Context, resource string, queryString
 		}
 	}
 
-	q, err := query.NewQuery(ctx, s.queryRepo.Execute, resource, queryOperations)
+	q, err := query.NewQuery(
+		ctx,
+		schemaMetadata,
+		resource,
+		queryOperations,
+		s.queryRepo.Execute,
+	)
 	if err != nil {
 		return nil, &etc.AppError{
 			Code:         http.StatusBadRequest,

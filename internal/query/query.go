@@ -2,38 +2,109 @@ package query
 
 import (
 	"context"
+	"iter"
 	"sync"
 
-	"github.com/turnerbenjamin/heterogen_portal/internal/model"
 	"golang.org/x/sync/errgroup"
 )
 
+// DbDataTypeName represents a SQL Server data type name supported by the model metadata system.
+type DbDataTypeName string
+
+const (
+	// DbTypeNvarchar represents the SQL Server nvarchar data type.
+	DbTypeNvarchar DbDataTypeName = "nvarchar"
+
+	// DbTypeInt represents the SQL Server int data type.
+	DbTypeInt DbDataTypeName = "int"
+
+	// DbTypeFloat represents the SQL Server float data type.
+	DbTypeFloat DbDataTypeName = "float"
+
+	// DbTypeGeography represents the SQL Server geography spatial data type.
+	DbTypeGeography DbDataTypeName = "geography"
+
+	// DbTypeDateTimeOffset represents the SQL Server datetimeoffset date/time data type.
+	DbTypeDateTimeOffset DbDataTypeName = "datetimeoffset"
+)
+
+// relationshipType represents different table relationships
+type RelationshipType string
+
+const (
+	// RelationshipOneToMany represents a 1:N relationship
+	RelationshipOneToMany RelationshipType = "1:N"
+
+	// RelationshipManyToOne represents an N:1 relationship
+	RelationshipManyToOne RelationshipType = "N:1"
+)
+
+type Schema interface {
+	GetTableMetadata(tableName string) TableMetadata
+}
+
+type TableModel interface {
+	// NewSlice unmarshals a json array and returns it as a slice
+	NewSlice(jsonData []byte) ([]TableModel, error)
+
+	// SetRelationshipField sets a given relationship field
+	SetRelationshipField(relationshipId string, value TableModel) error
+
+	// GetJoinOnValue returns the value of the relevant column for a given relationship
+	GetJoinOnValue(relationshipId string) (string, error)
+}
+
+type TableMetadata interface {
+	GetColumnMetadata(columnName string) ColumnMetadata
+	GetRelationshipMetadata(columnName string) RelationshipMetadata
+	GetModel() TableModel
+	Name() string
+	FullyQualifiedName() string
+	Columns() iter.Seq[ColumnMetadata]
+	ColumnCount() int
+}
+
+type ColumnMetadata interface {
+	Name() string
+	Type() DbDataTypeName
+}
+
+type RelationshipMetadata interface {
+	Id() string
+	From() TableMetadata
+	To() TableMetadata
+	FromColumn() ColumnMetadata
+	ToColumn() ColumnMetadata
+	Type() RelationshipType
+}
+
 type nestedQueryResult struct {
 	link    *TraversalStep
-	results []model.TableModel
+	results []TableModel
 }
 
 type Query struct {
 	ctx           context.Context
 	queryExecutor func(ctx context.Context, statementStr string, args []any) (jsonResult []byte, err error)
-	tableData     model.TableMetadata
+	tableMetadata TableMetadata
 	queryBuilder  *sqlQueryBuilder
 }
 
 func NewQuery(
 	ctx context.Context,
-	exectuteQuery func(ctx context.Context, statementStr string, args []any) (jsonResult []byte, err error),
-	resource string,
+	schema Schema,
+	resourceName string,
 	operations []QueryOperation,
+	exectuteQuery func(ctx context.Context, statementStr string, args []any) (jsonResult []byte, err error),
 ) (*Query, error) {
-	resourceModel := model.GetTableModel(resource)
-	if resourceModel == nil {
-		return nil, bindingErr("no resource found for %s", resource)
+
+	resource := schema.GetTableMetadata(resourceName)
+	if resource == nil {
+		return nil, bindingErr("the table %s does not exist in the schema", resourceName)
 	}
-	resourceMetadata := resourceModel.GetMetadata()
 
 	queryBuilder, err := NewSqlQueryBuilder(
-		&resourceMetadata,
+		resource,
 		operations,
 	)
 	if err != nil {
@@ -43,22 +114,22 @@ func NewQuery(
 	q := &Query{
 		ctx:           ctx,
 		queryExecutor: exectuteQuery,
-		tableData:     resourceModel.GetMetadata(),
+		tableMetadata: resource,
 		queryBuilder:  queryBuilder,
 	}
 	return q, nil
 }
 
-func (q *Query) Execute() ([]model.TableModel, error) {
+func (q *Query) Execute() ([]TableModel, error) {
 	return q.executeQuery(q.queryBuilder)
 }
 
-func (q *Query) executeQuery(qb *sqlQueryBuilder) ([]model.TableModel, error) {
-	resourceModel := model.GetTableModel(qb.rootResource.GetResourceShortName())
+func (q *Query) executeQuery(qb *sqlQueryBuilder) ([]TableModel, error) {
+	resourceModel := qb.rootResource.GetModel()
 	if resourceModel == nil {
 		return nil, bindingErr(
 			"unable to access model for %s",
-			qb.rootResource.GetResourceShortName(),
+			qb.rootResource.Name(),
 		)
 	}
 
@@ -109,7 +180,7 @@ func (q *Query) executeQuery(qb *sqlQueryBuilder) ([]model.TableModel, error) {
 				}
 
 				mu.Lock()
-				nestedQueryResults[string(link.Relationship.Id)] = &nestedQueryResult{
+				nestedQueryResults[link.Relationship.Id()] = &nestedQueryResult{
 					link:    link,
 					results: results,
 				}
@@ -129,13 +200,13 @@ func (q *Query) executeQuery(qb *sqlQueryBuilder) ([]model.TableModel, error) {
 			link := result.link
 			nestedResults := result.results
 
-			switch link.Relationship.Type {
-			case model.RelationshipManyToOne:
+			switch link.Relationship.Type() {
+			case RelationshipManyToOne:
 				err := attachNestedResultsForManyToOneQuery(link.Relationship, queryResults, nestedResults)
 				if err != nil {
 					return nil, err
 				}
-			case model.RelationshipOneToMany:
+			case RelationshipOneToMany:
 				err := attachNestedResultsForOneToManyQuery(link.Relationship, queryResults, nestedResults)
 				if err != nil {
 					return nil, err
@@ -143,7 +214,7 @@ func (q *Query) executeQuery(qb *sqlQueryBuilder) ([]model.TableModel, error) {
 			default:
 				return nil, internalErr(
 					"unsupported relationship type %v",
-					link.Relationship.Type,
+					link.Relationship.Type(),
 				)
 			}
 		}
@@ -154,13 +225,13 @@ func (q *Query) executeQuery(qb *sqlQueryBuilder) ([]model.TableModel, error) {
 
 func (q Query) getJoinOnValues(
 	link *TraversalStep,
-	fromResults []model.TableModel,
+	fromResults []TableModel,
 ) ([]string, error) {
 	seen := map[string]struct{}{}
 	joinValues := make([]string, 0, len(fromResults))
 
 	for _, fromResult := range fromResults {
-		value, err := fromResult.GetJoinOnValue(link.Relationship.Id)
+		value, err := fromResult.GetJoinOnValue(link.Relationship.Id())
 		if err != nil {
 			return nil, err
 		}
@@ -174,13 +245,13 @@ func (q Query) getJoinOnValues(
 }
 
 func attachNestedResultsForManyToOneQuery(
-	relationship *model.Relationship,
+	relationship RelationshipMetadata,
 	parentResults,
-	nestedResults []model.TableModel,
+	nestedResults []TableModel,
 ) error {
-	nestedResultsMap := map[string]model.TableModel{}
+	nestedResultsMap := map[string]TableModel{}
 	for _, nestedResult := range nestedResults {
-		joinOnValue, err := nestedResult.GetJoinOnValue(relationship.Id)
+		joinOnValue, err := nestedResult.GetJoinOnValue(relationship.Id())
 		if err != nil {
 			return internalErr("unable to get join on value: %v", err)
 		}
@@ -188,7 +259,7 @@ func attachNestedResultsForManyToOneQuery(
 	}
 
 	for _, result := range parentResults {
-		joinOnValue, err := result.GetJoinOnValue(relationship.Id)
+		joinOnValue, err := result.GetJoinOnValue(relationship.Id())
 		if err != nil {
 			return internalErr("unable to get join on value: %v", err)
 		}
@@ -196,19 +267,19 @@ func attachNestedResultsForManyToOneQuery(
 		if !ok || related == nil {
 			continue
 		}
-		result.SetRelationshipField(relationship.Id, related)
+		result.SetRelationshipField(relationship.Id(), related)
 	}
 	return nil
 }
 
 func attachNestedResultsForOneToManyQuery(
-	relationship *model.Relationship,
+	relationship RelationshipMetadata,
 	parentResults,
-	nestedResults []model.TableModel,
+	nestedResults []TableModel,
 ) error {
-	parentResultsMap := map[string]model.TableModel{}
+	parentResultsMap := map[string]TableModel{}
 	for _, parentResult := range parentResults {
-		joinOnValue, err := parentResult.GetJoinOnValue(relationship.Id)
+		joinOnValue, err := parentResult.GetJoinOnValue(relationship.Id())
 		if err != nil {
 			return internalErr("unable to get join on value: %v", err)
 		}
@@ -216,15 +287,15 @@ func attachNestedResultsForOneToManyQuery(
 	}
 
 	for _, nestedResult := range nestedResults {
-		joinOnValue, err := nestedResult.GetJoinOnValue(relationship.Id)
-		if err != nil {
+		joinOnValue, err := nestedResult.GetJoinOnValue(relationship.Id())
+		if err != nil || joinOnValue == "" {
 			return internalErr("unable to get join on value: %v", err)
 		}
 		parent, ok := parentResultsMap[joinOnValue]
 		if !ok || parent == nil {
 			return internalErr("unable to join query results")
 		}
-		parent.SetRelationshipField(relationship.Id, nestedResult)
+		parent.SetRelationshipField(relationship.Id(), nestedResult)
 	}
 	return nil
 }

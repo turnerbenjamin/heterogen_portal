@@ -80,16 +80,16 @@ type PropertyPath struct {
 }
 
 type parser struct {
-	tokeniser *Tokeniser
+	t *Tokeniser
 }
 
 func parseFilterOperation(
-	tokeniser *Tokeniser,
+	t *Tokeniser,
 	operationSeparator tokenType,
 	endOfOperationsSentinal tokenType,
 ) (QueryOperation, error) {
 	p := &parser{
-		tokeniser: tokeniser,
+		t: t,
 	}
 
 	expression, err := parseFilterExpression(p)
@@ -97,9 +97,9 @@ func parseFilterOperation(
 		return nil, err
 	}
 
-	nxtTkn := tokeniser.Peek()
+	nxtTkn := t.Peek()
 	if nxtTkn.Type != operationSeparator && nxtTkn.Type != endOfOperationsSentinal {
-		return nil, syntaxErr("expected end of filter value but received '%s'", nxtTkn.Value)
+		return nil, t.tknErr(nxtTkn, "expected end of filter value but received '%s'", nxtTkn.Value)
 	}
 
 	return FilterOperation{
@@ -119,11 +119,11 @@ func parseOr(p *parser) (FilterExpression, error) {
 	}
 
 	for {
-		tkn := p.tokeniser.Peek()
+		tkn := p.t.Peek()
 		if tkn.Type != TokenLogicalOperator || tkn.Value != "or" {
 			break
 		}
-		p.tokeniser.Next()
+		p.t.Next()
 
 		right, err := parseAnd(p)
 		if err != nil {
@@ -148,11 +148,11 @@ func parseAnd(p *parser) (FilterExpression, error) {
 	}
 
 	for {
-		tkn := p.tokeniser.Peek()
+		tkn := p.t.Peek()
 		if tkn.Type != TokenLogicalOperator || tkn.Value != "and" {
 			break
 		}
-		p.tokeniser.Next()
+		p.t.Next()
 
 		right, err := parsePrimary(p)
 		if err != nil {
@@ -171,13 +171,13 @@ func parseAnd(p *parser) (FilterExpression, error) {
 
 func parsePrimary(p *parser) (FilterExpression, error) {
 
-	tkn := p.tokeniser.Peek()
+	tkn := p.t.Peek()
 
 	switch tkn.Type {
 
 	case TokenParenL:
 		// consume opening parenthesis
-		p.tokeniser.Next()
+		p.t.Next()
 
 		expression, err := parseFilterExpression(p)
 		if err != nil {
@@ -185,9 +185,9 @@ func parsePrimary(p *parser) (FilterExpression, error) {
 		}
 
 		// consume closing parenthesis
-		close := p.tokeniser.Next()
+		close := p.t.Next()
 		if close.Type != TokenParenR {
-			return nil, syntaxErr("expected ')'")
+			return nil, p.t.tknErr(close, "expected ')' but received '%s'", close.Value)
 		}
 
 		return expression, nil
@@ -198,7 +198,7 @@ func parsePrimary(p *parser) (FilterExpression, error) {
 			return nil, err
 		}
 
-		nxtTkn := p.tokeniser.Peek()
+		nxtTkn := p.t.Peek()
 
 		if nxtTkn.Type == TokenCollectionOperator {
 			return parseCollectionOperator(p, path)
@@ -213,18 +213,19 @@ func parseComparison(
 ) (FilterExpression, error) {
 
 	if len(path.Segments) == 0 {
-		return nil, syntaxErr("invalid path with a length of 0")
+		return nil, internalErr("invalid path with a length of 0")
 	}
 
-	operator := p.tokeniser.Next()
+	operator := p.t.Next()
 	if operator.Type != TokenComparisonOperator {
-		return nil, syntaxErr(
+		return nil, p.t.tknErr(
+			operator,
 			"expected comparison operator, got %s",
 			operator.Value,
 		)
 	}
 
-	op, err := parseComparisonOperator(operator.Value)
+	op, err := parseComparisonOperator(p, operator)
 	if err != nil {
 		return nil, err
 	}
@@ -241,12 +242,13 @@ func parseComparison(
 	}, nil
 }
 
-func parseComparisonOperator(value string) (ComparisonOperator, error) {
-	operator, ok := comparisonOperators[value]
+func parseComparisonOperator(p *parser, tkn token) (ComparisonOperator, error) {
+	operator, ok := comparisonOperators[tkn.Value]
 	if !ok {
-		return "", syntaxErr(
+		return "", p.t.tknErr(
+			tkn,
 			"unknown comparison operator %s",
-			value,
+			tkn.Value,
 		)
 	}
 	return operator, nil
@@ -257,18 +259,18 @@ func parseCollectionOperator(
 	collection PropertyPath,
 ) (FilterExpression, error) {
 
-	tkn := p.tokeniser.Next()
+	tkn := p.t.Next()
 	operator, exists := collectionOperators[tkn.Value]
 	if !exists {
-		return nil, syntaxErr("expected collection operator but received '%s'", tkn.Value)
+		return nil, p.t.tknErr(tkn, "expected collection operator but received '%s'", tkn.Value)
 	}
 
 	cp := &parser{
-		tokeniser: p.tokeniser,
+		t: p.t,
 	}
 
-	if tok := p.tokeniser.Next(); tok.Type != TokenParenL {
-		return nil, syntaxErr("expected '(' but received '%s'", tkn.Value)
+	if tkn = p.t.Next(); tkn.Type != TokenParenL {
+		return nil, p.t.tknErr(tkn, "expected '(' but received '%s'", tkn.Value)
 	}
 
 	filterExpression, err := parseFilterExpression(cp)
@@ -276,8 +278,8 @@ func parseCollectionOperator(
 		return nil, err
 	}
 
-	if tok := p.tokeniser.Next(); tok.Type != TokenParenR {
-		return nil, syntaxErr("expected ')'")
+	if tkn := p.t.Next(); tkn.Type != TokenParenR {
+		return nil, p.t.tknErr(tkn, "expected ')' but received '%s'", tkn.Value)
 	}
 
 	return &CollectionExpression{
@@ -290,24 +292,24 @@ func parseCollectionOperator(
 func parsePath(p *parser) (PropertyPath, error) {
 	path := []string{}
 	for {
-		tkn := p.tokeniser.Next()
+		tkn := p.t.Next()
 
 		switch tkn.Type {
 		case TokenIdentifier, TokenLogicalOperator, TokenComparisonOperator, TokenCollectionOperator:
 			path = append(path, tkn.Value)
 		}
 
-		nxtTkn := p.tokeniser.Peek()
+		nxtTkn := p.t.Peek()
 		if nxtTkn.Type != TokenSlash {
 			break
 		}
 
 		// consume slash token
-		_ = p.tokeniser.Next()
+		_ = p.t.Next()
 
 		// If next element is a collection operator break
-		if p.tokeniser.Peek().Type == TokenCollectionOperator &&
-			p.tokeniser.PeekN(2).Type == TokenParenL {
+		if p.t.Peek().Type == TokenCollectionOperator &&
+			p.t.PeekN(2).Type == TokenParenL {
 			break
 		}
 	}
@@ -318,13 +320,13 @@ func parsePath(p *parser) (PropertyPath, error) {
 
 func parseValue(p *parser) (ValueExpression, error) {
 
-	tkn := p.tokeniser.Next()
+	tkn := p.t.Next()
 
 	switch tkn.Type {
 	case TokenNull:
 		return NullLiteral{}, nil
 	case TokenStringRaw:
-		strTkn, err := p.tokeniser.processRawStringToken(tkn)
+		strTkn, err := p.t.processRawStringToken(tkn)
 		if err != nil {
 			return StringLiteral{}, err
 		}
@@ -360,13 +362,13 @@ func parseValue(p *parser) (ValueExpression, error) {
 				Value: f,
 			}, nil
 		default:
-			return IntLiteral{}, syntaxErr("invalid number value: %s", tkn.Value)
+			return IntLiteral{}, p.t.tknErr(tkn, "invalid number value: %s", tkn.Value)
 		}
 	case TokenParenL:
 		return parseList(p)
 
 	default:
-		return nil, syntaxErr("unexpected value %s", tkn.Value)
+		return nil, p.t.tknErr(tkn, "unexpected value %s", tkn.Value)
 	}
 }
 
@@ -435,13 +437,13 @@ func parseListElements[WT ValueExpression, RT any](
 ) ([]RT, error) {
 	o := []RT{}
 	for {
-		if p.tokeniser.Peek().Type == TokenParenR {
-			_ = p.tokeniser.Next()
+		if p.t.Peek().Type == TokenParenR {
+			_ = p.t.Next()
 			return o, nil
 		}
 
-		if p.tokeniser.Peek().Type == TokenComma {
-			_ = p.tokeniser.Next()
+		if p.t.Peek().Type == TokenComma {
+			_ = p.t.Next()
 			continue
 		}
 

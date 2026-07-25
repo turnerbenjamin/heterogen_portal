@@ -4,12 +4,11 @@ import (
 	"context"
 	"database/sql"
 	"log"
+	"os"
 	"path/filepath"
 
 	"github.com/turnerbenjamin/heterogen_portal/cmd/model-builder/builderRepo"
 	"github.com/turnerbenjamin/heterogen_portal/cmd/model-builder/modelWriter"
-	"github.com/turnerbenjamin/heterogen_portal/internal/db"
-	"github.com/turnerbenjamin/heterogen_portal/internal/etc"
 )
 
 func main() {
@@ -34,16 +33,12 @@ func main() {
 }
 
 func initDBConnection(ctx context.Context) *sql.DB {
-	dotenvPath, err := filepath.Abs("cmd/.env")
-	if err != nil {
-		log.Fatal(err)
-	}
-	appSettings, err := etc.GetAppSettings(ctx, dotenvPath)
-	if err != nil {
-		log.Fatal(err)
+	serverDsn, ok := os.LookupEnv("SQL_SERVER_DSN")
+	if !ok {
+		log.Fatal("unable to access SQL_SERVER_DSN env variable")
 	}
 
-	dbConnection, err := db.SetUpDB(appSettings.SqlServerDsn)
+	dbConnection, err := builderRepo.SetUpDB(serverDsn)
 	if err != nil {
 		log.Fatal(err)
 	}

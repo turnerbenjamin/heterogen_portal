@@ -6,11 +6,11 @@ import (
 	"net/http"
 
 	"github.com/turnerbenjamin/heterogen_portal/internal/etc"
-	"github.com/turnerbenjamin/heterogen_portal/internal/model"
+	"github.com/turnerbenjamin/heterogen_portal/internal/query"
 )
 
 type QueryService interface {
-	Execute(ctx context.Context, resource string, queryString string) ([]model.TableModel, *etc.AppError)
+	Execute(ctx context.Context, resource string, queryString string) ([]query.TableModel, *etc.AppError)
 }
 
 type QueryHandler struct {

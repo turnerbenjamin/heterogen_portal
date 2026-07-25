@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"slices"
 	"strings"
-
-	"github.com/turnerbenjamin/heterogen_portal/internal/model"
 )
 
 // sqlQuery is used to build sql query data, it includes a strings builder for
@@ -26,7 +24,7 @@ func (q *sqlQuery) arg(v any) string {
 
 // aliasedResource binds a resourse to a table alias in an sql query
 type aliasedResource struct {
-	resource *model.TableMetadata
+	resource TableMetadata
 	alias    string
 }
 
@@ -41,7 +39,7 @@ type nestedQuery struct {
 // sqlQueryBuilder is used to build and execute sql queries
 type sqlQueryBuilder struct {
 	metadataBinder        *metadataBinder
-	rootResource          *model.TableMetadata
+	rootResource          TableMetadata
 	selectOperation       *SelectOperation
 	systemSelectOperation *SelectOperation
 	filterExpression      FilterExpression
@@ -54,7 +52,7 @@ type sqlQueryBuilder struct {
 // QueryOperations. It will return an error if the operations cannot be bound to
 // the schema metadata
 func NewSqlQueryBuilder(
-	rootResource *model.TableMetadata,
+	rootResource TableMetadata,
 	operations []QueryOperation,
 ) (*sqlQueryBuilder, error) {
 	b := &sqlQueryBuilder{
@@ -102,16 +100,19 @@ func (b *sqlQueryBuilder) nextTableAlias() string {
 
 func (b *sqlQueryBuilder) processExpandOperation(op *ExpandOperation) error {
 	for _, expand := range op.Expands {
-		nestedQueryBuilder, err := NewSqlQueryBuilder(expand.Link.To, expand.Operations)
+		nestedQueryBuilder, err := NewSqlQueryBuilder(
+			expand.Link.To,
+			expand.Operations,
+		)
 		if err != nil {
 			return err
 		}
 
 		// Select join on columns as they are required for server-side join
-		b.addSystemSelect(expand.Link.Relationship.LocalColumn)
-		nestedQueryBuilder.addSystemSelect(expand.Link.Relationship.ForeignColumn)
+		b.addSystemSelect(expand.Link.Relationship.FromColumn().Name())
+		nestedQueryBuilder.addSystemSelect(expand.Link.Relationship.ToColumn().Name())
 
-		b.nestedQueries[string(expand.Link.Relationship.Id)] = &nestedQuery{
+		b.nestedQueries[string(expand.Link.Relationship.Id())] = &nestedQuery{
 			queryBuilder: nestedQueryBuilder,
 			link:         expand.Link,
 		}
@@ -139,7 +140,7 @@ func (b *sqlQueryBuilder) addAssociatedWithParentFilter(
 ) error {
 	associationFilter := &ComparisonExpression{
 		Path: PropertyPath{
-			Segments: []string{linkFromParent.Relationship.ForeignColumn},
+			Segments: []string{linkFromParent.Relationship.ToColumn().Name()},
 		},
 		Operator: ComparisonIn,
 		Value: &StringListLiteral{
@@ -189,7 +190,7 @@ func (b *sqlQueryBuilder) build() (*sqlQuery, error) {
 
 func (b *sqlQueryBuilder) buildFromStatement(o *sqlQuery) {
 	o.sb.WriteString("FROM ")
-	o.sb.WriteString(b.rootResource.FullyQualifiedName)
+	o.sb.WriteString(b.rootResource.FullyQualifiedName())
 	o.sb.WriteRune(' ')
 	o.sb.WriteString(b.rootAlias)
 }
@@ -198,14 +199,14 @@ func (b *sqlQueryBuilder) buildSelectStatement(o *sqlQuery) {
 	// if no columns selected add all columns
 	if b.selectOperation == nil || len(b.selectOperation.Columns) == 0 {
 		b.selectOperation = &SelectOperation{
-			Columns: make([]*ColumnValue, len(b.rootResource.Columns)),
+			Columns: make([]*ColumnValue, b.rootResource.ColumnCount()),
 		}
 
 		i := 0
-		for _, col := range b.rootResource.Columns {
+		for col := range b.rootResource.Columns() {
 			b.selectOperation.Columns[i] = &ColumnValue{
-				columnName: col.Name,
-				columnData: &col,
+				columnName: col.Name(),
+				columnData: col,
 			}
 			i++
 		}
@@ -234,12 +235,12 @@ func (b *sqlQueryBuilder) buildSelectStatement(o *sqlQuery) {
 	}
 }
 
-func (b *sqlQueryBuilder) formatSelectValue(columnData *model.ColumnMetadata) string {
-	switch columnData.Type {
-	case model.DbTypeGeography:
-		return fmt.Sprintf("%s.STAsText() AS %s", columnData.Name, columnData.Name)
+func (b *sqlQueryBuilder) formatSelectValue(columnData ColumnMetadata) string {
+	switch columnData.Type() {
+	case DbTypeGeography:
+		return fmt.Sprintf("%s.STAsText() AS %s", columnData.Name(), columnData.Name())
 	default:
-		return columnData.Name
+		return columnData.Name()
 	}
 }
 
@@ -375,17 +376,17 @@ func (b *sqlQueryBuilder) writeExpressionWithPath(
 	}
 
 	o.sb.WriteString("EXISTS (SELECT 1 FROM ")
-	o.sb.WriteString(childResource.resource.GetResourceFullname())
+	o.sb.WriteString(childResource.resource.FullyQualifiedName())
 	o.sb.WriteRune(' ')
 	o.sb.WriteString(childResource.alias)
 	o.sb.WriteString(" WHERE ")
 	o.sb.WriteString(childResource.alias)
 	o.sb.WriteRune('.')
-	o.sb.WriteString(node.Relationship.ForeignColumn)
+	o.sb.WriteString(node.Relationship.ToColumn().Name())
 	o.sb.WriteString(" = ")
 	o.sb.WriteString(parentResource.alias)
 	o.sb.WriteRune('.')
-	o.sb.WriteString(node.Relationship.LocalColumn)
+	o.sb.WriteString(node.Relationship.FromColumn().Name())
 	o.sb.WriteString(" AND ")
 	b.writeExpressionWithPath(
 		childResource,

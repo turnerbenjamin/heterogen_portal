@@ -2,8 +2,6 @@ package query
 
 import (
 	"net/url"
-
-	"github.com/turnerbenjamin/heterogen_portal/internal/model"
 )
 
 type QueryOperation interface {
@@ -12,12 +10,12 @@ type QueryOperation interface {
 
 type ColumnValue struct {
 	columnName string
-	columnData *model.ColumnMetadata
+	columnData ColumnMetadata
 }
 
 type RelationshipValue struct {
 	relationshipName string
-	relationshipData *model.Relationship
+	relationshipData RelationshipMetadata
 }
 
 type SelectOperation struct {
@@ -47,11 +45,10 @@ func (p *QuerySyntaxParser) Parse(queryString string) ([]QueryOperation, error) 
 	}
 	tokeniser := NewTokeniser(decodedQuery)
 	return ParseOperations(tokeniser, TokenAmper, TokenEOF)
-
 }
 
 func ParseOperations(
-	tokeniser *Tokeniser,
+	t *Tokeniser,
 	operationSeparator tokenType,
 	endOfOperationsSentinal tokenType,
 ) ([]QueryOperation, error) {
@@ -59,20 +56,15 @@ func ParseOperations(
 	seen := map[string]struct{}{}
 	for {
 		// Parse next token
-		tkn := tokeniser.Next()
+		tkn := t.Next()
 		if tkn.Type != TokenIdentifier {
-			return nil, syntaxErr("expected an operator but received '%s'", tkn.Value)
+			return nil, t.tknErr(tkn, "expected an operator but received '%s'", tkn.Value)
 		}
 		operator := tkn.Value
 		if _, exists := seen[operator]; exists {
-			return nil, syntaxErr("invalid redeclaration of the %s operator", operator)
+			return nil, t.tknErr(tkn, "invalid re-declaration of the '%s' operator", operator)
 		}
-
-		// Expect operator to be followed by equals token
-		tkn = tokeniser.Next()
-		if tkn.Type != TokenEquals {
-			return nil, syntaxErr("expected '=' but received %s", tkn.Value)
-		}
+		seen[operator] = struct{}{}
 
 		var operationParser func(
 			tokeniser *Tokeniser,
@@ -90,13 +82,19 @@ func ParseOperations(
 			return nil, syntaxErr("unsupported operator: %s", operator)
 		}
 
-		operation, err := operationParser(tokeniser, operationSeparator, endOfOperationsSentinal)
+		// Expect operator to be followed by equals token
+		tkn = t.Next()
+		if tkn.Type != TokenEquals {
+			return nil, t.tknErr(tkn, "expected '=' but received '%s'", tkn.Value)
+		}
+
+		operation, err := operationParser(t, operationSeparator, endOfOperationsSentinal)
 		if err != nil {
 			return nil, err
 		}
 		o = append(o, operation)
 
-		tkn = tokeniser.Next()
+		tkn = t.Next()
 
 		switch tkn.Type {
 		case endOfOperationsSentinal:
@@ -104,13 +102,13 @@ func ParseOperations(
 		case operationSeparator:
 			continue
 		default:
-			return nil, syntaxErr("unexpected token received '%s'", tkn.Value)
+			return nil, t.tknErr(tkn, "unexpected token received '%s'", tkn.Value)
 		}
 	}
 }
 
 func parseSelectOperation(
-	tokeniser *Tokeniser,
+	t *Tokeniser,
 	operationSeparator tokenType,
 	endOfOperationsSentinal tokenType,
 ) (QueryOperation, error) {
@@ -119,26 +117,26 @@ func parseSelectOperation(
 	}
 
 	for {
-		token := tokeniser.Next()
-		if token.Type != TokenIdentifier {
-			return o, syntaxErr("expected a field identifier but received '%s'", token.Value)
+		tkn := t.Next()
+		if tkn.Type != TokenIdentifier {
+			return o, t.tknErr(tkn, "expected a column identifier but received '%s'", tkn.Value)
 		}
-		o.Columns = append(o.Columns, &ColumnValue{columnName: token.Value})
+		o.Columns = append(o.Columns, &ColumnValue{columnName: tkn.Value})
 
-		nxt := tokeniser.Peek()
+		nxt := t.Peek()
 		switch nxt.Type {
 		case operationSeparator, endOfOperationsSentinal:
 			return o, nil
 		case TokenComma:
-			_ = tokeniser.Next()
+			_ = t.Next()
 		default:
-			return o, syntaxErr("unexpected token encountered '%s'", nxt.Value)
+			return o, t.tknErr(nxt, "unexpected token encountered '%s'", nxt.Value)
 		}
 	}
 }
 
 func parseExpandOperation(
-	tokeniser *Tokeniser,
+	t *Tokeniser,
 	operationSeparator tokenType,
 	endOfOperationsSentinal tokenType,
 ) (QueryOperation, error) {
@@ -147,27 +145,27 @@ func parseExpandOperation(
 	}
 
 	for {
-		token := tokeniser.Next()
-		if token.Type != TokenIdentifier {
-			return o, syntaxErr("expected a field identifier but received '%s'", token.Value)
+		tkn := t.Next()
+		if tkn.Type != TokenIdentifier {
+			return o, t.tknErr(tkn, "expected a column identifier but received '%s'", tkn.Value)
 		}
-		operator := &Expand{Relationship: &RelationshipValue{relationshipName: token.Value}}
+		operator := &Expand{Relationship: &RelationshipValue{relationshipName: tkn.Value}}
 
-		nxt := tokeniser.Peek()
+		nxt := t.Peek()
 		// If next is an opening parenthesis, parse the nested operations
 		if nxt.Type == TokenParenL {
 			// consume the opening parenthesis
-			_ = tokeniser.Next()
+			_ = t.Next()
 
 			// parse operations returns operatiosn and consumes closing parenthesis
-			expandOperations, err := ParseOperations(tokeniser, TokenSemiColon, TokenParenR)
+			expandOperations, err := ParseOperations(t, TokenSemiColon, TokenParenR)
 			if err != nil {
 				return nil, err
 			}
 			operator.Operations = expandOperations
 
 			// set nxt again
-			nxt = tokeniser.Peek()
+			nxt = t.Peek()
 		}
 		o.Expands = append(o.Expands, operator)
 
@@ -175,11 +173,11 @@ func parseExpandOperation(
 		case operationSeparator, endOfOperationsSentinal:
 			return o, nil
 		case TokenComma:
-			_ = tokeniser.Next()
+			_ = t.Next()
 		case TokenParenL:
 
 		default:
-			return o, syntaxErr("unexpected value encountered '%s'", nxt.Value)
+			return o, t.tknErr(nxt, "unexpected value encountered '%s'", nxt.Value)
 		}
 	}
 }

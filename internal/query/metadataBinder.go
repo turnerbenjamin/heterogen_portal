@@ -2,30 +2,29 @@ package query
 
 import (
 	"strings"
-
-	"github.com/turnerbenjamin/heterogen_portal/internal/model"
 )
 
 var resolvedPathStore = map[string]ResolvedPath{}
 
 type ResolvedPath struct {
-	StartResource *model.TableMetadata
+	StartResource TableMetadata
 	Steps         []TraversalStep
-	EndResource   *model.TableMetadata
+	EndResource   TableMetadata
 }
 
 type TraversalStep struct {
-	From         *model.TableMetadata
-	Relationship *model.Relationship
-	To           *model.TableMetadata
+	From         TableMetadata
+	Relationship RelationshipMetadata
+	To           TableMetadata
 }
 
 type metadataBinder struct {
 	maximumDepth int
+	// schemaMetadata SchemaMetadata
 }
 
 func (b metadataBinder) bindMetadata(
-	rootResource *model.TableMetadata,
+	rootResource TableMetadata,
 	depth int,
 	operations []QueryOperation,
 ) error {
@@ -47,7 +46,7 @@ func (b metadataBinder) bindMetadata(
 }
 
 func (b metadataBinder) bindSelectOperation(
-	rootResource *model.TableMetadata,
+	rootResource TableMetadata,
 	op *SelectOperation,
 ) error {
 	for _, s := range op.Columns {
@@ -65,7 +64,7 @@ func (b metadataBinder) bindSelectOperation(
 }
 
 func (b metadataBinder) bindExpandOperation(
-	rootResource *model.TableMetadata,
+	rootResource TableMetadata,
 	depth int,
 	op *ExpandOperation,
 ) error {
@@ -81,7 +80,7 @@ func (b metadataBinder) bindExpandOperation(
 		e.Relationship.relationshipData = relationshipData
 		e.Link = &TraversalStep{
 			From:         rootResource,
-			To:           relationshipData.GetTo(),
+			To:           relationshipData.To(),
 			Relationship: relationshipData,
 		}
 
@@ -94,7 +93,7 @@ func (b metadataBinder) bindExpandOperation(
 }
 
 func (b metadataBinder) bindFilterOperation(
-	rootResource *model.TableMetadata,
+	rootResource TableMetadata,
 	depth int,
 	ex FilterExpression,
 ) error {
@@ -118,11 +117,11 @@ func (b metadataBinder) bindFilterOperation(
 		ex.ResolvedPath = r
 
 		columnName := ex.Path.Segments[len(ex.Path.Segments)-1]
-		columnData := r.EndResource.GetColumn(columnName)
+		columnData := r.EndResource.GetColumnMetadata(columnName)
 		if columnData == nil {
 			return bindingErr(
 				"%s does not include a column definition for '%s'",
-				r.EndResource.GetResourceShortName(),
+				r.EndResource.Name(),
 				columnName,
 			)
 		}
@@ -153,24 +152,24 @@ func (b metadataBinder) bindFilterOperation(
 	}
 }
 
-func (b *metadataBinder) resolveColumn(resource *model.TableMetadata, columnName string) (*model.ColumnMetadata, error) {
-	metadata := resource.GetColumn(columnName)
+func (b *metadataBinder) resolveColumn(resource TableMetadata, columnName string) (ColumnMetadata, error) {
+	metadata := resource.GetColumnMetadata(columnName)
 	if metadata == nil {
 		return nil, bindingErr(
 			"table %s does not include a column definition for %s",
-			resource.GetResourceShortName(),
+			resource.Name(),
 			columnName,
 		)
 	}
 	return metadata, nil
 }
 
-func (b *metadataBinder) resolveRelationship(resource *model.TableMetadata, relationshipName string) (*model.Relationship, error) {
-	metadata := resource.GetRelationship(relationshipName)
+func (b *metadataBinder) resolveRelationship(resource TableMetadata, relationshipName string) (RelationshipMetadata, error) {
+	metadata := resource.GetRelationshipMetadata(relationshipName)
 	if metadata == nil {
 		return nil, bindingErr(
 			"table %s does not include a relationship definition for %s",
-			resource.GetResourceShortName(),
+			resource.Name(),
 			relationshipName,
 		)
 	}
@@ -178,7 +177,7 @@ func (b *metadataBinder) resolveRelationship(resource *model.TableMetadata, rela
 }
 
 func (b *metadataBinder) resolvePath(
-	rootResource *model.TableMetadata,
+	rootResource TableMetadata,
 	path PropertyPath,
 	traversalPathLength int,
 ) (ResolvedPath, error) {
@@ -193,7 +192,7 @@ func (b *metadataBinder) resolvePath(
 		)
 	}
 
-	pathId := rootResource.TableName + "_" + strings.Join(path.Segments, "_")
+	pathId := rootResource.Name() + "_" + strings.Join(path.Segments, "_")
 	if p, exists := resolvedPathStore[pathId]; exists {
 		return p, nil
 	}
@@ -206,29 +205,21 @@ func (b *metadataBinder) resolvePath(
 	i := 0
 	for i < traversalPathLength {
 		relationshipName := path.Segments[i]
-		relationshipData := o.EndResource.GetRelationship(relationshipName)
+		relationshipData := o.EndResource.GetRelationshipMetadata(relationshipName)
 		if relationshipData == nil {
 			return o, bindingErr(
 				"%s does not include a relationship definition for '%s'",
-				o.EndResource.GetResourceFullname(),
+				o.EndResource.FullyQualifiedName(),
 				relationshipName,
-			)
-		}
-
-		toResource := model.GetTableMetadata(relationshipData.RelatedTable)
-		if toResource == nil {
-			return o, internalErr(
-				"unable to find table metadata for %s",
-				relationshipData.RelatedTable,
 			)
 		}
 
 		o.Steps[i] = TraversalStep{
 			From:         o.EndResource,
 			Relationship: relationshipData,
-			To:           toResource,
+			To:           relationshipData.To(),
 		}
-		o.EndResource = toResource
+		o.EndResource = relationshipData.To()
 		i++
 	}
 
@@ -236,15 +227,15 @@ func (b *metadataBinder) resolvePath(
 }
 
 func (b *metadataBinder) validateComparison(
-	columnData *model.ColumnMetadata,
+	columnData ColumnMetadata,
 	operator ComparisonOperator,
 	value ValueExpression,
 ) error {
-	isValid := value.IsSupportedByDbType(columnData.Type)
+	isValid := value.IsSupportedByDbType(columnData.Type())
 	if !isValid {
 		return syntaxErr(
 			"%s cannot be compared against type of %s",
-			columnData.Name,
+			columnData.Name(),
 			value.GetTypeName(),
 		)
 	}

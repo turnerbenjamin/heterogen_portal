@@ -1,6 +1,7 @@
 package query
 
 import (
+	"fmt"
 	"strings"
 )
 
@@ -60,8 +61,9 @@ var singleCharTokenMap = map[byte]tokenType{
 }
 
 type token struct {
-	Type  tokenType
-	Value string
+	endIdx int
+	Type   tokenType
+	Value  string
 }
 
 type Tokeniser struct {
@@ -79,12 +81,20 @@ func NewTokeniser(input string) *Tokeniser {
 	}
 }
 
+func (t *Tokeniser) newTkn(tType tokenType, v string) token {
+	return token{
+		endIdx: t.idx,
+		Type:   tType,
+		Value:  v,
+	}
+}
+
 func (t *Tokeniser) Peek() token {
 	return t.PeekN(1)
 }
 
 func (t *Tokeniser) PeekN(n int) token {
-	o := token{Type: TokenEmpty}
+	o := t.newTkn(TokenEmpty, "")
 	savedBuffIdx := t.buffIdx
 	for range n {
 		o = t.Next()
@@ -95,7 +105,7 @@ func (t *Tokeniser) PeekN(n int) token {
 
 func (t *Tokeniser) Current() token {
 	if t.buffIdx < 0 {
-		return token{Type: TokenEmpty}
+		return t.newTkn(TokenEmpty, "")
 	}
 	return t.buffer[t.buffIdx]
 }
@@ -113,7 +123,7 @@ func (t *Tokeniser) Next() token {
 	if t.idx >= (len(t.input)) {
 		t.idx++
 
-		t.buffer = append(t.buffer, token{Type: TokenEOF})
+		t.buffer = append(t.buffer, t.newTkn(TokenEOF, ""))
 		t.buffIdx++
 
 		return t.buffer[t.buffIdx]
@@ -123,25 +133,25 @@ func (t *Tokeniser) Next() token {
 	switch b := t.input[t.idx]; {
 	case b == '(':
 		t.idx++
-		next = token{Type: TokenParenL, Value: "("}
+		next = t.newTkn(TokenParenL, "(")
 	case b == ')':
 		t.idx++
-		next = token{Type: TokenParenR, Value: ")"}
+		next = t.newTkn(TokenParenR, ")")
 	case b == '&':
 		t.idx++
-		next = token{Type: TokenAmper, Value: "&"}
+		next = t.newTkn(TokenAmper, "&")
 	case b == ';':
 		t.idx++
-		next = token{Type: TokenSemiColon, Value: ";"}
+		next = t.newTkn(TokenSemiColon, ";")
 	case b == ',':
 		t.idx++
-		next = token{Type: TokenComma, Value: ","}
+		next = t.newTkn(TokenComma, ",")
 	case b == '=':
 		t.idx++
-		next = token{Type: TokenEquals, Value: "="}
+		next = t.newTkn(TokenEquals, "=")
 	case b == '/':
 		t.idx++
-		next = token{Type: TokenSlash, Value: "/"}
+		next = t.newTkn(TokenSlash, "/")
 	case b == '\'', b == '"':
 		next = t.readString()
 	case b >= '0' && b <= '9':
@@ -172,10 +182,7 @@ func (t *Tokeniser) readString() token {
 		}
 	}
 
-	return token{
-		Type:  TokenStringRaw,
-		Value: t.input[start:t.idx],
-	}
+	return t.newTkn(TokenStringRaw, t.input[start:t.idx])
 }
 
 func (t *Tokeniser) readNumber() token {
@@ -188,10 +195,7 @@ func (t *Tokeniser) readNumber() token {
 		t.idx++
 	}
 
-	return token{
-		Type:  TokenNumberRaw,
-		Value: t.input[start:t.idx],
-	}
+	return t.newTkn(TokenNumberRaw, t.input[start:t.idx])
 }
 
 func (t *Tokeniser) readIdentifier() token {
@@ -213,61 +217,53 @@ func (t *Tokeniser) readIdentifier() token {
 
 	value := strings.ToLower(t.input[start:t.idx])
 	if _, isLogicalOperation := logicalOperators[value]; isLogicalOperation {
-		return token{
-			Type:  TokenLogicalOperator,
-			Value: value,
-		}
+		return t.newTkn(TokenLogicalOperator, value)
 	}
 
 	if _, isComparisonOperation := comparisonOperators[value]; isComparisonOperation {
-		return token{
-			Type:  TokenComparisonOperator,
-			Value: value,
-		}
+		return t.newTkn(TokenComparisonOperator, value)
 	}
 
 	if _, isCollectionOperation := collectionOperators[value]; isCollectionOperation {
-		return token{
-			Type:  TokenCollectionOperator,
-			Value: value,
-		}
+		return t.newTkn(TokenCollectionOperator, value)
 	}
 
 	if value == "null" {
-		return token{
-			Type:  TokenNull,
-			Value: value,
-		}
+		return t.newTkn(TokenNull, value)
 	}
 
-	return token{
-		Type:  TokenIdentifier,
-		Value: value,
-	}
+	return t.newTkn(TokenIdentifier, value)
 }
 
 func (t *Tokeniser) processRawStringToken(raw token) (token, error) {
 	if raw.Type != TokenStringRaw {
-		return token{}, syntaxErr("unexpected token type received")
+		return t.newTkn(TokenEmpty, ""), t.tknErr(raw, "unexpected token type received: '%s'", raw.Value)
 	}
 
 	if len(raw.Value) < 2 {
-		return token{}, syntaxErr("raw string token should be at least 2 characters")
+		return t.newTkn(TokenEmpty, ""), syntaxErr("raw string token should be at least 2 characters")
 	}
 
 	openingQuotationMark := raw.Value[0]
 	closingQuotationMark := raw.Value[len(raw.Value)-1]
 
 	if openingQuotationMark != '\'' && openingQuotationMark != '"' {
-		return token{}, syntaxErr("raw string token should be prefixed with a ' or \"")
+		return t.newTkn(TokenEmpty, ""), syntaxErr("raw string token should be prefixed with a ' or \"")
 	}
 
 	if closingQuotationMark != openingQuotationMark {
-		return token{}, syntaxErr("unterminated string literal %s", raw.Value)
+		return t.newTkn(TokenEmpty, ""), syntaxErr("unterminated string literal %s", raw.Value)
 	}
 
-	return token{
-		Type:  TokenString,
-		Value: raw.Value[1 : len(raw.Value)-1],
-	}, nil
+	return t.newTkn(TokenString, raw.Value[1:len(raw.Value)-1]), nil
+}
+
+func (t Tokeniser) tknErr(tkn token, m string, a ...any) error {
+	em := fmt.Sprintf(m, a...)
+
+	maxCtxLen := 50
+	ctx := t.input[max(0, tkn.endIdx-maxCtxLen):min(len(t.input), tkn.endIdx)]
+
+	return syntaxErr("%s: __%s <--", em, ctx)
+
 }
