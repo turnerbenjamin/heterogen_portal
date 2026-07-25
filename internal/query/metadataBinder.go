@@ -1,7 +1,6 @@
 package query
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/turnerbenjamin/heterogen_portal/internal/model"
@@ -31,7 +30,7 @@ func (b metadataBinder) bindMetadata(
 	operations []QueryOperation,
 ) error {
 	if depth > b.maximumDepth {
-		return fmt.Errorf("maximum expand depth (%d) exceeded", b.maximumDepth)
+		return syntaxErr("maximum expand depth (%d) exceeded", b.maximumDepth)
 	}
 
 	for _, op := range operations {
@@ -41,7 +40,7 @@ func (b metadataBinder) bindMetadata(
 		case *ExpandOperation:
 			return b.bindExpandOperation(rootResource, depth, op)
 		default:
-			return fmt.Errorf("unexpected operation received")
+			return internalErr("unexpected operation received")
 		}
 	}
 	return nil
@@ -121,7 +120,7 @@ func (b metadataBinder) bindFilterOperation(
 		columnName := ex.Path.Segments[len(ex.Path.Segments)-1]
 		columnData := r.EndResource.GetColumn(columnName)
 		if columnData == nil {
-			return fmt.Errorf(
+			return bindingErr(
 				"%s does not include a column definition for '%s'",
 				r.EndResource.GetResourceShortName(),
 				columnName,
@@ -150,14 +149,14 @@ func (b metadataBinder) bindFilterOperation(
 		}
 		return b.bindFilterOperation(ex.ResolvedPath.EndResource, depth, ex.FilterExpression)
 	default:
-		return fmt.Errorf("unexpected expression type received")
+		return internalErr("unexpected expression type received")
 	}
 }
 
 func (b *metadataBinder) resolveColumn(resource *model.TableMetadata, columnName string) (*model.ColumnMetadata, error) {
 	metadata := resource.GetColumn(columnName)
 	if metadata == nil {
-		return nil, fmt.Errorf(
+		return nil, bindingErr(
 			"table %s does not include a column definition for %s",
 			resource.GetResourceShortName(),
 			columnName,
@@ -169,7 +168,7 @@ func (b *metadataBinder) resolveColumn(resource *model.TableMetadata, columnName
 func (b *metadataBinder) resolveRelationship(resource *model.TableMetadata, relationshipName string) (*model.Relationship, error) {
 	metadata := resource.GetRelationship(relationshipName)
 	if metadata == nil {
-		return nil, fmt.Errorf(
+		return nil, bindingErr(
 			"table %s does not include a relationship definition for %s",
 			resource.GetResourceShortName(),
 			relationshipName,
@@ -184,11 +183,11 @@ func (b *metadataBinder) resolvePath(
 	traversalPathLength int,
 ) (ResolvedPath, error) {
 	if len(path.Segments) == 0 {
-		return ResolvedPath{}, fmt.Errorf("path does not contain any segments")
+		return ResolvedPath{}, syntaxErr("path does not contain any segments")
 	}
 
 	if traversalPathLength != len(path.Segments) && traversalPathLength != len(path.Segments)-1 {
-		return ResolvedPath{}, fmt.Errorf(
+		return ResolvedPath{}, internalErr(
 			"traversal path length must be equal to the property path length " +
 				"or the property path length - 1",
 		)
@@ -209,7 +208,7 @@ func (b *metadataBinder) resolvePath(
 		relationshipName := path.Segments[i]
 		relationshipData := o.EndResource.GetRelationship(relationshipName)
 		if relationshipData == nil {
-			return o, fmt.Errorf(
+			return o, bindingErr(
 				"%s does not include a relationship definition for '%s'",
 				o.EndResource.GetResourceFullname(),
 				relationshipName,
@@ -218,7 +217,7 @@ func (b *metadataBinder) resolvePath(
 
 		toResource := model.GetTableMetadata(relationshipData.RelatedTable)
 		if toResource == nil {
-			return o, fmt.Errorf(
+			return o, internalErr(
 				"unable to find table metadata for %s",
 				relationshipData.RelatedTable,
 			)
@@ -243,7 +242,7 @@ func (b *metadataBinder) validateComparison(
 ) error {
 	isValid := value.IsSupportedByDbType(columnData.Type)
 	if !isValid {
-		return fmt.Errorf(
+		return syntaxErr(
 			"%s cannot be compared against type of %s",
 			columnData.Name,
 			value.GetTypeName(),
@@ -252,7 +251,7 @@ func (b *metadataBinder) validateComparison(
 
 	isValid = value.IsCompatibleWithComparisonOperator(operator)
 	if !isValid {
-		return fmt.Errorf(
+		return syntaxErr(
 			"%s cannot be used with the %s operator",
 			value.GetTypeName(),
 			string(operator),
@@ -260,20 +259,3 @@ func (b *metadataBinder) validateComparison(
 	}
 	return nil
 }
-
-/*
-func newInvalidComparisonTypesError(typeName string, columnName string) *etc.AppError {
-	return &etc.AppError{
-		Code: http.StatusBadRequest,
-		ErrorMessage: }
-}
-
-func newInvalidOperatorTypesError(typeName string, operatorName string) *etc.AppError {
-	return &etc.AppError{
-		Code: http.StatusBadRequest,
-		ErrorMessage: fmt.Sprintf(
-			"%s cannot be used with the %s operator",
-			typeName,
-			operatorName,
-		)}
-*/

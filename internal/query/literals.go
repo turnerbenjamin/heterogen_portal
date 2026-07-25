@@ -85,35 +85,35 @@ func (l StringLiteral) WriteFilterExpression(
 ) error {
 	switch op {
 	case ComparisonEq:
-		fmt.Fprintf(o.sb, "%s = %s", fieldName, o.nextPlaceholder())
-		o.Args = append(o.Args, l.Value)
+		fmt.Fprintf(o.sb, "%s = %s", fieldName, o.arg(l.Value))
+		o.args = append(o.args, l.Value)
 	case ComparisonNe:
-		fmt.Fprintf(o.sb, "%s != %s", fieldName, o.nextPlaceholder())
-		o.Args = append(o.Args, l.Value)
+		fmt.Fprintf(o.sb, "%s != %s", fieldName, o.arg(l.Value))
+		o.args = append(o.args, l.Value)
 	case ComparisonContains, ComparisonNotContains:
 		modifier := ""
 		if op == ComparisonNotContains {
 			modifier = "NOT "
 		}
 
-		fmt.Fprintf(o.sb, "%s %sLIKE %s", fieldName, modifier, o.nextPlaceholder())
-		o.Args = append(o.Args, fmt.Sprintf("%%%s%%", l.Value))
+		pattern := fmt.Sprintf("%%%s%%", l.Value)
+		fmt.Fprintf(o.sb, "%s %sLIKE %s", fieldName, modifier, o.arg(pattern))
 	case ComparisonStartsWith, ComparisonNotStartsWith:
 		modifier := ""
 		if op == ComparisonNotStartsWith {
 			modifier = "NOT "
 		}
 
-		fmt.Fprintf(o.sb, "%s %sLIKE %s", fieldName, modifier, o.nextPlaceholder())
-		o.Args = append(o.Args, fmt.Sprintf("%s%%", l.Value))
+		pattern := fmt.Sprintf("%s%%", l.Value)
+		fmt.Fprintf(o.sb, "%s %sLIKE %s", fieldName, modifier, o.arg(pattern))
 	case ComparisonEndsWith, ComparisonNotEndsWith:
 		modifier := ""
 		if op == ComparisonNotEndsWith {
 			modifier = "NOT "
 		}
 
-		fmt.Fprintf(o.sb, "%s %sLIKE %s", fieldName, modifier, o.nextPlaceholder())
-		o.Args = append(o.Args, fmt.Sprintf("%%%s", l.Value))
+		pattern := fmt.Sprintf("%%%s", l.Value)
+		fmt.Fprintf(o.sb, "%s %sLIKE %s", fieldName, modifier, o.arg(pattern))
 	default:
 		return fmt.Errorf("unsupported string operation: %s", string(op))
 	}
@@ -141,21 +141,20 @@ func (l IntLiteral) WriteFilterExpression(
 ) error {
 	switch op {
 	case ComparisonEq:
-		fmt.Fprintf(o.sb, "%s = %s", fieldName, o.nextPlaceholder())
+		fmt.Fprintf(o.sb, "%s = %s", fieldName, o.arg(l.Value))
 	case ComparisonNe:
-		fmt.Fprintf(o.sb, "%s != %s", fieldName, o.nextPlaceholder())
+		fmt.Fprintf(o.sb, "%s != %s", fieldName, o.arg(l.Value))
 	case ComparisonGt:
-		fmt.Fprintf(o.sb, "%s > %s", fieldName, o.nextPlaceholder())
+		fmt.Fprintf(o.sb, "%s > %s", fieldName, o.arg(l.Value))
 	case ComparisonGe:
-		fmt.Fprintf(o.sb, "%s >= %s", fieldName, o.nextPlaceholder())
+		fmt.Fprintf(o.sb, "%s >= %s", fieldName, o.arg(l.Value))
 	case ComparisonLt:
-		fmt.Fprintf(o.sb, "%s < %s", fieldName, o.nextPlaceholder())
+		fmt.Fprintf(o.sb, "%s < %s", fieldName, o.arg(l.Value))
 	case ComparisonLe:
-		fmt.Fprintf(o.sb, "%s <= %s", fieldName, o.nextPlaceholder())
+		fmt.Fprintf(o.sb, "%s <= %s", fieldName, o.arg(l.Value))
 	default:
 		return fmt.Errorf("unsupported string operation: %s", string(op))
 	}
-	o.Args = append(o.Args, l.Value)
 	return nil
 }
 
@@ -180,21 +179,20 @@ func (l FloatLiteral) WriteFilterExpression(
 ) error {
 	switch op {
 	case ComparisonEq:
-		fmt.Fprintf(o.sb, "%s = %s", fieldName, o.nextPlaceholder())
+		fmt.Fprintf(o.sb, "%s = %s", fieldName, o.arg(l.Value))
 	case ComparisonNe:
-		fmt.Fprintf(o.sb, "%s != %s", fieldName, o.nextPlaceholder())
+		fmt.Fprintf(o.sb, "%s != %s", fieldName, o.arg(l.Value))
 	case ComparisonGt:
-		fmt.Fprintf(o.sb, "%s > %s", fieldName, o.nextPlaceholder())
+		fmt.Fprintf(o.sb, "%s > %s", fieldName, o.arg(l.Value))
 	case ComparisonGe:
-		fmt.Fprintf(o.sb, "%s >= %s", fieldName, o.nextPlaceholder())
+		fmt.Fprintf(o.sb, "%s >= %s", fieldName, o.arg(l.Value))
 	case ComparisonLt:
-		fmt.Fprintf(o.sb, "%s < %s", fieldName, o.nextPlaceholder())
+		fmt.Fprintf(o.sb, "%s < %s", fieldName, o.arg(l.Value))
 	case ComparisonLe:
-		fmt.Fprintf(o.sb, "%s <= %s", fieldName, o.nextPlaceholder())
+		fmt.Fprintf(o.sb, "%s <= %s", fieldName, o.arg(l.Value))
 	default:
 		return fmt.Errorf("unsupported string operation: %s", string(op))
 	}
-	o.Args = append(o.Args, l.Value)
 	return nil
 }
 
@@ -305,8 +303,7 @@ func WriteListFilterExpression[T any](
 			if i != 0 {
 				o.sb.WriteRune(',')
 			}
-			o.sb.WriteString(o.nextPlaceholder())
-			o.Args = append(o.Args, v)
+			o.sb.WriteString(o.arg(v))
 		}
 		o.sb.WriteRune(')')
 	default:

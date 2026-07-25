@@ -2,24 +2,22 @@ package query
 
 import (
 	"context"
-	"errors"
-	"fmt"
 	"sync"
 
 	"github.com/turnerbenjamin/heterogen_portal/internal/model"
 	"golang.org/x/sync/errgroup"
 )
 
+type nestedQueryResult struct {
+	link    *TraversalStep
+	results []model.TableModel
+}
+
 type Query struct {
 	ctx           context.Context
 	queryExecutor func(ctx context.Context, statementStr string, args []any) (jsonResult []byte, err error)
 	tableData     model.TableMetadata
 	queryBuilder  *sqlQueryBuilder
-}
-
-type nestedQueryResult struct {
-	link    *TraversalStep
-	results []model.TableModel
 }
 
 func NewQuery(
@@ -30,7 +28,7 @@ func NewQuery(
 ) (*Query, error) {
 	resourceModel := model.GetTableModel(resource)
 	if resourceModel == nil {
-		return nil, fmt.Errorf("no resource found for %s", resource)
+		return nil, bindingErr("no resource found for %s", resource)
 	}
 	resourceMetadata := resourceModel.GetMetadata()
 
@@ -58,25 +56,25 @@ func (q *Query) Execute() ([]model.TableModel, error) {
 func (q *Query) executeQuery(qb *sqlQueryBuilder) ([]model.TableModel, error) {
 	resourceModel := model.GetTableModel(qb.rootResource.GetResourceShortName())
 	if resourceModel == nil {
-		return nil, fmt.Errorf(
+		return nil, bindingErr(
 			"unable to access model for %s",
 			qb.rootResource.GetResourceShortName(),
 		)
 	}
 
-	query, err := qb.Build()
+	query, err := qb.build()
 	if err != nil {
 		return nil, err
 	}
 
-	json, err := q.queryExecutor(q.ctx, query.Statement, query.Args)
+	json, err := q.queryExecutor(q.ctx, query.statement, query.args)
 	if err != nil {
-		return nil, err
+		return nil, internalErr("query executor failed: %v", err)
 	}
 
-	queryResults, err := resourceModel.NewSlice(json)
-	if err != nil {
-		return nil, err
+	queryResults, stdErr := resourceModel.NewSlice(json)
+	if stdErr != nil {
+		return nil, internalErr("unable to create model slice: %v", stdErr)
 	}
 
 	nestedQueryResults := make(map[string]*nestedQueryResult)
@@ -97,7 +95,7 @@ func (q *Query) executeQuery(qb *sqlQueryBuilder) ([]model.TableModel, error) {
 					return err
 				}
 
-				err = nestedQueryBuilder.AddAssociatedWithParentFilter(
+				err = nestedQueryBuilder.addAssociatedWithParentFilter(
 					link,
 					joinOnValues,
 				)
@@ -143,7 +141,7 @@ func (q *Query) executeQuery(qb *sqlQueryBuilder) ([]model.TableModel, error) {
 					return nil, err
 				}
 			default:
-				return nil, fmt.Errorf(
+				return nil, internalErr(
 					"unsupported relationship type %v",
 					link.Relationship.Type,
 				)
@@ -175,12 +173,16 @@ func (q Query) getJoinOnValues(
 	return joinValues, nil
 }
 
-func attachNestedResultsForManyToOneQuery(relationship *model.Relationship, parentResults, nestedResults []model.TableModel) error {
+func attachNestedResultsForManyToOneQuery(
+	relationship *model.Relationship,
+	parentResults,
+	nestedResults []model.TableModel,
+) error {
 	nestedResultsMap := map[string]model.TableModel{}
 	for _, nestedResult := range nestedResults {
 		joinOnValue, err := nestedResult.GetJoinOnValue(relationship.Id)
 		if err != nil {
-			return err
+			return internalErr("unable to get join on value: %v", err)
 		}
 		nestedResultsMap[joinOnValue] = nestedResult
 	}
@@ -188,7 +190,7 @@ func attachNestedResultsForManyToOneQuery(relationship *model.Relationship, pare
 	for _, result := range parentResults {
 		joinOnValue, err := result.GetJoinOnValue(relationship.Id)
 		if err != nil {
-			return err
+			return internalErr("unable to get join on value: %v", err)
 		}
 		related, ok := nestedResultsMap[joinOnValue]
 		if !ok || related == nil {
@@ -199,12 +201,16 @@ func attachNestedResultsForManyToOneQuery(relationship *model.Relationship, pare
 	return nil
 }
 
-func attachNestedResultsForOneToManyQuery(relationship *model.Relationship, parentResults, nestedResults []model.TableModel) error {
+func attachNestedResultsForOneToManyQuery(
+	relationship *model.Relationship,
+	parentResults,
+	nestedResults []model.TableModel,
+) error {
 	parentResultsMap := map[string]model.TableModel{}
 	for _, parentResult := range parentResults {
 		joinOnValue, err := parentResult.GetJoinOnValue(relationship.Id)
 		if err != nil {
-			return err
+			return internalErr("unable to get join on value: %v", err)
 		}
 		parentResultsMap[joinOnValue] = parentResult
 	}
@@ -212,11 +218,11 @@ func attachNestedResultsForOneToManyQuery(relationship *model.Relationship, pare
 	for _, nestedResult := range nestedResults {
 		joinOnValue, err := nestedResult.GetJoinOnValue(relationship.Id)
 		if err != nil {
-			return err
+			return internalErr("unable to get join on value: %v", err)
 		}
 		parent, ok := parentResultsMap[joinOnValue]
 		if !ok || parent == nil {
-			return errors.New("unable to join results")
+			return internalErr("unable to join query results")
 		}
 		parent.SetRelationshipField(relationship.Id, nestedResult)
 	}

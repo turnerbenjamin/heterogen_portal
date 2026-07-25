@@ -1,8 +1,6 @@
 package query
 
 import (
-	"errors"
-	"fmt"
 	"strings"
 )
 
@@ -250,22 +248,22 @@ func (t *Tokeniser) readIdentifier() token {
 
 func (t *Tokeniser) processRawStringToken(raw token) (token, error) {
 	if raw.Type != TokenStringRaw {
-		return token{}, errors.New("unexpected token type received")
+		return token{}, syntaxErr("unexpected token type received")
 	}
 
 	if len(raw.Value) < 2 {
-		return token{}, errors.New("raw string token should be at least 2 characters")
+		return token{}, syntaxErr("raw string token should be at least 2 characters")
 	}
 
 	openingQuotationMark := raw.Value[0]
 	closingQuotationMark := raw.Value[len(raw.Value)-1]
 
 	if openingQuotationMark != '\'' && openingQuotationMark != '"' {
-		return token{}, errors.New("raw string token should be prefixed with a ' or \"")
+		return token{}, syntaxErr("raw string token should be prefixed with a ' or \"")
 	}
 
 	if closingQuotationMark != openingQuotationMark {
-		return token{}, fmt.Errorf("unterminated string literal %s", raw.Value)
+		return token{}, syntaxErr("unterminated string literal %s", raw.Value)
 	}
 
 	return token{

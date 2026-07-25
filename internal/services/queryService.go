@@ -48,6 +48,7 @@ func (s *QueryService) Execute(ctx context.Context, resource string, queryString
 			ResponseType: etc.ResponseTypeJson,
 		}
 	}
+
 	results, err := q.Execute()
 	if err != nil {
 		return nil, &etc.AppError{

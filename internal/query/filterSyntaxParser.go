@@ -1,7 +1,6 @@
 package query
 
 import (
-	"fmt"
 	"slices"
 	"strconv"
 )
@@ -10,7 +9,7 @@ type FilterOperation struct {
 	FilterExpression FilterExpression
 }
 
-func (o FilterOperation) IsOperator() bool { return true }
+func (o FilterOperation) IsQueryOperation() bool { return true }
 
 type FilterExpression interface {
 	IsFilterExpression()
@@ -100,7 +99,7 @@ func parseFilterOperation(
 
 	nxtTkn := tokeniser.Peek()
 	if nxtTkn.Type != operationSeparator && nxtTkn.Type != endOfOperationsSentinal {
-		return nil, fmt.Errorf("expected end of filter value but received '%s'", nxtTkn.Value)
+		return nil, syntaxErr("expected end of filter value but received '%s'", nxtTkn.Value)
 	}
 
 	return FilterOperation{
@@ -188,7 +187,7 @@ func parsePrimary(p *parser) (FilterExpression, error) {
 		// consume closing parenthesis
 		close := p.tokeniser.Next()
 		if close.Type != TokenParenR {
-			return nil, fmt.Errorf("expected ')'")
+			return nil, syntaxErr("expected ')'")
 		}
 
 		return expression, nil
@@ -214,12 +213,12 @@ func parseComparison(
 ) (FilterExpression, error) {
 
 	if len(path.Segments) == 0 {
-		return nil, fmt.Errorf("invalid path with a length of 0")
+		return nil, syntaxErr("invalid path with a length of 0")
 	}
 
 	operator := p.tokeniser.Next()
 	if operator.Type != TokenComparisonOperator {
-		return nil, fmt.Errorf(
+		return nil, syntaxErr(
 			"expected comparison operator, got %s",
 			operator.Value,
 		)
@@ -245,7 +244,7 @@ func parseComparison(
 func parseComparisonOperator(value string) (ComparisonOperator, error) {
 	operator, ok := comparisonOperators[value]
 	if !ok {
-		return "", fmt.Errorf(
+		return "", syntaxErr(
 			"unknown comparison operator %s",
 			value,
 		)
@@ -261,7 +260,7 @@ func parseCollectionOperator(
 	tkn := p.tokeniser.Next()
 	operator, exists := collectionOperators[tkn.Value]
 	if !exists {
-		return nil, fmt.Errorf("expected collection operator but received '%s'", tkn.Value)
+		return nil, syntaxErr("expected collection operator but received '%s'", tkn.Value)
 	}
 
 	cp := &parser{
@@ -269,7 +268,7 @@ func parseCollectionOperator(
 	}
 
 	if tok := p.tokeniser.Next(); tok.Type != TokenParenL {
-		return nil, fmt.Errorf("expected '(' but received '%s'", tkn.Value)
+		return nil, syntaxErr("expected '(' but received '%s'", tkn.Value)
 	}
 
 	filterExpression, err := parseFilterExpression(cp)
@@ -278,7 +277,7 @@ func parseCollectionOperator(
 	}
 
 	if tok := p.tokeniser.Next(); tok.Type != TokenParenR {
-		return nil, fmt.Errorf("expected ')'")
+		return nil, syntaxErr("expected ')'")
 	}
 
 	return &CollectionExpression{
@@ -347,7 +346,7 @@ func parseValue(p *parser) (ValueExpression, error) {
 		case 0:
 			i, err := strconv.Atoi(tkn.Value)
 			if err != nil {
-				return IntLiteral{}, err
+				return IntLiteral{}, internalErr("string conversion failed: %v", err)
 			}
 			return IntLiteral{
 				Value: i,
@@ -355,22 +354,19 @@ func parseValue(p *parser) (ValueExpression, error) {
 		case 1:
 			f, err := strconv.ParseFloat(tkn.Value, 64)
 			if err != nil {
-				return FloatLiteral{}, err
+				return FloatLiteral{}, internalErr("string conversion failed: %v", err)
 			}
 			return FloatLiteral{
 				Value: f,
 			}, nil
 		default:
-			return IntLiteral{}, fmt.Errorf("invalid number value: %s", tkn.Value)
+			return IntLiteral{}, syntaxErr("invalid number value: %s", tkn.Value)
 		}
 	case TokenParenL:
 		return parseList(p)
 
 	default:
-		return nil, fmt.Errorf(
-			"unexpected value %s",
-			tkn.Value,
-		)
+		return nil, syntaxErr("unexpected value %s", tkn.Value)
 	}
 }
 
@@ -381,7 +377,7 @@ func parseList(p *parser) (ValueExpression, error) {
 	}
 
 	if first == nil {
-		return nil, fmt.Errorf("a list literal must have at least 1 element")
+		return nil, syntaxErr("a list literal must have at least 1 element")
 	}
 
 	switch first := first.(type) {
@@ -428,7 +424,7 @@ func parseList(p *parser) (ValueExpression, error) {
 			Values: slices.Concat([]float64{first.Value}, vs),
 		}, nil
 	default:
-		return nil, fmt.Errorf("invalid list element type '%s'", first.GetTypeName())
+		return nil, syntaxErr("invalid list element type '%s'", first.GetTypeName())
 	}
 }
 
@@ -456,7 +452,7 @@ func parseListElements[WT ValueExpression, RT any](
 
 		wv, ok := v.(WT)
 		if !ok {
-			return nil, fmt.Errorf("%s lists cannot contain elements of type %s", listType, v.GetTypeName())
+			return nil, syntaxErr("%s lists cannot contain elements of type %s", listType, v.GetTypeName())
 		}
 		o = append(o, unwrap(wv))
 	}

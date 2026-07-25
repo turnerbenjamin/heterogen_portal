@@ -8,32 +8,37 @@ import (
 	"github.com/turnerbenjamin/heterogen_portal/internal/model"
 )
 
-/* TEST QUERIES
-http://localhost:8080/api/v0.1/businesses?select=trading_name&filter=farm_fields_businesses_business_id/any(reference%20startswith%20%27t%27)%20and%20created_by_id/user_name%20contains%20%27bot%27&expand=farm_fields_businesses_business_id(select=reference)
-
-*/
-
+// sqlQuery is used to build sql query data, it includes a strings builder for
+// constructing a statement and an args slice containing placeholder values.
+// statement is a materialisation of the strings builder post build
 type sqlQuery struct {
 	sb        *strings.Builder
-	Statement string
-	Args      []any
+	args      []any
+	statement string
 }
 
-func (q *sqlQuery) nextPlaceholder() string {
-	paramIndex := len(q.Args) + 1
-	return fmt.Sprintf("@p%d", paramIndex)
+// arg adds a new argument to the args list and returns a unique placeholder for
+// use in the sql statement
+func (q *sqlQuery) arg(v any) string {
+	q.args = append(q.args, v)
+	return fmt.Sprintf("@p%d", len(q.args))
 }
 
+// aliasedResource binds a resourse to a table alias in an sql query
 type aliasedResource struct {
 	resource *model.TableMetadata
 	alias    string
 }
 
+// nestedQuery represents an expansion query. It binds a queryBuilder, for the
+// nested query, to a traversal step from the parent table. This enables the
+// query response to be stiched to the parent response server side
 type nestedQuery struct {
 	queryBuilder *sqlQueryBuilder
 	link         *TraversalStep
 }
 
+// sqlQueryBuilder is used to build and execute sql queries
 type sqlQueryBuilder struct {
 	metadataBinder        *metadataBinder
 	rootResource          *model.TableMetadata
@@ -43,9 +48,11 @@ type sqlQueryBuilder struct {
 	nestedQueries         map[string]*nestedQuery
 	aliasCount            int
 	rootAlias             string
-	isBuildComplete       bool
 }
 
+// NewSqlQueryBuilder constructs a new sqlQueryBuilderInstance from
+// QueryOperations. It will return an error if the operations cannot be bound to
+// the schema metadata
 func NewSqlQueryBuilder(
 	rootResource *model.TableMetadata,
 	operations []QueryOperation,
@@ -53,8 +60,8 @@ func NewSqlQueryBuilder(
 	b := &sqlQueryBuilder{
 		metadataBinder: &metadataBinder{maximumDepth: 5},
 		rootResource:   rootResource,
-		rootAlias:      "ra",
 		nestedQueries:  map[string]*nestedQuery{},
+		rootAlias:      "ra",
 	}
 
 	for _, op := range operations {
@@ -88,7 +95,7 @@ func NewSqlQueryBuilder(
 	return b, nil
 }
 
-func (b *sqlQueryBuilder) NextTableAlias() string {
+func (b *sqlQueryBuilder) nextTableAlias() string {
 	b.aliasCount++
 	return fmt.Sprintf("a%d", b.aliasCount)
 }
@@ -101,8 +108,8 @@ func (b *sqlQueryBuilder) processExpandOperation(op *ExpandOperation) error {
 		}
 
 		// Select join on columns as they are required for server-side join
-		b.AddSystemSelect(expand.Link.Relationship.LocalColumn)
-		nestedQueryBuilder.AddSystemSelect(expand.Link.Relationship.ForeignColumn)
+		b.addSystemSelect(expand.Link.Relationship.LocalColumn)
+		nestedQueryBuilder.addSystemSelect(expand.Link.Relationship.ForeignColumn)
 
 		b.nestedQueries[string(expand.Link.Relationship.Id)] = &nestedQuery{
 			queryBuilder: nestedQueryBuilder,
@@ -112,7 +119,7 @@ func (b *sqlQueryBuilder) processExpandOperation(op *ExpandOperation) error {
 	return nil
 }
 
-func (b *sqlQueryBuilder) AddSystemSelect(columnName string) error {
+func (b *sqlQueryBuilder) addSystemSelect(columnName string) error {
 	if b.systemSelectOperation == nil {
 		b.systemSelectOperation = &SelectOperation{
 			Columns: []*ColumnValue{},
@@ -126,7 +133,7 @@ func (b *sqlQueryBuilder) AddSystemSelect(columnName string) error {
 	return b.metadataBinder.bindSelectOperation(b.rootResource, b.systemSelectOperation)
 }
 
-func (b *sqlQueryBuilder) AddAssociatedWithParentFilter(
+func (b *sqlQueryBuilder) addAssociatedWithParentFilter(
 	linkFromParent *TraversalStep,
 	joinParentOnValues []string,
 ) error {
@@ -156,10 +163,10 @@ func (b *sqlQueryBuilder) AddAssociatedWithParentFilter(
 	return nil
 }
 
-func (b *sqlQueryBuilder) Build() (*sqlQuery, error) {
+func (b *sqlQueryBuilder) build() (*sqlQuery, error) {
 	o := &sqlQuery{
 		sb:   &strings.Builder{},
-		Args: []any{},
+		args: []any{},
 	}
 
 	b.buildSelectStatement(o)
@@ -175,9 +182,8 @@ func (b *sqlQueryBuilder) Build() (*sqlQuery, error) {
 
 	o.sb.WriteString("FOR JSON PATH;")
 
-	o.Statement = o.sb.String()
+	o.statement = o.sb.String()
 
-	b.isBuildComplete = true
 	return o, nil
 }
 
@@ -261,7 +267,7 @@ func (b *sqlQueryBuilder) buildFilterExpression(
 	case *CollectionExpression:
 		return b.buildCollectionExpression(rootResource, expression, o)
 	default:
-		return fmt.Errorf("unexpected filter expression received")
+		return internalErr("unexpected filter expression received")
 	}
 }
 
@@ -277,7 +283,7 @@ func (b *sqlQueryBuilder) buildLogicalExpression(
 	case LogicalAnd:
 		operator = "and"
 	default:
-		return fmt.Errorf("unexpected logical operator received '%v'", operator)
+		return internalErr("unexpected logical operator received '%v'", operator)
 	}
 	o.sb.WriteRune('(')
 	b.buildFilterExpression(rootResource, expression.Left, o)
@@ -361,7 +367,7 @@ func (b *sqlQueryBuilder) writeExpressionWithPath(
 	node := path.Steps[depth]
 	childResource := &aliasedResource{
 		resource: node.To,
-		alias:    b.NextTableAlias(),
+		alias:    b.nextTableAlias(),
 	}
 
 	if doNegate {
