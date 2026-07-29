@@ -20,7 +20,7 @@ type TraversalStep struct {
 
 type metadataBinder struct {
 	maximumDepth int
-	// schemaMetadata SchemaMetadata
+	accessPolicy AccessPolicy
 }
 
 func (b metadataBinder) bindMetadata(
@@ -28,6 +28,10 @@ func (b metadataBinder) bindMetadata(
 	depth int,
 	operations []QueryOperation,
 ) error {
+	if b.accessPolicy == nil {
+		return internalErr("access policy cannot be nil")
+	}
+
 	if depth > b.maximumDepth {
 		return syntaxErr("maximum expand depth (%d) exceeded", b.maximumDepth)
 	}
@@ -49,16 +53,30 @@ func (b metadataBinder) bindSelectOperation(
 	rootResource TableMetadata,
 	op *SelectOperation,
 ) error {
+	rootResourceAccessPolicy, err := b.getTableAccessPolicy(rootResource)
+	if err != nil {
+		return err
+	}
+
 	for _, s := range op.Columns {
-		if s.columnData != nil {
+		if s.ColumnData != nil {
 			continue
 		}
 
-		columnData, err := b.resolveColumn(rootResource, s.columnName)
+		columnData, err := b.resolveColumn(rootResource, s.ColumnName)
 		if err != nil {
 			return err
 		}
-		s.columnData = columnData
+		s.ColumnData = columnData
+
+		err = validateColumnAccess(
+			rootResourceAccessPolicy,
+			rootResource,
+			columnData,
+		)
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -71,17 +89,21 @@ func (b metadataBinder) bindExpandOperation(
 	for _, e := range op.Expands {
 		relationshipData, err := b.resolveRelationship(
 			rootResource,
-			e.Relationship.relationshipName,
+			e.RelationshipName,
 		)
 		if err != nil {
 			return err
 		}
 
-		e.Relationship.relationshipData = relationshipData
 		e.Link = &TraversalStep{
 			From:         rootResource,
 			To:           relationshipData.To(),
 			Relationship: relationshipData,
+		}
+
+		err = b.validateTraversal(e.Link)
+		if err != nil {
+			return err
 		}
 
 		err = b.bindMetadata(e.Link.To, depth+1, e.Operations)
@@ -126,9 +148,18 @@ func (b metadataBinder) bindFilterOperation(
 			)
 		}
 
+		tableAccessPolicy, err := b.getTableAccessPolicy(r.EndResource)
+		if err != nil {
+			return err
+		}
+		err = validateColumnAccess(tableAccessPolicy, r.EndResource, columnData)
+		if err != nil {
+			return err
+		}
+
 		ex.ResolvedColumn = &ColumnValue{
-			columnName: columnName,
-			columnData: columnData,
+			ColumnName: columnName,
+			ColumnData: columnData,
 		}
 		return b.validateComparison(columnData, ex.Operator, ex.Value)
 	case *CollectionExpression:
@@ -161,6 +192,7 @@ func (b *metadataBinder) resolveColumn(resource TableMetadata, columnName string
 			columnName,
 		)
 	}
+
 	return metadata, nil
 }
 
@@ -219,11 +251,47 @@ func (b *metadataBinder) resolvePath(
 			Relationship: relationshipData,
 			To:           relationshipData.To(),
 		}
+		err := b.validateTraversal(&o.Steps[i])
+		if err != nil {
+			return o, err
+		}
+
 		o.EndResource = relationshipData.To()
 		i++
 	}
 
 	return o, nil
+}
+
+func (b *metadataBinder) validateTraversal(step *TraversalStep) error {
+	fromTableAccessPolicy, err := b.getTableAccessPolicy(step.From)
+	if err != nil {
+		return err
+	}
+
+	err = validateColumnAccess(
+		fromTableAccessPolicy,
+		step.From,
+		step.Relationship.FromColumn(),
+	)
+	if err != nil {
+		return err
+	}
+
+	toTableAccessPolicy, err := b.getTableAccessPolicy(step.To)
+	if err != nil {
+		return err
+	}
+	err = validateColumnAccess(
+		toTableAccessPolicy,
+		step.To,
+		step.Relationship.ToColumn(),
+	)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (b *metadataBinder) validateComparison(
@@ -246,6 +314,42 @@ func (b *metadataBinder) validateComparison(
 			"%s cannot be used with the %s operator",
 			value.GetTypeName(),
 			string(operator),
+		)
+	}
+	return nil
+}
+
+func (b *metadataBinder) getTableAccessPolicy(tableData TableMetadata) (TableAccessPolicy, error) {
+	ap := b.accessPolicy.GetTableAccessPolicy(tableData.Name())
+	if ap == nil {
+		return nil, internalErr("unable to find access policy for the %s table", tableData.Name())
+	}
+
+	if !ap.CanAccess() {
+		return nil, accessErr("you do not have permission to access the %s table", tableData.Name())
+	}
+	return ap, nil
+}
+
+func validateColumnAccess(
+	tableAccessPolicy TableAccessPolicy,
+	tableData TableMetadata,
+	columnData ColumnMetadata,
+) error {
+	columnAccessPolicy := tableAccessPolicy.GetColumnAccessPolicy(columnData.Name())
+	if columnAccessPolicy == nil {
+		return internalErr(
+			"unable to find access policy for %s.%s",
+			tableData.Name(),
+			columnData.Name(),
+		)
+	}
+
+	if !columnAccessPolicy.CanAccess() {
+		return accessErr(
+			"you do not have permission to access the %s column on the %s table",
+			columnData.Name(),
+			tableData.Name(),
 		)
 	}
 	return nil

@@ -62,6 +62,8 @@ func (w *modelWriter) Write() {
 
 	w.writeNewLine()
 	w.WriteTableMetadataBinder()
+	w.writeNewLine()
+	w.writeTableAccessStructs()
 
 	raw := w.sb.String()
 	formatted, err := format.Source([]byte(raw))
@@ -168,7 +170,7 @@ func (r *relationship) bindMetadata() {
 	r.from = getTableMetadata(r.fromTableName)
 	r.fromColumn = r.from.GetColumnMetadata(r.fromColumnName)
 	r.to = getTableMetadata(r.toTableName)
-	r.toColumn = r.from.GetColumnMetadata(r.toColumnName)
+	r.toColumn = r.to.GetColumnMetadata(r.toColumnName)
 
 	if r.from == nil || r.fromColumn == nil || r.to == nil || r.toColumn == nil {
 		panic(fmt.Sprintf("unable to bind metadata for relationship %s", r.id))
@@ -321,6 +323,18 @@ func (p *Point) UnmarshalJSON(data []byte) error {
     p.Type = "Point"
     p.Coordinates = [2]float64{long, lat}
     return nil
+}
+
+// ColumnAccessPolicy defines the query access policy for a given database
+// column
+type ColumnAccessPolicy struct {
+	UserCanAccess bool
+}
+
+// CanAccess defines, at the column level, if a user can perform any
+// operations on that column
+func (p ColumnAccessPolicy) CanAccess() bool {
+	return p.UserCanAccess
 }
 
 `)
@@ -642,6 +656,99 @@ func (w *modelWriter) WriteTableMetadataBinder() {
 		writeToBuilder(w.sb, fmt.Sprintf("%s.bindMetadata()\n", metadataStoreId))
 	}
 	writeToBuilder(w.sb, "}\n")
+}
+
+func (w *modelWriter) writeTableAccessStructs() {
+	// Database Access Policy
+	writeToBuilder(w.sb, "// AccessPolicy defines the access policy for the database\n")
+
+	writeToBuilder(w.sb, "type DatabaseAccessPolicy struct {\n")
+	for _, t := range w.metadata.Tables {
+		tableAccessPolicyName := getTableAccessPolicyName(t.Name)
+		writeToBuilder(w.sb, fmt.Sprintf("%s *%s\n", tableAccessPolicyName, tableAccessPolicyName))
+	}
+	writeToBuilder(w.sb, "}\n")
+	w.writeNewLine()
+
+	// Table access policy getter
+	writeToBuilder(
+		w.sb,
+		"// GetTableAccessPolicy returns an access policy for a given table for nil\n"+
+			"// if the table does not exist\n",
+	)
+
+	writeToBuilder(w.sb, "func (p *DatabaseAccessPolicy) GetTableAccessPolicy(tableName string) query.TableAccessPolicy {\n")
+	writeToBuilder(w.sb, "switch tableName {\n")
+	for _, t := range w.metadata.Tables {
+		writeToBuilder(w.sb, fmt.Sprintf("case \"%s\":\n", t.Name))
+		writeToBuilder(w.sb, fmt.Sprintf("return p.%s\n", getTableAccessPolicyName(t.Name)))
+	}
+	writeToBuilder(w.sb, "default:\n")
+	writeToBuilder(w.sb, "return nil\n")
+	writeToBuilder(w.sb, "}\n")
+	writeToBuilder(w.sb, "}\n")
+	w.writeNewLine()
+
+	// Individual Table Access Policy struct definitions
+	for i, t := range w.metadata.Tables {
+		if i != 0 {
+			w.writeNewLine()
+		}
+		w.writeTableAccessStruct(t)
+	}
+}
+
+func (w *modelWriter) writeTableAccessStruct(t *builderRepo.TableMetadata) {
+	accessPolicyStructName := getTableAccessPolicyName(t.Name)
+	// Access Policy Struct
+	writeToBuilder(w.sb, fmt.Sprintf(
+		"// %s defines an access policy for the %s table\n",
+		accessPolicyStructName,
+		t.Name,
+	))
+
+	writeToBuilder(w.sb, fmt.Sprintf("type %s struct {\n", accessPolicyStructName))
+	writeToBuilder(w.sb, "UserCanAccess bool\n")
+	for _, c := range t.Columns {
+		writeToBuilder(w.sb, fmt.Sprintf("%s ColumnAccessPolicy\n", snakeToPascal(c.Name)))
+	}
+	writeToBuilder(w.sb, "}\n")
+	w.writeNewLine()
+
+	// Can Access
+	writeToBuilder(w.sb, fmt.Sprintf(
+		"// CanAccess defines, at the table level, if a user can perform any\n"+
+			"// operations on the %s table. Specific column access policies can restrict\n"+
+			"// access given but cannot override access denied\n",
+		t.Name,
+	))
+	writeToBuilder(w.sb, fmt.Sprintf("func (p *%s) CanAccess() bool {\n", accessPolicyStructName))
+	writeToBuilder(w.sb, "return p.UserCanAccess\n")
+	writeToBuilder(w.sb, "}\n")
+	w.writeNewLine()
+
+	// GetColumn
+	writeToBuilder(w.sb, fmt.Sprintf(
+		"// GetColumnAccessPolicy returns an access policy for a specific column on\n"+
+			"// the %s table. Returns nil if the column does not exist\n",
+		t.Name,
+	))
+	writeToBuilder(w.sb, fmt.Sprintf("func (p *%s) GetColumnAccessPolicy(columnName string) query.ColumnAccessPolicy {\n", accessPolicyStructName))
+	writeToBuilder(w.sb, "switch columnName {\n")
+	for _, c := range t.Columns {
+		writeToBuilder(w.sb, fmt.Sprintf("case \"%s\":\n", c.Name))
+		writeToBuilder(w.sb, fmt.Sprintf("return p.%s\n", snakeToPascal(c.Name)))
+	}
+	writeToBuilder(w.sb, "default:\n")
+	writeToBuilder(w.sb, "return nil\n")
+	writeToBuilder(w.sb, "}\n")
+	writeToBuilder(w.sb, "}\n")
+	w.writeNewLine()
+
+}
+
+func getTableAccessPolicyName(tableName string) string {
+	return fmt.Sprintf("%sAccessPolicy", snakeToPascal(tableName))
 }
 
 func getModelStructName(tableName string) string {

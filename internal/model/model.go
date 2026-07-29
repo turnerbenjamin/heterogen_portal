@@ -234,6 +234,18 @@ func (p *Point) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+// ColumnAccessPolicy defines the query access policy for a given database
+// column
+type ColumnAccessPolicy struct {
+	UserCanAccess bool
+}
+
+// CanAccess defines, at the column level, if a user can perform any
+// operations on that column
+func (p ColumnAccessPolicy) CanAccess() bool {
+	return p.UserCanAccess
+}
+
 // Constants representing field names in the database
 const (
 	ColBusinessesId            = "id"
@@ -463,6 +475,15 @@ var businessesMetadata = &tableMetadata{
 		},
 	},
 	relationships: map[string]*relationship{
+		"farm_fields_businesses_business_id": {
+			id:               "farm_fields_business_id_businesses_id",
+			name:             "farm_fields_businesses_business_id",
+			relationshipType: query.RelationshipOneToMany,
+			fromTableName:    "businesses",
+			toTableName:      "farm_fields",
+			fromColumnName:   "id",
+			toColumnName:     "business_id",
+		},
 		"created_by_id": {
 			id:               "businesses_created_by_id_users_id",
 			name:             "created_by",
@@ -480,15 +501,6 @@ var businessesMetadata = &tableMetadata{
 			toTableName:      "users",
 			fromColumnName:   "modified_by_id",
 			toColumnName:     "id",
-		},
-		"farm_fields_businesses_business_id": {
-			id:               "farm_fields_business_id_businesses_id",
-			name:             "farm_fields_businesses_business_id",
-			relationshipType: query.RelationshipOneToMany,
-			fromTableName:    "businesses",
-			toTableName:      "farm_fields",
-			fromColumnName:   "id",
-			toColumnName:     "business_id",
 		},
 	},
 	columnCount: -1,
@@ -522,9 +534,9 @@ type BusinessesModel struct {
 	CreatedById                    string             `json:"created_by_id,omitempty"`
 	ModifiedAt                     *time.Time         `json:"modified_at,omitempty"`
 	ModifiedById                   string             `json:"modified_by_id,omitempty"`
+	FarmFieldsBusinessesBusinessId []*FarmFieldsModel `json:"farm_fields_businesses_business_id,omitempty"`
 	CreatedBy                      *UsersModel        `json:"created_by,omitempty"`
 	ModifiedBy                     *UsersModel        `json:"modified_by,omitempty"`
-	FarmFieldsBusinessesBusinessId []*FarmFieldsModel `json:"farm_fields_businesses_business_id,omitempty"`
 }
 
 // NewSlice unmarshals a json array of businesses and returns it as a slice
@@ -543,13 +555,6 @@ func (m *BusinessesModel) NewSlice(jsonData []byte) ([]query.TableModel, error) 
 // SetRelationshipField sets a given relationship field on the hg.businesses table
 func (m *BusinessesModel) SetRelationshipField(relationshipId string, value query.TableModel) error {
 	switch relationshipId {
-	case "farm_fields_business_id_businesses_id":
-		v, ok := value.(*FarmFieldsModel)
-		if !ok {
-			return errors.New("unexpected relationship type received")
-		}
-		m.FarmFieldsBusinessesBusinessId = append(m.FarmFieldsBusinessesBusinessId, v)
-
 	case "businesses_created_by_id_users_id":
 		v, ok := value.(*UsersModel)
 		if !ok {
@@ -563,6 +568,13 @@ func (m *BusinessesModel) SetRelationshipField(relationshipId string, value quer
 			return errors.New("unexpected relationship type received")
 		}
 		m.ModifiedBy = v
+
+	case "farm_fields_business_id_businesses_id":
+		v, ok := value.(*FarmFieldsModel)
+		if !ok {
+			return errors.New("unexpected relationship type received")
+		}
+		m.FarmFieldsBusinessesBusinessId = append(m.FarmFieldsBusinessesBusinessId, v)
 
 	default:
 		return fmt.Errorf("unknown relationship: %s", relationshipId)
@@ -649,6 +661,15 @@ var farmFieldsMetadata = &tableMetadata{
 		},
 	},
 	relationships: map[string]*relationship{
+		"modified_by_id": {
+			id:               "farm_fields_modified_by_id_users_id",
+			name:             "modified_by",
+			relationshipType: query.RelationshipManyToOne,
+			fromTableName:    "farm_fields",
+			toTableName:      "users",
+			fromColumnName:   "modified_by_id",
+			toColumnName:     "id",
+		},
 		"business_id": {
 			id:               "farm_fields_business_id_businesses_id",
 			name:             "business",
@@ -665,15 +686,6 @@ var farmFieldsMetadata = &tableMetadata{
 			fromTableName:    "farm_fields",
 			toTableName:      "users",
 			fromColumnName:   "created_by_id",
-			toColumnName:     "id",
-		},
-		"modified_by_id": {
-			id:               "farm_fields_modified_by_id_users_id",
-			name:             "modified_by",
-			relationshipType: query.RelationshipManyToOne,
-			fromTableName:    "farm_fields",
-			toTableName:      "users",
-			fromColumnName:   "modified_by_id",
 			toColumnName:     "id",
 		},
 	},
@@ -822,15 +834,6 @@ var usersMetadata = &tableMetadata{
 		},
 	},
 	relationships: map[string]*relationship{
-		"businesses_users_created_by_id": {
-			id:               "businesses_created_by_id_users_id",
-			name:             "businesses_users_created_by_id",
-			relationshipType: query.RelationshipOneToMany,
-			fromTableName:    "users",
-			toTableName:      "businesses",
-			fromColumnName:   "id",
-			toColumnName:     "created_by_id",
-		},
 		"businesses_users_modified_by_id": {
 			id:               "businesses_modified_by_id_users_id",
 			name:             "businesses_users_modified_by_id",
@@ -858,6 +861,15 @@ var usersMetadata = &tableMetadata{
 			fromColumnName:   "id",
 			toColumnName:     "modified_by_id",
 		},
+		"businesses_users_created_by_id": {
+			id:               "businesses_created_by_id_users_id",
+			name:             "businesses_users_created_by_id",
+			relationshipType: query.RelationshipOneToMany,
+			fromTableName:    "users",
+			toTableName:      "businesses",
+			fromColumnName:   "id",
+			toColumnName:     "created_by_id",
+		},
 	},
 	columnCount: -1,
 }
@@ -877,10 +889,10 @@ type UsersModel struct {
 	EmailAddress                string             `json:"email_address,omitempty"`
 	CreatedAt                   *time.Time         `json:"created_at,omitempty"`
 	ModifiedAt                  *time.Time         `json:"modified_at,omitempty"`
-	FarmFieldsUsersModifiedById []*FarmFieldsModel `json:"farm_fields_users_modified_by_id,omitempty"`
 	BusinessesUsersCreatedById  []*BusinessesModel `json:"businesses_users_created_by_id,omitempty"`
 	BusinessesUsersModifiedById []*BusinessesModel `json:"businesses_users_modified_by_id,omitempty"`
 	FarmFieldsUsersCreatedById  []*FarmFieldsModel `json:"farm_fields_users_created_by_id,omitempty"`
+	FarmFieldsUsersModifiedById []*FarmFieldsModel `json:"farm_fields_users_modified_by_id,omitempty"`
 }
 
 // NewSlice unmarshals a json array of users and returns it as a slice
@@ -899,13 +911,6 @@ func (m *UsersModel) NewSlice(jsonData []byte) ([]query.TableModel, error) {
 // SetRelationshipField sets a given relationship field on the hg.users table
 func (m *UsersModel) SetRelationshipField(relationshipId string, value query.TableModel) error {
 	switch relationshipId {
-	case "businesses_created_by_id_users_id":
-		v, ok := value.(*BusinessesModel)
-		if !ok {
-			return errors.New("unexpected relationship type received")
-		}
-		m.BusinessesUsersCreatedById = append(m.BusinessesUsersCreatedById, v)
-
 	case "businesses_modified_by_id_users_id":
 		v, ok := value.(*BusinessesModel)
 		if !ok {
@@ -926,6 +931,13 @@ func (m *UsersModel) SetRelationshipField(relationshipId string, value query.Tab
 			return errors.New("unexpected relationship type received")
 		}
 		m.FarmFieldsUsersModifiedById = append(m.FarmFieldsUsersModifiedById, v)
+
+	case "businesses_created_by_id_users_id":
+		v, ok := value.(*BusinessesModel)
+		if !ok {
+			return errors.New("unexpected relationship type received")
+		}
+		m.BusinessesUsersCreatedById = append(m.BusinessesUsersCreatedById, v)
 
 	default:
 		return fmt.Errorf("unknown relationship: %s", relationshipId)
@@ -985,4 +997,200 @@ func bindMetadata() {
 	businessesMetadata.bindMetadata()
 	farmFieldsMetadata.bindMetadata()
 	usersMetadata.bindMetadata()
+}
+
+// AccessPolicy defines the access policy for the database
+type DatabaseAccessPolicy struct {
+	BusinessesAccessPolicy *BusinessesAccessPolicy
+	FarmFieldsAccessPolicy *FarmFieldsAccessPolicy
+	UsersAccessPolicy      *UsersAccessPolicy
+}
+
+// GetTableAccessPolicy returns an access policy for a given table for nil
+// if the table does not exist
+func (p *DatabaseAccessPolicy) GetTableAccessPolicy(tableName string) query.TableAccessPolicy {
+	switch tableName {
+	case "businesses":
+		return p.BusinessesAccessPolicy
+	case "farm_fields":
+		return p.FarmFieldsAccessPolicy
+	case "users":
+		return p.UsersAccessPolicy
+	default:
+		return nil
+	}
+}
+
+// BusinessesAccessPolicy defines an access policy for the businesses table
+type BusinessesAccessPolicy struct {
+	UserCanAccess bool
+	Id            ColumnAccessPolicy
+	Reference     ColumnAccessPolicy
+	TradingName   ColumnAccessPolicy
+	LogoUrl       ColumnAccessPolicy
+	Description   ColumnAccessPolicy
+	BusinessType  ColumnAccessPolicy
+	CphNumber     ColumnAccessPolicy
+	EmailAddress  ColumnAccessPolicy
+	ContactNumber ColumnAccessPolicy
+	WebsiteUrl    ColumnAccessPolicy
+	AddressLine1  ColumnAccessPolicy
+	AddressLine2  ColumnAccessPolicy
+	Town          ColumnAccessPolicy
+	County        ColumnAccessPolicy
+	Country       ColumnAccessPolicy
+	Postcode      ColumnAccessPolicy
+	Location      ColumnAccessPolicy
+	CreatedAt     ColumnAccessPolicy
+	CreatedById   ColumnAccessPolicy
+	ModifiedAt    ColumnAccessPolicy
+	ModifiedById  ColumnAccessPolicy
+}
+
+// CanAccess defines, at the table level, if a user can perform any
+// operations on the businesses table. Specific column access policies can restrict
+// access given but cannot override access denied
+func (p *BusinessesAccessPolicy) CanAccess() bool {
+	return p.UserCanAccess
+}
+
+// GetColumnAccessPolicy returns an access policy for a specific column on
+// the businesses table. Returns nil if the column does not exist
+func (p *BusinessesAccessPolicy) GetColumnAccessPolicy(columnName string) query.ColumnAccessPolicy {
+	switch columnName {
+	case "id":
+		return p.Id
+	case "reference":
+		return p.Reference
+	case "trading_name":
+		return p.TradingName
+	case "logo_url":
+		return p.LogoUrl
+	case "description":
+		return p.Description
+	case "business_type":
+		return p.BusinessType
+	case "cph_number":
+		return p.CphNumber
+	case "email_address":
+		return p.EmailAddress
+	case "contact_number":
+		return p.ContactNumber
+	case "website_url":
+		return p.WebsiteUrl
+	case "address_line_1":
+		return p.AddressLine1
+	case "address_line_2":
+		return p.AddressLine2
+	case "town":
+		return p.Town
+	case "county":
+		return p.County
+	case "country":
+		return p.Country
+	case "postcode":
+		return p.Postcode
+	case "location":
+		return p.Location
+	case "created_at":
+		return p.CreatedAt
+	case "created_by_id":
+		return p.CreatedById
+	case "modified_at":
+		return p.ModifiedAt
+	case "modified_by_id":
+		return p.ModifiedById
+	default:
+		return nil
+	}
+}
+
+// FarmFieldsAccessPolicy defines an access policy for the farm_fields table
+type FarmFieldsAccessPolicy struct {
+	UserCanAccess bool
+	Id            ColumnAccessPolicy
+	Reference     ColumnAccessPolicy
+	BusinessId    ColumnAccessPolicy
+	Location      ColumnAccessPolicy
+	CreatedAt     ColumnAccessPolicy
+	CreatedById   ColumnAccessPolicy
+	ModifiedAt    ColumnAccessPolicy
+	ModifiedById  ColumnAccessPolicy
+}
+
+// CanAccess defines, at the table level, if a user can perform any
+// operations on the farm_fields table. Specific column access policies can restrict
+// access given but cannot override access denied
+func (p *FarmFieldsAccessPolicy) CanAccess() bool {
+	return p.UserCanAccess
+}
+
+// GetColumnAccessPolicy returns an access policy for a specific column on
+// the farm_fields table. Returns nil if the column does not exist
+func (p *FarmFieldsAccessPolicy) GetColumnAccessPolicy(columnName string) query.ColumnAccessPolicy {
+	switch columnName {
+	case "id":
+		return p.Id
+	case "reference":
+		return p.Reference
+	case "business_id":
+		return p.BusinessId
+	case "location":
+		return p.Location
+	case "created_at":
+		return p.CreatedAt
+	case "created_by_id":
+		return p.CreatedById
+	case "modified_at":
+		return p.ModifiedAt
+	case "modified_by_id":
+		return p.ModifiedById
+	default:
+		return nil
+	}
+}
+
+// UsersAccessPolicy defines an access policy for the users table
+type UsersAccessPolicy struct {
+	UserCanAccess bool
+	Id            ColumnAccessPolicy
+	Oid           ColumnAccessPolicy
+	GivenName     ColumnAccessPolicy
+	FamilyName    ColumnAccessPolicy
+	UserName      ColumnAccessPolicy
+	EmailAddress  ColumnAccessPolicy
+	CreatedAt     ColumnAccessPolicy
+	ModifiedAt    ColumnAccessPolicy
+}
+
+// CanAccess defines, at the table level, if a user can perform any
+// operations on the users table. Specific column access policies can restrict
+// access given but cannot override access denied
+func (p *UsersAccessPolicy) CanAccess() bool {
+	return p.UserCanAccess
+}
+
+// GetColumnAccessPolicy returns an access policy for a specific column on
+// the users table. Returns nil if the column does not exist
+func (p *UsersAccessPolicy) GetColumnAccessPolicy(columnName string) query.ColumnAccessPolicy {
+	switch columnName {
+	case "id":
+		return p.Id
+	case "oid":
+		return p.Oid
+	case "given_name":
+		return p.GivenName
+	case "family_name":
+		return p.FamilyName
+	case "user_name":
+		return p.UserName
+	case "email_address":
+		return p.EmailAddress
+	case "created_at":
+		return p.CreatedAt
+	case "modified_at":
+		return p.ModifiedAt
+	default:
+		return nil
+	}
 }

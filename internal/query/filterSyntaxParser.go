@@ -9,7 +9,7 @@ type FilterOperation struct {
 	FilterExpression FilterExpression
 }
 
-func (o FilterOperation) IsQueryOperation() bool { return true }
+func (o *FilterOperation) IsQueryOperation() {}
 
 type FilterExpression interface {
 	IsFilterExpression()
@@ -22,24 +22,44 @@ const (
 	LogicalOr
 )
 
+var supportedLogicalOperators = map[string]LogicalOperator{
+	"and": LogicalAnd,
+	"or":  LogicalOr,
+}
+
 type ComparisonOperator string
 
 const (
-	ComparisonEq            ComparisonOperator = "eq"
-	ComparisonNe            ComparisonOperator = "ne"
-	ComparisonGt            ComparisonOperator = "gt"
-	ComparisonGe            ComparisonOperator = "ge"
-	ComparisonLt            ComparisonOperator = "lt"
-	ComparisonLe            ComparisonOperator = "le"
-	ComparisonIn            ComparisonOperator = "in"
-	ComparisonContains      ComparisonOperator = "contains"
-	ComparisonStartsWith    ComparisonOperator = "startswith"
-	ComparisonEndsWith      ComparisonOperator = "endswith"
-	ComparisonNotIn         ComparisonOperator = "notin"
-	ComparisonNotContains   ComparisonOperator = "notcontains"
-	ComparisonNotStartsWith ComparisonOperator = "notstartswith"
-	ComparisonNotEndsWith   ComparisonOperator = "notendswith"
+	ComparisonEq         ComparisonOperator = "eq"
+	ComparisonNe         ComparisonOperator = "ne"
+	ComparisonGt         ComparisonOperator = "gt"
+	ComparisonGe         ComparisonOperator = "ge"
+	ComparisonLt         ComparisonOperator = "lt"
+	ComparisonLe         ComparisonOperator = "le"
+	ComparisonIn         ComparisonOperator = "in"
+	ComparisonContains   ComparisonOperator = "contains"
+	ComparisonStartsWith ComparisonOperator = "startswith"
+	ComparisonEndsWith   ComparisonOperator = "endswith"
+
+	// not supported - included for internal negation logic only:
+	comparisonNotIn         ComparisonOperator = "notin"
+	comparisonNotContains   ComparisonOperator = "notcontains"
+	comparisonNotStartsWith ComparisonOperator = "notstartswith"
+	comparisonNotEndsWith   ComparisonOperator = "notendswith"
 )
+
+var supportedComparisonOperators = map[string]ComparisonOperator{
+	"eq":         ComparisonEq,
+	"ne":         ComparisonNe,
+	"gt":         ComparisonGt,
+	"ge":         ComparisonGe,
+	"lt":         ComparisonLt,
+	"le":         ComparisonLe,
+	"in":         ComparisonIn,
+	"contains":   ComparisonContains,
+	"startswith": ComparisonStartsWith,
+	"endswith":   ComparisonEndsWith,
+}
 
 type CollectionOperator string
 
@@ -47,6 +67,11 @@ const (
 	CollectionAny CollectionOperator = "any"
 	CollectionAll CollectionOperator = "all"
 )
+
+var supportedCollectionOperators = map[string]CollectionOperator{
+	"any": CollectionAny,
+	"all": CollectionAll,
+}
 
 type LogicalExpression struct {
 	Left     FilterExpression
@@ -99,10 +124,10 @@ func parseFilterOperation(
 
 	nxtTkn := t.Peek()
 	if nxtTkn.Type != operationSeparator && nxtTkn.Type != endOfOperationsSentinal {
-		return nil, t.tknErr(nxtTkn, "expected end of filter value but received '%s'", nxtTkn.Value)
+		return nil, t.TknErr(nxtTkn, "expected end of filter value but received '%s'", nxtTkn.Value)
 	}
 
-	return FilterOperation{
+	return &FilterOperation{
 		FilterExpression: expression,
 	}, nil
 }
@@ -187,7 +212,7 @@ func parsePrimary(p *parser) (FilterExpression, error) {
 		// consume closing parenthesis
 		close := p.t.Next()
 		if close.Type != TokenParenR {
-			return nil, p.t.tknErr(close, "expected ')' but received '%s'", close.Value)
+			return nil, p.t.TknErr(close, "expected ')' but received '%s'", close.Value)
 		}
 
 		return expression, nil
@@ -218,7 +243,7 @@ func parseComparison(
 
 	operator := p.t.Next()
 	if operator.Type != TokenComparisonOperator {
-		return nil, p.t.tknErr(
+		return nil, p.t.TknErr(
 			operator,
 			"expected comparison operator, got %s",
 			operator.Value,
@@ -243,9 +268,9 @@ func parseComparison(
 }
 
 func parseComparisonOperator(p *parser, tkn token) (ComparisonOperator, error) {
-	operator, ok := comparisonOperators[tkn.Value]
+	operator, ok := supportedComparisonOperators[tkn.Value]
 	if !ok {
-		return "", p.t.tknErr(
+		return "", p.t.TknErr(
 			tkn,
 			"unknown comparison operator %s",
 			tkn.Value,
@@ -260,9 +285,9 @@ func parseCollectionOperator(
 ) (FilterExpression, error) {
 
 	tkn := p.t.Next()
-	operator, exists := collectionOperators[tkn.Value]
+	operator, exists := supportedCollectionOperators[tkn.Value]
 	if !exists {
-		return nil, p.t.tknErr(tkn, "expected collection operator but received '%s'", tkn.Value)
+		return nil, p.t.TknErr(tkn, "expected collection operator but received '%s'", tkn.Value)
 	}
 
 	cp := &parser{
@@ -270,7 +295,7 @@ func parseCollectionOperator(
 	}
 
 	if tkn = p.t.Next(); tkn.Type != TokenParenL {
-		return nil, p.t.tknErr(tkn, "expected '(' but received '%s'", tkn.Value)
+		return nil, p.t.TknErr(tkn, "expected '(' but received '%s'", tkn.Value)
 	}
 
 	filterExpression, err := parseFilterExpression(cp)
@@ -279,7 +304,7 @@ func parseCollectionOperator(
 	}
 
 	if tkn := p.t.Next(); tkn.Type != TokenParenR {
-		return nil, p.t.tknErr(tkn, "expected ')' but received '%s'", tkn.Value)
+		return nil, p.t.TknErr(tkn, "expected ')' but received '%s'", tkn.Value)
 	}
 
 	return &CollectionExpression{
@@ -326,12 +351,12 @@ func parseValue(p *parser) (ValueExpression, error) {
 	case TokenNull:
 		return NullLiteral{}, nil
 	case TokenStringRaw:
-		strTkn, err := p.t.processRawStringToken(tkn)
+		str, err := p.t.processRawStringToken(tkn)
 		if err != nil {
 			return StringLiteral{}, err
 		}
 		return StringLiteral{
-			Value: strTkn.Value,
+			Value: str,
 		}, nil
 	case TokenNumberRaw:
 		dpCount := 0
@@ -362,14 +387,37 @@ func parseValue(p *parser) (ValueExpression, error) {
 				Value: f,
 			}, nil
 		default:
-			return IntLiteral{}, p.t.tknErr(tkn, "invalid number value: %s", tkn.Value)
+			return IntLiteral{}, p.t.TknErr(tkn, "invalid number value: %s", tkn.Value)
 		}
 	case TokenParenL:
 		return parseList(p)
 
 	default:
-		return nil, p.t.tknErr(tkn, "unexpected value %s", tkn.Value)
+		return nil, p.t.TknErr(tkn, "unexpected value %s", tkn.Value)
 	}
+}
+
+func (t *Tokeniser) processRawStringToken(raw token) (string, error) {
+	if raw.Type != TokenStringRaw {
+		return "", t.TknErr(raw, "unexpected token type received: '%s'", raw.Value)
+	}
+
+	if len(raw.Value) < 2 {
+		return "", syntaxErr("raw string token should be at least 2 characters")
+	}
+
+	openingQuotationMark := raw.Value[0]
+	closingQuotationMark := raw.Value[len(raw.Value)-1]
+
+	if openingQuotationMark != '\'' && openingQuotationMark != '"' {
+		return "", syntaxErr("raw string token should be prefixed with a ' or \"")
+	}
+
+	if closingQuotationMark != openingQuotationMark {
+		return "", syntaxErr("unterminated string literal %s", raw.Value)
+	}
+
+	return raw.Value[1 : len(raw.Value)-1], nil
 }
 
 func parseList(p *parser) (ValueExpression, error) {

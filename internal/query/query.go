@@ -84,15 +84,18 @@ type nestedQueryResult struct {
 }
 
 type Query struct {
-	ctx           context.Context
-	queryExecutor func(ctx context.Context, statementStr string, args []any) (jsonResult []byte, err error)
-	tableMetadata TableMetadata
-	queryBuilder  *sqlQueryBuilder
+	ctx               context.Context
+	queryExecutor     func(ctx context.Context, statementStr string, args []any) (jsonResult []byte, err error)
+	tableMetadata     TableMetadata
+	AccessPolicy      AccessPolicy
+	TableAccessPolicy TableAccessPolicy
+	queryBuilder      *sqlQueryBuilder
 }
 
 func NewQuery(
 	ctx context.Context,
 	schema Schema,
+	accessPolicy AccessPolicy,
 	resourceName string,
 	operations []QueryOperation,
 	exectuteQuery func(ctx context.Context, statementStr string, args []any) (jsonResult []byte, err error),
@@ -103,8 +106,18 @@ func NewQuery(
 		return nil, bindingErr("the table %s does not exist in the schema", resourceName)
 	}
 
+	if accessPolicy == nil {
+		return nil, internalErr("access policy cannot be nil")
+	}
+
+	resourceAccessPolicy := accessPolicy.GetTableAccessPolicy(resourceName)
+	if resourceAccessPolicy == nil {
+		return nil, internalErr("unable to find table access policy for table %s", resourceName)
+	}
+
 	queryBuilder, err := NewSqlQueryBuilder(
 		resource,
+		accessPolicy,
 		operations,
 	)
 	if err != nil {

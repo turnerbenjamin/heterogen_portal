@@ -40,6 +40,8 @@ type nestedQuery struct {
 type sqlQueryBuilder struct {
 	metadataBinder        *metadataBinder
 	rootResource          TableMetadata
+	accessPolicy          AccessPolicy
+	resourceAccessPolicy  TableAccessPolicy
 	selectOperation       *SelectOperation
 	systemSelectOperation *SelectOperation
 	filterExpression      FilterExpression
@@ -53,11 +55,26 @@ type sqlQueryBuilder struct {
 // the schema metadata
 func NewSqlQueryBuilder(
 	rootResource TableMetadata,
+	accessPolicy AccessPolicy,
 	operations []QueryOperation,
 ) (*sqlQueryBuilder, error) {
+	if accessPolicy == nil {
+		return nil, internalErr("access policy cannot be nil")
+	}
+
+	resourceAccessPolicy := accessPolicy.GetTableAccessPolicy(rootResource.Name())
+	if resourceAccessPolicy == nil {
+		return nil, internalErr("unable to find access policy for %s", rootResource)
+	}
+
+	if !resourceAccessPolicy.CanAccess() {
+		return nil, accessErr("access to the %s table is denied", rootResource.Name())
+	}
+
 	b := &sqlQueryBuilder{
-		metadataBinder: &metadataBinder{maximumDepth: 5},
+		metadataBinder: &metadataBinder{maximumDepth: 5, accessPolicy: accessPolicy},
 		rootResource:   rootResource,
+		accessPolicy:   accessPolicy,
 		nestedQueries:  map[string]*nestedQuery{},
 		rootAlias:      "ra",
 	}
@@ -71,7 +88,7 @@ func NewSqlQueryBuilder(
 				return nil, err
 			}
 			b.selectOperation = op
-		case FilterOperation:
+		case *FilterOperation:
 			err = b.metadataBinder.bindFilterOperation(rootResource, 0, op.FilterExpression)
 			b.filterExpression = op.FilterExpression
 		case *ExpandOperation:
@@ -100,8 +117,10 @@ func (b *sqlQueryBuilder) nextTableAlias() string {
 
 func (b *sqlQueryBuilder) processExpandOperation(op *ExpandOperation) error {
 	for _, expand := range op.Expands {
+
 		nestedQueryBuilder, err := NewSqlQueryBuilder(
 			expand.Link.To,
+			b.accessPolicy,
 			expand.Operations,
 		)
 		if err != nil {
@@ -129,7 +148,7 @@ func (b *sqlQueryBuilder) addSystemSelect(columnName string) error {
 
 	b.systemSelectOperation.Columns = append(
 		b.systemSelectOperation.Columns,
-		&ColumnValue{columnName: columnName},
+		&ColumnValue{ColumnName: columnName},
 	)
 	return b.metadataBinder.bindSelectOperation(b.rootResource, b.systemSelectOperation)
 }
@@ -195,19 +214,32 @@ func (b *sqlQueryBuilder) buildFromStatement(o *sqlQuery) {
 	o.sb.WriteString(b.rootAlias)
 }
 
-func (b *sqlQueryBuilder) buildSelectStatement(o *sqlQuery) {
+func (b *sqlQueryBuilder) buildSelectStatement(o *sqlQuery) error {
 	// if no columns selected add all columns
 	if b.selectOperation == nil || len(b.selectOperation.Columns) == 0 {
 		b.selectOperation = &SelectOperation{
-			Columns: make([]*ColumnValue, b.rootResource.ColumnCount()),
+			Columns: make([]*ColumnValue, 0, b.rootResource.ColumnCount()),
+		}
+
+		resourceAccessPolicy, err := b.metadataBinder.getTableAccessPolicy(b.rootResource)
+		if err != nil {
+			return err
 		}
 
 		i := 0
 		for col := range b.rootResource.Columns() {
-			b.selectOperation.Columns[i] = &ColumnValue{
-				columnName: col.Name(),
-				columnData: col,
+			accessPolicy := resourceAccessPolicy.GetColumnAccessPolicy(col.Name())
+			if accessPolicy == nil {
+				return internalErr("unable to find access policy for %s.%s", b.rootResource.Name(), col.Name())
 			}
+			if !accessPolicy.CanAccess() {
+				continue
+			}
+
+			b.selectOperation.Columns = append(b.selectOperation.Columns, &ColumnValue{
+				ColumnName: col.Name(),
+				ColumnData: col,
+			})
 			i++
 		}
 	} else if b.systemSelectOperation != nil && b.systemSelectOperation.Columns != nil {
@@ -222,17 +254,18 @@ func (b *sqlQueryBuilder) buildSelectStatement(o *sqlQuery) {
 	seen := map[string]struct{}{}
 	i := 0
 	for _, columnValue := range b.selectOperation.Columns {
-		if _, ok := seen[columnValue.columnName]; ok {
+		if _, ok := seen[columnValue.ColumnName]; ok {
 			continue
 		}
-		seen[columnValue.columnName] = struct{}{}
+		seen[columnValue.ColumnName] = struct{}{}
 
 		if i > 0 {
 			o.sb.WriteString(",")
 		}
-		o.sb.WriteString(b.formatSelectValue(columnValue.columnData))
+		o.sb.WriteString(b.formatSelectValue(columnValue.ColumnData))
 		i++
 	}
+	return nil
 }
 
 func (b *sqlQueryBuilder) formatSelectValue(columnData ColumnMetadata) string {
@@ -303,7 +336,7 @@ func (b *sqlQueryBuilder) buildComparisonExpression(
 	o *sqlQuery,
 ) error {
 	writeExpression := func(_ *aliasedResource) error {
-		return ex.Value.WriteFilterExpression(o, ex.ResolvedColumn.columnName, ex.Operator)
+		return ex.Value.WriteFilterExpression(o, ex.ResolvedColumn.ColumnName, ex.Operator)
 	}
 
 	b.writeExpressionWithPath(
@@ -482,16 +515,16 @@ func negateComparisonOperator(operator ComparisonOperator) (ComparisonOperator, 
 		return ComparisonEq, nil
 
 	case ComparisonStartsWith:
-		return ComparisonNotStartsWith, nil
+		return comparisonNotStartsWith, nil
 
 	case ComparisonEndsWith:
-		return ComparisonNotEndsWith, nil
+		return comparisonNotEndsWith, nil
 
 	case ComparisonContains:
-		return ComparisonNotContains, nil
+		return comparisonNotContains, nil
 
 	case ComparisonIn:
-		return ComparisonNotIn, nil
+		return comparisonNotIn, nil
 
 	case ComparisonGt:
 		return ComparisonLe, nil

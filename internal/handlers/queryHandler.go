@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"net/url"
 
 	"github.com/turnerbenjamin/heterogen_portal/internal/etc"
 	"github.com/turnerbenjamin/heterogen_portal/internal/query"
@@ -32,7 +33,12 @@ func (h QueryHandler) ProcessQuery(
 ) *etc.AppError {
 	resource := r.PathValue("resource")
 
-	res, appErr := h.service.Execute(r.Context(), resource, r.URL.RawQuery)
+	decodedQuery, err := url.QueryUnescape(r.URL.RawQuery)
+	if err != nil {
+		return etc.NewServerError(err)
+	}
+
+	res, appErr := h.service.Execute(r.Context(), resource, decodedQuery)
 	if appErr != nil {
 		return appErr.WithJsonType()
 	}

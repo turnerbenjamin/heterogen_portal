@@ -56,9 +56,9 @@ func (l StringLiteral) IsCompatibleWithComparisonOperator(op ComparisonOperator)
 		ComparisonContains,
 		ComparisonStartsWith,
 		ComparisonEndsWith,
-		ComparisonNotContains,
-		ComparisonNotStartsWith,
-		ComparisonNotEndsWith:
+		comparisonNotContains,
+		comparisonNotStartsWith,
+		comparisonNotEndsWith:
 		return true
 	default:
 		return false
@@ -88,25 +88,25 @@ func (l StringLiteral) WriteFilterExpression(
 	case ComparisonNe:
 		fmt.Fprintf(o.sb, "%s != %s", fieldName, o.arg(l.Value))
 		o.args = append(o.args, l.Value)
-	case ComparisonContains, ComparisonNotContains:
+	case ComparisonContains, comparisonNotContains:
 		modifier := ""
-		if op == ComparisonNotContains {
+		if op == comparisonNotContains {
 			modifier = "NOT "
 		}
 
 		pattern := fmt.Sprintf("%%%s%%", l.Value)
 		fmt.Fprintf(o.sb, "%s %sLIKE %s", fieldName, modifier, o.arg(pattern))
-	case ComparisonStartsWith, ComparisonNotStartsWith:
+	case ComparisonStartsWith, comparisonNotStartsWith:
 		modifier := ""
-		if op == ComparisonNotStartsWith {
+		if op == comparisonNotStartsWith {
 			modifier = "NOT "
 		}
 
 		pattern := fmt.Sprintf("%s%%", l.Value)
 		fmt.Fprintf(o.sb, "%s %sLIKE %s", fieldName, modifier, o.arg(pattern))
-	case ComparisonEndsWith, ComparisonNotEndsWith:
+	case ComparisonEndsWith, comparisonNotEndsWith:
 		modifier := ""
-		if op == ComparisonNotEndsWith {
+		if op == comparisonNotEndsWith {
 			modifier = "NOT "
 		}
 
@@ -290,9 +290,9 @@ func WriteListFilterExpression[T any](
 	op ComparisonOperator,
 ) error {
 	switch op {
-	case ComparisonIn, ComparisonNotIn:
+	case ComparisonIn, comparisonNotIn:
 		modifier := ""
-		if op == ComparisonNotIn {
+		if op == comparisonNotIn {
 			modifier = "NOT "
 		}
 

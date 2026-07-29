@@ -3,8 +3,8 @@ package main
 import (
 	"context"
 	"database/sql"
+	"flag"
 	"log"
-	"os"
 	"path/filepath"
 
 	"github.com/turnerbenjamin/heterogen_portal/cmd/model-builder/builderRepo"
@@ -15,7 +15,9 @@ func main() {
 	ctx := context.Background()
 	defer ctx.Done()
 
-	dbConnection := initDBConnection(ctx)
+	serverDsn := flag.String("dsn", "", "server dsn")
+	flag.Parse()
+	dbConnection := initDBConnection(*serverDsn)
 	defer closeDBConnection(dbConnection)
 
 	metadataRepo := builderRepo.MetadataRepo{Db: dbConnection}
@@ -32,10 +34,9 @@ func main() {
 	modelWriter.Write()
 }
 
-func initDBConnection(ctx context.Context) *sql.DB {
-	serverDsn, ok := os.LookupEnv("SQL_SERVER_DSN")
-	if !ok {
-		log.Fatal("unable to access SQL_SERVER_DSN env variable")
+func initDBConnection(serverDsn string) *sql.DB {
+	if serverDsn == "" {
+		log.Fatal("dsn flag must be set")
 	}
 
 	dbConnection, err := builderRepo.SetUpDB(serverDsn)

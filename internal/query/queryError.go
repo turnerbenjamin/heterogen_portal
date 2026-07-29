@@ -22,6 +22,10 @@ const (
 	// designed for display to users to help them correct the error
 	QueryErrBindingErr queryErrorCategory = iota
 
+	// QueryErrAccessErr is used to represent access requests that are
+	// incompatible with the access policy
+	QueryErrAccessErr queryErrorCategory = iota
+
 	// QueryErrInternalErr is used to represent internal failures. Error
 	// messages are designed to help debugging and are not intended for display
 	// to users
@@ -73,6 +77,14 @@ func syntaxErr(m string, a ...any) error {
 func bindingErr(m string, a ...any) error {
 	return &queryError{
 		category: QueryErrBindingErr,
+		err:      fmt.Errorf(m, a...),
+	}
+}
+
+// accessErr builds a queryError with the category QueryErrAccessErr
+func accessErr(m string, a ...any) error {
+	return &queryError{
+		category: QueryErrAccessErr,
 		err:      fmt.Errorf(m, a...),
 	}
 }

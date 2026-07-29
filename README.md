@@ -15,7 +15,7 @@ Quick overview
 
 To run unit tests and view test coverage for the project:
 
-```terminal
+```bash
 go test ./internal/*** -cover -coverprofile=test-coverage.out && \
 go tool cover -html=test-coverage.out
 ```
@@ -25,6 +25,15 @@ go tool cover -html=test-coverage.out
 Mocks are generated using [Mockery](https://github.com/vektra/mockery), the
 config can be found in .mockery.yml. To generate mocks install mockery and run:
 
-```terminal
+```bash
 mockery
+```
+
+## Model Builder
+
+There is a model builder which reads the database schema and generates model and
+metadata structs.
+
+```bash
+go run ./cmd/model-builder/main.go --dsn=<YOUR_DSN>
 ```

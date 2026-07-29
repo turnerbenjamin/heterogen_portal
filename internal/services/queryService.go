@@ -8,6 +8,7 @@ import (
 	"github.com/turnerbenjamin/heterogen_portal/internal/etc"
 	"github.com/turnerbenjamin/heterogen_portal/internal/model"
 	"github.com/turnerbenjamin/heterogen_portal/internal/query"
+	queryaccesspolicies "github.com/turnerbenjamin/heterogen_portal/internal/queryAccessPolicies"
 )
 
 type QueryRepo interface {
@@ -24,6 +25,8 @@ type QueryService struct {
 	queryRepo   QueryRepo
 	queryParser QueryParser
 }
+
+var accessPolicy = queryaccesspolicies.GetAnonymousAccessPolicy()
 
 func NewQueryService(queryRepo QueryRepo, queryParser QueryParser) *QueryService {
 	return &QueryService{
@@ -44,6 +47,7 @@ func (s *QueryService) Execute(ctx context.Context, resource string, queryString
 	q, err := query.NewQuery(
 		ctx,
 		schemaMetadata,
+		accessPolicy,
 		resource,
 		queryOperations,
 		s.queryRepo.Execute,

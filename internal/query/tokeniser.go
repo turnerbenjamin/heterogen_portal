@@ -5,67 +5,79 @@ import (
 	"strings"
 )
 
+// tokenType identifies the kinds of tokens recognised by the tokeniser.
 type tokenType uint64
 
 const (
+	// TokenEmpty is an invalid token type returned with errors
 	TokenEmpty tokenType = iota
+
+	// TokenEOF represents the end of the input
 	TokenEOF
-	TokenIdentifier
+
+	// TokenLogicalOperator is an identifier matching a supported logical operator
 	TokenLogicalOperator
+
+	// TokenComparisonOperator is an identifier matching a supported comparison operator
 	TokenComparisonOperator
+
+	// TokenCollectionOperator is an identifier matching a supported collection operator
 	TokenCollectionOperator
-	TokenNumberRaw
-	TokenStringRaw
-	TokenString
+
+	// TokenNull is an identifier equal to null
 	TokenNull
+
+	// TokenIdentifier represents a generic identifier
+	TokenIdentifier
+
+	// TokenNumberRaw represents a raw number value before validation
+	TokenNumberRaw
+
+	// TokenStringRaw represents a raw string value before validation
+	TokenStringRaw
+
+	// TokenParenL represents an opening parenthesis '('
 	TokenParenL
+
+	// TokenParenR represents a closing parenthesis ')'
 	TokenParenR
-	TokenAmper
+
+	// TokenAmpersand represents an ampersand '&'
+	TokenAmpersand
+
+	// TokenSemiColon represents a semi-colon ';'
 	TokenSemiColon
+
+	// TokenComma represents a comma ','
 	TokenComma
+
+	// TokenEquals represents an equals symbol '='
 	TokenEquals
+
+	// TokenSlash represents a forward slash '/'
 	TokenSlash
 )
 
-var comparisonOperators = map[string]ComparisonOperator{
-	"eq":         ComparisonEq,
-	"ne":         ComparisonNe,
-	"gt":         ComparisonGt,
-	"ge":         ComparisonGe,
-	"lt":         ComparisonLt,
-	"le":         ComparisonLe,
-	"in":         ComparisonIn,
-	"contains":   ComparisonContains,
-	"startswith": ComparisonStartsWith,
-	"endswith":   ComparisonEndsWith,
-}
-
-var logicalOperators = map[string]LogicalOperator{
-	"and": LogicalAnd,
-	"or":  LogicalOr,
-}
-
-var collectionOperators = map[string]CollectionOperator{
-	"any": CollectionAny,
-	"all": CollectionAll,
-}
-
+// singleCharTokenMap is used to identify characters that signal the end of an
+// identifier
 var singleCharTokenMap = map[byte]tokenType{
 	'(': TokenParenL,
 	')': TokenParenR,
-	'&': TokenAmper,
+	'&': TokenAmpersand,
 	';': TokenSemiColon,
 	',': TokenComma,
 	'=': TokenEquals,
 	'/': TokenSlash,
 }
 
+// token represents a single token value
 type token struct {
 	endIdx int
 	Type   tokenType
 	Value  string
 }
 
+// Tokeniser is used to tokenise a string input
 type Tokeniser struct {
 	input   string
 	idx     int
@@ -73,6 +85,7 @@ type Tokeniser struct {
 	buffer  []token
 }
 
+// NewTokeniser returns a new tokeniser for a given string input
 func NewTokeniser(input string) *Tokeniser {
 	return &Tokeniser{
 		input:   input,
@@ -81,6 +94,7 @@ func NewTokeniser(input string) *Tokeniser {
 	}
 }
 
+// newTkn is a helper for creating tokens concisely
 func (t *Tokeniser) newTkn(tType tokenType, v string) token {
 	return token{
 		endIdx: t.idx,
@@ -89,10 +103,13 @@ func (t *Tokeniser) newTkn(tType tokenType, v string) token {
 	}
 }
 
+// Peek returns the next token without moving the tokeniser forward
 func (t *Tokeniser) Peek() token {
 	return t.PeekN(1)
 }
 
+// PeekN returns the nth token from the current position without advancing the
+// tokeniser.
 func (t *Tokeniser) PeekN(n int) token {
 	o := t.newTkn(TokenEmpty, "")
 	savedBuffIdx := t.buffIdx
@@ -103,6 +120,7 @@ func (t *Tokeniser) PeekN(n int) token {
 	return o
 }
 
+// Current returns the current token
 func (t *Tokeniser) Current() token {
 	if t.buffIdx < 0 {
 		return t.newTkn(TokenEmpty, "")
@@ -110,17 +128,18 @@ func (t *Tokeniser) Current() token {
 	return t.buffer[t.buffIdx]
 }
 
+// Next moves the tokeniser one token forward and returns the token
 func (t *Tokeniser) Next() token {
 	if (t.buffIdx + 1) < len(t.buffer) {
 		t.buffIdx++
 		return t.buffer[t.buffIdx]
 	}
 
-	for t.idx < len(t.input) && t.input[t.idx] == ' ' {
+	for t.idx < len(t.input) && isWhiteSpace(t.input[t.idx]) {
 		t.idx++
 	}
 
-	if t.idx >= (len(t.input)) {
+	if t.idx >= len(t.input) {
 		t.idx++
 
 		t.buffer = append(t.buffer, t.newTkn(TokenEOF, ""))
@@ -130,34 +149,19 @@ func (t *Tokeniser) Next() token {
 	}
 
 	var next = token{Type: TokenEmpty}
-	switch b := t.input[t.idx]; {
-	case b == '(':
+	b := t.input[t.idx]
+	if tt, exists := singleCharTokenMap[b]; exists {
 		t.idx++
-		next = t.newTkn(TokenParenL, "(")
-	case b == ')':
-		t.idx++
-		next = t.newTkn(TokenParenR, ")")
-	case b == '&':
-		t.idx++
-		next = t.newTkn(TokenAmper, "&")
-	case b == ';':
-		t.idx++
-		next = t.newTkn(TokenSemiColon, ";")
-	case b == ',':
-		t.idx++
-		next = t.newTkn(TokenComma, ",")
-	case b == '=':
-		t.idx++
-		next = t.newTkn(TokenEquals, "=")
-	case b == '/':
-		t.idx++
-		next = t.newTkn(TokenSlash, "/")
-	case b == '\'', b == '"':
-		next = t.readString()
-	case b >= '0' && b <= '9':
-		next = t.readNumber()
-	default:
-		next = t.readIdentifier()
+		next = t.newTkn(tt, string(b))
+	} else {
+		switch {
+		case b == '\'', b == '"':
+			next = t.readString()
+		case b == '.' || b >= '0' && b <= '9':
+			next = t.readNumber()
+		default:
+			next = t.readIdentifier()
+		}
 	}
 
 	t.buffer = append(t.buffer, next)
@@ -165,10 +169,10 @@ func (t *Tokeniser) Next() token {
 	return t.buffer[t.buffIdx]
 }
 
+// readString parses string literals. It does not validate that the string is
+// terminated. The opening, and if present the closing, quotation marks are
+// included to allow validation by the consumer.
 func (t *Tokeniser) readString() token {
-	// opening and closing chars included in value so consumer can validate the
-	// syntax; avoids handling errors for token types that will never return an
-	// error
 	openingQuotationChar := t.input[t.idx]
 	start := t.idx
 	t.idx++
@@ -185,26 +189,49 @@ func (t *Tokeniser) readString() token {
 	return t.newTkn(TokenStringRaw, t.input[start:t.idx])
 }
 
+// readNumber reads a number, treating both digits and decimal places to be
+// valid - The tokeniser does not validate the number
 func (t *Tokeniser) readNumber() token {
 	start := t.idx
+
+	dpSeen := false
 	for t.idx < len(t.input) {
 		b := t.input[t.idx]
 		if (b < '0' || b > '9') && b != '.' {
 			break
 		}
+
+		if t.idx > start && b == '.' {
+			if dpSeen {
+				break
+			}
+			dpSeen = true
+		}
+
 		t.idx++
 	}
 
-	return t.newTkn(TokenNumberRaw, t.input[start:t.idx])
+	numString := t.input[start:t.idx]
+	if strings.HasPrefix(numString, ".") {
+		numString = "0" + numString
+	}
+
+	if strings.HasSuffix(numString, ".") {
+		numString = numString + "0"
+	}
+
+	return t.newTkn(TokenNumberRaw, numString)
 }
 
+// readIdentifier parses words separated by whitespace or single character
+// tokens.
 func (t *Tokeniser) readIdentifier() token {
 	start := t.idx
 
 	for t.idx < len(t.input) {
 		b := t.input[t.idx]
 
-		if b == ' ' {
+		if isWhiteSpace(b) {
 			break
 		}
 
@@ -212,58 +239,64 @@ func (t *Tokeniser) readIdentifier() token {
 			break
 		}
 
+		if b == '\'' || b == '"' {
+			break
+		}
+
 		t.idx++
 	}
 
-	value := strings.ToLower(t.input[start:t.idx])
-	if _, isLogicalOperation := logicalOperators[value]; isLogicalOperation {
-		return t.newTkn(TokenLogicalOperator, value)
-	}
+	value := t.input[start:t.idx]
+	tokenType, formattedValue := classifyIdentifier(value)
 
-	if _, isComparisonOperation := comparisonOperators[value]; isComparisonOperation {
-		return t.newTkn(TokenComparisonOperator, value)
-	}
-
-	if _, isCollectionOperation := collectionOperators[value]; isCollectionOperation {
-		return t.newTkn(TokenCollectionOperator, value)
-	}
-
-	if value == "null" {
-		return t.newTkn(TokenNull, value)
-	}
-
-	return t.newTkn(TokenIdentifier, value)
+	return t.newTkn(tokenType, formattedValue)
 }
 
-func (t *Tokeniser) processRawStringToken(raw token) (token, error) {
-	if raw.Type != TokenStringRaw {
-		return t.newTkn(TokenEmpty, ""), t.tknErr(raw, "unexpected token type received: '%s'", raw.Value)
+// classifyIdentifier tries to match the identifier with a specific identifier
+// type, e.g. TokenLogicalOperator. If a specific match cannot be found it falls
+// back to the generic TokenIdentifier
+func classifyIdentifier(identifier string) (tokenType, string) {
+	lIdentifier := strings.ToLower(identifier)
+
+	if _, isLogicalOperation := supportedLogicalOperators[lIdentifier]; isLogicalOperation {
+		return TokenLogicalOperator, lIdentifier
 	}
 
-	if len(raw.Value) < 2 {
-		return t.newTkn(TokenEmpty, ""), syntaxErr("raw string token should be at least 2 characters")
+	if _, isComparisonOperation := supportedComparisonOperators[lIdentifier]; isComparisonOperation {
+		return TokenComparisonOperator, lIdentifier
 	}
 
-	openingQuotationMark := raw.Value[0]
-	closingQuotationMark := raw.Value[len(raw.Value)-1]
-
-	if openingQuotationMark != '\'' && openingQuotationMark != '"' {
-		return t.newTkn(TokenEmpty, ""), syntaxErr("raw string token should be prefixed with a ' or \"")
+	if _, isCollectionOperation := supportedCollectionOperators[lIdentifier]; isCollectionOperation {
+		return TokenCollectionOperator, lIdentifier
 	}
 
-	if closingQuotationMark != openingQuotationMark {
-		return t.newTkn(TokenEmpty, ""), syntaxErr("unterminated string literal %s", raw.Value)
+	if lIdentifier == "null" {
+		return TokenNull, lIdentifier
 	}
 
-	return t.newTkn(TokenString, raw.Value[1:len(raw.Value)-1]), nil
+	return TokenIdentifier, identifier
 }
 
-func (t Tokeniser) tknErr(tkn token, m string, a ...any) error {
+func isWhiteSpace(b byte) bool {
+	switch b {
+	case '\t', '\n', '\v', '\f', '\r', ' ':
+		return true
+	default:
+		return false
+	}
+}
+
+// TknErr builds a syntax err with an input substring which terminates at the
+// end of the offending tkn to provide context
+func (t Tokeniser) TknErr(tkn token, m string, a ...any) error {
+	if tkn.Type == TokenEmpty || tkn.Type == TokenEOF {
+		return syntaxErr(m, a...)
+	}
+
 	em := fmt.Sprintf(m, a...)
 
 	maxCtxLen := 50
 	ctx := t.input[max(0, tkn.endIdx-maxCtxLen):min(len(t.input), tkn.endIdx)]
 
 	return syntaxErr("%s: __%s <--", em, ctx)
-
 }
