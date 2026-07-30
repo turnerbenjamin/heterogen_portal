@@ -578,7 +578,7 @@ func TestTokeniser_MiscAndEdgeCases(t *testing.T) {
 		{
 			name:     "handles adjacent single char tokens",
 			input:    ")(;,&=/",
-			expected: []token{parenRTkn(), parenLTkn(), semicolonTkn(), commaTkn(), AndTkn(), equalsTkn(), slashTkn()},
+			expected: []token{parenRTkn(), parenLTkn(), semicolonTkn(), commaTkn(), andTkn(), equalsTkn(), slashTkn()},
 		},
 	}
 
@@ -624,7 +624,7 @@ func collectionOpTkn(v string) token {
 
 func parenLTkn() token    { return token{Type: TokenParenL, Value: "("} }
 func parenRTkn() token    { return token{Type: TokenParenR, Value: ")"} }
-func AndTkn() token       { return token{Type: TokenAmpersand, Value: "&"} }
+func andTkn() token       { return token{Type: TokenAmpersand, Value: "&"} }
 func semicolonTkn() token { return token{Type: TokenSemiColon, Value: ";"} }
 func commaTkn() token     { return token{Type: TokenComma, Value: ","} }
 func equalsTkn() token    { return token{Type: TokenEquals, Value: "="} }
