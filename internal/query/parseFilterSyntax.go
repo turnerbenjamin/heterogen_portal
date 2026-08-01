@@ -27,6 +27,13 @@ var supportedLogicalOperators = map[string]LogicalOperator{
 	"or":  LogicalOr,
 }
 
+type SortDirectionOperator string
+
+const (
+	SortDirectionAsc  SortDirectionOperator = "asc"
+	SortDirectionDesc SortDirectionOperator = "desc"
+)
+
 type ComparisonOperator string
 
 const (
@@ -85,8 +92,9 @@ type ComparisonExpression struct {
 	Path           PropertyPath
 	Operator       ComparisonOperator
 	Value          ValueExpression
-	ResolvedPath   ResolvedPath
+	ResolvedPath   *ResolvedPath
 	ResolvedColumn *ColumnValue
+	ExistsPlan     *Exists
 }
 
 func (e *ComparisonExpression) IsFilterExpression() {}
@@ -95,7 +103,8 @@ type CollectionExpression struct {
 	Path             PropertyPath
 	Operator         CollectionOperator
 	FilterExpression FilterExpression
-	ResolvedPath     ResolvedPath
+	ResolvedPath     *ResolvedPath
+	ExistsPlan       *Exists
 }
 
 func (e *CollectionExpression) IsFilterExpression() {}
@@ -218,7 +227,7 @@ func parsePrimary(p *parser) (FilterExpression, error) {
 		return expression, nil
 
 	default:
-		path, err := parsePath(p)
+		path, err := parsePath(p.t)
 		if err != nil {
 			return nil, err
 		}
@@ -314,27 +323,27 @@ func parseCollectionOperator(
 	}, nil
 }
 
-func parsePath(p *parser) (PropertyPath, error) {
+func parsePath(t *Tokeniser) (PropertyPath, error) {
 	path := []string{}
 	for {
-		tkn := p.t.Next()
+		tkn := t.Next()
 
 		switch tkn.Type {
 		case TokenIdentifier, TokenLogicalOperator, TokenComparisonOperator, TokenCollectionOperator:
 			path = append(path, tkn.Value)
 		}
 
-		nxtTkn := p.t.Peek()
+		nxtTkn := t.Peek()
 		if nxtTkn.Type != TokenSlash {
 			break
 		}
 
 		// consume slash token
-		_ = p.t.Next()
+		_ = t.Next()
 
 		// If next element is a collection operator break
-		if p.t.Peek().Type == TokenCollectionOperator &&
-			p.t.PeekN(2).Type == TokenParenL {
+		if t.Peek().Type == TokenCollectionOperator &&
+			t.PeekN(2).Type == TokenParenL {
 			break
 		}
 	}

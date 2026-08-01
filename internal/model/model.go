@@ -475,6 +475,15 @@ var businessesMetadata = &tableMetadata{
 		},
 	},
 	relationships: map[string]*relationship{
+		"modified_by_id": {
+			id:               "businesses_modified_by_id_users_id",
+			name:             "modified_by",
+			relationshipType: query.RelationshipManyToOne,
+			fromTableName:    "businesses",
+			toTableName:      "users",
+			fromColumnName:   "modified_by_id",
+			toColumnName:     "id",
+		},
 		"farm_fields_businesses_business_id": {
 			id:               "farm_fields_business_id_businesses_id",
 			name:             "farm_fields_businesses_business_id",
@@ -491,15 +500,6 @@ var businessesMetadata = &tableMetadata{
 			fromTableName:    "businesses",
 			toTableName:      "users",
 			fromColumnName:   "created_by_id",
-			toColumnName:     "id",
-		},
-		"modified_by_id": {
-			id:               "businesses_modified_by_id_users_id",
-			name:             "modified_by",
-			relationshipType: query.RelationshipManyToOne,
-			fromTableName:    "businesses",
-			toTableName:      "users",
-			fromColumnName:   "modified_by_id",
 			toColumnName:     "id",
 		},
 	},
@@ -534,9 +534,9 @@ type BusinessesModel struct {
 	CreatedById                    string             `json:"created_by_id,omitempty"`
 	ModifiedAt                     *time.Time         `json:"modified_at,omitempty"`
 	ModifiedById                   string             `json:"modified_by_id,omitempty"`
-	FarmFieldsBusinessesBusinessId []*FarmFieldsModel `json:"farm_fields_businesses_business_id,omitempty"`
 	CreatedBy                      *UsersModel        `json:"created_by,omitempty"`
 	ModifiedBy                     *UsersModel        `json:"modified_by,omitempty"`
+	FarmFieldsBusinessesBusinessId []*FarmFieldsModel `json:"farm_fields_businesses_business_id,omitempty"`
 }
 
 // NewSlice unmarshals a json array of businesses and returns it as a slice
@@ -661,15 +661,6 @@ var farmFieldsMetadata = &tableMetadata{
 		},
 	},
 	relationships: map[string]*relationship{
-		"modified_by_id": {
-			id:               "farm_fields_modified_by_id_users_id",
-			name:             "modified_by",
-			relationshipType: query.RelationshipManyToOne,
-			fromTableName:    "farm_fields",
-			toTableName:      "users",
-			fromColumnName:   "modified_by_id",
-			toColumnName:     "id",
-		},
 		"business_id": {
 			id:               "farm_fields_business_id_businesses_id",
 			name:             "business",
@@ -686,6 +677,15 @@ var farmFieldsMetadata = &tableMetadata{
 			fromTableName:    "farm_fields",
 			toTableName:      "users",
 			fromColumnName:   "created_by_id",
+			toColumnName:     "id",
+		},
+		"modified_by_id": {
+			id:               "farm_fields_modified_by_id_users_id",
+			name:             "modified_by",
+			relationshipType: query.RelationshipManyToOne,
+			fromTableName:    "farm_fields",
+			toTableName:      "users",
+			fromColumnName:   "modified_by_id",
 			toColumnName:     "id",
 		},
 	},
@@ -889,10 +889,10 @@ type UsersModel struct {
 	EmailAddress                string             `json:"email_address,omitempty"`
 	CreatedAt                   *time.Time         `json:"created_at,omitempty"`
 	ModifiedAt                  *time.Time         `json:"modified_at,omitempty"`
-	BusinessesUsersCreatedById  []*BusinessesModel `json:"businesses_users_created_by_id,omitempty"`
 	BusinessesUsersModifiedById []*BusinessesModel `json:"businesses_users_modified_by_id,omitempty"`
 	FarmFieldsUsersCreatedById  []*FarmFieldsModel `json:"farm_fields_users_created_by_id,omitempty"`
 	FarmFieldsUsersModifiedById []*FarmFieldsModel `json:"farm_fields_users_modified_by_id,omitempty"`
+	BusinessesUsersCreatedById  []*BusinessesModel `json:"businesses_users_created_by_id,omitempty"`
 }
 
 // NewSlice unmarshals a json array of users and returns it as a slice
@@ -911,6 +911,13 @@ func (m *UsersModel) NewSlice(jsonData []byte) ([]query.TableModel, error) {
 // SetRelationshipField sets a given relationship field on the hg.users table
 func (m *UsersModel) SetRelationshipField(relationshipId string, value query.TableModel) error {
 	switch relationshipId {
+	case "businesses_created_by_id_users_id":
+		v, ok := value.(*BusinessesModel)
+		if !ok {
+			return errors.New("unexpected relationship type received")
+		}
+		m.BusinessesUsersCreatedById = append(m.BusinessesUsersCreatedById, v)
+
 	case "businesses_modified_by_id_users_id":
 		v, ok := value.(*BusinessesModel)
 		if !ok {
@@ -931,13 +938,6 @@ func (m *UsersModel) SetRelationshipField(relationshipId string, value query.Tab
 			return errors.New("unexpected relationship type received")
 		}
 		m.FarmFieldsUsersModifiedById = append(m.FarmFieldsUsersModifiedById, v)
-
-	case "businesses_created_by_id_users_id":
-		v, ok := value.(*BusinessesModel)
-		if !ok {
-			return errors.New("unexpected relationship type received")
-		}
-		m.BusinessesUsersCreatedById = append(m.BusinessesUsersCreatedById, v)
 
 	default:
 		return fmt.Errorf("unknown relationship: %s", relationshipId)

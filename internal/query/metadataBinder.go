@@ -4,12 +4,14 @@ import (
 	"strings"
 )
 
-var resolvedPathStore = map[string]ResolvedPath{}
+var resolvedPathStore = map[string]*ResolvedPath{}
 
 type ResolvedPath struct {
+	Id            string
 	StartResource TableMetadata
 	Steps         []TraversalStep
 	EndResource   TableMetadata
+	Type          RelationshipType
 }
 
 type TraversalStep struct {
@@ -138,6 +140,15 @@ func (b metadataBinder) bindFilterOperation(
 		}
 		ex.ResolvedPath = r
 
+		if traversalPathLength > 0 && r.Type != RelationshipManyToOne {
+			return bindingErr(
+				"invalid value - '%s'. Comparison operations are only supported "+
+					"for N:1 and 1:1 relationships. Please use a collection "+
+					"operator",
+				strings.Join(ex.Path.Segments, "/"),
+			)
+		}
+
 		columnName := ex.Path.Segments[len(ex.Path.Segments)-1]
 		columnData := r.EndResource.GetColumnMetadata(columnName)
 		if columnData == nil {
@@ -169,6 +180,15 @@ func (b metadataBinder) bindFilterOperation(
 			ex.Path,
 			traversalPathLength,
 		)
+
+		if traversalPathLength > 0 && r.Type != RelationshipOneToMany {
+			return bindingErr(
+				"invalid value - '%s'. Collection operations are only supported "+
+					"for 1:N relationships",
+				strings.Join(ex.Path.Segments, "/"),
+			)
+		}
+
 		if err != nil {
 			return err
 		}
@@ -181,6 +201,57 @@ func (b metadataBinder) bindFilterOperation(
 	default:
 		return internalErr("unexpected expression type received")
 	}
+}
+
+func (b metadataBinder) bindOrderByOperation(
+	rootResource TableMetadata,
+	ex *OrderByOperation,
+) error {
+	for _, r := range ex.Rules {
+		traversalPathLength := len(r.Path.Segments) - 1
+		p, err := b.resolvePath(
+			rootResource,
+			r.Path,
+			traversalPathLength,
+		)
+		if err != nil {
+			return err
+		}
+		r.ResolvedPath = p
+
+		if traversalPathLength > 0 && p.Type != RelationshipManyToOne {
+			return bindingErr(
+				"invalid value - '%s'. Orderby operations are only supported for"+
+					"for N:1 and 1:1 relationships",
+				strings.Join(r.Path.Segments, "/"),
+			)
+		}
+
+		columnName := r.Path.Segments[len(r.Path.Segments)-1]
+		columnData := p.EndResource.GetColumnMetadata(columnName)
+		if columnData == nil {
+			return bindingErr(
+				"%s does not include a column definition for '%s'",
+				p.EndResource.Name(),
+				columnName,
+			)
+		}
+
+		tableAccessPolicy, err := b.getTableAccessPolicy(p.EndResource)
+		if err != nil {
+			return err
+		}
+		err = validateColumnAccess(tableAccessPolicy, p.EndResource, columnData)
+		if err != nil {
+			return err
+		}
+
+		r.ResolvedColumn = &ColumnValue{
+			ColumnName: columnName,
+			ColumnData: columnData,
+		}
+	}
+	return nil
 }
 
 func (b *metadataBinder) resolveColumn(resource TableMetadata, columnName string) (ColumnMetadata, error) {
@@ -212,37 +283,47 @@ func (b *metadataBinder) resolvePath(
 	rootResource TableMetadata,
 	path PropertyPath,
 	traversalPathLength int,
-) (ResolvedPath, error) {
+) (*ResolvedPath, error) {
 	if len(path.Segments) == 0 {
-		return ResolvedPath{}, syntaxErr("path does not contain any segments")
+		return nil, syntaxErr("path does not contain any segments")
 	}
 
 	if traversalPathLength != len(path.Segments) && traversalPathLength != len(path.Segments)-1 {
-		return ResolvedPath{}, internalErr(
+		return nil, internalErr(
 			"traversal path length must be equal to the property path length " +
 				"or the property path length - 1",
 		)
 	}
 
-	pathId := rootResource.Name() + "_" + strings.Join(path.Segments, "_")
-	if p, exists := resolvedPathStore[pathId]; exists {
-		return p, nil
-	}
+	traversalPathSegments := path.Segments[0:traversalPathLength]
+	pathId := rootResource.Name() + "_" + strings.Join(traversalPathSegments, "_")
 
-	o := ResolvedPath{
+	o := &ResolvedPath{
 		StartResource: rootResource,
 		Steps:         make([]TraversalStep, traversalPathLength),
 		EndResource:   rootResource,
 	}
+
 	i := 0
 	for i < traversalPathLength {
 		relationshipName := path.Segments[i]
+		isIntermediateStep := i < traversalPathLength-1
+
 		relationshipData := o.EndResource.GetRelationshipMetadata(relationshipName)
 		if relationshipData == nil {
 			return o, bindingErr(
 				"%s does not include a relationship definition for '%s'",
 				o.EndResource.FullyQualifiedName(),
 				relationshipName,
+			)
+		}
+
+		relationshipType := relationshipData.Type()
+		if isIntermediateStep && relationshipType != RelationshipManyToOne {
+			return o, bindingErr(
+				"%s is a 1:N relationship and cannot be used as an "+
+					"intermediate path step, please use a collection operator",
+				relationshipData.Id(),
 			)
 		}
 
@@ -257,9 +338,11 @@ func (b *metadataBinder) resolvePath(
 		}
 
 		o.EndResource = relationshipData.To()
+		o.Type = relationshipType
 		i++
 	}
 
+	resolvedPathStore[pathId] = o
 	return o, nil
 }
 

@@ -96,6 +96,7 @@ func (l StringLiteral) WriteFilterExpression(
 
 		pattern := fmt.Sprintf("%%%s%%", l.Value)
 		fmt.Fprintf(o.sb, "%s %sLIKE %s", fieldName, modifier, o.arg(pattern))
+
 	case ComparisonStartsWith, comparisonNotStartsWith:
 		modifier := ""
 		if op == comparisonNotStartsWith {

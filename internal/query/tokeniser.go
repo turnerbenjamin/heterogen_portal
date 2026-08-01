@@ -15,14 +15,21 @@ const (
 	// TokenEOF represents the end of the input
 	TokenEOF
 
-	// TokenLogicalOperator is an identifier matching a supported logical operator
+	// TokenLogicalOperator is an identifier matching a supported logical
+	// operator
 	TokenLogicalOperator
 
-	// TokenComparisonOperator is an identifier matching a supported comparison operator
+	// TokenComparisonOperator is an identifier matching a supported comparison
+	// operator
 	TokenComparisonOperator
 
-	// TokenCollectionOperator is an identifier matching a supported collection operator
+	// TokenCollectionOperator is an identifier matching a supported collection
+	// operator
 	TokenCollectionOperator
+
+	// TokenSortDirectionOperator is an identifier matching a supported Sort
+	// direction operator
+	TokenSortDirectionOperator
 
 	// TokenNull is an identifier equal to null
 	TokenNull
@@ -268,6 +275,10 @@ func classifyIdentifier(identifier string) (tokenType, string) {
 
 	if _, isCollectionOperation := supportedCollectionOperators[lIdentifier]; isCollectionOperation {
 		return TokenCollectionOperator, lIdentifier
+	}
+
+	if _, isSortDirectionOperator := supportedSortDirectionOperators[lIdentifier]; isSortDirectionOperator {
+		return TokenSortDirectionOperator, lIdentifier
 	}
 
 	if lIdentifier == "null" {
