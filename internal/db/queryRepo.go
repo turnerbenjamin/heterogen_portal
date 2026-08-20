@@ -4,12 +4,8 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
+	"fmt"
 )
-
-/* TEST QUERIES
-http://localhost:8080/api/v0.1/businesses?select=trading_name,location
-http://localhost:8080/api/v0.1/businesses?select=trading_name&filter=farm_fields_businesses_business_id/any(reference%20startswith%20%27t%27) and created_by_id/full_name contains 'bot'&expand=farm_fields_businesses_business_id(select=reference)
-*/
 
 type QueryRepo struct {
 	ctx context.Context
@@ -23,8 +19,12 @@ func BuildQueryRepo(ctx context.Context, db *sql.DB) *QueryRepo {
 	}
 }
 
-func (r *QueryRepo) Execute(ctx context.Context, statementStr string, args []any) ([]byte, error) {
-	stmt, err := r.db.Prepare(statementStr)
+func (r *QueryRepo) ExecuteJsonRequest(
+	ctx context.Context,
+	queryStatementStr string,
+	args []any,
+) ([]byte, error) {
+	stmt, err := r.db.Prepare(queryStatementStr)
 	if err != nil {
 		return nil, err
 	}
@@ -35,6 +35,45 @@ func (r *QueryRepo) Execute(ctx context.Context, statementStr string, args []any
 	}
 	defer rows.Close()
 
+	return parseJson(rows)
+}
+
+func (r *QueryRepo) ExecuteJsonRequestWithCount(
+	ctx context.Context,
+	queryStatementStr string,
+	countStatementStr string,
+	sharedArgs []any,
+) ([]byte, *int64, error) {
+	combinedStatements := fmt.Sprintf("%s %s", queryStatementStr, countStatementStr)
+	stmt, err := r.db.Prepare(combinedStatements)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	rows, err := stmt.QueryContext(ctx, sharedArgs...)
+	if err != nil {
+		return nil, nil, err
+	}
+	defer rows.Close()
+
+	json, err := parseJson(rows)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if !rows.NextResultSet() {
+		return nil, nil, fmt.Errorf("unable to a access count statement results")
+	}
+
+	count, err := parseCount(rows)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return json, count, err
+}
+
+func parseJson(rows *sql.Rows) ([]byte, error) {
 	var buf bytes.Buffer
 	var rowString string
 
@@ -51,12 +90,18 @@ func (r *QueryRepo) Execute(ctx context.Context, statementStr string, args []any
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
+	return buf.Bytes(), nil
+}
 
-	// 3. Fallback to an empty JSON array if no data was returned
-	if buf.Len() == 0 {
-		return []byte("[]"), nil
+func parseCount(rows *sql.Rows) (*int64, error) {
+	if !rows.Next() {
+		return nil, fmt.Errorf("unable to access count result from rows")
 	}
 
-	// 4. Return the underlying raw byte slice safely
-	return buf.Bytes(), nil
+	var totalCount int64
+	err := rows.Scan(&totalCount)
+	if err != nil {
+		return nil, err
+	}
+	return &totalCount, nil
 }

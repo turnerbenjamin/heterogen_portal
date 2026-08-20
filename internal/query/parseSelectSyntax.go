@@ -6,15 +6,15 @@ package query
 type ColumnValue struct {
 
 	// ColumnName is the column name as defined in the database
-	ColumnName string
+	ColumnName string `json:"columnName"`
 
 	// ColumnData contains metadata for the column
-	ColumnData ColumnMetadata
+	ColumnData ColumnMetadata `json:"-"`
 }
 
 // SelectOperation is used to select specific columns from the resource
 type SelectOperation struct {
-	Columns []*ColumnValue
+	Columns map[string]*ColumnValue
 }
 
 // IsQueryOperation indicates that SelectOperation is a QueryOperation
@@ -27,9 +27,9 @@ func parseSelectOperation(
 	t *Tokeniser,
 	operationSeparator tokenType,
 	operationTerminator tokenType,
-) (QueryOperation, error) {
+) (*SelectOperation, error) {
 	o := &SelectOperation{
-		Columns: make([]*ColumnValue, 0, 8),
+		Columns: make(map[string]*ColumnValue, 8),
 	}
 
 	for {
@@ -37,7 +37,7 @@ func parseSelectOperation(
 		if tkn.Type != TokenIdentifier {
 			return o, t.TknErr(tkn, "expected a column identifier but received '%s'", tkn.Value)
 		}
-		o.Columns = append(o.Columns, &ColumnValue{ColumnName: tkn.Value})
+		o.Columns[tkn.Value] = &ColumnValue{ColumnName: tkn.Value}
 
 		nxt := t.Peek()
 		switch nxt.Type {

@@ -2,55 +2,62 @@ package services
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 
 	"github.com/turnerbenjamin/heterogen_portal/internal/etc"
 	"github.com/turnerbenjamin/heterogen_portal/internal/model"
 	"github.com/turnerbenjamin/heterogen_portal/internal/query"
-	queryaccesspolicies "github.com/turnerbenjamin/heterogen_portal/internal/queryAccessPolicies"
+	"github.com/turnerbenjamin/heterogen_portal/internal/queryAccessPolicies"
 )
 
 type QueryRepo interface {
-	Execute(ctx context.Context, statementString string, args []any) (jsonResult []byte, err error)
-}
+	ExecuteJsonRequest(
+		ctx context.Context,
+		queryStatementStr string,
+		args []any,
+	) ([]byte, error)
 
-type QueryParser interface {
-	Parse(queryString string) (operations []query.QueryOperation, err error)
+	ExecuteJsonRequestWithCount(
+		ctx context.Context,
+		queryStatementStr string,
+		countStatementStr string,
+		sharedArgs []any,
+	) ([]byte, *int64, error)
 }
 
 var schemaMetadata = model.NewSchemaMetadata()
 
 type QueryService struct {
-	queryRepo   QueryRepo
-	queryParser QueryParser
+	queryRepo            QueryRepo
+	queryParser          query.QueryParser
+	nextPageTokenBuilder query.PagingTokenBuilder
 }
 
-var accessPolicy = queryaccesspolicies.GetAnonymousAccessPolicy()
+var accessPolicy = queryAccessPolicies.GetAnonymousAccessPolicy()
 
-func NewQueryService(queryRepo QueryRepo, queryParser QueryParser) *QueryService {
+func NewQueryService(
+	queryRepo QueryRepo,
+	queryParser query.QueryParser,
+	nextPageTokenBuilder query.PagingTokenBuilder,
+) *QueryService {
 	return &QueryService{
-		queryRepo:   queryRepo,
-		queryParser: queryParser,
+		queryRepo:            queryRepo,
+		queryParser:          queryParser,
+		nextPageTokenBuilder: nextPageTokenBuilder,
 	}
 }
 
-func (s *QueryService) Execute(ctx context.Context, resource string, queryString string) ([]query.TableModel, *etc.AppError) {
-	queryOperations, err := s.queryParser.Parse(queryString)
-	if err != nil {
-		return nil, &etc.AppError{
-			Code:         http.StatusBadRequest,
-			ErrorMessage: fmt.Sprintf("Unable to parse query string: %s", err.Error()),
-		}
-	}
+func (s *QueryService) Execute(ctx context.Context, resource string, queryString string) (*query.ExecuteResult, *etc.AppError) {
 
 	q, err := query.NewQuery(
 		ctx,
 		schemaMetadata,
 		accessPolicy,
 		resource,
-		queryOperations,
-		s.queryRepo.Execute,
+		queryString,
+		s.nextPageTokenBuilder,
+		s.queryParser,
+		s.queryRepo,
 	)
 	if err != nil {
 		return nil, &etc.AppError{
@@ -70,6 +77,5 @@ func (s *QueryService) Execute(ctx context.Context, resource string, queryString
 			ResponseType: etc.ResponseTypeJson,
 		}
 	}
-
 	return results, nil
 }

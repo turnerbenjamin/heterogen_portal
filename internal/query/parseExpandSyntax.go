@@ -8,19 +8,19 @@ type Expand struct {
 
 	// RelationshipName is the name of the relationship at it appears in the
 	// query string
-	RelationshipName string
+	RelationshipName string `json:"relationshipName"`
 
 	// Operations contains any nested operations passed as an argument to an
 	// expansion
-	Operations []QueryOperation
+	Operations *Operations `json:"operations"`
 
 	// Link contains metadata for the relationship and resources
-	Link *TraversalStep
+	Link *TraversalStep `json:"-"`
 }
 
 // ExpandOperation is used to retrieve the details of a related record
 type ExpandOperation struct {
-	Expands []*Expand
+	Expands map[string]*Expand `json:"expands"`
 }
 
 // IsQueryOperation indicates that ExpandOperation is a QueryOperation
@@ -35,9 +35,9 @@ func parseExpandOperation(
 	t *Tokeniser,
 	operationSeparator tokenType,
 	operationTerminator tokenType,
-) (QueryOperation, error) {
+) (*ExpandOperation, error) {
 	o := &ExpandOperation{
-		Expands: make([]*Expand, 0, 4),
+		Expands: make(map[string]*Expand, 4),
 	}
 
 	for {
@@ -45,7 +45,7 @@ func parseExpandOperation(
 		if tkn.Type != TokenIdentifier {
 			return o, t.TknErr(tkn, "expected a column identifier but received '%s'", tkn.Value)
 		}
-		expansion := &Expand{RelationshipName: tkn.Value, Operations: []QueryOperation{}}
+		expansion := &Expand{RelationshipName: tkn.Value, Operations: nil}
 
 		nxt := t.Peek()
 		// If next is an opening parenthesis, parse the nested operations
@@ -63,7 +63,7 @@ func parseExpandOperation(
 			// set nxt again
 			nxt = t.Peek()
 		}
-		o.Expands = append(o.Expands, expansion)
+		o.Expands[expansion.RelationshipName] = expansion
 
 		switch nxt.Type {
 		case operationSeparator, operationTerminator:

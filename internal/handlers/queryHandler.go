@@ -11,7 +11,7 @@ import (
 )
 
 type QueryService interface {
-	Execute(ctx context.Context, resource string, queryString string) ([]query.TableModel, *etc.AppError)
+	Execute(ctx context.Context, resource string, queryString string) (*query.ExecuteResult, *etc.AppError)
 }
 
 type QueryHandler struct {

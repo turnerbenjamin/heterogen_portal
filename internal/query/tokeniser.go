@@ -34,8 +34,14 @@ const (
 	// TokenNull is an identifier equal to null
 	TokenNull
 
+	// TokenNullByte is an identifier representing a null byte value
+	TokenNullByte
+
 	// TokenIdentifier represents a generic identifier
 	TokenIdentifier
+
+	// TokenBool represents a boolean literal
+	TokenBool
 
 	// TokenNumberRaw represents a raw number value before validation
 	TokenNumberRaw
@@ -68,13 +74,14 @@ const (
 // singleCharTokenMap is used to identify characters that signal the end of an
 // identifier
 var singleCharTokenMap = map[byte]tokenType{
-	'(': TokenParenL,
-	')': TokenParenR,
-	'&': TokenAmpersand,
-	';': TokenSemiColon,
-	',': TokenComma,
-	'=': TokenEquals,
-	'/': TokenSlash,
+	'(':    TokenParenL,
+	')':    TokenParenR,
+	'&':    TokenAmpersand,
+	';':    TokenSemiColon,
+	',':    TokenComma,
+	'=':    TokenEquals,
+	'/':    TokenSlash,
+	'\x00': TokenNullByte,
 }
 
 // token represents a single token value
@@ -283,6 +290,10 @@ func classifyIdentifier(identifier string) (tokenType, string) {
 
 	if lIdentifier == "null" {
 		return TokenNull, lIdentifier
+	}
+
+	if lIdentifier == "true" || lIdentifier == "false" {
+		return TokenBool, lIdentifier
 	}
 
 	return TokenIdentifier, identifier

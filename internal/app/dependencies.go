@@ -8,6 +8,7 @@ import (
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/turnerbenjamin/heterogen_portal/internal/etc"
 	"github.com/turnerbenjamin/heterogen_portal/internal/query"
 	"github.com/turnerbenjamin/heterogen_portal/internal/services"
 	"github.com/turnerbenjamin/heterogen_portal/internal/utils"
@@ -15,25 +16,35 @@ import (
 )
 
 type appDependencies struct {
-	jsonSerialiser  *stdJsonSerialiser
-	tokenSigner     *jwtTokenSigner
-	payloadSigner   *utils.PayloadSigner
-	httpClient      *http.Client
-	newOidcProvider func(ctx context.Context, issuer string) (services.OidcProvider, error)
-	randReader      services.RandReader
-	queryParser     services.QueryParser
+	jsonSerialiser       *stdJsonSerialiser
+	tokenSigner          *jwtTokenSigner
+	payloadSigner        *utils.PayloadSigner
+	httpClient           *http.Client
+	newOidcProvider      func(ctx context.Context, issuer string) (services.OidcProvider, error)
+	randReader           services.RandReader
+	queryParser          query.QueryParser
+	nextPageTokenBuilder query.PagingTokenBuilder
 }
 
-func initAppDependencies() *appDependencies {
-	return &appDependencies{
-		jsonSerialiser:  &stdJsonSerialiser{},
-		tokenSigner:     &jwtTokenSigner{},
-		payloadSigner:   &utils.PayloadSigner{},
-		httpClient:      &http.Client{},
-		queryParser:     &query.QuerySyntaxParser{},
-		newOidcProvider: oidcNewProvider,
-		randReader:      rand.Read,
+func initAppDependencies(appSettings *etc.AppSettings) (*appDependencies, error) {
+	nextPageTokenBuilder, err := query.NewNextPageTokenBuilder(
+		&utils.PayloadSigner{},
+		appSettings.QueryTokenSecret,
+	)
+	if err != nil {
+		return nil, err
 	}
+
+	return &appDependencies{
+		jsonSerialiser:       &stdJsonSerialiser{},
+		tokenSigner:          &jwtTokenSigner{},
+		payloadSigner:        &utils.PayloadSigner{},
+		httpClient:           &http.Client{},
+		queryParser:          &query.QuerySyntaxParser{},
+		newOidcProvider:      oidcNewProvider,
+		randReader:           rand.Read,
+		nextPageTokenBuilder: nextPageTokenBuilder,
+	}, nil
 }
 
 type stdJsonSerialiser struct{}
@@ -113,5 +124,3 @@ func (sp *jwtTokenSigner) ParseWithClaims(
 		parserOptions...,
 	)
 }
-
-

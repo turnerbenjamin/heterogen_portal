@@ -6,14 +6,15 @@ var supportedSortDirectionOperators = map[string]SortDirectionOperator{
 }
 
 type SortingRule struct {
-	Path           PropertyPath
-	Direction      SortDirectionOperator
-	ResolvedPath   *ResolvedPath
-	ResolvedColumn *ColumnValue
+	Path      PropertyPath          `json:"path"`
+	Direction SortDirectionOperator `json:"direction"`
+
+	ResolvedPath   *ResolvedPath `json:"-"`
+	ResolvedColumn *ColumnValue  `json:"-"`
 }
 
 type OrderByOperation struct {
-	Rules []*SortingRule
+	Rules []*SortingRule `json:"rules"`
 }
 
 // IsQueryOperation indicates that OrderByOperation is a QueryOperation
@@ -26,7 +27,7 @@ func parseOrderByOperation(
 	t *Tokeniser,
 	operationSeparator tokenType,
 	operationTerminator tokenType,
-) (QueryOperation, error) {
+) (*OrderByOperation, error) {
 	o := &OrderByOperation{
 		Rules: make([]*SortingRule, 0, 4),
 	}

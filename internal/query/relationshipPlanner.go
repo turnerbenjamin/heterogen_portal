@@ -69,8 +69,8 @@ func (p *RelationshipPlanner) getNextAlias() string {
 	return fmt.Sprintf("t%d", p.aliasCount)
 }
 
-func NewRelationshipPlan(operations []QueryOperation) (*RelationshipPlanner, error) {
-	rootAlias := "root"
+func NewRelationshipPlan(operations *Operations) (*RelationshipPlanner, error) {
+	rootAlias := operations.rootResource.Name()
 	plan := &RelationshipPlanner{
 		rootAlias: rootAlias,
 		Joins:     map[string]*Join{},
@@ -79,33 +79,34 @@ func NewRelationshipPlan(operations []QueryOperation) (*RelationshipPlanner, err
 		},
 	}
 
-	for _, op := range operations {
-		switch op := op.(type) {
-		case *OrderByOperation:
-			plan.processOrderByOperation(op)
-		case *FilterOperation:
-			err := plan.processFilterOperation(plan.rootAlias, op)
-			if err != nil {
-				return nil, err
-			}
-		default:
-			continue
+	if operations.OrderByOperation != nil {
+		err := plan.processOrderByOperation(operations.OrderByOperation)
+		if err != nil {
+			return nil, err
 		}
 	}
+
+	if operations.FilterOperation != nil {
+		err := plan.processFilterExpression(
+			plan.rootAlias,
+			operations.FilterOperation.FilterExpression,
+		)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	return plan, nil
 }
 
-func (p *RelationshipPlanner) processOrderByOperation(op *OrderByOperation) {
+func (p *RelationshipPlanner) processOrderByOperation(op *OrderByOperation) error {
 	for _, r := range op.Rules {
-		p.processJoin(p.rootAlias, p, r.ResolvedPath, 0)
+		err := p.processJoin(p, r.ResolvedPath, 0)
+		if err != nil {
+			return err
+		}
 	}
-}
-
-func (p *RelationshipPlanner) processFilterOperation(
-	rootAlias string,
-	ex *FilterOperation,
-) error {
-	return p.processFilterExpression(rootAlias, ex.FilterExpression)
+	return nil
 }
 
 func (p *RelationshipPlanner) processFilterExpression(
@@ -157,6 +158,10 @@ func (p *RelationshipPlanner) processExists(
 		return nil, internalErr("exists must be set with a root alias")
 	}
 
+	if path == nil {
+		return nil, internalErr("unable to process exists as resolved path is nil")
+	}
+
 	if depth == len(path.Steps) {
 		return exists, nil
 	}
@@ -194,32 +199,33 @@ func (p *RelationshipPlanner) processExists(
 }
 
 func (p *RelationshipPlanner) processJoin(
-	rootId string,
 	root JoinCollection,
 	path *ResolvedPath,
 	depth int,
-) {
-	if path == nil || depth == len(path.Steps) {
-		path.Id = rootId
-		return
+) error {
+	if path == nil {
+		return internalErr("unable to process exists as resolved path is nil")
+	}
+
+	if depth >= len(path.Steps) {
+		return nil
 	}
 
 	step := path.Steps[depth]
-	pathId := rootId + "_" + step.To.Name()
 
 	pathAlias := p.getNextAlias()
-	p.TableAliases[pathId] = pathAlias
+	p.TableAliases[step.SubPathId] = pathAlias
 
-	join := root.Get(pathId)
+	join := root.Get(step.SubPathId)
 	if join == nil {
-		join := &Join{
+		join = &Join{
 			alias:       pathAlias,
 			step:        step,
 			ParentAlias: root.Alias(),
 			Joins:       map[string]*Join{},
 		}
-		root.Add(pathId, join)
+		root.Add(step.SubPathId, join)
 	}
 
-	p.processJoin(pathId, join, path, depth+1)
+	return p.processJoin(join, path, depth+1)
 }

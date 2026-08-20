@@ -15,11 +15,11 @@ type FilterExpression interface {
 	IsFilterExpression()
 }
 
-type LogicalOperator int8
+type LogicalOperator string
 
 const (
-	LogicalAnd LogicalOperator = iota
-	LogicalOr
+	LogicalAnd LogicalOperator = "and"
+	LogicalOr  LogicalOperator = "or"
 )
 
 var supportedLogicalOperators = map[string]LogicalOperator{
@@ -81,36 +81,38 @@ var supportedCollectionOperators = map[string]CollectionOperator{
 }
 
 type LogicalExpression struct {
-	Left     FilterExpression
-	Operator LogicalOperator
-	Right    FilterExpression
+	Left     FilterExpression `json:"left"`
+	Operator LogicalOperator  `json:"operator"`
+	Right    FilterExpression `json:"right"`
 }
 
 func (e *LogicalExpression) IsFilterExpression() {}
 
 type ComparisonExpression struct {
-	Path           PropertyPath
-	Operator       ComparisonOperator
-	Value          ValueExpression
-	ResolvedPath   *ResolvedPath
-	ResolvedColumn *ColumnValue
-	ExistsPlan     *Exists
+	Path     PropertyPath       `json:"path"`
+	Operator ComparisonOperator `json:"operator"`
+	Value    ValueExpression    `json:"value"`
+
+	ResolvedPath   *ResolvedPath `json:"-"`
+	ResolvedColumn *ColumnValue  `json:"-"`
+	ExistsPlan     *Exists       `json:"-"`
 }
 
 func (e *ComparisonExpression) IsFilterExpression() {}
 
 type CollectionExpression struct {
-	Path             PropertyPath
-	Operator         CollectionOperator
-	FilterExpression FilterExpression
-	ResolvedPath     *ResolvedPath
-	ExistsPlan       *Exists
+	Path             PropertyPath       `json:"path"`
+	Operator         CollectionOperator `json:"operator"`
+	FilterExpression FilterExpression   `json:"filterExpression"`
+
+	ResolvedPath *ResolvedPath `json:"-"`
+	ExistsPlan   *Exists       `json:"-"`
 }
 
 func (e *CollectionExpression) IsFilterExpression() {}
 
 type PropertyPath struct {
-	Segments []string
+	Segments []string `json:"segments"`
 }
 
 type parser struct {
@@ -121,7 +123,7 @@ func parseFilterOperation(
 	t *Tokeniser,
 	operationSeparator tokenType,
 	endOfOperationsSentinal tokenType,
-) (QueryOperation, error) {
+) (*FilterOperation, error) {
 	p := &parser{
 		t: t,
 	}
@@ -358,46 +360,17 @@ func parseValue(p *parser) (ValueExpression, error) {
 
 	switch tkn.Type {
 	case TokenNull:
-		return NullLiteral{}, nil
+		return &NullLiteral{}, nil
 	case TokenStringRaw:
 		str, err := p.t.processRawStringToken(tkn)
 		if err != nil {
-			return StringLiteral{}, err
+			return &StringLiteral{}, err
 		}
-		return StringLiteral{
+		return &StringLiteral{
 			Value: str,
 		}, nil
 	case TokenNumberRaw:
-		dpCount := 0
-		for _, c := range tkn.Value {
-			if c == '.' {
-				dpCount++
-			}
-			if dpCount > 1 {
-				break
-			}
-		}
-
-		switch dpCount {
-		case 0:
-			i, err := strconv.Atoi(tkn.Value)
-			if err != nil {
-				return IntLiteral{}, internalErr("string conversion failed: %v", err)
-			}
-			return IntLiteral{
-				Value: i,
-			}, nil
-		case 1:
-			f, err := strconv.ParseFloat(tkn.Value, 64)
-			if err != nil {
-				return FloatLiteral{}, internalErr("string conversion failed: %v", err)
-			}
-			return FloatLiteral{
-				Value: f,
-			}, nil
-		default:
-			return IntLiteral{}, p.t.TknErr(tkn, "invalid number value: %s", tkn.Value)
-		}
+		return processRawNumberToken(tkn)
 	case TokenParenL:
 		return parseList(p)
 
@@ -440,11 +413,11 @@ func parseList(p *parser) (ValueExpression, error) {
 	}
 
 	switch first := first.(type) {
-	case StringLiteral:
+	case *StringLiteral:
 		vs, err := parseListElements(
 			p,
 			first.GetTypeName(),
-			func(v StringLiteral) string {
+			func(v *StringLiteral) string {
 				return v.Value
 			},
 		)
@@ -454,11 +427,11 @@ func parseList(p *parser) (ValueExpression, error) {
 		return &StringListLiteral{
 			Values: slices.Concat([]string{first.Value}, vs),
 		}, nil
-	case IntLiteral:
+	case *IntLiteral:
 		vs, err := parseListElements(
 			p,
 			first.GetTypeName(),
-			func(v IntLiteral) int {
+			func(v *IntLiteral) int64 {
 				return v.Value
 			},
 		)
@@ -466,13 +439,13 @@ func parseList(p *parser) (ValueExpression, error) {
 			return nil, err
 		}
 		return &IntListLiteral{
-			Values: slices.Concat([]int{first.Value}, vs),
+			Values: slices.Concat([]int64{first.Value}, vs),
 		}, nil
-	case FloatLiteral:
+	case *FloatLiteral:
 		vs, err := parseListElements(
 			p,
 			first.GetTypeName(),
-			func(v FloatLiteral) float64 {
+			func(v *FloatLiteral) float64 {
 				return v.Value
 			},
 		)
@@ -514,5 +487,38 @@ func parseListElements[WT ValueExpression, RT any](
 			return nil, syntaxErr("%s lists cannot contain elements of type %s", listType, v.GetTypeName())
 		}
 		o = append(o, unwrap(wv))
+	}
+}
+
+func processRawNumberToken(tkn token) (ValueExpression, error) {
+	dpCount := 0
+	for _, c := range tkn.Value {
+		if c == '.' {
+			dpCount++
+		}
+		if dpCount > 1 {
+			break
+		}
+	}
+
+	switch dpCount {
+	case 0:
+		i, err := strconv.Atoi(tkn.Value)
+		if err != nil {
+			return &IntLiteral{}, internalErr("unable to convert string to int: %v", err)
+		}
+		return &IntLiteral{
+			Value: int64(i),
+		}, nil
+	case 1:
+		f, err := strconv.ParseFloat(tkn.Value, 64)
+		if err != nil {
+			return &FloatLiteral{}, internalErr("unable to convert string to float: %v", err)
+		}
+		return &FloatLiteral{
+			Value: f,
+		}, nil
+	default:
+		return &IntLiteral{}, internalErr("invalid number value: %s", tkn.Value)
 	}
 }

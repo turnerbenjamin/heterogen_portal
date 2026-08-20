@@ -1,4 +1,4 @@
-package queryaccesspolicies
+package queryAccessPolicies
 
 import (
 	"github.com/turnerbenjamin/heterogen_portal/internal/model"

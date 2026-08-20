@@ -26,6 +26,10 @@ const (
 	// incompatible with the access policy
 	QueryErrAccessErr queryErrorCategory = iota
 
+	// QueryErrInvalidTokenErr is used to represent errors due to invalid next
+	// page tokens
+	QueryErrInvalidTokenErr queryErrorCategory = iota
+
 	// QueryErrInternalErr is used to represent internal failures. Error
 	// messages are designed to help debugging and are not intended for display
 	// to users
@@ -85,6 +89,14 @@ func bindingErr(m string, a ...any) error {
 func accessErr(m string, a ...any) error {
 	return &queryError{
 		category: QueryErrAccessErr,
+		err:      fmt.Errorf(m, a...),
+	}
+}
+
+// nextPageTokenErr builds a queryError with the category QueryErrInvalidTokenErr
+func nextPageTokenErr(m string, a ...any) error {
+	return &queryError{
+		category: QueryErrInvalidTokenErr,
 		err:      fmt.Errorf(m, a...),
 	}
 }

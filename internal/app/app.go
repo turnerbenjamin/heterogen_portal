@@ -83,7 +83,11 @@ func Init(
 		return nil, err
 	}
 
-	dependencies := initAppDependencies()
+	dependencies, err := initAppDependencies(appSettings)
+	if err != nil{
+		return nil, err
+	}
+
 	repos := initRepos(ctx, app.dbConnection)
 
 	app.services, err = initServices(
@@ -143,6 +147,7 @@ func initServices(
 	queryService := services.NewQueryService(
 		repos.queryRepo,
 		dependencies.queryParser,
+		dependencies.nextPageTokenBuilder,
 	)
 
 	return &appServices{

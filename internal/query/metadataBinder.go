@@ -1,10 +1,9 @@
 package query
 
 import (
+	"fmt"
 	"strings"
 )
-
-var resolvedPathStore = map[string]*ResolvedPath{}
 
 type ResolvedPath struct {
 	Id            string
@@ -15,39 +14,51 @@ type ResolvedPath struct {
 }
 
 type TraversalStep struct {
+	SubPathId    string
 	From         TableMetadata
 	Relationship RelationshipMetadata
 	To           TableMetadata
 }
 
 type metadataBinder struct {
-	maximumDepth int
-	accessPolicy AccessPolicy
+	pathIdBuilder *strings.Builder
+	maximumDepth  int
+	accessPolicy  AccessPolicy
 }
 
-func (b metadataBinder) bindMetadata(
-	rootResource TableMetadata,
-	depth int,
-	operations []QueryOperation,
-) error {
+func (b metadataBinder) bindMetadata(rootResource TableMetadata, operations *Operations) error {
 	if b.accessPolicy == nil {
 		return internalErr("access policy cannot be nil")
 	}
 
-	if depth > b.maximumDepth {
-		return syntaxErr("maximum expand depth (%d) exceeded", b.maximumDepth)
-	}
-
-	for _, op := range operations {
-		switch op := op.(type) {
-		case *SelectOperation:
-			return b.bindSelectOperation(rootResource, op)
-		case *ExpandOperation:
-			return b.bindExpandOperation(rootResource, depth, op)
-		default:
-			return internalErr("unexpected operation received")
+	if operations.SelectOperation != nil {
+		err := b.bindSelectOperation(rootResource, operations.SelectOperation)
+		if err != nil {
+			return err
 		}
 	}
+
+	if operations.ExpandOperation != nil {
+		err := b.bindExpandOperation(rootResource, operations.ExpandOperation)
+		if err != nil {
+			return err
+		}
+	}
+
+	if operations.FilterOperation != nil {
+		err := b.bindFilterExpression(rootResource, operations.FilterOperation.FilterExpression)
+		if err != nil {
+			return err
+		}
+	}
+
+	if operations.OrderByOperation != nil {
+		err := b.bindOrderByOperation(rootResource, operations.OrderByOperation)
+		if err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -83,51 +94,46 @@ func (b metadataBinder) bindSelectOperation(
 	return nil
 }
 
-func (b metadataBinder) bindExpandOperation(
-	rootResource TableMetadata,
-	depth int,
-	op *ExpandOperation,
-) error {
+func (b metadataBinder) bindExpandOperation(rootResource TableMetadata, op *ExpandOperation) error {
 	for _, e := range op.Expands {
-		relationshipData, err := b.resolveRelationship(
-			rootResource,
-			e.RelationshipName,
-		)
-		if err != nil {
-			return err
-		}
-
-		e.Link = &TraversalStep{
-			From:         rootResource,
-			To:           relationshipData.To(),
-			Relationship: relationshipData,
-		}
-
-		err = b.validateTraversal(e.Link)
-		if err != nil {
-			return err
-		}
-
-		err = b.bindMetadata(e.Link.To, depth+1, e.Operations)
-		if err != nil {
+		if err := b.bindExpand(rootResource, e); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (b metadataBinder) bindFilterOperation(
-	rootResource TableMetadata,
-	depth int,
-	ex FilterExpression,
-) error {
+func (b metadataBinder) bindExpand(rootResource TableMetadata, e *Expand) error {
+	relationshipData, err := b.resolveRelationship(
+		rootResource,
+		e.RelationshipName,
+	)
+	if err != nil {
+		return err
+	}
+
+	e.Link = &TraversalStep{
+		SubPathId:    appendToPath(rootResource.Name(), relationshipData.To()),
+		From:         rootResource,
+		To:           relationshipData.To(),
+		Relationship: relationshipData,
+	}
+
+	err = b.validateTraversal(e.Link)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (b metadataBinder) bindFilterExpression(rootResource TableMetadata, ex FilterExpression) error {
 	switch ex := ex.(type) {
 	case *LogicalExpression:
-		err := b.bindFilterOperation(rootResource, depth, ex.Left)
+		err := b.bindFilterExpression(rootResource, ex.Left)
 		if err != nil {
 			return err
 		}
-		return b.bindFilterOperation(rootResource, depth, ex.Right)
+		return b.bindFilterExpression(rootResource, ex.Right)
 	case *ComparisonExpression:
 		traversalPathLength := len(ex.Path.Segments) - 1
 		r, err := b.resolvePath(
@@ -194,10 +200,7 @@ func (b metadataBinder) bindFilterOperation(
 		}
 		ex.ResolvedPath = r
 
-		if len(ex.ResolvedPath.Steps) > 0 {
-			depth = depth + 1
-		}
-		return b.bindFilterOperation(ex.ResolvedPath.EndResource, depth, ex.FilterExpression)
+		return b.bindFilterExpression(ex.ResolvedPath.EndResource, ex.FilterExpression)
 	default:
 		return internalErr("unexpected expression type received")
 	}
@@ -295,8 +298,12 @@ func (b *metadataBinder) resolvePath(
 		)
 	}
 
-	traversalPathSegments := path.Segments[0:traversalPathLength]
-	pathId := rootResource.Name() + "_" + strings.Join(traversalPathSegments, "_")
+	if b.pathIdBuilder == nil {
+		b.pathIdBuilder = &strings.Builder{}
+	}
+
+	b.pathIdBuilder.Reset()
+	b.pathIdBuilder.WriteString(rootResource.Name())
 
 	o := &ResolvedPath{
 		StartResource: rootResource,
@@ -327,7 +334,9 @@ func (b *metadataBinder) resolvePath(
 			)
 		}
 
+		appendToPathSB(b.pathIdBuilder, relationshipData.To())
 		o.Steps[i] = TraversalStep{
+			SubPathId:    b.pathIdBuilder.String(),
 			From:         o.EndResource,
 			Relationship: relationshipData,
 			To:           relationshipData.To(),
@@ -342,7 +351,7 @@ func (b *metadataBinder) resolvePath(
 		i++
 	}
 
-	resolvedPathStore[pathId] = o
+	o.Id = b.pathIdBuilder.String()
 	return o, nil
 }
 
@@ -436,4 +445,13 @@ func validateColumnAccess(
 		)
 	}
 	return nil
+}
+
+func appendToPath(path string, resource TableMetadata) string {
+	return fmt.Sprintf("%s/%s", path, resource.Name())
+}
+
+func appendToPathSB(sb *strings.Builder, resource TableMetadata) {
+	sb.WriteByte('/')
+	sb.WriteString(resource.Name())
 }

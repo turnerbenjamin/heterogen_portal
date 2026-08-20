@@ -2,7 +2,6 @@ package query
 
 import (
 	"fmt"
-	"slices"
 	"strings"
 )
 
@@ -10,14 +9,28 @@ import (
 // constructing a statement and an args slice containing placeholder values.
 // statement is a materialisation of the strings builder post build
 type sqlQuery struct {
-	sb        *strings.Builder
 	args      []any
 	statement string
 }
 
+type stringCoords struct {
+	left  int
+	right int
+}
+
+type queryWriter struct {
+	sb              *strings.Builder
+	args            []any
+	statement       string
+	selectLocation  stringCoords
+	fromLocation    stringCoords
+	filterLocation  stringCoords
+	orderByLocation stringCoords
+}
+
 // arg adds a new argument to the args list and returns a unique placeholder for
 // use in the sql statement
-func (q *sqlQuery) arg(v any) string {
+func (q *queryWriter) arg(v any) string {
 	q.args = append(q.args, v)
 	return fmt.Sprintf("@p%d", len(q.args))
 }
@@ -38,103 +51,233 @@ type nestedQuery struct {
 
 // sqlQueryBuilder is used to build and execute sql queries
 type sqlQueryBuilder struct {
-	metadataBinder        *metadataBinder
-	relationshipPlan      *RelationshipPlanner
-	rootResource          TableMetadata
-	accessPolicy          AccessPolicy
-	pathToTableIdentifier map[string]string
-	resourceAccessPolicy  TableAccessPolicy
-	selectOperation       *SelectOperation
-	systemSelectOperation *SelectOperation
-	filterExpression      FilterExpression
-	orderByOperation      *OrderByOperation
-	nestedQueries         map[string]*nestedQuery
-	aliasCount            int
+	depth                int
+	pagingTokenParser    PagingTokenBuilder
+	metadataBinder       *metadataBinder
+	relationshipPlan     *RelationshipPlanner
+	rootResource         TableMetadata
+	accessPolicy         AccessPolicy
+	resourceAccessPolicy TableAccessPolicy
+	operations           *Operations
+	doIncludeCount       bool
+	nestedQueries        map[string]*nestedQuery
 }
 
-// NewSqlQueryBuilder constructs a new sqlQueryBuilderInstance from
+// newSqlQueryBuilder constructs a new sqlQueryBuilderInstance from
 // QueryOperations. It will return an error if the operations cannot be bound to
 // the schema metadata
-func NewSqlQueryBuilder(
+func newSqlQueryBuilder(
 	rootResource TableMetadata,
 	accessPolicy AccessPolicy,
-	operations []QueryOperation,
+	queryOperations *Operations,
+	pagingTokenParser PagingTokenBuilder,
 ) (*sqlQueryBuilder, error) {
-	if accessPolicy == nil {
-		return nil, internalErr("access policy cannot be nil")
-	}
+	// if accessPolicy == nil {
+	// 	return nil, internalErr("access policy cannot be nil")
+	// }
 
-	resourceAccessPolicy := accessPolicy.GetTableAccessPolicy(rootResource.Name())
-	if resourceAccessPolicy == nil {
-		return nil, internalErr("unable to find access policy for %s", rootResource)
-	}
+	// resourceAccessPolicy := accessPolicy.GetTableAccessPolicy(rootResource.Name())
+	// if resourceAccessPolicy == nil {
+	// 	return nil, internalErr("unable to find access policy for %s", rootResource)
+	// }
 
-	if !resourceAccessPolicy.CanAccess() {
-		return nil, accessErr("access to the %s table is denied", rootResource.Name())
+	// if !resourceAccessPolicy.CanAccess() {
+	// 	return nil, accessErr("access to the %s table is denied", rootResource.Name())
+	// }
+
+	if queryOperations.state != operationsStateReadyForBuild {
+		return nil, internalErr("query operations must be ready for build")
 	}
 
 	b := &sqlQueryBuilder{
-		metadataBinder:        &metadataBinder{maximumDepth: 5, accessPolicy: accessPolicy},
-		rootResource:          rootResource,
-		accessPolicy:          accessPolicy,
-		pathToTableIdentifier: map[string]string{},
-		nestedQueries:         map[string]*nestedQuery{},
+		operations:        queryOperations,
+		pagingTokenParser: pagingTokenParser,
+		metadataBinder:    &metadataBinder{maximumDepth: 5, accessPolicy: accessPolicy},
+		rootResource:      rootResource,
+		accessPolicy:      accessPolicy,
+		nestedQueries:     map[string]*nestedQuery{},
+		depth:             0,
 	}
 
-	for _, op := range operations {
-		switch op := op.(type) {
+	// // Build operations struct from raw operations
+	// operations, err := b.processRawOperations(queryOperations)
+	// if err != nil {
+	// 	return nil, err
+	// }
 
-		case *SelectOperation:
-			err := b.metadataBinder.bindSelectOperation(rootResource, op)
-			if err != nil {
-				return nil, err
-			}
-			b.selectOperation = op
+	// b.operations = operations
 
-		case *FilterOperation:
-			err := b.metadataBinder.bindFilterOperation(rootResource, 0, op.FilterExpression)
-			if err != nil {
-				return nil, err
-			}
+	// // Ensure that the primary key of the table is always contained in a sorting
+	// // operation
+	// b.ensureDeterministicSorting(operations.OrderByOperation)
 
-			b.filterExpression = op.FilterExpression
+	// // Bind metadata to the operations
+	// err = b.metadataBinder.bindMetadata(rootResource, operations)
+	// if err != nil {
+	// 	return nil, err
+	// }
 
-		case *ExpandOperation:
-			err := b.metadataBinder.bindExpandOperation(rootResource, 0, op)
-			if err != nil {
-				return nil, err
-			}
-			err = b.processExpandOperation(op)
-
-		case *OrderByOperation:
-			err := b.metadataBinder.bindOrderByOperation(rootResource, op)
-			if err != nil {
-				return nil, err
-			}
-			b.orderByOperation = op
-		default:
-			return nil, fmt.Errorf("unexpected query operation received: %v", op)
-		}
-	}
-
-	relationshipPlan, err := NewRelationshipPlan(operations)
+	// Build relationship plan for exists and joins
+	relationshipPlan, err := NewRelationshipPlan(queryOperations)
 	if err != nil {
 		return nil, err
 	}
 	b.relationshipPlan = relationshipPlan
 
+	b.createBuildersforNestedOperations()
+
+	// // Process expand operation to build nested queries and add any required
+	// // join on fields to the system select
+	// if operations.ExpandOperation != nil {
+	// 	doProject := true
+	// 	err = b.processExpandOperation(operations.ExpandOperation, doProject)
+	// 	if err != nil {
+	// 		return nil, err
+	// 	}
+	// }
+
+	// // Process order by operations to provide system access to all values
+	// // specified in the order by operation. This enables cursor pagination
+	// err = b.addRequiredOperationsForCursorPagination(operations.OrderByOperation)
+
 	return b, nil
 }
 
-func (b *sqlQueryBuilder) nextTableAlias() string {
-	b.aliasCount++
-	return fmt.Sprintf("a%d", b.aliasCount)
+func (b *sqlQueryBuilder) newNestedSqlQueryBuilder(
+	rootResource TableMetadata,
+	accessPolicy AccessPolicy,
+	rawOperations *Operations,
+) (*sqlQueryBuilder, error) {
+	nestedBuilder, err := newSqlQueryBuilder(
+		rootResource,
+		accessPolicy,
+		rawOperations,
+		b.pagingTokenParser,
+	)
+	if err != nil {
+		return nil, err
+	}
+	nestedBuilder.depth = b.depth + 1
+	return nestedBuilder, nil
 }
 
-func (b *sqlQueryBuilder) processExpandOperation(op *ExpandOperation) error {
+// processRawOperations adds all operations to a struct. Default operations are
+// used for required operations not defined in the query string
+func (b *sqlQueryBuilder) processRawOperations(operations *Operations) (*Operations, error) {
+	if operations.SelectOperation == nil {
+		defaultSelect, err := b.buildDefaultSelect()
+		if err != nil {
+			return operations, err
+		}
+		operations.SelectOperation = defaultSelect
+	}
+
+	if operations.OrderByOperation == nil {
+		operations.OrderByOperation = b.buildDefaultOrderBy()
+	}
+
+	if operations.LimitOperation == nil {
+		operations.LimitOperation = b.buildDefaultLimit()
+	}
+
+	return operations, nil
+}
+
+func (b *sqlQueryBuilder) buildDefaultSelect() (*SelectOperation, error) {
+	defaultSelect := &SelectOperation{
+		Columns: make(map[string]*ColumnValue, b.rootResource.ColumnCount()),
+	}
+
+	resourceAccessPolicy, err := b.metadataBinder.getTableAccessPolicy(b.rootResource)
+	if err != nil {
+		return nil, err
+	}
+
+	i := 0
+	for col := range b.rootResource.Columns() {
+		accessPolicy := resourceAccessPolicy.GetColumnAccessPolicy(col.Name())
+		if accessPolicy == nil {
+			return nil, internalErr("unable to find access policy for %s.%s", b.rootResource.Name(), col.Name())
+		}
+
+		if !accessPolicy.CanAccess() {
+			continue
+		}
+
+		defaultSelect.Columns[col.Name()] = &ColumnValue{
+			ColumnName: col.Name(),
+		}
+		i++
+	}
+	return defaultSelect, nil
+}
+
+func (b *sqlQueryBuilder) buildDefaultOrderBy() *OrderByOperation {
+	defaultOrderBy := &OrderByOperation{
+		Rules: make([]*SortingRule, 0, 1),
+	}
+
+	defaultOrderBy.Rules = append(defaultOrderBy.Rules, &SortingRule{
+		Path: PropertyPath{
+			Segments: []string{b.rootResource.PrimaryKeyField().Name()},
+		},
+		Direction: "ASC",
+	})
+	return defaultOrderBy
+}
+
+func (b *sqlQueryBuilder) buildDefaultLimit() *LimitOperation {
+	return &LimitOperation{
+		Limit: 5000,
+	}
+}
+
+func (b *sqlQueryBuilder) ensureDeterministicSorting(op *OrderByOperation) {
+	// If primary key field present in order by rule return
+	primaryKeyField := b.rootResource.PrimaryKeyField()
+	for _, rule := range op.Rules {
+		if len(rule.Path.Segments) == 1 && rule.Path.Segments[0] == primaryKeyField.Name() {
+			return
+		}
+	}
+
+	// else add to the rule
+	op.Rules = append(op.Rules, &SortingRule{
+		Path: PropertyPath{
+			Segments: []string{b.rootResource.PrimaryKeyField().Name()},
+		},
+		Direction: "ASC",
+	})
+}
+
+func (b *sqlQueryBuilder) createBuildersforNestedOperations() error {
+	op := b.operations.ExpandOperation
+	if op == nil {
+		return nil
+	}
+
+	for _, expand := range op.Expands {
+		nestedQueryBuilder, err := b.newNestedSqlQueryBuilder(
+			expand.Link.To,
+			b.accessPolicy,
+			expand.Operations,
+		)
+		if err != nil {
+			return err
+		}
+
+		b.nestedQueries[string(expand.Link.Relationship.Id())] = &nestedQuery{
+			queryBuilder: nestedQueryBuilder,
+			link:         expand.Link,
+		}
+	}
+	return nil
+}
+
+func (b *sqlQueryBuilder) processExpandOperation(op *ExpandOperation, doProject bool) error {
 	for _, expand := range op.Expands {
 
-		nestedQueryBuilder, err := NewSqlQueryBuilder(
+		nestedQueryBuilder, err := b.newNestedSqlQueryBuilder(
 			expand.Link.To,
 			b.accessPolicy,
 			expand.Operations,
@@ -155,18 +298,119 @@ func (b *sqlQueryBuilder) processExpandOperation(op *ExpandOperation) error {
 	return nil
 }
 
-func (b *sqlQueryBuilder) addSystemSelect(columnName string) error {
-	if b.systemSelectOperation == nil {
-		b.systemSelectOperation = &SelectOperation{
-			Columns: []*ColumnValue{},
+func (b *sqlQueryBuilder) addRequiredOperationsForCursorPagination(op *OrderByOperation) error {
+	// cursor pagination only needed at the top level query
+	if b.depth != 0 {
+		return nil
+	}
+
+	for _, rule := range op.Rules {
+		if rule.ResolvedPath == nil {
+			return internalErr("resolved path has not been populated for orderby rule")
+		}
+
+		if rule.ResolvedPath.Id == "" {
+			return internalErr("resolved path id has not been populated")
+		}
+
+		// if order by field is on the top level query just add the field to the
+		// system select so that it is available
+		if len(rule.ResolvedPath.Steps) == 0 {
+			b.addSystemSelect(rule.ResolvedColumn.ColumnName)
+		} else {
+			b.addNestedSystemSelect(rule.ResolvedPath.Steps, rule.ResolvedColumn)
 		}
 	}
 
-	b.systemSelectOperation.Columns = append(
-		b.systemSelectOperation.Columns,
-		&ColumnValue{ColumnName: columnName},
-	)
-	return b.metadataBinder.bindSelectOperation(b.rootResource, b.systemSelectOperation)
+	return nil
+}
+
+func (b *sqlQueryBuilder) addNestedSystemSelect(pathSteps []TraversalStep, requiredColumn *ColumnValue) error {
+
+	nextStep := pathSteps[0]
+	nestedQuery, exists := b.nestedQueries[nextStep.Relationship.Id()]
+
+	if exists && nestedQuery != nil {
+		// If an existing nested query is found for the orderby column, add a
+		// system select to that query for the column and return
+		remainingPath := pathSteps[1:]
+		if len(remainingPath) == 0 {
+			return nestedQuery.queryBuilder.addSystemSelect(requiredColumn.ColumnName)
+		} else {
+			// If a nested query is found, but it is not the final resource, recall
+			// the current function against the nested query with the remaining path
+			return nestedQuery.queryBuilder.addNestedSystemSelect(remainingPath, requiredColumn)
+		}
+	} else {
+		// If a nested query is not found one, we need to construct a system
+		// expand and select the required column
+		return b.addSystemExpand(pathSteps, requiredColumn)
+	}
+}
+
+func (b *sqlQueryBuilder) addSystemExpand(pathSteps []TraversalStep, requiredColumn *ColumnValue) error {
+
+	totalSteps := len(pathSteps)
+	var lastExpand *ExpandOperation
+	for i := totalSteps - 1; i >= 0; i-- {
+		step := pathSteps[i]
+
+		// Build Expand
+		expand := &Expand{
+			RelationshipName: step.Relationship.FromColumn().Name(),
+			Operations:       &Operations{},
+		}
+
+		expandOperation := &ExpandOperation{
+			Expands: map[string]*Expand{
+				expand.RelationshipName: expand,
+			},
+		}
+
+		// Build Expand.select with primary key field only
+		toPrimaryKeyField := step.To.PrimaryKeyField()
+		selectColumns := map[string]*ColumnValue{
+			toPrimaryKeyField.Name(): {
+				ColumnName: toPrimaryKeyField.Name(),
+				ColumnData: toPrimaryKeyField,
+			},
+		}
+		expand.Operations.SelectOperation = &SelectOperation{Columns: selectColumns}
+
+		if i == totalSteps-1 {
+			// If we are on the final step, add the required column to the
+			// select
+			selectColumns[requiredColumn.ColumnName] = requiredColumn
+		} else {
+			// if we are on an intermediate step, add the last expands to the
+			// current expand operations
+			expand.Operations.ExpandOperation = lastExpand
+		}
+		lastExpand = expandOperation
+	}
+
+	err := b.metadataBinder.bindExpandOperation(b.rootResource, lastExpand)
+	if err != nil {
+		return err
+	}
+
+	doProject := false
+	return b.processExpandOperation(lastExpand, doProject)
+}
+
+func (b *sqlQueryBuilder) addSystemSelect(columnName string) error {
+	if b.operations.SystemSelectOperation == nil {
+		b.operations.SystemSelectOperation = &SelectOperation{
+			Columns: map[string]*ColumnValue{},
+		}
+	}
+
+	if _, exists := b.operations.SelectOperation.Columns[columnName]; exists {
+		return nil
+	}
+
+	b.operations.SystemSelectOperation.Columns[columnName] = &ColumnValue{ColumnName: columnName}
+	return b.metadataBinder.bindSelectOperation(b.rootResource, b.operations.SystemSelectOperation)
 }
 
 func (b *sqlQueryBuilder) addAssociatedWithParentFilter(
@@ -182,7 +426,7 @@ func (b *sqlQueryBuilder) addAssociatedWithParentFilter(
 			Values: joinParentOnValues,
 		},
 	}
-	err := b.metadataBinder.bindFilterOperation(b.rootResource, 0, associationFilter)
+	err := b.metadataBinder.bindFilterExpression(b.rootResource, associationFilter)
 	if err != nil {
 		return err
 	}
@@ -195,117 +439,174 @@ func (b *sqlQueryBuilder) addAssociatedWithParentFilter(
 		return err
 	}
 
-	if b.filterExpression == nil {
-		b.filterExpression = associationFilter
+	if b.operations.FilterOperation == nil {
+		b.operations.FilterOperation = &FilterOperation{
+			FilterExpression: associationFilter,
+		}
 	} else {
-		b.filterExpression = &LogicalExpression{
+		b.operations.FilterOperation.FilterExpression = &LogicalExpression{
 			Left:     associationFilter,
 			Operator: LogicalAnd,
-			Right:    b.filterExpression,
+			Right:    b.operations.FilterOperation.FilterExpression,
 		}
 	}
 	return nil
 }
 
 func (b *sqlQueryBuilder) build() (*sqlQuery, error) {
-	o := &sqlQuery{
+	w := &queryWriter{
 		sb:   &strings.Builder{},
 		args: []any{},
 	}
 
-	// build select expression
-	b.buildSelectStatement(o)
-
-	// build from statement
-	b.buildFromStatement(o)
-
-	// build any joinds
-	b.buildJoins(o, b.relationshipPlan.Joins)
-
-	// build filter expression
-	err := b.buildFilterStatement(o)
+	err := b.writeQuery(w)
 	if err != nil {
 		return nil, err
 	}
+	w.statement = w.sb.String()
 
-	// build orderby expression
-	err = b.buildOrderByStatement(o)
+	return &sqlQuery{
+		statement: w.sb.String(),
+		args:      w.args,
+	}, nil
+}
+
+func (b *sqlQueryBuilder) buildTopLevelQuery() (*sqlQuery, string, error) {
+	// Initialise a streaming query writer
+	w := &queryWriter{
+		sb:   &strings.Builder{},
+		args: []any{},
+	}
+
+	// Increment limit by 1 so that we can identify if a next page of records
+	// exists
+	b.operations.LimitOperation.Limit = b.operations.LimitOperation.Limit + 1
+
+	// Write the main query
+	err := b.writeQuery(w)
 	if err != nil {
-		return o, err
+		return nil, "", err
+	}
+	w.statement = w.sb.String()
+
+	// Restore the original limit value
+	b.operations.LimitOperation.Limit = b.operations.LimitOperation.Limit - 1
+
+	// Construct the count statement
+	countStatement := b.buildCountStatement(w)
+
+	return &sqlQuery{
+		statement: w.sb.String(),
+		args:      w.args,
+	}, countStatement, nil
+
+}
+
+func (b *sqlQueryBuilder) writeQuery(w *queryWriter) error {
+	err := b.writeSelectStatement(w)
+	if err != nil {
+		return err
+	}
+
+	b.writeFromStatement(w)
+
+	b.writeJoins(w, b.relationshipPlan.Joins)
+
+	err = b.writeFilterStatement(w)
+	if err != nil {
+		return err
+	}
+
+	err = b.writeOrderByStatement(w)
+	if err != nil {
+		return err
+	}
+
+	err = b.writeLimitStatement(w)
+	if err != nil {
+		return err
 	}
 
 	// request json response
-	o.sb.WriteString("FOR JSON PATH;")
-	o.statement = o.sb.String()
+	w.sb.WriteString("FOR JSON PATH;")
 
-	return o, nil
+	return nil
 }
 
-func (b *sqlQueryBuilder) buildFromStatement(o *sqlQuery) {
-	o.sb.WriteString("FROM ")
-	o.sb.WriteString(b.rootResource.FullyQualifiedName())
-	o.sb.WriteRune(' ')
-	o.sb.WriteString(b.relationshipPlan.rootAlias)
-	o.sb.WriteRune(' ')
+func (b *sqlQueryBuilder) buildCountStatement(w *queryWriter) string {
+	coreQueryString := w.sb.String()
+
+	countSb := strings.Builder{}
+	countSb.WriteString("SELECT COUNT(*) AS total_count")
+	countSb.WriteRune(' ')
+
+	fromString := coreQueryString[w.fromLocation.left:w.fromLocation.right]
+	countSb.WriteString(fromString)
+	countSb.WriteRune(' ')
+
+	filterString := coreQueryString[w.filterLocation.left:w.filterLocation.right]
+	countSb.WriteString(filterString)
+	countSb.WriteRune(';')
+
+	return countSb.String()
 }
 
-func (b *sqlQueryBuilder) buildSelectStatement(o *sqlQuery) error {
-	// if no columns selected add all columns
-	if b.selectOperation == nil || len(b.selectOperation.Columns) == 0 {
-		b.selectOperation = &SelectOperation{
-			Columns: make([]*ColumnValue, 0, b.rootResource.ColumnCount()),
-		}
+func (b *sqlQueryBuilder) writeFromStatement(w *queryWriter) {
+	w.fromLocation.left = w.sb.Len()
 
-		resourceAccessPolicy, err := b.metadataBinder.getTableAccessPolicy(b.rootResource)
-		if err != nil {
-			return err
-		}
+	w.sb.WriteString("FROM ")
+	w.sb.WriteString(b.rootResource.FullyQualifiedName())
+	w.sb.WriteRune(' ')
+	w.sb.WriteString(b.relationshipPlan.rootAlias)
 
-		i := 0
-		for col := range b.rootResource.Columns() {
-			accessPolicy := resourceAccessPolicy.GetColumnAccessPolicy(col.Name())
-			if accessPolicy == nil {
-				return internalErr("unable to find access policy for %s.%s", b.rootResource.Name(), col.Name())
-			}
-			if !accessPolicy.CanAccess() {
-				continue
-			}
+	w.fromLocation.right = w.sb.Len()
 
-			b.selectOperation.Columns = append(b.selectOperation.Columns, &ColumnValue{
-				ColumnName: col.Name(),
-				ColumnData: col,
-			})
-			i++
-		}
-	} else if b.systemSelectOperation != nil && b.systemSelectOperation.Columns != nil {
-		b.selectOperation.Columns = slices.Concat(
-			b.selectOperation.Columns,
-			b.systemSelectOperation.Columns,
-		)
+	w.sb.WriteRune(' ')
+}
+
+func (b *sqlQueryBuilder) writeSelectStatement(w *queryWriter) error {
+	// Expect either a user or system defined select statemet
+	selectOp := b.operations.SelectOperation
+	systemSelectOp := b.operations.SystemSelectOperation
+
+	if selectOp == nil || len(selectOp.Columns) == 0 {
+		return internalErr("expected a select operation with at least one column specified")
 	}
 
-	o.sb.WriteString("SELECT ")
+	columns := make([]*ColumnValue, 0, len(selectOp.Columns)+len(systemSelectOp.Columns))
 
-	seen := map[string]struct{}{}
+	// Add all columns to select
+	for _, v := range selectOp.Columns {
+		columns = append(columns, v)
+	}
+
+	if systemSelectOp != nil && systemSelectOp.Columns != nil {
+		for _, v := range systemSelectOp.Columns {
+			columns = append(columns, v)
+		}
+	}
+
+	w.selectLocation.left = w.sb.Len()
+	w.sb.WriteString("SELECT ")
+
 	i := 0
-	for _, columnValue := range b.selectOperation.Columns {
-		if _, ok := seen[columnValue.ColumnName]; ok {
-			continue
-		}
-		seen[columnValue.ColumnName] = struct{}{}
-
+	for _, columnValue := range columns {
 		if i > 0 {
-			o.sb.WriteString(",")
+			w.sb.WriteString(",")
 		}
+
 		fmt.Fprintf(
-			o.sb,
+			w.sb,
 			"%s.%s",
 			b.relationshipPlan.rootAlias,
 			b.formatSelectValue(columnValue.ColumnData),
 		)
 		i++
 	}
-	o.sb.WriteRune(' ')
+
+	w.selectLocation.right = w.sb.Len()
+
+	w.sb.WriteRune(' ')
 	return nil
 }
 
@@ -318,9 +619,9 @@ func (b *sqlQueryBuilder) formatSelectValue(columnData ColumnMetadata) string {
 	}
 }
 
-func (b *sqlQueryBuilder) buildJoins(o *sqlQuery, joins map[string]*Join) {
+func (b *sqlQueryBuilder) writeJoins(w *queryWriter, joins map[string]*Join) {
 	for _, join := range joins {
-		fmt.Fprintf(o.sb,
+		fmt.Fprintf(w.sb,
 			"LEFT JOIN %s %s on %s.%s = %s.%s",
 			join.step.To.FullyQualifiedName(),
 			join.alias,
@@ -331,21 +632,23 @@ func (b *sqlQueryBuilder) buildJoins(o *sqlQuery, joins map[string]*Join) {
 		)
 
 		if len(join.Joins) > 0 {
-			o.sb.WriteRune(' ')
-			b.buildJoins(o, join.Joins)
+			w.sb.WriteRune(' ')
+			b.writeJoins(w, join.Joins)
 		}
-		o.sb.WriteRune(' ')
+		w.sb.WriteRune(' ')
 	}
 }
 
-func (b *sqlQueryBuilder) buildOrderByStatement(o *sqlQuery) error {
-	if b.orderByOperation == nil || len(b.orderByOperation.Rules) == 0 {
-		return nil
+func (b *sqlQueryBuilder) writeOrderByStatement(w *queryWriter) error {
+	if b.operations.OrderByOperation == nil || len(b.operations.OrderByOperation.Rules) == 0 {
+		return internalErr("expected an orderby operation with at least the primary column specified")
 	}
 
-	o.sb.WriteString("ORDER BY ")
+	w.orderByLocation.left = w.sb.Len()
+	w.sb.WriteString("ORDER BY ")
 
-	for i, r := range b.orderByOperation.Rules {
+	orderByRules := b.operations.OrderByOperation.Rules
+	for i, r := range orderByRules {
 		if r.ResolvedPath.Id == "" {
 			return internalErr("resolved path id has not been populated")
 		}
@@ -356,42 +659,65 @@ func (b *sqlQueryBuilder) buildOrderByStatement(o *sqlQuery) error {
 		}
 
 		if i > 0 {
-			o.sb.WriteString(", ")
+			w.sb.WriteString(", ")
 		}
 
 		fmt.Fprintf(
-			o.sb,
+			w.sb,
 			"%s.%s %s",
 			tableAlias,
 			r.ResolvedColumn.ColumnName,
 			string(r.Direction),
 		)
 	}
-	o.sb.WriteRune(' ')
+
+	w.orderByLocation.right = w.sb.Len()
+	w.sb.WriteRune(' ')
+
 	return nil
 }
 
-func (b *sqlQueryBuilder) buildFilterStatement(o *sqlQuery) error {
-	if b.filterExpression == nil {
+func (b *sqlQueryBuilder) writeLimitStatement(w *queryWriter) error {
+	limitOperation := b.operations.LimitOperation
+	if limitOperation == nil {
+		return internalErr("expected either a user or system defined limit operation")
+	}
+
+	w.sb.WriteString(fmt.Sprintf("OFFSET 0 ROWS FETCH NEXT %d ROWS ONLY", limitOperation.Limit))
+	w.sb.WriteRune(' ')
+	return nil
+}
+
+func (b *sqlQueryBuilder) writeFilterStatement(w *queryWriter) error {
+	if b.operations.FilterOperation == nil {
 		return nil
 	}
 
-	o.sb.WriteString("WHERE ")
+	filterExpression := b.operations.FilterOperation.FilterExpression
+	if filterExpression == nil {
+		return nil
+	}
+
+	w.filterLocation.left = w.sb.Len()
+
+	w.sb.WriteString("WHERE ")
 
 	rootResource := &aliasedResource{resource: b.rootResource, alias: b.relationshipPlan.rootAlias}
-	err := b.buildFilterExpression(rootResource, b.filterExpression, o)
+	err := b.buildFilterExpression(rootResource, filterExpression, w)
 	if err != nil {
 		return err
 	}
 
-	o.sb.WriteRune(' ')
+	w.filterLocation.right = w.sb.Len()
+
+	w.sb.WriteRune(' ')
 	return nil
 }
 
 func (b *sqlQueryBuilder) buildFilterExpression(
 	rootResource *aliasedResource,
 	expression FilterExpression,
-	o *sqlQuery,
+	o *queryWriter,
 ) error {
 	switch expression := expression.(type) {
 	case *LogicalExpression:
@@ -408,7 +734,7 @@ func (b *sqlQueryBuilder) buildFilterExpression(
 func (b *sqlQueryBuilder) buildLogicalExpression(
 	rootResource *aliasedResource,
 	expression *LogicalExpression,
-	o *sqlQuery,
+	w *queryWriter,
 ) error {
 	operator := ""
 	switch expression.Operator {
@@ -419,13 +745,13 @@ func (b *sqlQueryBuilder) buildLogicalExpression(
 	default:
 		return internalErr("unexpected logical operator received '%v'", operator)
 	}
-	o.sb.WriteRune('(')
-	b.buildFilterExpression(rootResource, expression.Left, o)
-	o.sb.WriteRune(' ')
-	o.sb.WriteString(operator)
-	o.sb.WriteRune(' ')
-	b.buildFilterExpression(rootResource, expression.Right, o)
-	o.sb.WriteRune(')')
+	w.sb.WriteRune('(')
+	b.buildFilterExpression(rootResource, expression.Left, w)
+	w.sb.WriteRune(' ')
+	w.sb.WriteString(operator)
+	w.sb.WriteRune(' ')
+	b.buildFilterExpression(rootResource, expression.Right, w)
+	w.sb.WriteRune(')')
 
 	return nil
 }
@@ -433,7 +759,7 @@ func (b *sqlQueryBuilder) buildLogicalExpression(
 func (b *sqlQueryBuilder) buildComparisonExpression(
 	ex *ComparisonExpression,
 	rootResource *aliasedResource,
-	o *sqlQuery,
+	w *queryWriter,
 ) error {
 	if ex == nil {
 		return internalErr("comparison expression is nil")
@@ -444,7 +770,7 @@ func (b *sqlQueryBuilder) buildComparisonExpression(
 			endResource = rootResource
 		}
 		return ex.Value.WriteFilterExpression(
-			o,
+			w,
 			fmt.Sprintf("%s.%s", endResource.alias, ex.ResolvedColumn.ColumnName),
 			ex.Operator,
 		)
@@ -458,14 +784,14 @@ func (b *sqlQueryBuilder) buildComparisonExpression(
 		ex.ExistsPlan.FirstNode,
 		writeExpression,
 		false,
-		o,
+		w,
 	)
 }
 
 func (b *sqlQueryBuilder) buildCollectionExpression(
 	ex *CollectionExpression,
 	rootResource *aliasedResource,
-	o *sqlQuery,
+	w *queryWriter,
 ) error {
 
 	writeExpression := func(endResource *aliasedResource) error {
@@ -475,7 +801,7 @@ func (b *sqlQueryBuilder) buildCollectionExpression(
 		return b.buildFilterExpression(
 			endResource,
 			ex.FilterExpression,
-			o,
+			w,
 		)
 	}
 
@@ -494,7 +820,7 @@ func (b *sqlQueryBuilder) buildCollectionExpression(
 		ex.ExistsPlan.FirstNode,
 		writeExpression,
 		doNegate,
-		o,
+		w,
 	)
 }
 
@@ -502,94 +828,51 @@ func (b *sqlQueryBuilder) writeExpressionWithPath(
 	existsNode *ExistsNode,
 	writeExpression func(resource *aliasedResource) error,
 	doNegate bool,
-	o *sqlQuery,
+	w *queryWriter,
 ) error {
 	if existsNode == nil {
 		return writeExpression(nil)
 	}
 
 	if doNegate {
-		o.sb.WriteString("NOT ")
+		w.sb.WriteString("NOT ")
 	}
 
 	relationship := existsNode.step.Relationship
 
-	o.sb.WriteString("EXISTS (SELECT 1 FROM ")
-	o.sb.WriteString(relationship.To().FullyQualifiedName())
-	o.sb.WriteRune(' ')
-	o.sb.WriteString(existsNode.alias)
-	o.sb.WriteString(" WHERE ")
-	o.sb.WriteString(existsNode.alias)
-	o.sb.WriteRune('.')
-	o.sb.WriteString(relationship.ToColumn().Name())
-	o.sb.WriteString(" = ")
-	o.sb.WriteString(existsNode.ParentAlias)
-	o.sb.WriteRune('.')
-	o.sb.WriteString(relationship.FromColumn().Name())
-	o.sb.WriteString(" AND ")
+	w.sb.WriteString("EXISTS (SELECT 1 FROM ")
+	w.sb.WriteString(relationship.To().FullyQualifiedName())
+	w.sb.WriteRune(' ')
+	w.sb.WriteString(existsNode.alias)
+	w.sb.WriteString(" WHERE ")
+	w.sb.WriteString(existsNode.alias)
+	w.sb.WriteRune('.')
+	w.sb.WriteString(relationship.ToColumn().Name())
+	w.sb.WriteString(" = ")
+	w.sb.WriteString(existsNode.ParentAlias)
+	w.sb.WriteRune('.')
+	w.sb.WriteString(relationship.FromColumn().Name())
+	w.sb.WriteString(" AND ")
 
 	if existsNode.Next == nil {
-		err := writeExpression(&aliasedResource{
+		if err := writeExpression(&aliasedResource{
 			alias:    existsNode.alias,
 			resource: relationship.To(),
-		})
-		if err != nil {
+		}); err != nil {
+			return err
+		}
+	} else {
+		if err := b.writeExpressionWithPath(
+			existsNode.Next,
+			writeExpression,
+			doNegate,
+			w,
+		); err != nil {
 			return err
 		}
 	}
 
-	o.sb.WriteRune(')')
-	return nil
-}
-
-func (b *sqlQueryBuilder) writeExpressionWithPathOld(
-	parentResource *aliasedResource,
-	path *ResolvedPath,
-	depth int,
-	writeExpression func(rootResource *aliasedResource) error,
-	doNegate bool,
-	o *sqlQuery,
-) error {
-	if depth == len(path.Steps) {
-		return writeExpression(parentResource)
-	}
-
-	node := path.Steps[depth]
-	childResource := &aliasedResource{
-		resource: node.To,
-		alias:    b.nextTableAlias(),
-	}
-
-	if doNegate {
-		o.sb.WriteString("NOT ")
-	}
-
-	o.sb.WriteString("EXISTS (SELECT 1 FROM ")
-	o.sb.WriteString(childResource.resource.FullyQualifiedName())
-	o.sb.WriteRune(' ')
-	o.sb.WriteString(childResource.alias)
-	o.sb.WriteString(" WHERE ")
-	o.sb.WriteString(childResource.alias)
-	o.sb.WriteRune('.')
-	o.sb.WriteString(node.Relationship.ToColumn().Name())
-	o.sb.WriteString(" = ")
-	o.sb.WriteString(parentResource.alias)
-	o.sb.WriteRune('.')
-	o.sb.WriteString(node.Relationship.FromColumn().Name())
-	o.sb.WriteString(" AND ")
-	err := b.writeExpressionWithPathOld(
-		childResource,
-		path,
-		depth+1,
-		writeExpression,
-		false,
-		o,
-	)
-	if err != nil {
-		return err
-	}
-
-	o.sb.WriteRune(')')
+	w.sb.WriteRune(')')
 	return nil
 }
 

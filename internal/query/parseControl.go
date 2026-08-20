@@ -14,9 +14,9 @@ type QueryOperation interface {
 type QuerySyntaxParser struct{}
 
 // Parse is used to parse query strings as a collection of query operations
-func (p *QuerySyntaxParser) Parse(queryString string) ([]QueryOperation, error) {
+func (p *QuerySyntaxParser) Parse(queryString string) (*Operations, error) {
 	if strings.TrimSpace(queryString) == "" {
-		return []QueryOperation{}, nil
+		return &Operations{}, nil
 	}
 
 	tokeniser := NewTokeniser(queryString)
@@ -29,42 +29,15 @@ func parseOperations(
 	t *Tokeniser,
 	operationSeparator tokenType,
 	operationTerminator tokenType,
-) ([]QueryOperation, error) {
-	o := []QueryOperation{}
-	seen := map[string]struct{}{}
+) (*Operations, error) {
+	o := &Operations{}
 	for {
 		// Parse next token
 		tkn := t.Next()
-		// if tkn.Type == TokenEOF || tkn.Type == operationTerminator {
-		// 	return o, nil
-		// }
-
 		if tkn.Type != TokenIdentifier {
 			return nil, t.TknErr(tkn, "expected an operator but received '%s'", tkn.Value)
 		}
 		operator := strings.ToLower(tkn.Value)
-		if _, exists := seen[operator]; exists {
-			return nil, t.TknErr(tkn, "invalid re-declaration of the '%s' operator", operator)
-		}
-		seen[operator] = struct{}{}
-
-		var operationParser func(
-			tokeniser *Tokeniser,
-			operationSeparator tokenType,
-			operationTerminator tokenType,
-		) (QueryOperation, error)
-		switch operator {
-		case "select":
-			operationParser = parseSelectOperation
-		case "expand":
-			operationParser = parseExpandOperation
-		case "filter":
-			operationParser = parseFilterOperation
-		case "orderby":
-			operationParser = parseOrderByOperation
-		default:
-			return nil, syntaxErr("unsupported operator: %s", operator)
-		}
 
 		// Expect operator to be followed by equals token
 		tkn = t.Next()
@@ -72,11 +45,57 @@ func parseOperations(
 			return nil, t.TknErr(tkn, "expected '=' but received '%s'", tkn.Value)
 		}
 
-		operation, err := operationParser(t, operationSeparator, operationTerminator)
-		if err != nil {
-			return nil, err
+		var parsingError error = nil
+		switch operator {
+		case "select":
+			if o.SelectOperation != nil {
+				return nil, t.TknErr(tkn, "invalid re-declaration of the '%s' operator", operator)
+			}
+			o.SelectOperation, parsingError = parseSelectOperation(t, operationSeparator, operationTerminator)
+
+		case "expand":
+			if o.ExpandOperation != nil {
+				return nil, t.TknErr(tkn, "invalid re-declaration of the '%s' operator", operator)
+			}
+			o.ExpandOperation, parsingError = parseExpandOperation(t, operationSeparator, operationTerminator)
+
+		case "filter":
+			if o.FilterOperation != nil {
+				return nil, t.TknErr(tkn, "invalid re-declaration of the '%s' operator", operator)
+			}
+			o.FilterOperation, parsingError = parseFilterOperation(t, operationSeparator, operationTerminator)
+
+		case "orderby":
+			if o.OrderByOperation != nil {
+				return nil, t.TknErr(tkn, "invalid re-declaration of the '%s' operator", operator)
+			}
+			o.OrderByOperation, parsingError = parseOrderByOperation(t, operationSeparator, operationTerminator)
+
+		case "limit":
+			if o.LimitOperation != nil {
+				return nil, t.TknErr(tkn, "invalid re-declaration of the '%s' operator", operator)
+			}
+			o.LimitOperation, parsingError = parseLimitOperation(t)
+
+		case "count":
+			if o.CountOperation != nil {
+				return nil, t.TknErr(tkn, "invalid re-declaration of the '%s' operator", operator)
+			}
+			o.CountOperation, parsingError = parseCountOperation(t)
+
+		case "pagingtoken":
+			if o.PagingTokenOperation != nil {
+				return nil, t.TknErr(tkn, "invalid re-declaration of the '%s' operator", operator)
+			}
+			o.PagingTokenOperation, parsingError = parsePagingTokenOperation(t, operationSeparator, operationTerminator)
+
+		default:
+			return nil, syntaxErr("unsupported operator: %s", operator)
 		}
-		o = append(o, operation)
+
+		if parsingError != nil {
+			return nil, internalErr("unable to parse operation: %w", parsingError)
+		}
 
 		tkn = t.Next()
 

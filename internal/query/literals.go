@@ -6,18 +6,33 @@ import (
 
 type ValueExpression interface {
 	GetTypeName() string
+	GetType() literalType
 	IsCompatibleWithComparisonOperator(op ComparisonOperator) bool
 	IsSupportedByDbType(dbType DbDataTypeName) bool
-	WriteFilterExpression(o *sqlQuery, fieldName string, op ComparisonOperator) error
+	WriteFilterExpression(w *queryWriter, fieldName string, op ComparisonOperator) error
 }
+
+type literalType uint8
+
+const (
+	literalTypeNull literalType = iota
+	literalTypeString
+	literalTypeInt
+	literalTypeFloat
+	literalTypeStringList
+	literalTypeIntList
+	literalTypeFloatList
+)
 
 type NullLiteral struct {
 	Value string
 }
 
-func (l NullLiteral) GetTypeName() string { return "null" }
+func (l *NullLiteral) GetTypeName() string { return "null" }
 
-func (l NullLiteral) IsCompatibleWithComparisonOperator(op ComparisonOperator) bool {
+func (l *NullLiteral) GetType() literalType { return literalTypeNull }
+
+func (l *NullLiteral) IsCompatibleWithComparisonOperator(op ComparisonOperator) bool {
 	switch op {
 	case ComparisonEq,
 		ComparisonNe:
@@ -27,16 +42,16 @@ func (l NullLiteral) IsCompatibleWithComparisonOperator(op ComparisonOperator) b
 	}
 }
 
-func (l NullLiteral) IsSupportedByDbType(_ DbDataTypeName) bool {
+func (l *NullLiteral) IsSupportedByDbType(_ DbDataTypeName) bool {
 	return true
 }
 
-func (l NullLiteral) WriteFilterExpression(o *sqlQuery, fieldName string, op ComparisonOperator) error {
+func (l *NullLiteral) WriteFilterExpression(w *queryWriter, fieldName string, op ComparisonOperator) error {
 	switch op {
 	case ComparisonEq:
-		fmt.Fprintf(o.sb, "%s IS NULL", fieldName)
+		fmt.Fprintf(w.sb, "%s IS NULL", fieldName)
 	case ComparisonNe:
-		fmt.Fprintf(o.sb, "%s IS NOT NULL", fieldName)
+		fmt.Fprintf(w.sb, "%s IS NOT NULL", fieldName)
 	default:
 		return fmt.Errorf("unsupported operation: %s", string(op))
 	}
@@ -47,9 +62,11 @@ type StringLiteral struct {
 	Value string
 }
 
-func (l StringLiteral) GetTypeName() string { return "string" }
+func (l *StringLiteral) GetTypeName() string { return "string" }
 
-func (l StringLiteral) IsCompatibleWithComparisonOperator(op ComparisonOperator) bool {
+func (l *StringLiteral) GetType() literalType { return literalTypeString }
+
+func (l *StringLiteral) IsCompatibleWithComparisonOperator(op ComparisonOperator) bool {
 	switch op {
 	case ComparisonEq,
 		ComparisonNe,
@@ -58,14 +75,18 @@ func (l StringLiteral) IsCompatibleWithComparisonOperator(op ComparisonOperator)
 		ComparisonEndsWith,
 		comparisonNotContains,
 		comparisonNotStartsWith,
-		comparisonNotEndsWith:
+		comparisonNotEndsWith,
+		ComparisonGe,
+		ComparisonGt,
+		ComparisonLt,
+		ComparisonLe:
 		return true
 	default:
 		return false
 	}
 }
 
-func (l StringLiteral) IsSupportedByDbType(dbType DbDataTypeName) bool {
+func (l *StringLiteral) IsSupportedByDbType(dbType DbDataTypeName) bool {
 	switch dbType {
 	case DbTypeNvarchar,
 		DbTypeGeography,
@@ -76,18 +97,26 @@ func (l StringLiteral) IsSupportedByDbType(dbType DbDataTypeName) bool {
 	}
 }
 
-func (l StringLiteral) WriteFilterExpression(
-	o *sqlQuery,
+func (l *StringLiteral) WriteFilterExpression(
+	w *queryWriter,
 	fieldName string,
 	op ComparisonOperator,
 ) error {
 	switch op {
 	case ComparisonEq:
-		fmt.Fprintf(o.sb, "%s = %s", fieldName, o.arg(l.Value))
-		o.args = append(o.args, l.Value)
+		fmt.Fprintf(w.sb, "%s = %s", fieldName, w.arg(l.Value))
+		w.args = append(w.args, l.Value)
 	case ComparisonNe:
-		fmt.Fprintf(o.sb, "%s != %s", fieldName, o.arg(l.Value))
-		o.args = append(o.args, l.Value)
+		fmt.Fprintf(w.sb, "%s != %s", fieldName, w.arg(l.Value))
+		w.args = append(w.args, l.Value)
+	case ComparisonGt:
+		fmt.Fprintf(w.sb, "%s > %s", fieldName, w.arg(l.Value))
+	case ComparisonGe:
+		fmt.Fprintf(w.sb, "%s >= %s", fieldName, w.arg(l.Value))
+	case ComparisonLt:
+		fmt.Fprintf(w.sb, "%s < %s", fieldName, w.arg(l.Value))
+	case ComparisonLe:
+		fmt.Fprintf(w.sb, "%s <= %s", fieldName, w.arg(l.Value))
 	case ComparisonContains, comparisonNotContains:
 		modifier := ""
 		if op == comparisonNotContains {
@@ -95,7 +124,7 @@ func (l StringLiteral) WriteFilterExpression(
 		}
 
 		pattern := fmt.Sprintf("%%%s%%", l.Value)
-		fmt.Fprintf(o.sb, "%s %sLIKE %s", fieldName, modifier, o.arg(pattern))
+		fmt.Fprintf(w.sb, "%s %sLIKE %s", fieldName, modifier, w.arg(pattern))
 
 	case ComparisonStartsWith, comparisonNotStartsWith:
 		modifier := ""
@@ -104,7 +133,7 @@ func (l StringLiteral) WriteFilterExpression(
 		}
 
 		pattern := fmt.Sprintf("%s%%", l.Value)
-		fmt.Fprintf(o.sb, "%s %sLIKE %s", fieldName, modifier, o.arg(pattern))
+		fmt.Fprintf(w.sb, "%s %sLIKE %s", fieldName, modifier, w.arg(pattern))
 	case ComparisonEndsWith, comparisonNotEndsWith:
 		modifier := ""
 		if op == comparisonNotEndsWith {
@@ -112,7 +141,7 @@ func (l StringLiteral) WriteFilterExpression(
 		}
 
 		pattern := fmt.Sprintf("%%%s", l.Value)
-		fmt.Fprintf(o.sb, "%s %sLIKE %s", fieldName, modifier, o.arg(pattern))
+		fmt.Fprintf(w.sb, "%s %sLIKE %s", fieldName, modifier, w.arg(pattern))
 	default:
 		return fmt.Errorf("unsupported string operation: %s", string(op))
 	}
@@ -120,37 +149,41 @@ func (l StringLiteral) WriteFilterExpression(
 }
 
 type IntLiteral struct {
-	Value int
+	Value int64
 }
 
-func (l IntLiteral) GetTypeName() string { return "int" }
+func (l *IntLiteral) GetTypeName() string { return "int" }
 
-func (l IntLiteral) IsCompatibleWithComparisonOperator(op ComparisonOperator) bool {
+func (l *IntLiteral) GetType() literalType { return literalTypeInt }
+
+func (l *IntLiteral) String() string { return fmt.Sprintf("%d", l.Value) }
+
+func (l *IntLiteral) IsCompatibleWithComparisonOperator(op ComparisonOperator) bool {
 	return isNumberCompatibleWith(op)
 }
 
-func (l IntLiteral) IsSupportedByDbType(dbType DbDataTypeName) bool {
+func (l *IntLiteral) IsSupportedByDbType(dbType DbDataTypeName) bool {
 	return dbType == DbTypeInt
 }
 
-func (l IntLiteral) WriteFilterExpression(
-	o *sqlQuery,
+func (l *IntLiteral) WriteFilterExpression(
+	w *queryWriter,
 	fieldName string,
 	op ComparisonOperator,
 ) error {
 	switch op {
 	case ComparisonEq:
-		fmt.Fprintf(o.sb, "%s = %s", fieldName, o.arg(l.Value))
+		fmt.Fprintf(w.sb, "%s = %s", fieldName, w.arg(l.Value))
 	case ComparisonNe:
-		fmt.Fprintf(o.sb, "%s != %s", fieldName, o.arg(l.Value))
+		fmt.Fprintf(w.sb, "%s != %s", fieldName, w.arg(l.Value))
 	case ComparisonGt:
-		fmt.Fprintf(o.sb, "%s > %s", fieldName, o.arg(l.Value))
+		fmt.Fprintf(w.sb, "%s > %s", fieldName, w.arg(l.Value))
 	case ComparisonGe:
-		fmt.Fprintf(o.sb, "%s >= %s", fieldName, o.arg(l.Value))
+		fmt.Fprintf(w.sb, "%s >= %s", fieldName, w.arg(l.Value))
 	case ComparisonLt:
-		fmt.Fprintf(o.sb, "%s < %s", fieldName, o.arg(l.Value))
+		fmt.Fprintf(w.sb, "%s < %s", fieldName, w.arg(l.Value))
 	case ComparisonLe:
-		fmt.Fprintf(o.sb, "%s <= %s", fieldName, o.arg(l.Value))
+		fmt.Fprintf(w.sb, "%s <= %s", fieldName, w.arg(l.Value))
 	default:
 		return fmt.Errorf("unsupported string operation: %s", string(op))
 	}
@@ -161,34 +194,36 @@ type FloatLiteral struct {
 	Value float64
 }
 
-func (l FloatLiteral) GetTypeName() string { return "float" }
+func (l *FloatLiteral) GetTypeName() string { return "float" }
 
-func (l FloatLiteral) IsCompatibleWithComparisonOperator(op ComparisonOperator) bool {
+func (l *FloatLiteral) GetType() literalType { return literalTypeFloat }
+
+func (l *FloatLiteral) IsCompatibleWithComparisonOperator(op ComparisonOperator) bool {
 	return isNumberCompatibleWith(op)
 }
 
-func (l FloatLiteral) IsSupportedByDbType(dbType DbDataTypeName) bool {
+func (l *FloatLiteral) IsSupportedByDbType(dbType DbDataTypeName) bool {
 	return dbType == DbTypeFloat
 }
 
-func (l FloatLiteral) WriteFilterExpression(
-	o *sqlQuery,
+func (l *FloatLiteral) WriteFilterExpression(
+	w *queryWriter,
 	fieldName string,
 	op ComparisonOperator,
 ) error {
 	switch op {
 	case ComparisonEq:
-		fmt.Fprintf(o.sb, "%s = %s", fieldName, o.arg(l.Value))
+		fmt.Fprintf(w.sb, "%s = %s", fieldName, w.arg(l.Value))
 	case ComparisonNe:
-		fmt.Fprintf(o.sb, "%s != %s", fieldName, o.arg(l.Value))
+		fmt.Fprintf(w.sb, "%s != %s", fieldName, w.arg(l.Value))
 	case ComparisonGt:
-		fmt.Fprintf(o.sb, "%s > %s", fieldName, o.arg(l.Value))
+		fmt.Fprintf(w.sb, "%s > %s", fieldName, w.arg(l.Value))
 	case ComparisonGe:
-		fmt.Fprintf(o.sb, "%s >= %s", fieldName, o.arg(l.Value))
+		fmt.Fprintf(w.sb, "%s >= %s", fieldName, w.arg(l.Value))
 	case ComparisonLt:
-		fmt.Fprintf(o.sb, "%s < %s", fieldName, o.arg(l.Value))
+		fmt.Fprintf(w.sb, "%s < %s", fieldName, w.arg(l.Value))
 	case ComparisonLe:
-		fmt.Fprintf(o.sb, "%s <= %s", fieldName, o.arg(l.Value))
+		fmt.Fprintf(w.sb, "%s <= %s", fieldName, w.arg(l.Value))
 	default:
 		return fmt.Errorf("unsupported string operation: %s", string(op))
 	}
@@ -222,71 +257,78 @@ type StringListLiteral struct {
 	Values []string
 }
 
-func (l StringListLiteral) GetTypeName() string { return "string list" }
+func (l *StringListLiteral) GetTypeName() string { return "string list" }
 
-func (l StringListLiteral) IsCompatibleWithComparisonOperator(op ComparisonOperator) bool {
+func (l *StringListLiteral) GetType() literalType { return literalTypeStringList }
+
+func (l *StringListLiteral) IsCompatibleWithComparisonOperator(op ComparisonOperator) bool {
 	return op == ComparisonIn
 }
 
-func (l StringListLiteral) IsSupportedByDbType(dbType DbDataTypeName) bool {
-	return StringLiteral{}.IsSupportedByDbType(dbType)
+func (l *StringListLiteral) IsSupportedByDbType(dbType DbDataTypeName) bool {
+	sl := StringLiteral{}
+	return (&sl).IsSupportedByDbType(dbType)
 }
 
-func (l StringListLiteral) WriteFilterExpression(
-	o *sqlQuery,
+func (l *StringListLiteral) WriteFilterExpression(
+	w *queryWriter,
 	fieldName string,
 	op ComparisonOperator,
 ) error {
-	return WriteListFilterExpression(l.Values, o, fieldName, op)
+	return WriteListFilterExpression(l.Values, w, fieldName, op)
 }
 
 type IntListLiteral struct {
-	Values []int
+	Values []int64
 }
 
-func (l IntListLiteral) GetTypeName() string { return "int list" }
+func (l *IntListLiteral) GetTypeName() string  { return "int" }
+func (l *IntListLiteral) GetType() literalType { return literalTypeIntList }
 
-func (l IntListLiteral) IsCompatibleWithComparisonOperator(op ComparisonOperator) bool {
+func (l *IntListLiteral) IsCompatibleWithComparisonOperator(op ComparisonOperator) bool {
 	return op == ComparisonIn
 }
 
-func (l IntListLiteral) IsSupportedByDbType(dbType DbDataTypeName) bool {
-	return IntLiteral{}.IsSupportedByDbType(dbType)
+func (l *IntListLiteral) IsSupportedByDbType(dbType DbDataTypeName) bool {
+	il := IntListLiteral{}
+	return (&il).IsSupportedByDbType(dbType)
 }
 
-func (l IntListLiteral) WriteFilterExpression(
-	o *sqlQuery,
+func (l *IntListLiteral) WriteFilterExpression(
+	w *queryWriter,
 	fieldName string,
 	op ComparisonOperator,
 ) error {
-	return WriteListFilterExpression(l.Values, o, fieldName, op)
+	return WriteListFilterExpression(l.Values, w, fieldName, op)
 }
 
 type FloatListLiteral struct {
 	Values []float64
 }
 
-func (l FloatListLiteral) GetTypeName() string { return "float list" }
+func (l *FloatListLiteral) GetTypeName() string  { return "float list" }
+func (l *FloatListLiteral) GetType() literalType { return literalTypeFloatList }
 
-func (l FloatListLiteral) IsCompatibleWithComparisonOperator(op ComparisonOperator) bool {
+func (l *FloatListLiteral) IsCompatibleWithComparisonOperator(op ComparisonOperator) bool {
 	return op == ComparisonIn
 }
 
-func (l FloatListLiteral) IsSupportedByDbType(dbType DbDataTypeName) bool {
-	return FloatLiteral{}.IsSupportedByDbType(dbType)
+func (l *FloatListLiteral) IsSupportedByDbType(dbType DbDataTypeName) bool {
+	fl := FloatLiteral{}
+	return (&fl).IsSupportedByDbType(dbType)
 }
 
-func (l FloatListLiteral) WriteFilterExpression(
-	o *sqlQuery,
+func (l *FloatListLiteral) WriteFilterExpression(
+	w *queryWriter,
 	fieldName string,
 	op ComparisonOperator,
 ) error {
-	return WriteListFilterExpression(l.Values, o, fieldName, op)
+	return WriteListFilterExpression(l.Values, w, fieldName, op)
 }
 
 func WriteListFilterExpression[T any](
 	values []T,
-	o *sqlQuery,
+	w *queryWriter,
 	fieldName string,
 	op ComparisonOperator,
 ) error {
@@ -297,14 +339,14 @@ func WriteListFilterExpression[T any](
 			modifier = "NOT "
 		}
 
-		fmt.Fprintf(o.sb, "%s %sIN (", fieldName, modifier)
+		fmt.Fprintf(w.sb, "%s %sIN (", fieldName, modifier)
 		for i, v := range values {
 			if i != 0 {
-				o.sb.WriteRune(',')
+				w.sb.WriteRune(',')
 			}
-			o.sb.WriteString(o.arg(v))
+			w.sb.WriteString(w.arg(v))
 		}
-		o.sb.WriteRune(')')
+		w.sb.WriteRune(')')
 	default:
 		return fmt.Errorf("unsupported list operation: %s", string(op))
 	}
