@@ -631,3 +631,35 @@ func addCursorFilter(queryOperations *Operations, cursorValues []ValueExpression
 
 	return nil
 }
+
+func (ops *Operations) addAssociatedWithParentFilter(
+	linkFromParent *TraversalStep,
+	joinParentOnValues []string,
+) (FilterExpression, error) {
+	associationFilter := &ComparisonExpression{
+		Path: PropertyPath{
+			Segments: []string{linkFromParent.Relationship.ToColumn().Name()},
+		},
+		Operator: ComparisonIn,
+		Value: &StringListLiteral{
+			Values: joinParentOnValues,
+		},
+	}
+	err := ops.metadataBinder.bindFilterExpression(ops.rootResource, associationFilter)
+	if err != nil {
+		return nil, err
+	}
+
+	if ops.FilterOperation == nil {
+		ops.FilterOperation = &FilterOperation{
+			FilterExpression: associationFilter,
+		}
+	} else {
+		ops.FilterOperation.FilterExpression = &LogicalExpression{
+			Left:     associationFilter,
+			Operator: LogicalAnd,
+			Right:    ops.FilterOperation.FilterExpression,
+		}
+	}
+	return associationFilter, nil
+}

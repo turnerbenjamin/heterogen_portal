@@ -72,18 +72,6 @@ func newSqlQueryBuilder(
 	queryOperations *Operations,
 	pagingTokenParser PagingTokenBuilder,
 ) (*sqlQueryBuilder, error) {
-	// if accessPolicy == nil {
-	// 	return nil, internalErr("access policy cannot be nil")
-	// }
-
-	// resourceAccessPolicy := accessPolicy.GetTableAccessPolicy(rootResource.Name())
-	// if resourceAccessPolicy == nil {
-	// 	return nil, internalErr("unable to find access policy for %s", rootResource)
-	// }
-
-	// if !resourceAccessPolicy.CanAccess() {
-	// 	return nil, accessErr("access to the %s table is denied", rootResource.Name())
-	// }
 
 	if queryOperations.state != operationsStateReadyForBuild {
 		return nil, internalErr("query operations must be ready for build")
@@ -99,24 +87,6 @@ func newSqlQueryBuilder(
 		depth:             0,
 	}
 
-	// // Build operations struct from raw operations
-	// operations, err := b.processRawOperations(queryOperations)
-	// if err != nil {
-	// 	return nil, err
-	// }
-
-	// b.operations = operations
-
-	// // Ensure that the primary key of the table is always contained in a sorting
-	// // operation
-	// b.ensureDeterministicSorting(operations.OrderByOperation)
-
-	// // Bind metadata to the operations
-	// err = b.metadataBinder.bindMetadata(rootResource, operations)
-	// if err != nil {
-	// 	return nil, err
-	// }
-
 	// Build relationship plan for exists and joins
 	relationshipPlan, err := NewRelationshipPlan(queryOperations)
 	if err != nil {
@@ -124,21 +94,9 @@ func newSqlQueryBuilder(
 	}
 	b.relationshipPlan = relationshipPlan
 
-	b.createBuildersforNestedOperations()
-
-	// // Process expand operation to build nested queries and add any required
-	// // join on fields to the system select
-	// if operations.ExpandOperation != nil {
-	// 	doProject := true
-	// 	err = b.processExpandOperation(operations.ExpandOperation, doProject)
-	// 	if err != nil {
-	// 		return nil, err
-	// 	}
-	// }
-
-	// // Process order by operations to provide system access to all values
-	// // specified in the order by operation. This enables cursor pagination
-	// err = b.addRequiredOperationsForCursorPagination(operations.OrderByOperation)
+	if err := b.createBuildersforNestedOperations(); err != nil {
+		return nil, err
+	}
 
 	return b, nil
 }
@@ -159,95 +117,6 @@ func (b *sqlQueryBuilder) newNestedSqlQueryBuilder(
 	}
 	nestedBuilder.depth = b.depth + 1
 	return nestedBuilder, nil
-}
-
-// processRawOperations adds all operations to a struct. Default operations are
-// used for required operations not defined in the query string
-func (b *sqlQueryBuilder) processRawOperations(operations *Operations) (*Operations, error) {
-	if operations.SelectOperation == nil {
-		defaultSelect, err := b.buildDefaultSelect()
-		if err != nil {
-			return operations, err
-		}
-		operations.SelectOperation = defaultSelect
-	}
-
-	if operations.OrderByOperation == nil {
-		operations.OrderByOperation = b.buildDefaultOrderBy()
-	}
-
-	if operations.LimitOperation == nil {
-		operations.LimitOperation = b.buildDefaultLimit()
-	}
-
-	return operations, nil
-}
-
-func (b *sqlQueryBuilder) buildDefaultSelect() (*SelectOperation, error) {
-	defaultSelect := &SelectOperation{
-		Columns: make(map[string]*ColumnValue, b.rootResource.ColumnCount()),
-	}
-
-	resourceAccessPolicy, err := b.metadataBinder.getTableAccessPolicy(b.rootResource)
-	if err != nil {
-		return nil, err
-	}
-
-	i := 0
-	for col := range b.rootResource.Columns() {
-		accessPolicy := resourceAccessPolicy.GetColumnAccessPolicy(col.Name())
-		if accessPolicy == nil {
-			return nil, internalErr("unable to find access policy for %s.%s", b.rootResource.Name(), col.Name())
-		}
-
-		if !accessPolicy.CanAccess() {
-			continue
-		}
-
-		defaultSelect.Columns[col.Name()] = &ColumnValue{
-			ColumnName: col.Name(),
-		}
-		i++
-	}
-	return defaultSelect, nil
-}
-
-func (b *sqlQueryBuilder) buildDefaultOrderBy() *OrderByOperation {
-	defaultOrderBy := &OrderByOperation{
-		Rules: make([]*SortingRule, 0, 1),
-	}
-
-	defaultOrderBy.Rules = append(defaultOrderBy.Rules, &SortingRule{
-		Path: PropertyPath{
-			Segments: []string{b.rootResource.PrimaryKeyField().Name()},
-		},
-		Direction: "ASC",
-	})
-	return defaultOrderBy
-}
-
-func (b *sqlQueryBuilder) buildDefaultLimit() *LimitOperation {
-	return &LimitOperation{
-		Limit: 5000,
-	}
-}
-
-func (b *sqlQueryBuilder) ensureDeterministicSorting(op *OrderByOperation) {
-	// If primary key field present in order by rule return
-	primaryKeyField := b.rootResource.PrimaryKeyField()
-	for _, rule := range op.Rules {
-		if len(rule.Path.Segments) == 1 && rule.Path.Segments[0] == primaryKeyField.Name() {
-			return
-		}
-	}
-
-	// else add to the rule
-	op.Rules = append(op.Rules, &SortingRule{
-		Path: PropertyPath{
-			Segments: []string{b.rootResource.PrimaryKeyField().Name()},
-		},
-		Direction: "ASC",
-	})
 }
 
 func (b *sqlQueryBuilder) createBuildersforNestedOperations() error {
@@ -274,183 +143,23 @@ func (b *sqlQueryBuilder) createBuildersforNestedOperations() error {
 	return nil
 }
 
-func (b *sqlQueryBuilder) processExpandOperation(op *ExpandOperation, doProject bool) error {
-	for _, expand := range op.Expands {
-
-		nestedQueryBuilder, err := b.newNestedSqlQueryBuilder(
-			expand.Link.To,
-			b.accessPolicy,
-			expand.Operations,
-		)
-		if err != nil {
-			return err
-		}
-
-		// Select join on columns as they are required for server-side join
-		b.addSystemSelect(expand.Link.Relationship.FromColumn().Name())
-		nestedQueryBuilder.addSystemSelect(expand.Link.Relationship.ToColumn().Name())
-
-		b.nestedQueries[string(expand.Link.Relationship.Id())] = &nestedQuery{
-			queryBuilder: nestedQueryBuilder,
-			link:         expand.Link,
-		}
-	}
-	return nil
-}
-
-func (b *sqlQueryBuilder) addRequiredOperationsForCursorPagination(op *OrderByOperation) error {
-	// cursor pagination only needed at the top level query
-	if b.depth != 0 {
-		return nil
-	}
-
-	for _, rule := range op.Rules {
-		if rule.ResolvedPath == nil {
-			return internalErr("resolved path has not been populated for orderby rule")
-		}
-
-		if rule.ResolvedPath.Id == "" {
-			return internalErr("resolved path id has not been populated")
-		}
-
-		// if order by field is on the top level query just add the field to the
-		// system select so that it is available
-		if len(rule.ResolvedPath.Steps) == 0 {
-			b.addSystemSelect(rule.ResolvedColumn.ColumnName)
-		} else {
-			b.addNestedSystemSelect(rule.ResolvedPath.Steps, rule.ResolvedColumn)
-		}
-	}
-
-	return nil
-}
-
-func (b *sqlQueryBuilder) addNestedSystemSelect(pathSteps []TraversalStep, requiredColumn *ColumnValue) error {
-
-	nextStep := pathSteps[0]
-	nestedQuery, exists := b.nestedQueries[nextStep.Relationship.Id()]
-
-	if exists && nestedQuery != nil {
-		// If an existing nested query is found for the orderby column, add a
-		// system select to that query for the column and return
-		remainingPath := pathSteps[1:]
-		if len(remainingPath) == 0 {
-			return nestedQuery.queryBuilder.addSystemSelect(requiredColumn.ColumnName)
-		} else {
-			// If a nested query is found, but it is not the final resource, recall
-			// the current function against the nested query with the remaining path
-			return nestedQuery.queryBuilder.addNestedSystemSelect(remainingPath, requiredColumn)
-		}
-	} else {
-		// If a nested query is not found one, we need to construct a system
-		// expand and select the required column
-		return b.addSystemExpand(pathSteps, requiredColumn)
-	}
-}
-
-func (b *sqlQueryBuilder) addSystemExpand(pathSteps []TraversalStep, requiredColumn *ColumnValue) error {
-
-	totalSteps := len(pathSteps)
-	var lastExpand *ExpandOperation
-	for i := totalSteps - 1; i >= 0; i-- {
-		step := pathSteps[i]
-
-		// Build Expand
-		expand := &Expand{
-			RelationshipName: step.Relationship.FromColumn().Name(),
-			Operations:       &Operations{},
-		}
-
-		expandOperation := &ExpandOperation{
-			Expands: map[string]*Expand{
-				expand.RelationshipName: expand,
-			},
-		}
-
-		// Build Expand.select with primary key field only
-		toPrimaryKeyField := step.To.PrimaryKeyField()
-		selectColumns := map[string]*ColumnValue{
-			toPrimaryKeyField.Name(): {
-				ColumnName: toPrimaryKeyField.Name(),
-				ColumnData: toPrimaryKeyField,
-			},
-		}
-		expand.Operations.SelectOperation = &SelectOperation{Columns: selectColumns}
-
-		if i == totalSteps-1 {
-			// If we are on the final step, add the required column to the
-			// select
-			selectColumns[requiredColumn.ColumnName] = requiredColumn
-		} else {
-			// if we are on an intermediate step, add the last expands to the
-			// current expand operations
-			expand.Operations.ExpandOperation = lastExpand
-		}
-		lastExpand = expandOperation
-	}
-
-	err := b.metadataBinder.bindExpandOperation(b.rootResource, lastExpand)
-	if err != nil {
-		return err
-	}
-
-	doProject := false
-	return b.processExpandOperation(lastExpand, doProject)
-}
-
-func (b *sqlQueryBuilder) addSystemSelect(columnName string) error {
-	if b.operations.SystemSelectOperation == nil {
-		b.operations.SystemSelectOperation = &SelectOperation{
-			Columns: map[string]*ColumnValue{},
-		}
-	}
-
-	if _, exists := b.operations.SelectOperation.Columns[columnName]; exists {
-		return nil
-	}
-
-	b.operations.SystemSelectOperation.Columns[columnName] = &ColumnValue{ColumnName: columnName}
-	return b.metadataBinder.bindSelectOperation(b.rootResource, b.operations.SystemSelectOperation)
-}
-
 func (b *sqlQueryBuilder) addAssociatedWithParentFilter(
 	linkFromParent *TraversalStep,
 	joinParentOnValues []string,
 ) error {
-	associationFilter := &ComparisonExpression{
-		Path: PropertyPath{
-			Segments: []string{linkFromParent.Relationship.ToColumn().Name()},
-		},
-		Operator: ComparisonIn,
-		Value: &StringListLiteral{
-			Values: joinParentOnValues,
-		},
-	}
-	err := b.metadataBinder.bindFilterExpression(b.rootResource, associationFilter)
-	if err != nil {
-		return err
-	}
 
-	err = b.relationshipPlan.processFilterExpression(
-		b.relationshipPlan.rootAlias,
-		associationFilter,
+	associationFilter, err := b.operations.addAssociatedWithParentFilter(
+		linkFromParent,
+		joinParentOnValues,
 	)
 	if err != nil {
 		return err
 	}
 
-	if b.operations.FilterOperation == nil {
-		b.operations.FilterOperation = &FilterOperation{
-			FilterExpression: associationFilter,
-		}
-	} else {
-		b.operations.FilterOperation.FilterExpression = &LogicalExpression{
-			Left:     associationFilter,
-			Operator: LogicalAnd,
-			Right:    b.operations.FilterOperation.FilterExpression,
-		}
-	}
-	return nil
+	return b.relationshipPlan.processFilterExpression(
+		b.relationshipPlan.rootAlias,
+		associationFilter,
+	)
 }
 
 func (b *sqlQueryBuilder) build() (*sqlQuery, error) {
@@ -805,7 +514,6 @@ func (b *sqlQueryBuilder) buildCollectionExpression(
 		)
 	}
 
-	// Invert if AND
 	doNegate := ex.Operator == CollectionAll
 	if doNegate {
 		negatedCondition, err := negate(ex.FilterExpression)
