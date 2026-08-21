@@ -15,12 +15,14 @@ const (
 
 type Operations struct {
 	state operationsState
+	depth int
 
-	depth            int
 	rootResource     TableMetadata
 	rootAccessPolicy TableAccessPolicy
-	accessPolicy     AccessPolicy
-	metadataBinder   *metadataBinder
+
+	accessPolicy       AccessPolicy
+	metadataBinder     *metadataBinder
+	pagingTokenBuilder pagingTokenBuilder
 
 	projection []string
 
@@ -33,20 +35,13 @@ type Operations struct {
 	LimitOperation        *LimitOperation
 	PagingTokenOperation  *PagingTokenOperation
 
+	QueryString  string
 	CursorValues []ValueExpression
 
 	nestedOperations map[string]*Operations
 }
 
-func (o *Operations) moveState(newState operationsState) error {
-	if newState != o.state+1 {
-		return internalErr("invalid state transition from %d to %d", o.state, newState)
-	}
-	o.state = newState
-	return nil
-}
-
-func buildQueryOperations(
+func BuildQueryOperations(
 	rootResource TableMetadata,
 	accessPolicy AccessPolicy,
 	queryString string,
@@ -63,11 +58,16 @@ func buildQueryOperations(
 		queryOperations.PagingTokenOperation.token != "" {
 		token, err := pagingTokenBuilder.ParseToken(queryOperations.PagingTokenOperation.token)
 
+		if token.ResourceName != rootResource.Name() {
+			return nil, syntaxErr("provided token cannot be used for this resource")
+		}
+
 		tokenOperations, err := queryParser.Parse(token.QueryString)
 		if err != nil {
 			return nil, err
 		}
 		queryOperations = tokenOperations
+
 		queryOperations.CursorValues = token.CursorValues
 	}
 
@@ -88,6 +88,17 @@ func buildQueryOperations(
 	}
 
 	return queryOperations, nil
+}
+
+func (ops *Operations) GetPagingToken(
+	lastRecord TableModel,
+) (string, error) {
+	return ops.pagingTokenBuilder.BuildToken(
+		ops.rootResource.Name(),
+		ops.QueryString,
+		ops.OrderByOperation,
+		lastRecord,
+	)
 }
 
 func (ops *Operations) enrichOperations(
@@ -308,7 +319,7 @@ func (ops *Operations) addDefaultOrderBy() error {
 		Path: PropertyPath{
 			Segments: []string{ops.rootResource.PrimaryKeyField().Name()},
 		},
-		Direction: "ASC",
+		Direction: SortDirectionAsc,
 	})
 	return nil
 }
@@ -350,7 +361,7 @@ func (ops *Operations) ensureDeterministicSorting() error {
 		Path: PropertyPath{
 			Segments: []string{ops.rootResource.PrimaryKeyField().Name()},
 		},
-		Direction: "ASC",
+		Direction: SortDirectionAsc,
 	})
 	return nil
 }
@@ -582,7 +593,7 @@ func addCursorFilter(queryOperations *Operations, cursorValues []ValueExpression
 			continue
 		}
 
-		ruleExpression := getCursorFilterComparisonOperator(
+		ruleExpression := getCursorFilterComparisonExpression(
 			rule,
 			cursorValue,
 		)
@@ -662,4 +673,52 @@ func (ops *Operations) addAssociatedWithParentFilter(
 		}
 	}
 	return associationFilter, nil
+}
+
+func getCursorFilterComparisonExpression(rule *SortingRule, value ValueExpression) FilterExpression {
+	if rule.Direction == SortDirectionAsc {
+		if value.GetType() == literalTypeNull {
+			// Ascending logic for null value
+			return &ComparisonExpression{
+				Path:     rule.Path,
+				Operator: ComparisonNe,
+				Value:    value,
+			}
+		} else {
+			// Ascending logic for non-null value
+			return &ComparisonExpression{
+				Path:     rule.Path,
+				Operator: ComparisonGt,
+				Value:    value,
+			}
+		}
+	} else {
+		if value.GetType() == literalTypeNull {
+			// Descending logic for null value, null is already the last value
+			// so do not add a filter
+			return nil
+		}
+		// Descending logic for non-null
+		return &LogicalExpression{
+			Left: &ComparisonExpression{
+				Path:     rule.Path,
+				Operator: ComparisonLt,
+				Value:    value,
+			},
+			Operator: LogicalOr,
+			Right: &ComparisonExpression{
+				Path:     rule.Path,
+				Operator: ComparisonEq,
+				Value:    &NullLiteral{},
+			},
+		}
+	}
+}
+
+func (o *Operations) moveState(newState operationsState) error {
+	if newState != o.state+1 {
+		return internalErr("invalid state transition from %d to %d", o.state, newState)
+	}
+	o.state = newState
+	return nil
 }

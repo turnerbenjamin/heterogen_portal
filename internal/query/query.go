@@ -110,6 +110,7 @@ type QueryExecutor interface {
 
 type PagingTokenBuilder interface {
 	BuildToken(
+		resourceName string,
 		queryString string,
 		orderByOperation *OrderByOperation,
 		lastRecord TableModel,
@@ -130,14 +131,13 @@ type ExecuteResult struct {
 }
 
 type Query struct {
-	ctx                  context.Context
-	queryString          string
-	queryExecutor        QueryExecutor
-	nextPageTokenBuilder PagingTokenBuilder
-	tableMetadata        TableMetadata
-	AccessPolicy         AccessPolicy
-	TableAccessPolicy    TableAccessPolicy
-	queryBuilder         *sqlQueryBuilder
+	ctx               context.Context
+	queryString       string
+	queryExecutor     QueryExecutor
+	tableMetadata     TableMetadata
+	AccessPolicy      AccessPolicy
+	TableAccessPolicy TableAccessPolicy
+	queryBuilder      *sqlQueryBuilder
 }
 
 func NewQuery(
@@ -164,7 +164,7 @@ func NewQuery(
 		return nil, internalErr("unable to find table access policy for table %s", resourceName)
 	}
 
-	queryOperations, err := buildQueryOperations(
+	queryOperations, err := BuildQueryOperations(
 		resource,
 		accessPolicy,
 		queryString,
@@ -186,54 +186,13 @@ func NewQuery(
 	}
 
 	q := &Query{
-		ctx:                  ctx,
-		queryString:          queryString,
-		queryExecutor:        queryExecutor,
-		nextPageTokenBuilder: nextPageTokenBuilder,
-		tableMetadata:        resource,
-		queryBuilder:         queryBuilder,
+		ctx:           ctx,
+		queryString:   queryString,
+		queryExecutor: queryExecutor,
+		tableMetadata: resource,
+		queryBuilder:  queryBuilder,
 	}
 	return q, nil
-}
-
-func getCursorFilterComparisonOperator(rule *SortingRule, value ValueExpression) FilterExpression {
-	if rule.Direction == SortDirectionAsc {
-		if value.GetType() == literalTypeNull {
-			// Ascending logic for null value
-			return &ComparisonExpression{
-				Path:     rule.Path,
-				Operator: ComparisonNe,
-				Value:    value,
-			}
-		} else {
-			// Ascending logic for non-null value
-			return &ComparisonExpression{
-				Path:     rule.Path,
-				Operator: ComparisonGt,
-				Value:    value,
-			}
-		}
-	} else {
-		if value.GetType() == literalTypeNull {
-			// Descending logic for null value, null is already the last value
-			// so do not add a filter
-			return nil
-		}
-		// Descending logic for non-null
-		return &LogicalExpression{
-			Left: &ComparisonExpression{
-				Path:     rule.Path,
-				Operator: ComparisonLt,
-				Value:    value,
-			},
-			Operator: LogicalOr,
-			Right: &ComparisonExpression{
-				Path:     rule.Path,
-				Operator: ComparisonEq,
-				Value:    &NullLiteral{},
-			},
-		}
-	}
 }
 
 func (q *Query) Execute() (*ExecuteResult, error) {
@@ -283,11 +242,7 @@ func (q *Query) Execute() (*ExecuteResult, error) {
 
 		// Generate the next page token using the actual last record
 		lastRecord := queryResults[len(queryResults)-1]
-		nextPageToken, err = q.nextPageTokenBuilder.BuildToken(
-			q.queryString,
-			q.queryBuilder.operations.OrderByOperation,
-			lastRecord,
-		)
+		nextPageToken, err = q.queryBuilder.operations.GetPagingToken(lastRecord)
 		if err != nil {
 			return nil, err
 		}

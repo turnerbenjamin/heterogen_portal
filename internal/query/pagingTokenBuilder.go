@@ -17,6 +17,7 @@ type PayloadSigner interface {
 type pagingToken struct {
 	Version      uint32
 	CursorValues []ValueExpression
+	ResourceName string
 	QueryString  string
 }
 
@@ -41,6 +42,7 @@ func NewNextPageTokenBuilder(payloadSigner PayloadSigner, payloadSecret []byte) 
 }
 
 func (b *pagingTokenBuilder) BuildToken(
+	resourceName string,
 	queryString string,
 	orderByOperation *OrderByOperation,
 	lastRecord TableModel,
@@ -58,7 +60,12 @@ func (b *pagingTokenBuilder) BuildToken(
 		return "", err
 	}
 
-	payloadBytes, err := writeToken(queryString, orderByOperation, cursorValues)
+	payloadBytes, err := writeToken(
+		resourceName,
+		queryString,
+		orderByOperation,
+		cursorValues,
+	)
 	if err != nil {
 		return "", err
 	}
@@ -120,6 +127,7 @@ func (b *pagingTokenBuilder) ParseToken(token string) (*pagingToken, error) {
 }
 
 func writeToken(
+	resourceName string,
 	queryString string,
 	orderBy *OrderByOperation,
 	cursorValues []ValueExpression,
@@ -152,6 +160,9 @@ func writeToken(
 		}
 	}
 
+	// Write resource name
+	writeNullTerminatedString(buf, resourceName)
+
 	// Write query string
 	writeNullTerminatedString(buf, queryString)
 	return buf.Bytes(), nil
@@ -183,6 +194,13 @@ func readToken(r *bytes.Reader) (*pagingToken, error) {
 		}
 		o.CursorValues[i] = v
 	}
+
+	// read resource name
+	rn, err := readNullTerminatedString(r)
+	if err != nil {
+		return nil, err
+	}
+	o.ResourceName = rn
 
 	// read query string
 	q, err := readNullTerminatedString(r)

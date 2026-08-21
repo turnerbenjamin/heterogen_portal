@@ -20,7 +20,15 @@ func (p *QuerySyntaxParser) Parse(queryString string) (*Operations, error) {
 	}
 
 	tokeniser := NewTokeniser(queryString)
-	return parseOperations(tokeniser, TokenAmpersand, TokenEOF)
+
+	ops, err := parseOperations(tokeniser, TokenAmpersand, TokenEOF)
+	if err != nil {
+		return nil, err
+	}
+
+	//bind operations to the original query string
+	ops.QueryString = queryString
+	return ops, nil
 }
 
 // parseOperations is used to parse operations at the top-level of query strings
