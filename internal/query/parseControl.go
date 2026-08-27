@@ -14,106 +14,115 @@ type QueryOperation interface {
 type QuerySyntaxParser struct{}
 
 // Parse is used to parse query strings as a collection of query operations
-func (p *QuerySyntaxParser) Parse(queryString string) (*Operations, error) {
+func (p *QuerySyntaxParser) Parse(
+	queryString string,
+	queryDataStore QueryDataStore,
+) error {
 	if strings.TrimSpace(queryString) == "" {
-		return &Operations{}, nil
+		return nil
 	}
 
 	tokeniser := NewTokeniser(queryString)
 
-	ops, err := parseOperations(tokeniser, TokenAmpersand, TokenEOF)
-	if err != nil {
-		return nil, err
-	}
-
-	//bind operations to the original query string
-	ops.QueryString = queryString
-	return ops, nil
+	return parseOperations(queryDataStore, tokeniser, TokenAmpersand, TokenEOF)
 }
 
 // parseOperations is used to parse operations at the top-level of query strings
 // and those passed as arguments to an expand operation
 func parseOperations(
+	queryDataStore QueryDataStore,
 	t *Tokeniser,
 	operationSeparator tokenType,
 	operationTerminator tokenType,
-) (*Operations, error) {
-	o := &Operations{}
+) error {
 	for {
 		// Parse next token
 		tkn := t.Next()
 		if tkn.Type != TokenIdentifier {
-			return nil, t.TknErr(tkn, "expected an operator but received '%s'", tkn.Value)
+			return t.TknErr(tkn, "expected an operator but received '%s'", tkn.Value)
 		}
 		operator := strings.ToLower(tkn.Value)
 
 		// Expect operator to be followed by equals token
 		tkn = t.Next()
 		if tkn.Type != TokenEquals {
-			return nil, t.TknErr(tkn, "expected '=' but received '%s'", tkn.Value)
+			return t.TknErr(tkn, "expected '=' but received '%s'", tkn.Value)
 		}
 
-		var parsingError error = nil
 		switch operator {
 		case "select":
-			if o.SelectOperation != nil {
-				return nil, t.TknErr(tkn, "invalid re-declaration of the '%s' operator", operator)
+			if err := parseSelectOperation(
+				queryDataStore,
+				t,
+				operationSeparator,
+				operationTerminator,
+			); err != nil {
+				return err
 			}
-			o.SelectOperation, parsingError = parseSelectOperation(t, operationSeparator, operationTerminator)
 
 		case "expand":
-			if o.ExpandOperation != nil {
-				return nil, t.TknErr(tkn, "invalid re-declaration of the '%s' operator", operator)
+			if err := parseExpandOperation(
+				queryDataStore,
+				t,
+				operationSeparator,
+				operationTerminator,
+			); err != nil {
+				return err
 			}
-			o.ExpandOperation, parsingError = parseExpandOperation(t, operationSeparator, operationTerminator)
 
 		case "filter":
-			if o.FilterOperation != nil {
-				return nil, t.TknErr(tkn, "invalid re-declaration of the '%s' operator", operator)
+			if err := parseFilterOperation(
+				queryDataStore,
+				t,
+				operationSeparator,
+				operationTerminator,
+			); err != nil {
+				return err
 			}
-			o.FilterOperation, parsingError = parseFilterOperation(t, operationSeparator, operationTerminator)
 
 		case "orderby":
-			if o.OrderByOperation != nil {
-				return nil, t.TknErr(tkn, "invalid re-declaration of the '%s' operator", operator)
+			if err := parseOrderByOperation(
+				queryDataStore,
+				t,
+				operationSeparator,
+				operationTerminator,
+			); err != nil {
+				return err
 			}
-			o.OrderByOperation, parsingError = parseOrderByOperation(t, operationSeparator, operationTerminator)
 
 		case "limit":
-			if o.LimitOperation != nil {
-				return nil, t.TknErr(tkn, "invalid re-declaration of the '%s' operator", operator)
+			if err := parseLimitOperation(queryDataStore, t); err != nil {
+				return err
 			}
-			o.LimitOperation, parsingError = parseLimitOperation(t)
 
 		case "count":
-			if o.CountOperation != nil {
-				return nil, t.TknErr(tkn, "invalid re-declaration of the '%s' operator", operator)
+			if err := parseCountOperation(queryDataStore, t); err != nil {
+				return err
 			}
-			o.CountOperation, parsingError = parseCountOperation(t)
 
 		case "pagingtoken":
-			if o.PagingTokenOperation != nil {
-				return nil, t.TknErr(tkn, "invalid re-declaration of the '%s' operator", operator)
+			if err := parsePagingTokenOperation(
+				queryDataStore,
+				t,
+				operationSeparator,
+				operationTerminator,
+			); err != nil {
+				return err
 			}
-			o.PagingTokenOperation, parsingError = parsePagingTokenOperation(t, operationSeparator, operationTerminator)
 
 		default:
-			return nil, syntaxErr("unsupported operator: %s", operator)
-		}
-
-		if parsingError != nil {
-			return nil, internalErr("unable to parse operation: %w", parsingError)
+			return syntaxErr("unsupported operator: %s", operator)
 		}
 
 		tkn = t.Next()
 
 		switch tkn.Type {
 		case operationTerminator:
-			return o, nil
+			return nil
 		case operationSeparator:
 			continue
 		default:
-			return nil, t.TknErr(tkn, "unexpected token received '%s'", tkn.Value)
+			return t.TknErr(tkn, "unexpected token received '%s'", tkn.Value)
 		}
 	}
 }

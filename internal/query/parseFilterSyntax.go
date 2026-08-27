@@ -3,285 +3,171 @@ package query
 import (
 	"slices"
 	"strconv"
+	"strings"
 )
 
-type FilterOperation struct {
-	FilterExpression FilterExpression
-}
+// type FilterOperation struct {
+// 	FilterExpression FilterExpression
+// }
 
-func (o *FilterOperation) IsQueryOperation() {}
-
-type FilterExpression interface {
-	IsFilterExpression()
-}
-
-type LogicalOperator string
-
-const (
-	LogicalAnd LogicalOperator = "and"
-	LogicalOr  LogicalOperator = "or"
-)
-
-var supportedLogicalOperators = map[string]LogicalOperator{
-	"and": LogicalAnd,
-	"or":  LogicalOr,
-}
-
-type SortDirectionOperator string
-
-const (
-	SortDirectionAsc  SortDirectionOperator = "asc"
-	SortDirectionDesc SortDirectionOperator = "desc"
-)
-
-type ComparisonOperator string
-
-const (
-	ComparisonEq         ComparisonOperator = "eq"
-	ComparisonNe         ComparisonOperator = "ne"
-	ComparisonGt         ComparisonOperator = "gt"
-	ComparisonGe         ComparisonOperator = "ge"
-	ComparisonLt         ComparisonOperator = "lt"
-	ComparisonLe         ComparisonOperator = "le"
-	ComparisonIn         ComparisonOperator = "in"
-	ComparisonContains   ComparisonOperator = "contains"
-	ComparisonStartsWith ComparisonOperator = "startswith"
-	ComparisonEndsWith   ComparisonOperator = "endswith"
-
-	// not supported - included for internal negation logic only:
-	comparisonNotIn         ComparisonOperator = "notin"
-	comparisonNotContains   ComparisonOperator = "notcontains"
-	comparisonNotStartsWith ComparisonOperator = "notstartswith"
-	comparisonNotEndsWith   ComparisonOperator = "notendswith"
-)
-
-var supportedComparisonOperators = map[string]ComparisonOperator{
-	"eq":         ComparisonEq,
-	"ne":         ComparisonNe,
-	"gt":         ComparisonGt,
-	"ge":         ComparisonGe,
-	"lt":         ComparisonLt,
-	"le":         ComparisonLe,
-	"in":         ComparisonIn,
-	"contains":   ComparisonContains,
-	"startswith": ComparisonStartsWith,
-	"endswith":   ComparisonEndsWith,
-}
-
-type CollectionOperator string
-
-const (
-	CollectionAny CollectionOperator = "any"
-	CollectionAll CollectionOperator = "all"
-)
-
-var supportedCollectionOperators = map[string]CollectionOperator{
-	"any": CollectionAny,
-	"all": CollectionAll,
-}
-
-type LogicalExpression struct {
-	Left     FilterExpression `json:"left"`
-	Operator LogicalOperator  `json:"operator"`
-	Right    FilterExpression `json:"right"`
-}
-
-func (e *LogicalExpression) IsFilterExpression() {}
-
-type ComparisonExpression struct {
-	Path     PropertyPath       `json:"path"`
-	Operator ComparisonOperator `json:"operator"`
-	Value    ValueExpression    `json:"value"`
-
-	ResolvedPath   *ResolvedPath `json:"-"`
-	ResolvedColumn *ColumnValue  `json:"-"`
-	ExistsPlan     *Exists       `json:"-"`
-}
-
-func (e *ComparisonExpression) IsFilterExpression() {}
-
-type CollectionExpression struct {
-	Path             PropertyPath       `json:"path"`
-	Operator         CollectionOperator `json:"operator"`
-	FilterExpression FilterExpression   `json:"filterExpression"`
-
-	ResolvedPath *ResolvedPath `json:"-"`
-	ExistsPlan   *Exists       `json:"-"`
-}
-
-func (e *CollectionExpression) IsFilterExpression() {}
-
-type PropertyPath struct {
-	Segments []string `json:"segments"`
-}
-
-type parser struct {
-	t *Tokeniser
-}
+// func (o *FilterOperation) IsQueryOperation() {}
 
 func parseFilterOperation(
+	s QueryDataStore,
 	t *Tokeniser,
 	operationSeparator tokenType,
 	endOfOperationsSentinal tokenType,
-) (*FilterOperation, error) {
-	p := &parser{
-		t: t,
-	}
-
-	expression, err := parseFilterExpression(p)
+) error {
+	b := s.FilterExpressionBuilder()
+	expression, err := parseFilterExpression(b, t)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	nxtTkn := t.Peek()
 	if nxtTkn.Type != operationSeparator && nxtTkn.Type != endOfOperationsSentinal {
-		return nil, t.TknErr(nxtTkn, "expected end of filter value but received '%s'", nxtTkn.Value)
+		return t.TknErr(nxtTkn, "expected end of filter value but received '%s'", nxtTkn.Value)
 	}
 
-	return &FilterOperation{
-		FilterExpression: expression,
-	}, nil
+	s.SetFilterExpression(expression)
+	return nil
 }
 
-func parseFilterExpression(p *parser) (FilterExpression, error) {
-	return parseOr(p)
+func parseFilterExpression(b FilterExpressionBuilder, t *Tokeniser) (FilterExpression, error) {
+	return parseOr(b, t)
 }
 
-func parseOr(p *parser) (FilterExpression, error) {
+func parseOr(b FilterExpressionBuilder, t *Tokeniser) (FilterExpression, error) {
 
-	left, err := parseAnd(p)
+	left, err := parseAnd(b, t)
 	if err != nil {
 		return nil, err
 	}
 
 	for {
-		tkn := p.t.Peek()
+		tkn := t.Peek()
 		if tkn.Type != TokenLogicalOperator || tkn.Value != "or" {
 			break
 		}
-		p.t.Next()
+		t.Next()
 
-		right, err := parseAnd(p)
+		right, err := parseAnd(b, t)
 		if err != nil {
 			return nil, err
 		}
 
-		left = &LogicalExpression{
-			Left:     left,
-			Operator: LogicalOr,
-			Right:    right,
+		if left, err = b.NewLogicalExpression(
+			left,
+			LogicalOr,
+			right,
+		); err != nil {
+			return nil, err
 		}
 	}
 
 	return left, nil
 }
 
-func parseAnd(p *parser) (FilterExpression, error) {
+func parseAnd(b FilterExpressionBuilder, t *Tokeniser) (FilterExpression, error) {
 
-	left, err := parsePrimary(p)
+	left, err := parsePrimary(b, t)
 	if err != nil {
 		return nil, err
 	}
 
 	for {
-		tkn := p.t.Peek()
+		tkn := t.Peek()
 		if tkn.Type != TokenLogicalOperator || tkn.Value != "and" {
 			break
 		}
-		p.t.Next()
+		t.Next()
 
-		right, err := parsePrimary(p)
+		right, err := parsePrimary(b, t)
 		if err != nil {
 			return nil, err
 		}
 
-		left = &LogicalExpression{
-			Left:     left,
-			Operator: LogicalAnd,
-			Right:    right,
+		if left, err = b.NewLogicalExpression(
+			left,
+			LogicalAnd,
+			right,
+		); err != nil {
+			return nil, err
 		}
 	}
 
 	return left, nil
 }
 
-func parsePrimary(p *parser) (FilterExpression, error) {
+func parsePrimary(b FilterExpressionBuilder, t *Tokeniser) (FilterExpression, error) {
 
-	tkn := p.t.Peek()
+	tkn := t.Peek()
 
 	switch tkn.Type {
 
 	case TokenParenL:
 		// consume opening parenthesis
-		p.t.Next()
+		t.Next()
 
-		expression, err := parseFilterExpression(p)
+		expression, err := parseFilterExpression(b, t)
 		if err != nil {
 			return nil, err
 		}
 
 		// consume closing parenthesis
-		close := p.t.Next()
+		close := t.Next()
 		if close.Type != TokenParenR {
-			return nil, p.t.TknErr(close, "expected ')' but received '%s'", close.Value)
+			return nil, t.TknErr(close, "expected ')' but received '%s'", close.Value)
 		}
 
 		return expression, nil
 
 	default:
-		path, err := parsePath(p.t)
+		path, err := parsePath(t)
 		if err != nil {
 			return nil, err
 		}
 
-		nxtTkn := p.t.Peek()
+		nxtTkn := t.Peek()
 
 		if nxtTkn.Type == TokenCollectionOperator {
-			return parseCollectionOperator(p, path)
+			return parseCollectionOperator(b, t, path)
 		}
-		return parseComparison(p, path)
+		return parseComparison(b, t, path)
 	}
 }
 
 func parseComparison(
-	p *parser,
-	path PropertyPath,
+	b FilterExpressionBuilder,
+	t *Tokeniser,
+	columnPath string,
 ) (FilterExpression, error) {
-
-	if len(path.Segments) == 0 {
-		return nil, internalErr("invalid path with a length of 0")
-	}
-
-	operator := p.t.Next()
+	operator := t.Next()
 	if operator.Type != TokenComparisonOperator {
-		return nil, p.t.TknErr(
+		return nil, t.TknErr(
 			operator,
 			"expected comparison operator, got %s",
 			operator.Value,
 		)
 	}
 
-	op, err := parseComparisonOperator(p, operator)
+	op, err := parseComparisonOperator(t, operator)
 	if err != nil {
 		return nil, err
 	}
 
-	right, err := parseValue(p)
+	right, err := parseValue(t)
 	if err != nil {
 		return nil, err
 	}
 
-	return &ComparisonExpression{
-		Path:     path,
-		Operator: op,
-		Value:    right,
-	}, nil
+	return b.NewComparisonExpression(columnPath, op, right)
 }
 
-func parseComparisonOperator(p *parser, tkn token) (ComparisonOperator, error) {
+func parseComparisonOperator(t *Tokeniser, tkn token) (ComparisonOperator, error) {
 	operator, ok := supportedComparisonOperators[tkn.Value]
 	if !ok {
-		return "", p.t.TknErr(
+		return "", t.TknErr(
 			tkn,
 			"unknown comparison operator %s",
 			tkn.Value,
@@ -291,48 +177,48 @@ func parseComparisonOperator(p *parser, tkn token) (ComparisonOperator, error) {
 }
 
 func parseCollectionOperator(
-	p *parser,
-	collection PropertyPath,
+	b FilterExpressionBuilder,
+	t *Tokeniser,
+	resourcePath string,
 ) (FilterExpression, error) {
 
-	tkn := p.t.Next()
+	tkn := t.Next()
 	operator, exists := supportedCollectionOperators[tkn.Value]
 	if !exists {
-		return nil, p.t.TknErr(tkn, "expected collection operator but received '%s'", tkn.Value)
+		return nil, t.TknErr(tkn, "expected collection operator but received '%s'", tkn.Value)
 	}
 
-	cp := &parser{
-		t: p.t,
+	if tkn = t.Next(); tkn.Type != TokenParenL {
+		return nil, t.TknErr(tkn, "expected '(' but received '%s'", tkn.Value)
 	}
 
-	if tkn = p.t.Next(); tkn.Type != TokenParenL {
-		return nil, p.t.TknErr(tkn, "expected '(' but received '%s'", tkn.Value)
-	}
-
-	filterExpression, err := parseFilterExpression(cp)
+	filterExpression, err := parseFilterExpression(b, t)
 	if err != nil {
 		return nil, err
 	}
 
-	if tkn := p.t.Next(); tkn.Type != TokenParenR {
-		return nil, p.t.TknErr(tkn, "expected ')' but received '%s'", tkn.Value)
+	if tkn := t.Next(); tkn.Type != TokenParenR {
+		return nil, t.TknErr(tkn, "expected ')' but received '%s'", tkn.Value)
 	}
 
-	return &CollectionExpression{
-		Path:             collection,
-		Operator:         operator,
-		FilterExpression: filterExpression,
-	}, nil
+	return b.NewCollectionExpression(
+		resourcePath,
+		operator,
+		filterExpression,
+	)
 }
 
-func parsePath(t *Tokeniser) (PropertyPath, error) {
-	path := []string{}
+func parsePath(t *Tokeniser) (string, error) {
+	pathBuilder := strings.Builder{}
 	for {
 		tkn := t.Next()
 
 		switch tkn.Type {
 		case TokenIdentifier, TokenLogicalOperator, TokenComparisonOperator, TokenCollectionOperator:
-			path = append(path, tkn.Value)
+			if pathBuilder.Len() != 0 {
+				pathBuilder.WriteByte('/')
+			}
+			pathBuilder.WriteString(tkn.Value)
 		}
 
 		nxtTkn := t.Peek()
@@ -349,20 +235,18 @@ func parsePath(t *Tokeniser) (PropertyPath, error) {
 			break
 		}
 	}
-	return PropertyPath{
-		Segments: path,
-	}, nil
+	return pathBuilder.String(), nil
 }
 
-func parseValue(p *parser) (ValueExpression, error) {
+func parseValue(t *Tokeniser) (ValueExpression, error) {
 
-	tkn := p.t.Next()
+	tkn := t.Next()
 
 	switch tkn.Type {
 	case TokenNull:
 		return &NullLiteral{}, nil
 	case TokenStringRaw:
-		str, err := p.t.processRawStringToken(tkn)
+		str, err := t.processRawStringToken(tkn)
 		if err != nil {
 			return &StringLiteral{}, err
 		}
@@ -372,10 +256,10 @@ func parseValue(p *parser) (ValueExpression, error) {
 	case TokenNumberRaw:
 		return processRawNumberToken(tkn)
 	case TokenParenL:
-		return parseList(p)
+		return parseList(t)
 
 	default:
-		return nil, p.t.TknErr(tkn, "unexpected value %s", tkn.Value)
+		return nil, t.TknErr(tkn, "unexpected value %s", tkn.Value)
 	}
 }
 
@@ -402,8 +286,8 @@ func (t *Tokeniser) processRawStringToken(raw token) (string, error) {
 	return raw.Value[1 : len(raw.Value)-1], nil
 }
 
-func parseList(p *parser) (ValueExpression, error) {
-	first, err := parseValue(p)
+func parseList(t *Tokeniser) (ValueExpression, error) {
+	first, err := parseValue(t)
 	if err != nil {
 		return nil, err
 	}
@@ -415,7 +299,7 @@ func parseList(p *parser) (ValueExpression, error) {
 	switch first := first.(type) {
 	case *StringLiteral:
 		vs, err := parseListElements(
-			p,
+			t,
 			first.GetTypeName(),
 			func(v *StringLiteral) string {
 				return v.Value
@@ -429,7 +313,7 @@ func parseList(p *parser) (ValueExpression, error) {
 		}, nil
 	case *IntLiteral:
 		vs, err := parseListElements(
-			p,
+			t,
 			first.GetTypeName(),
 			func(v *IntLiteral) int64 {
 				return v.Value
@@ -443,7 +327,7 @@ func parseList(p *parser) (ValueExpression, error) {
 		}, nil
 	case *FloatLiteral:
 		vs, err := parseListElements(
-			p,
+			t,
 			first.GetTypeName(),
 			func(v *FloatLiteral) float64 {
 				return v.Value
@@ -461,23 +345,23 @@ func parseList(p *parser) (ValueExpression, error) {
 }
 
 func parseListElements[WT ValueExpression, RT any](
-	p *parser,
+	t *Tokeniser,
 	listType string,
 	unwrap func(WT) RT,
 ) ([]RT, error) {
 	o := []RT{}
 	for {
-		if p.t.Peek().Type == TokenParenR {
-			_ = p.t.Next()
+		if t.Peek().Type == TokenParenR {
+			_ = t.Next()
 			return o, nil
 		}
 
-		if p.t.Peek().Type == TokenComma {
-			_ = p.t.Next()
+		if t.Peek().Type == TokenComma {
+			_ = t.Next()
 			continue
 		}
 
-		v, err := parseValue(p)
+		v, err := parseValue(t)
 		if err != nil {
 			return nil, err
 		}

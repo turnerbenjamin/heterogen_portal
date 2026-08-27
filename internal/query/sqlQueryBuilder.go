@@ -44,123 +44,83 @@ type aliasedResource struct {
 // nestedQuery represents an expansion query. It binds a queryBuilder, for the
 // nested query, to a traversal step from the parent table. This enables the
 // query response to be stiched to the parent response server side
-type nestedQuery struct {
-	queryBuilder *sqlQueryBuilder
-	link         *TraversalStep
-}
+// type nestedQuery struct {
+// 	queryBuilder *sqlQueryBuilder
+// 	link         *TraversalStep
+// }
 
 // sqlQueryBuilder is used to build and execute sql queries
 type sqlQueryBuilder struct {
-	depth                int
-	pagingTokenParser    PagingTokenBuilder
-	metadataBinder       *metadataBinder
-	relationshipPlan     *RelationshipPlanner
-	rootResource         TableMetadata
-	accessPolicy         AccessPolicy
-	resourceAccessPolicy TableAccessPolicy
-	operations           *Operations
-	doIncludeCount       bool
-	nestedQueries        map[string]*nestedQuery
+	queryDataStore QueryDataStore
 }
 
 // newSqlQueryBuilder constructs a new sqlQueryBuilderInstance from
 // QueryOperations. It will return an error if the operations cannot be bound to
 // the schema metadata
-func newSqlQueryBuilder(
-	rootResource TableMetadata,
-	accessPolicy AccessPolicy,
-	queryOperations *Operations,
-	pagingTokenParser PagingTokenBuilder,
-) (*sqlQueryBuilder, error) {
-
-	if queryOperations.state != operationsStateReadyForBuild {
-		return nil, internalErr("query operations must be ready for build")
-	}
-
-	b := &sqlQueryBuilder{
-		operations:        queryOperations,
-		pagingTokenParser: pagingTokenParser,
-		metadataBinder:    &metadataBinder{maximumDepth: 5, accessPolicy: accessPolicy},
-		rootResource:      rootResource,
-		accessPolicy:      accessPolicy,
-		nestedQueries:     map[string]*nestedQuery{},
-		depth:             0,
-	}
-
-	// Build relationship plan for exists and joins
-	relationshipPlan, err := NewRelationshipPlan(queryOperations)
-	if err != nil {
-		return nil, err
-	}
-	b.relationshipPlan = relationshipPlan
-
-	if err := b.createBuildersforNestedOperations(); err != nil {
-		return nil, err
-	}
-
-	return b, nil
+func newSqlQueryBuilder(queryDataStore QueryDataStore) *sqlQueryBuilder {
+	return &sqlQueryBuilder{queryDataStore: queryDataStore}
 }
 
-func (b *sqlQueryBuilder) newNestedSqlQueryBuilder(
-	rootResource TableMetadata,
-	accessPolicy AccessPolicy,
-	rawOperations *Operations,
-) (*sqlQueryBuilder, error) {
-	nestedBuilder, err := newSqlQueryBuilder(
-		rootResource,
-		accessPolicy,
-		rawOperations,
-		b.pagingTokenParser,
-	)
-	if err != nil {
-		return nil, err
-	}
-	nestedBuilder.depth = b.depth + 1
-	return nestedBuilder, nil
-}
+// func (b *sqlQueryBuilder) newNestedSqlQueryBuilder(
+// 	rootResource TableMetadata,
+// 	accessPolicy AccessPolicy,
+// 	rawOperations *Operations,
+// ) (*sqlQueryBuilder, error) {
+// 	nestedBuilder, err := newSqlQueryBuilder(
+// 		rootResource,
+// 		accessPolicy,
+// 		rawOperations,
+// 		b.pagingTokenParser,
+// 	)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	nestedBuilder.depth = b.depth + 1
+// 	return nestedBuilder, nil
+// }
 
-func (b *sqlQueryBuilder) createBuildersforNestedOperations() error {
-	op := b.operations.ExpandOperation
-	if op == nil {
-		return nil
-	}
+// func (b *sqlQueryBuilder) createBuildersforNestedOperations() error {
+// 	op := b.operations.ExpandOperation
+// 	if op == nil {
+// 		return nil
+// 	}
 
-	for _, expand := range op.Expands {
-		nestedQueryBuilder, err := b.newNestedSqlQueryBuilder(
-			expand.Link.To,
-			b.accessPolicy,
-			expand.Operations,
-		)
-		if err != nil {
-			return err
-		}
+// 	for _, expand := range op.Expands {
+// 		nestedQueryBuilder, err := b.newNestedSqlQueryBuilder(
+// 			expand.Link.To,
+// 			b.accessPolicy,
+// 			expand.Operations,
+// 		)
+// 		if err != nil {
+// 			return err
+// 		}
 
-		b.nestedQueries[string(expand.Link.Relationship.Id())] = &nestedQuery{
-			queryBuilder: nestedQueryBuilder,
-			link:         expand.Link,
-		}
-	}
-	return nil
-}
+// 		b.nestedQueries[string(expand.Link.Relationship.Id())] = &nestedQuery{
+// 			queryBuilder: nestedQueryBuilder,
+// 			link:         expand.Link,
+// 		}
+// 	}
+// 	return nil
+// }
 
-func (b *sqlQueryBuilder) addAssociatedWithParentFilter(
-	linkFromParent *TraversalStep,
-	joinParentOnValues []string,
-) error {
+// func (b *sqlQueryBuilder) addAssociatedWithParentFilter(
+// 	linkFromParent *TraversalStep,
+// 	joinParentOnValues []string,
+// ) error {
 
-	associationFilter, err := b.operations.addAssociatedWithParentFilter(
-		linkFromParent,
-		joinParentOnValues,
-	)
-	if err != nil {
-		return err
-	}
+// 	associationFilter, err := b.operations.addAssociatedWithParentFilter(
+// 		linkFromParent,
+// 		joinParentOnValues,
+// 	)
+// 	if err != nil {
+// 		return err
+// 	}
 
-	return b.relationshipPlan.processFilterExpression(
-		b.relationshipPlan.rootAlias,
-		associationFilter,
-	)
-}
+// 	return b.relationshipPlan.processFilterExpression(
+// 		b.relationshipPlan.rootAlias,
+// 		associationFilter,
+// 	)
+// }
 
 func (b *sqlQueryBuilder) build() (*sqlQuery, error) {
 	w := &queryWriter{
@@ -187,19 +147,12 @@ func (b *sqlQueryBuilder) buildTopLevelQuery() (*sqlQuery, string, error) {
 		args: []any{},
 	}
 
-	// Increment limit by 1 so that we can identify if a next page of records
-	// exists
-	b.operations.LimitOperation.Limit = b.operations.LimitOperation.Limit + 1
-
 	// Write the main query
 	err := b.writeQuery(w)
 	if err != nil {
 		return nil, "", err
 	}
 	w.statement = w.sb.String()
-
-	// Restore the original limit value
-	b.operations.LimitOperation.Limit = b.operations.LimitOperation.Limit - 1
 
 	// Construct the count statement
 	countStatement := b.buildCountStatement(w)
@@ -219,7 +172,7 @@ func (b *sqlQueryBuilder) writeQuery(w *queryWriter) error {
 
 	b.writeFromStatement(w)
 
-	b.writeJoins(w, b.relationshipPlan.Joins)
+	b.writeJoins(w, b.queryDataStore.JoinCollection())
 
 	err = b.writeFilterStatement(w)
 	if err != nil {
@@ -263,10 +216,13 @@ func (b *sqlQueryBuilder) buildCountStatement(w *queryWriter) string {
 func (b *sqlQueryBuilder) writeFromStatement(w *queryWriter) {
 	w.fromLocation.left = w.sb.Len()
 
+	rootResource := b.queryDataStore.RootResource()
+	rootAlias := b.queryDataStore.RootAlias()
+
 	w.sb.WriteString("FROM ")
-	w.sb.WriteString(b.rootResource.FullyQualifiedName())
+	w.sb.WriteString(rootResource.FullyQualifiedName())
 	w.sb.WriteRune(' ')
-	w.sb.WriteString(b.relationshipPlan.rootAlias)
+	w.sb.WriteString(rootAlias)
 
 	w.fromLocation.right = w.sb.Len()
 
@@ -274,32 +230,16 @@ func (b *sqlQueryBuilder) writeFromStatement(w *queryWriter) {
 }
 
 func (b *sqlQueryBuilder) writeSelectStatement(w *queryWriter) error {
-	// Expect either a user or system defined select statemet
-	selectOp := b.operations.SelectOperation
-	systemSelectOp := b.operations.SystemSelectOperation
 
-	if selectOp == nil || len(selectOp.Columns) == 0 {
+	if b.queryDataStore.SelectsLen() == 0 {
 		return internalErr("expected a select operation with at least one column specified")
-	}
-
-	columns := make([]*ColumnValue, 0, len(selectOp.Columns)+len(systemSelectOp.Columns))
-
-	// Add all columns to select
-	for _, v := range selectOp.Columns {
-		columns = append(columns, v)
-	}
-
-	if systemSelectOp != nil && systemSelectOp.Columns != nil {
-		for _, v := range systemSelectOp.Columns {
-			columns = append(columns, v)
-		}
 	}
 
 	w.selectLocation.left = w.sb.Len()
 	w.sb.WriteString("SELECT ")
 
 	i := 0
-	for _, columnValue := range columns {
+	for _, columnValue := range b.queryDataStore.Selects() {
 		if i > 0 {
 			w.sb.WriteString(",")
 		}
@@ -307,8 +247,8 @@ func (b *sqlQueryBuilder) writeSelectStatement(w *queryWriter) error {
 		fmt.Fprintf(
 			w.sb,
 			"%s.%s",
-			b.relationshipPlan.rootAlias,
-			b.formatSelectValue(columnValue.ColumnData),
+			b.queryDataStore.RootAlias(),
+			b.formatSelectValue(columnValue.Metadata),
 		)
 		i++
 	}
@@ -328,43 +268,41 @@ func (b *sqlQueryBuilder) formatSelectValue(columnData ColumnMetadata) string {
 	}
 }
 
-func (b *sqlQueryBuilder) writeJoins(w *queryWriter, joins map[string]*Join) {
-	for _, join := range joins {
+func (b *sqlQueryBuilder) writeJoins(w *queryWriter, joinCollection JoinCollection) {
+	for join := range joinCollection.Joins() {
+		relationship := join.step.Relationship
+
 		fmt.Fprintf(w.sb,
 			"LEFT JOIN %s %s on %s.%s = %s.%s",
-			join.step.To.FullyQualifiedName(),
+			relationship.To().FullyQualifiedName(),
 			join.alias,
-			join.ParentAlias,
-			join.step.Relationship.FromColumn().Name(),
+			join.ParentAlias(),
+			relationship.FromColumn().Name(),
 			join.alias,
-			join.step.Relationship.ToColumn().Name(),
+			relationship.ToColumn().Name(),
 		)
 
-		if len(join.Joins) > 0 {
+		if join.JoinsLen() > 0 {
 			w.sb.WriteRune(' ')
-			b.writeJoins(w, join.Joins)
+			b.writeJoins(w, &join)
 		}
 		w.sb.WriteRune(' ')
 	}
 }
 
 func (b *sqlQueryBuilder) writeOrderByStatement(w *queryWriter) error {
-	if b.operations.OrderByOperation == nil || len(b.operations.OrderByOperation.Rules) == 0 {
+	if b.queryDataStore.OrderByLen() == 0 {
 		return internalErr("expected an orderby operation with at least the primary column specified")
 	}
 
 	w.orderByLocation.left = w.sb.Len()
 	w.sb.WriteString("ORDER BY ")
 
-	orderByRules := b.operations.OrderByOperation.Rules
-	for i, r := range orderByRules {
-		if r.ResolvedPath.Id == "" {
-			return internalErr("resolved path id has not been populated")
-		}
-
-		tableAlias, exists := b.relationshipPlan.TableAliases[r.ResolvedPath.Id]
+	i := 0
+	for r := range b.queryDataStore.OrderBy() {
+		tableAlias, exists := b.queryDataStore.GetPathAlias(r.ResolvedColumn.ResolvedPath.Id)
 		if !exists {
-			return internalErr("unable to access join alias for path %s", r.ResolvedPath.Id)
+			return internalErr("unable to access join alias for path %s", r.ResolvedColumn.ResolvedPath.Id)
 		}
 
 		if i > 0 {
@@ -375,9 +313,10 @@ func (b *sqlQueryBuilder) writeOrderByStatement(w *queryWriter) error {
 			w.sb,
 			"%s.%s %s",
 			tableAlias,
-			r.ResolvedColumn.ColumnName,
+			r.ResolvedColumn.Metadata.Name(),
 			string(r.Direction),
 		)
+		i++
 	}
 
 	w.orderByLocation.right = w.sb.Len()
@@ -387,22 +326,18 @@ func (b *sqlQueryBuilder) writeOrderByStatement(w *queryWriter) error {
 }
 
 func (b *sqlQueryBuilder) writeLimitStatement(w *queryWriter) error {
-	limitOperation := b.operations.LimitOperation
-	if limitOperation == nil {
+	limit := b.queryDataStore.Limit()
+	if limit == 0 {
 		return internalErr("expected either a user or system defined limit operation")
 	}
 
-	w.sb.WriteString(fmt.Sprintf("OFFSET 0 ROWS FETCH NEXT %d ROWS ONLY", limitOperation.Limit))
+	w.sb.WriteString(fmt.Sprintf("OFFSET 0 ROWS FETCH NEXT %d ROWS ONLY", limit))
 	w.sb.WriteRune(' ')
 	return nil
 }
 
 func (b *sqlQueryBuilder) writeFilterStatement(w *queryWriter) error {
-	if b.operations.FilterOperation == nil {
-		return nil
-	}
-
-	filterExpression := b.operations.FilterOperation.FilterExpression
+	filterExpression := b.queryDataStore.FilterExpression()
 	if filterExpression == nil {
 		return nil
 	}
@@ -411,7 +346,11 @@ func (b *sqlQueryBuilder) writeFilterStatement(w *queryWriter) error {
 
 	w.sb.WriteString("WHERE ")
 
-	rootResource := &aliasedResource{resource: b.rootResource, alias: b.relationshipPlan.rootAlias}
+	rootResource := &aliasedResource{
+		resource: b.queryDataStore.RootResource(),
+		alias:    b.queryDataStore.RootAlias(),
+	}
+
 	err := b.buildFilterExpression(rootResource, filterExpression, w)
 	if err != nil {
 		return err
@@ -480,7 +419,7 @@ func (b *sqlQueryBuilder) buildComparisonExpression(
 		}
 		return ex.Value.WriteFilterExpression(
 			w,
-			fmt.Sprintf("%s.%s", endResource.alias, ex.ResolvedColumn.ColumnName),
+			fmt.Sprintf("%s.%s", endResource.alias, ex.ResolvedColumn.Metadata.Name()),
 			ex.Operator,
 		)
 	}
@@ -516,7 +455,7 @@ func (b *sqlQueryBuilder) buildCollectionExpression(
 
 	doNegate := ex.Operator == CollectionAll
 	if doNegate {
-		negatedCondition, err := negate(ex.FilterExpression)
+		negatedCondition, err := b.negate(ex.FilterExpression)
 		if err != nil {
 			return err
 		}
@@ -584,33 +523,26 @@ func (b *sqlQueryBuilder) writeExpressionWithPath(
 	return nil
 }
 
-func negate(expression FilterExpression) (FilterExpression, error) {
+func (b *sqlQueryBuilder) negate(expression FilterExpression) (FilterExpression, error) {
+	filterExpressionBuilder := b.queryDataStore.FilterExpressionBuilder()
+
 	switch ex := expression.(type) {
 	case *LogicalExpression:
-		l, err := negate(ex.Left)
+		l, err := b.negate(ex.Left)
 		if err != nil {
 			return nil, err
 		}
 
-		r, err := negate(ex.Right)
+		r, err := b.negate(ex.Right)
 		if err != nil {
 			return nil, err
 		}
 
 		switch ex.Operator {
 		case LogicalAnd:
-			return &LogicalExpression{
-				Left:     l,
-				Operator: LogicalOr,
-				Right:    r,
-			}, nil
-
+			return filterExpressionBuilder.NewLogicalExpression(l, LogicalOr, r)
 		case LogicalOr:
-			return &LogicalExpression{
-				Left:     l,
-				Operator: LogicalAnd,
-				Right:    r,
-			}, nil
+			return filterExpressionBuilder.NewLogicalExpression(l, LogicalAnd, r)
 		default:
 			return nil, fmt.Errorf("unexpected logical operator received '%v'", ex.Operator)
 		}
@@ -621,14 +553,7 @@ func negate(expression FilterExpression) (FilterExpression, error) {
 			return nil, err
 		}
 
-		return &ComparisonExpression{
-			Path:           ex.Path,
-			ResolvedPath:   ex.ResolvedPath,
-			ExistsPlan:     ex.ExistsPlan,
-			ResolvedColumn: ex.ResolvedColumn,
-			Value:          ex.Value,
-			Operator:       negatedOperator,
-		}, nil
+		return ex.WithValues(negatedOperator, ex.Value), nil
 
 	case *CollectionExpression:
 		operator := ex.Operator
@@ -641,18 +566,12 @@ func negate(expression FilterExpression) (FilterExpression, error) {
 			return nil, fmt.Errorf("unexpected collection operator received '%v'", ex.Operator)
 		}
 
-		expression, err := negate(ex.FilterExpression)
+		expression, err := b.negate(ex.FilterExpression)
 		if err != nil {
 			return nil, err
 		}
 
-		return &CollectionExpression{
-			Path:             ex.Path,
-			ResolvedPath:     ex.ResolvedPath,
-			ExistsPlan:       ex.ExistsPlan,
-			Operator:         operator,
-			FilterExpression: expression,
-		}, nil
+		return ex.WithValues(operator, expression), nil
 	default:
 		return nil, fmt.Errorf("unknown filter expression received")
 	}

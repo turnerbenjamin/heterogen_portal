@@ -6,8 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"uuid"
 
-	"github.com/google/uuid"
 	"github.com/turnerbenjamin/heterogen_portal/internal/model"
 )
 
@@ -74,7 +74,7 @@ func (r *UserRepo) Close() {
 func (r *UserRepo) UpsertUser(oid, givenName, familyName, userName, emailAddress string) (*model.UsersModel, error) {
 
 	var err error
-	id := uuid.New().String()
+	id := uuid.NewV4().String()
 
 	query, ok := r.statements[STMT_KEY_UPSERT_USER]
 	if !ok {

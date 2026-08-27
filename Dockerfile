@@ -7,7 +7,7 @@ COPY webresources ./
 RUN npm ci && npm run build
 
 # Stage 2: build Go binary
-FROM golang:1.25 AS builder
+FROM golang:1.27 AS builder
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go env -w GOPROXY=https://proxy.golang.org

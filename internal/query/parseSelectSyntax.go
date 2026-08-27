@@ -1,52 +1,52 @@
 package query
 
-// ColumnValue represents a column, the syntax parser populates the column name
-// directly from the query string. The binder will then associate this with
-// column metadata
-type ColumnValue struct {
+// // ColumnValue represents a column, the syntax parser populates the column name
+// // directly from the query string. The binder will then associate this with
+// // column metadata
+// type ColumnValue struct {
 
-	// ColumnName is the column name as defined in the database
-	ColumnName string `json:"columnName"`
+// 	// ColumnName is the column name as defined in the database
+// 	ColumnName string `json:"columnName"`
 
-	// ColumnData contains metadata for the column
-	ColumnData ColumnMetadata `json:"-"`
-}
+// 	// ColumnData contains metadata for the column
+// 	ColumnData ColumnMetadata `json:"-"`
+// }
 
-// SelectOperation is used to select specific columns from the resource
-type SelectOperation struct {
-	Columns map[string]*ColumnValue
-}
+// // SelectOperation is used to select specific columns from the resource
+// type SelectOperation struct {
+// 	Columns map[string]*ColumnValue
+// }
 
-// IsQueryOperation indicates that SelectOperation is a QueryOperation
-func (o *SelectOperation) IsQueryOperation() {}
+// // IsQueryOperation indicates that SelectOperation is a QueryOperation
+// func (o *SelectOperation) IsQueryOperation() {}
 
 // parseSelectOperation is responsible for parsing select operations It expects
 // a simple list of comma-separated values containing at least one column
 // identifier
 func parseSelectOperation(
+	queryDataStore QueryDataStore,
 	t *Tokeniser,
 	operationSeparator tokenType,
 	operationTerminator tokenType,
-) (*SelectOperation, error) {
-	o := &SelectOperation{
-		Columns: make(map[string]*ColumnValue, 8),
-	}
-
+) error {
 	for {
 		tkn := t.Next()
 		if tkn.Type != TokenIdentifier {
-			return o, t.TknErr(tkn, "expected a column identifier but received '%s'", tkn.Value)
+			return t.TknErr(tkn, "expected a column identifier but received '%s'", tkn.Value)
 		}
-		o.Columns[tkn.Value] = &ColumnValue{ColumnName: tkn.Value}
+
+		if err := queryDataStore.AddSelect(tkn.Value); err != nil {
+			return err
+		}
 
 		nxt := t.Peek()
 		switch nxt.Type {
 		case operationSeparator, operationTerminator:
-			return o, nil
+			return nil
 		case TokenComma:
 			_ = t.Next()
 		default:
-			return o, t.TknErr(nxt, "unexpected token encountered '%s'", nxt.Value)
+			return t.TknErr(nxt, "unexpected token encountered '%s'", nxt.Value)
 		}
 	}
 }

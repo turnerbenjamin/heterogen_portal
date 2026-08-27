@@ -53,11 +53,14 @@ type TableModel interface {
 	// SetRelationshipField sets a given relationship field
 	SetRelationshipField(relationshipId string, value TableModel) error
 
+	// InitRelationshipField initialses 1:N relationship fields to empty arrays
+	InitRelationshipField(relationshipId string) error
+
 	// GetJoinOnValue returns the value of the relevant column for a given relationship
 	GetJoinOnValue(relationshipId string) (string, error)
 
 	// GetValueExpression returns a value expression for a given path
-	GetValueExpression(path []TraversalStep, columnName string) (ValueExpression, error)
+	GetValueExpression(path []*TraversalStep, columnName string) (ValueExpression, error)
 
 	// IsNil is used to determine if a typed nil pointer contains a nil value
 	IsNil() bool
@@ -90,7 +93,10 @@ type RelationshipMetadata interface {
 }
 
 type QueryParser interface {
-	Parse(queryString string) (operations *Operations, err error)
+	Parse(
+		queryString string,
+		queryDataStore QueryDataStore,
+	) error
 }
 
 type QueryExecutor interface {
@@ -110,9 +116,7 @@ type QueryExecutor interface {
 
 type PagingTokenBuilder interface {
 	BuildToken(
-		resourceName string,
-		queryString string,
-		orderByOperation *OrderByOperation,
+		queryDataStore QueryDataStore,
 		lastRecord TableModel,
 	) (string, error)
 
@@ -120,7 +124,7 @@ type PagingTokenBuilder interface {
 }
 
 type nestedQueryResult struct {
-	link    *TraversalStep
+	link    TraversalStep
 	results []TableModel
 }
 
@@ -137,6 +141,7 @@ type Query struct {
 	tableMetadata     TableMetadata
 	AccessPolicy      AccessPolicy
 	TableAccessPolicy TableAccessPolicy
+	queryDataStore    QueryDataStore
 	queryBuilder      *sqlQueryBuilder
 }
 
@@ -164,43 +169,32 @@ func NewQuery(
 		return nil, internalErr("unable to find table access policy for table %s", resourceName)
 	}
 
-	queryOperations, err := BuildQueryOperations(
-		resource,
-		accessPolicy,
-		queryString,
-		queryParser,
-		nextPageTokenBuilder,
-	)
+	// Build query
+	queryDataStore, err := BuildQuery(queryString, queryParser, resource, accessPolicy)
 	if err != nil {
 		return nil, err
 	}
 
-	queryBuilder, err := newSqlQueryBuilder(
-		resource,
-		accessPolicy,
-		queryOperations,
-		nextPageTokenBuilder,
-	)
-	if err != nil {
-		return nil, err
-	}
+	queryBuilder := newSqlQueryBuilder(queryDataStore)
 
 	q := &Query{
-		ctx:           ctx,
-		queryString:   queryString,
-		queryExecutor: queryExecutor,
-		tableMetadata: resource,
-		queryBuilder:  queryBuilder,
+		ctx:            ctx,
+		queryString:    queryString,
+		queryExecutor:  queryExecutor,
+		tableMetadata:  resource,
+		queryBuilder:   queryBuilder,
+		queryDataStore: queryDataStore,
 	}
 	return q, nil
 }
 
 func (q *Query) Execute() (*ExecuteResult, error) {
-	resourceModel := q.queryBuilder.rootResource.GetModel()
+	rootResource := q.queryDataStore.RootResource()
+	resourceModel := rootResource.GetModel()
 	if resourceModel == nil {
 		return nil, bindingErr(
 			"unable to access model for %s",
-			q.queryBuilder.rootResource.Name(),
+			rootResource.Name(),
 		)
 	}
 
@@ -219,47 +213,50 @@ func (q *Query) Execute() (*ExecuteResult, error) {
 		return nil, internalErr("query executor failed: %v", err)
 	}
 
-	queryResults, stdErr := resourceModel.NewSlice(json, q.queryBuilder.operations.projection)
+	queryResults, stdErr := resourceModel.NewSlice(json, q.queryDataStore.Projection())
 	if stdErr != nil {
 		return nil, internalErr("unable to create model slice: %v", stdErr)
 	}
 
-	// Get System Selects
-	err = q.populateNestedResults(q.queryBuilder, queryResults)
+	err = q.populateNestedResults(q.queryDataStore, queryResults)
 	if err != nil {
 		return nil, err
 	}
 
 	// Top level queries set the limit to the requested limit + 1 so that it is
 	// possible to determine if a next page of results exists
-	var nextPageToken string
-	limit := q.queryBuilder.operations.LimitOperation.Limit
-	isNextRecord := len(queryResults) > limit
-	if isNextRecord {
-		// If there is a next page of results, trim the sentinel record from the
-		// query results
-		queryResults = queryResults[0:limit]
+	/*
+		var nextPageToken string
+		limit := q.queryDataStore.Limit()
+		isNextRecord := len(queryResults) > int(limit)
 
-		// Generate the next page token using the actual last record
-		lastRecord := queryResults[len(queryResults)-1]
-		nextPageToken, err = q.queryBuilder.operations.GetPagingToken(lastRecord)
-		if err != nil {
-			return nil, err
+
+		if isNextRecord {
+			// If there is a next page of results, trim the sentinel record from the
+			// query results
+			queryResults = queryResults[0:limit]
+
+			// Generate the next page token using the actual last record
+			lastRecord := queryResults[len(queryResults)-1]
+			nextPageToken, err = q.queryBuilder.operations.GetPagingToken(lastRecord)
+			if err != nil {
+				return nil, err
+			}
 		}
-	}
+	*/
 
 	return &ExecuteResult{
 		Count:         count,
-		NextPageToken: nextPageToken,
+		NextPageToken: "",
 		Data:          queryResults,
 	}, nil
 }
 
 func (q *Query) populateNestedResults(
-	qb *sqlQueryBuilder,
+	s QueryDataStore,
 	queryResults []TableModel,
 ) error {
-	nestedQueryResults, err := q.getNestedQueryResults(qb, queryResults)
+	nestedQueryResults, err := q.getNestedQueryResults(s, queryResults)
 	if err != nil {
 		return err
 	}
@@ -290,10 +287,10 @@ func (q *Query) populateNestedResults(
 }
 
 func (q *Query) getNestedQueryResults(
-	qb *sqlQueryBuilder,
+	s QueryDataStore,
 	queryResults []TableModel,
 ) (map[string]*nestedQueryResult, error) {
-	if len(queryResults) == 0 || len(qb.nestedQueries) == 0 {
+	if s.ExpandsLen() == 0 || len(queryResults) == 0 {
 		return nil, nil
 	}
 
@@ -301,7 +298,7 @@ func (q *Query) getNestedQueryResults(
 	nestedQueryResults := make(map[string]*nestedQueryResult)
 	var mu sync.Mutex
 	g, _ := errgroup.WithContext(q.ctx)
-	for _, nestedQuery := range qb.nestedQueries {
+	for _, nestedQuery := range s.Expands() {
 		g.Go(func() error {
 			nestedResults, err := q.executeNestedQuery(nestedQuery, queryResults)
 			if err != nil {
@@ -326,16 +323,18 @@ func (q *Query) getNestedQueryResults(
 	return nestedQueryResults, nil
 }
 
-func (q *Query) executeNestedQueries(qb *sqlQueryBuilder) ([]TableModel, error) {
-	resourceModel := qb.rootResource.GetModel()
+func (q *Query) executeNestedQueries(s QueryDataStore) ([]TableModel, error) {
+	rootResource := s.RootResource()
+	resourceModel := rootResource.GetModel()
 	if resourceModel == nil {
 		return nil, bindingErr(
 			"unable to access model for %s",
-			qb.rootResource.Name(),
+			rootResource.Name(),
 		)
 	}
 
-	query, err := qb.build()
+	queryBuilder := newSqlQueryBuilder(s)
+	query, err := queryBuilder.build()
 	if err != nil {
 		return nil, err
 	}
@@ -347,13 +346,13 @@ func (q *Query) executeNestedQueries(qb *sqlQueryBuilder) ([]TableModel, error) 
 
 	queryResults, stdErr := resourceModel.NewSlice(
 		json,
-		qb.operations.projection,
+		s.Projection(),
 	)
 	if stdErr != nil {
 		return nil, internalErr("unable to create model slice: %v", stdErr)
 	}
 
-	err = q.populateNestedResults(qb, queryResults)
+	err = q.populateNestedResults(s, queryResults)
 	if err != nil {
 		return nil, err
 	}
@@ -362,18 +361,18 @@ func (q *Query) executeNestedQueries(qb *sqlQueryBuilder) ([]TableModel, error) 
 }
 
 func (q *Query) executeNestedQuery(
-	nestedQuery *nestedQuery,
+	nestedQuery Expansion,
 	queryResults []TableModel,
 ) (*nestedQueryResult, error) {
-	link := nestedQuery.link
-	nestedQueryBuilder := nestedQuery.queryBuilder
+	link := nestedQuery.traversalStep
+	queryData := nestedQuery.queryData
 
 	joinOnValues, err := q.getJoinOnValues(link, queryResults)
 	if err != nil {
 		return nil, err
 	}
 
-	err = nestedQueryBuilder.addAssociatedWithParentFilter(
+	err = queryData.AddAssociatedWithParentFilter(
 		link,
 		joinOnValues,
 	)
@@ -381,7 +380,7 @@ func (q *Query) executeNestedQuery(
 		return nil, err
 	}
 
-	results, err := q.executeNestedQueries(nestedQueryBuilder)
+	results, err := q.executeNestedQueries(queryData)
 	if err != nil {
 		return nil, err
 	}
@@ -393,7 +392,7 @@ func (q *Query) executeNestedQuery(
 }
 
 func (q Query) getJoinOnValues(
-	link *TraversalStep,
+	link TraversalStep,
 	fromResults []TableModel,
 ) ([]string, error) {
 	seen := map[string]struct{}{}
@@ -453,6 +452,9 @@ func attachNestedResultsForOneToManyQuery(
 			return internalErr("unable to get join on value: %v", err)
 		}
 		parentResultsMap[joinOnValue] = parentResult
+		if err := parentResult.InitRelationshipField(relationship.Id()); err != nil {
+			return err
+		}
 	}
 
 	for _, nestedResult := range nestedResults {
@@ -464,7 +466,9 @@ func attachNestedResultsForOneToManyQuery(
 		if !ok || parent == nil {
 			return internalErr("unable to join query results")
 		}
-		parent.SetRelationshipField(relationship.Id(), nestedResult)
+		if err := parent.SetRelationshipField(relationship.Id(), nestedResult); err != nil {
+			return err
+		}
 	}
 	return nil
 }

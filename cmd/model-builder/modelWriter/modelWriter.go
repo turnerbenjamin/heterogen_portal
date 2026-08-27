@@ -561,6 +561,8 @@ func (w *modelWriter) WriteTableModel(tableData *builderRepo.TableMetadata) {
 	w.writeNewLine()
 	w.WriteRelationshipColumnSetterFunction(structName, tableData)
 	w.writeNewLine()
+	w.WriteInitRelationshipFieldFunction(structName, tableData)
+	w.writeNewLine()
 	w.WriteGetJoinOnValueFunction(structName, tableData)
 	w.writeNewLine()
 	w.WriteGetValueExpressionFunction(structName, tableData)
@@ -683,6 +685,54 @@ func (w *modelWriter) WriteRelationshipColumnSetterFunction(modelStructName stri
 	writeToBuilder(w.sb, "}\n")
 }
 
+func (w *modelWriter) WriteInitRelationshipFieldFunction(modelStructName string, tableData *builderRepo.TableMetadata) {
+	writeToBuilder(w.sb, fmt.Sprintf(
+		"// InitRelationshipField initialses 1:N relationship fields to empty arrays on\n// the %s.%s table\n",
+		tableData.Schema,
+		tableData.Name,
+	))
+
+	writeToBuilder(w.sb, fmt.Sprintf("func (m *%s) InitRelationshipField(relationshipId string) error {\n", modelStructName))
+	writeToBuilder(w.sb, "switch relationshipId {\n")
+
+	// Write do nothing code for N:1 relationships
+	countN1 := 0
+	for _, relationship := range tableData.Relationships {
+		if relationship.Type != "query.RelationshipManyToOne" {
+			continue
+		}
+		countN1++
+
+		if countN1 == 1 {
+			writeToBuilder(w.sb, "case ")
+		} else {
+			writeToBuilder(w.sb, ", ")
+		}
+		writeToBuilder(w.sb, fmt.Sprintf("\"%s\"", relationship.Id))
+	}
+	if countN1 > 0 {
+		writeToBuilder(w.sb, ":\n")
+		writeToBuilder(w.sb, "return nil\n")
+	}
+
+	// Write array setters for 1:N relationships
+	for _, relationship := range tableData.Relationships {
+		if relationship.Type != "query.RelationshipOneToMany" {
+			continue
+		}
+
+		relationshipColumnIdentifier := snakeToPascal(relationship.RelationshipColumn)
+		writeToBuilder(w.sb, fmt.Sprintf("case \"%s\":\n", relationship.Id))
+		writeToBuilder(w.sb, fmt.Sprintf("m.%s = []*%s{}\n", relationshipColumnIdentifier, getModelStructName(relationship.RelatedTable)))
+		writeToBuilder(w.sb, "return nil\n")
+	}
+
+	writeToBuilder(w.sb, "default:\n")
+	writeToBuilder(w.sb, "return fmt.Errorf(\"unknown relationship: %s\", relationshipId)\n")
+	writeToBuilder(w.sb, "}\n")
+	writeToBuilder(w.sb, "}\n")
+}
+
 func (w *modelWriter) WriteGetJoinOnValueFunction(modelStructName string, tableData *builderRepo.TableMetadata) {
 	writeToBuilder(w.sb, "// GetJoinOnValue returns the value of the relevant column for a given relationship\n")
 
@@ -714,7 +764,7 @@ func (w *modelWriter) WriteGetJoinOnValueFunction(modelStructName string, tableD
 func (w *modelWriter) WriteGetValueExpressionFunction(modelStructName string, tableData *builderRepo.TableMetadata) {
 	writeToBuilder(w.sb, "// GetValueExpression returns the value from a given path as a ValueExpression\n")
 
-	writeToBuilder(w.sb, fmt.Sprintf("func (m *%s) GetValueExpression(path []query.TraversalStep, columnName string) (query.ValueExpression, error){\n", modelStructName))
+	writeToBuilder(w.sb, fmt.Sprintf("func (m *%s) GetValueExpression(path []*query.TraversalStep, columnName string) (query.ValueExpression, error){\n", modelStructName))
 	writeToBuilder(w.sb, "if len(path) > 0 {\n")
 	writeToBuilder(w.sb, "nextStep := path[0]\n")
 	writeToBuilder(w.sb, "nextEntity, err := m.getRelatedEntity(nextStep.Relationship)\n")

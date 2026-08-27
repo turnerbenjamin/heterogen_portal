@@ -42,9 +42,7 @@ func NewNextPageTokenBuilder(payloadSigner PayloadSigner, payloadSecret []byte) 
 }
 
 func (b *pagingTokenBuilder) BuildToken(
-	resourceName string,
-	queryString string,
-	orderByOperation *OrderByOperation,
+	queryDataStore QueryDataStore,
 	lastRecord TableModel,
 ) (string, error) {
 	if b.payloadSigner == nil {
@@ -55,15 +53,13 @@ func (b *pagingTokenBuilder) BuildToken(
 		return "", internalErr("unable to build next page token. payload secret cannot be nil")
 	}
 
-	cursorValues, err := getCursorValues(lastRecord, orderByOperation)
+	cursorValues, err := getCursorValues(queryDataStore, lastRecord)
 	if err != nil {
 		return "", err
 	}
 
 	payloadBytes, err := writeToken(
-		resourceName,
-		queryString,
-		orderByOperation,
+		queryDataStore,
 		cursorValues,
 	)
 	if err != nil {
@@ -73,15 +69,17 @@ func (b *pagingTokenBuilder) BuildToken(
 }
 
 func getCursorValues(
+	s QueryDataStore,
 	lastRecord TableModel,
-	orderByOperation *OrderByOperation,
 ) ([]ValueExpression, error) {
-	cursorValues := make([]ValueExpression, len(orderByOperation.Rules))
+	cursorValues := make([]ValueExpression, s.OrderByLen())
 
-	for i, currentRule := range orderByOperation.Rules {
+	i := 0
+	for rule := range s.OrderBy() {
+		// THIS IS GROSS - CHANGE SIGNITURE OF GetValueExpression !!!!!!!!!!!!!!
 		nextRecordValue, err := lastRecord.GetValueExpression(
-			currentRule.ResolvedPath.Steps,
-			currentRule.ResolvedColumn.ColumnName,
+			rule.ResolvedColumn.ResolvedPath.Steps,
+			rule.ResolvedColumn.Metadata.Name(),
 		)
 		if err != nil {
 			return nil, err
@@ -127,9 +125,7 @@ func (b *pagingTokenBuilder) ParseToken(token string) (*pagingToken, error) {
 }
 
 func writeToken(
-	resourceName string,
-	queryString string,
-	orderBy *OrderByOperation,
+	s QueryDataStore,
 	cursorValues []ValueExpression,
 ) ([]byte, error) {
 	buf := new(bytes.Buffer)
@@ -150,7 +146,7 @@ func writeToken(
 	_, _ = buf.Write(ccb[:])
 
 	// Write cursor values
-	if len(orderBy.Rules) != len(cursorValues) {
+	if s.OrderByLen() != len(cursorValues) {
 		return nil, internalErr("mismatch between order by rules and cursor values")
 	}
 
@@ -161,10 +157,10 @@ func writeToken(
 	}
 
 	// Write resource name
-	writeNullTerminatedString(buf, resourceName)
+	writeNullTerminatedString(buf, s.RootResource().Name())
 
 	// Write query string
-	writeNullTerminatedString(buf, queryString)
+	writeNullTerminatedString(buf, s.QueryString())
 	return buf.Bytes(), nil
 }
 
