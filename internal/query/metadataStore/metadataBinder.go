@@ -35,12 +35,31 @@ var pathStore = pathCollection{
 	mu:    &sync.RWMutex{},
 }
 
+type pathIdBuilder struct {
+	root string
+	sb   *strings.Builder
+}
+
+func (b pathIdBuilder) resetToRoot() {
+	b.sb.Reset()
+	b.sb.WriteString(b.root)
+}
+
+func (b pathIdBuilder) appendToPath(relationship mdl.RelationshipMetadata) {
+	b.sb.WriteByte('/')
+	b.sb.WriteString(relationship.ColumnName())
+}
+
+func (b pathIdBuilder) string() string {
+	return b.sb.String()
+}
+
 type MetadataBinder struct { // USE INTERFACE
 	accessPolicy         mdl.AccessPolicy
 	rootResourceMetadata mdl.TableMetadata
 	rootAccessPolicy     mdl.TableAccessPolicy
 
-	pathIdBuilder *strings.Builder
+	pathIdBuilder pathIdBuilder
 }
 
 func NewMetadataBinder(
@@ -64,6 +83,10 @@ func NewMetadataBinder(
 		accessPolicy:         accessPolicy,
 		rootResourceMetadata: rootMetadata,
 		rootAccessPolicy:     rootAccessPolicy,
+		pathIdBuilder: pathIdBuilder{
+			root: rootMetadata.Name(),
+			sb:   &strings.Builder{},
+		},
 	}, nil
 }
 
@@ -145,8 +168,10 @@ func (b *MetadataBinder) ResolveRelationship(resource mdl.TableMetadata, relatio
 		)
 	}
 
+	b.pathIdBuilder.resetToRoot()
+	b.pathIdBuilder.appendToPath(relationshipData)
 	step := mdl.TraversalStep{
-		SubPathId:    appendToPath(resource.Name(), relationshipData),
+		SubPathId:    b.pathIdBuilder.string(),
 		Relationship: relationshipData,
 	}
 
@@ -171,7 +196,8 @@ func (b *MetadataBinder) resolvePath(
 			strings.Join(pathSegments, "/"),
 		)
 	}
-	// try and retrieve from store
+
+	// paths are lazy loaded into a store
 	if path, exists := pathStore.readPath(finalPathId); exists {
 		return path, nil
 	}
@@ -190,14 +216,7 @@ func (b *MetadataBinder) resolvePath(
 	}
 
 	// prepare path id builder
-	if b.pathIdBuilder == nil {
-		b.pathIdBuilder = &strings.Builder{}
-	} else {
-		b.pathIdBuilder.Reset()
-	}
-
-	// all path ids start with the resource name
-	b.pathIdBuilder.WriteString(rootResource.Name())
+	b.pathIdBuilder.resetToRoot()
 
 	// Traverse through intermediate steps
 	i := 0
@@ -226,11 +245,11 @@ func (b *MetadataBinder) resolvePath(
 		}
 
 		// update the path id
-		appendToPathSB(b.pathIdBuilder, relationshipData)
+		b.pathIdBuilder.appendToPath(relationshipData)
 
 		// append the traversal step to the resolved path
 		o.Steps[i] = &mdl.TraversalStep{
-			SubPathId:    b.pathIdBuilder.String(),
+			SubPathId:    b.pathIdBuilder.string(),
 			Relationship: relationshipData,
 		}
 
@@ -247,7 +266,7 @@ func (b *MetadataBinder) resolvePath(
 	}
 
 	// Set the final pathid and return
-	o.Id = b.pathIdBuilder.String()
+	o.Id = b.pathIdBuilder.string()
 	if o.Id != finalPathId {
 		return o, qerr.InternalErr(
 			"unable to resolve path. There is a disconnect between the " +
@@ -331,17 +350,4 @@ func getTableAccessPolicy(
 		return nil, qerr.AccessErr("you do not have permission to access the %s table", tableData.Name())
 	}
 	return tablePolicy, nil
-}
-
-/*
-DO WE NEED THESE????
-*/
-
-func appendToPath(path string, relationship mdl.RelationshipMetadata) string {
-	return fmt.Sprintf("%s/%s", path, relationship.ColumnName())
-}
-
-func appendToPathSB(sb *strings.Builder, relationship mdl.RelationshipMetadata) {
-	sb.WriteByte('/')
-	sb.WriteString(relationship.ColumnName())
 }
