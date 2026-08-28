@@ -3,13 +3,37 @@ package metadataStore
 import (
 	"fmt"
 	"strings"
+	"sync"
 
 	qerr "github.com/turnerbenjamin/heterogen_portal/internal/query/queryError"
 	mdl "github.com/turnerbenjamin/heterogen_portal/internal/query/queryModel"
 )
 
+type pathCollection struct {
+	store map[string]mdl.ResolvedPath
+	mu    *sync.RWMutex
+}
+
+func (c *pathCollection) readPath(pathId string) (mdl.ResolvedPath, bool) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	p, ok := c.store[pathId]
+	return p, ok
+}
+
+func (c *pathCollection) writePath(pathId string, path mdl.ResolvedPath) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	c.store[pathId] = path
+}
+
 // Paths are persisted to reduce short lived objects in the query pipeline
-var pathStore = map[string]mdl.ResolvedPath{}
+var pathStore = pathCollection{
+	store: make(map[string]mdl.ResolvedPath),
+	mu:    &sync.RWMutex{},
+}
 
 type MetadataBinder struct { // USE INTERFACE
 	accessPolicy         mdl.AccessPolicy
@@ -138,15 +162,31 @@ func (b *MetadataBinder) resolvePath(
 	rootResource mdl.TableMetadata,
 ) (mdl.ResolvedPath, error) {
 	// final pathId
-	finalPathId := fmt.Sprintf(
-		"%s/%s",
-		rootResource.Name(),
-		strings.Join(pathSegments, "/"),
-	)
-
+	traversalPathLength := len(pathSegments)
+	finalPathId := rootResource.Name()
+	if traversalPathLength > 0 {
+		finalPathId = fmt.Sprintf(
+			"%s/%s",
+			rootResource.Name(),
+			strings.Join(pathSegments, "/"),
+		)
+	}
 	// try and retrieve from store
-	if path, exists := pathStore[finalPathId]; exists {
+	if path, exists := pathStore.readPath(finalPathId); exists {
 		return path, nil
+	}
+
+	// initialise resolved path
+	o := mdl.ResolvedPath{
+		StartResource: rootResource,
+		EndResource:   rootResource,
+	}
+
+	// if path has no length return early
+	if traversalPathLength == 0 {
+		o.Id = rootResource.Name()
+		pathStore.writePath(finalPathId, o)
+		return o, nil
 	}
 
 	// prepare path id builder
@@ -158,19 +198,6 @@ func (b *MetadataBinder) resolvePath(
 
 	// all path ids start with the resource name
 	b.pathIdBuilder.WriteString(rootResource.Name())
-
-	// initialise resolved path
-	o := mdl.ResolvedPath{
-		StartResource: rootResource,
-		EndResource:   rootResource,
-	}
-
-	// if path has no length return early
-	traversalPathLength := len(pathSegments)
-	if traversalPathLength == 0 {
-		o.Id = b.pathIdBuilder.String()
-		return o, nil
-	}
 
 	// Traverse through intermediate steps
 	i := 0
@@ -228,7 +255,7 @@ func (b *MetadataBinder) resolvePath(
 		)
 	}
 
-	pathStore[o.Id] = o
+	pathStore.writePath(o.Id, o)
 	return o, nil
 }
 
