@@ -2,100 +2,18 @@ package query
 
 import (
 	"context"
-	"iter"
 	"sync"
 
+	qstore "github.com/turnerbenjamin/heterogen_portal/internal/query/queryDataStore"
+	qerr "github.com/turnerbenjamin/heterogen_portal/internal/query/queryError"
+	mdl "github.com/turnerbenjamin/heterogen_portal/internal/query/queryModel"
 	"golang.org/x/sync/errgroup"
 )
-
-// DbDataTypeName represents a SQL Server data type name supported by the model metadata system.
-type DbDataTypeName string
-
-const (
-	// DbTypeNvarchar represents the SQL Server nvarchar data type.
-	DbTypeNvarchar DbDataTypeName = "nvarchar"
-
-	// DbTypeInt represents the SQL Server int data type.
-	DbTypeInt DbDataTypeName = "int"
-
-	// DbTypeFloat represents the SQL Server float data type.
-	DbTypeFloat DbDataTypeName = "float"
-
-	// DbTypeGeography represents the SQL Server geography spatial data type.
-	DbTypeGeography DbDataTypeName = "geography"
-
-	// DbTypeDateTimeOffset represents the SQL Server datetimeoffset date/time data type.
-	DbTypeDateTimeOffset DbDataTypeName = "datetimeoffset"
-)
-
-// relationshipType represents different table relationships
-type RelationshipType string
-
-const (
-	// RelationshipOneToMany represents a 1:N relationship
-	RelationshipOneToMany RelationshipType = "1:N"
-
-	// RelationshipManyToOne represents an N:1 relationship
-	RelationshipManyToOne RelationshipType = "N:1"
-)
-
-type Schema interface {
-	GetTableMetadata(tableName string) TableMetadata
-}
-
-type TableModel interface {
-	// NewSlice unmarshals a json array and returns it as a slice
-	NewSlice(
-		jsonData []byte,
-		projectColumns []string,
-	) ([]TableModel, error)
-
-	// SetRelationshipField sets a given relationship field
-	SetRelationshipField(relationshipId string, value TableModel) error
-
-	// InitRelationshipField initialses 1:N relationship fields to empty arrays
-	InitRelationshipField(relationshipId string) error
-
-	// GetJoinOnValue returns the value of the relevant column for a given relationship
-	GetJoinOnValue(relationshipId string) (string, error)
-
-	// GetValueExpression returns a value expression for a given path
-	GetValueExpression(path []*TraversalStep, columnName string) (ValueExpression, error)
-
-	// IsNil is used to determine if a typed nil pointer contains a nil value
-	IsNil() bool
-}
-
-type TableMetadata interface {
-	GetColumnMetadata(columnName string) ColumnMetadata
-	GetRelationshipMetadata(columnName string) RelationshipMetadata
-	GetModel() TableModel
-	Name() string
-	FullyQualifiedName() string
-	Columns() iter.Seq[ColumnMetadata]
-	ColumnCount() int
-	PrimaryKeyField() ColumnMetadata
-}
-
-type ColumnMetadata interface {
-	Name() string
-	Type() DbDataTypeName
-}
-
-type RelationshipMetadata interface {
-	Id() string
-	From() TableMetadata
-	To() TableMetadata
-	FromColumn() ColumnMetadata
-	ToColumn() ColumnMetadata
-	Type() RelationshipType
-	RelationshipColumn() string
-}
 
 type QueryParser interface {
 	Parse(
 		queryString string,
-		queryDataStore QueryDataStore,
+		queryDataStore qstore.QueryDataStore,
 	) error
 }
 
@@ -116,39 +34,39 @@ type QueryExecutor interface {
 
 type PagingTokenBuilder interface {
 	BuildToken(
-		queryDataStore QueryDataStore,
-		lastRecord TableModel,
+		queryDataStore qstore.QueryDataStore,
+		lastRecord mdl.TableModel,
 	) (string, error)
 
 	ParseToken(token string) (*pagingToken, error)
 }
 
 type nestedQueryResult struct {
-	link    TraversalStep
-	results []TableModel
+	link    mdl.TraversalStep
+	results []mdl.TableModel
 }
 
 type ExecuteResult struct {
-	Count         *int64       `json:"count,omitempty"`
-	NextPageToken string       `json:"next_page_token,omitempty"`
-	Data          []TableModel `json:"data"`
+	Count         *int64           `json:"count,omitempty"`
+	NextPageToken string           `json:"next_page_token,omitempty"`
+	Data          []mdl.TableModel `json:"data"`
 }
 
 type Query struct {
 	ctx               context.Context
 	queryString       string
 	queryExecutor     QueryExecutor
-	tableMetadata     TableMetadata
-	AccessPolicy      AccessPolicy
-	TableAccessPolicy TableAccessPolicy
-	queryDataStore    QueryDataStore
+	tableMetadata     mdl.TableMetadata
+	AccessPolicy      mdl.AccessPolicy
+	TableAccessPolicy mdl.TableAccessPolicy
+	queryDataStore    qstore.QueryDataStore
 	queryBuilder      *sqlQueryBuilder
 }
 
 func NewQuery(
 	ctx context.Context,
-	schema Schema,
-	accessPolicy AccessPolicy,
+	schema mdl.Schema,
+	accessPolicy mdl.AccessPolicy,
 	resourceName string,
 	queryString string,
 	nextPageTokenBuilder PagingTokenBuilder,
@@ -157,16 +75,16 @@ func NewQuery(
 ) (*Query, error) {
 	resource := schema.GetTableMetadata(resourceName)
 	if resource == nil {
-		return nil, bindingErr("the table %s does not exist in the schema", resourceName)
+		return nil, qerr.BindingErr("the table %s does not exist in the schema", resourceName)
 	}
 
 	if accessPolicy == nil {
-		return nil, internalErr("access policy cannot be nil")
+		return nil, qerr.InternalErr("access policy cannot be nil")
 	}
 
 	resourceAccessPolicy := accessPolicy.GetTableAccessPolicy(resourceName)
 	if resourceAccessPolicy == nil {
-		return nil, internalErr("unable to find table access policy for table %s", resourceName)
+		return nil, qerr.InternalErr("unable to find table access policy for table %s", resourceName)
 	}
 
 	// Build query
@@ -192,7 +110,7 @@ func (q *Query) Execute() (*ExecuteResult, error) {
 	rootResource := q.queryDataStore.RootResource()
 	resourceModel := rootResource.GetModel()
 	if resourceModel == nil {
-		return nil, bindingErr(
+		return nil, qerr.BindingErr(
 			"unable to access model for %s",
 			rootResource.Name(),
 		)
@@ -210,12 +128,12 @@ func (q *Query) Execute() (*ExecuteResult, error) {
 		query.args,
 	)
 	if err != nil {
-		return nil, internalErr("query executor failed: %v", err)
+		return nil, qerr.InternalErr("query executor failed: %v", err)
 	}
 
 	queryResults, stdErr := resourceModel.NewSlice(json, q.queryDataStore.Projection())
 	if stdErr != nil {
-		return nil, internalErr("unable to create model slice: %v", stdErr)
+		return nil, qerr.InternalErr("unable to create model slice: %v", stdErr)
 	}
 
 	err = q.populateNestedResults(q.queryDataStore, queryResults)
@@ -253,8 +171,8 @@ func (q *Query) Execute() (*ExecuteResult, error) {
 }
 
 func (q *Query) populateNestedResults(
-	s QueryDataStore,
-	queryResults []TableModel,
+	s qstore.QueryDataStore,
+	queryResults []mdl.TableModel,
 ) error {
 	nestedQueryResults, err := q.getNestedQueryResults(s, queryResults)
 	if err != nil {
@@ -266,18 +184,18 @@ func (q *Query) populateNestedResults(
 		nestedResults := result.results
 
 		switch link.Relationship.Type() {
-		case RelationshipManyToOne:
+		case mdl.RelationshipManyToOne:
 			err := attachNestedResultsForManyToOneQuery(link.Relationship, queryResults, nestedResults)
 			if err != nil {
 				return err
 			}
-		case RelationshipOneToMany:
+		case mdl.RelationshipOneToMany:
 			err := attachNestedResultsForOneToManyQuery(link.Relationship, queryResults, nestedResults)
 			if err != nil {
 				return err
 			}
 		default:
-			return internalErr(
+			return qerr.InternalErr(
 				"unsupported relationship type %v",
 				link.Relationship.Type(),
 			)
@@ -287,8 +205,8 @@ func (q *Query) populateNestedResults(
 }
 
 func (q *Query) getNestedQueryResults(
-	s QueryDataStore,
-	queryResults []TableModel,
+	s qstore.QueryDataStore,
+	queryResults []mdl.TableModel,
 ) (map[string]*nestedQueryResult, error) {
 	if s.ExpandsLen() == 0 || len(queryResults) == 0 {
 		return nil, nil
@@ -323,11 +241,11 @@ func (q *Query) getNestedQueryResults(
 	return nestedQueryResults, nil
 }
 
-func (q *Query) executeNestedQueries(s QueryDataStore) ([]TableModel, error) {
+func (q *Query) executeNestedQueries(s qstore.QueryDataStore) ([]mdl.TableModel, error) {
 	rootResource := s.RootResource()
 	resourceModel := rootResource.GetModel()
 	if resourceModel == nil {
-		return nil, bindingErr(
+		return nil, qerr.BindingErr(
 			"unable to access model for %s",
 			rootResource.Name(),
 		)
@@ -341,7 +259,7 @@ func (q *Query) executeNestedQueries(s QueryDataStore) ([]TableModel, error) {
 
 	json, err := q.queryExecutor.ExecuteJsonRequest(q.ctx, query.statement, query.args)
 	if err != nil {
-		return nil, internalErr("query executor failed: %v", err)
+		return nil, qerr.InternalErr("query executor failed: %v", err)
 	}
 
 	queryResults, stdErr := resourceModel.NewSlice(
@@ -349,7 +267,7 @@ func (q *Query) executeNestedQueries(s QueryDataStore) ([]TableModel, error) {
 		s.Projection(),
 	)
 	if stdErr != nil {
-		return nil, internalErr("unable to create model slice: %v", stdErr)
+		return nil, qerr.InternalErr("unable to create model slice: %v", stdErr)
 	}
 
 	err = q.populateNestedResults(s, queryResults)
@@ -361,11 +279,11 @@ func (q *Query) executeNestedQueries(s QueryDataStore) ([]TableModel, error) {
 }
 
 func (q *Query) executeNestedQuery(
-	nestedQuery Expansion,
-	queryResults []TableModel,
+	nestedQuery qstore.Expansion,
+	queryResults []mdl.TableModel,
 ) (*nestedQueryResult, error) {
-	link := nestedQuery.traversalStep
-	queryData := nestedQuery.queryData
+	link := nestedQuery.TraversalStep
+	queryData := nestedQuery.QueryData
 
 	joinOnValues, err := q.getJoinOnValues(link, queryResults)
 	if err != nil {
@@ -392,8 +310,8 @@ func (q *Query) executeNestedQuery(
 }
 
 func (q Query) getJoinOnValues(
-	link TraversalStep,
-	fromResults []TableModel,
+	link mdl.TraversalStep,
+	fromResults []mdl.TableModel,
 ) ([]string, error) {
 	seen := map[string]struct{}{}
 	joinValues := make([]string, 0, len(fromResults))
@@ -413,15 +331,15 @@ func (q Query) getJoinOnValues(
 }
 
 func attachNestedResultsForManyToOneQuery(
-	relationship RelationshipMetadata,
+	relationship mdl.RelationshipMetadata,
 	parentResults,
-	nestedResults []TableModel,
+	nestedResults []mdl.TableModel,
 ) error {
-	nestedResultsMap := map[string]TableModel{}
+	nestedResultsMap := map[string]mdl.TableModel{}
 	for _, nestedResult := range nestedResults {
 		joinOnValue, err := nestedResult.GetJoinOnValue(relationship.Id())
 		if err != nil {
-			return internalErr("unable to get join on value: %v", err)
+			return qerr.InternalErr("unable to get join on value: %v", err)
 		}
 		nestedResultsMap[joinOnValue] = nestedResult
 	}
@@ -429,7 +347,7 @@ func attachNestedResultsForManyToOneQuery(
 	for _, result := range parentResults {
 		joinOnValue, err := result.GetJoinOnValue(relationship.Id())
 		if err != nil {
-			return internalErr("unable to get join on value: %v", err)
+			return qerr.InternalErr("unable to get join on value: %v", err)
 		}
 		related, ok := nestedResultsMap[joinOnValue]
 		if !ok || related == nil {
@@ -441,15 +359,15 @@ func attachNestedResultsForManyToOneQuery(
 }
 
 func attachNestedResultsForOneToManyQuery(
-	relationship RelationshipMetadata,
+	relationship mdl.RelationshipMetadata,
 	parentResults,
-	nestedResults []TableModel,
+	nestedResults []mdl.TableModel,
 ) error {
-	parentResultsMap := map[string]TableModel{}
+	parentResultsMap := map[string]mdl.TableModel{}
 	for _, parentResult := range parentResults {
 		joinOnValue, err := parentResult.GetJoinOnValue(relationship.Id())
 		if err != nil {
-			return internalErr("unable to get join on value: %v", err)
+			return qerr.InternalErr("unable to get join on value: %v", err)
 		}
 		parentResultsMap[joinOnValue] = parentResult
 		if err := parentResult.InitRelationshipField(relationship.Id()); err != nil {
@@ -460,11 +378,11 @@ func attachNestedResultsForOneToManyQuery(
 	for _, nestedResult := range nestedResults {
 		joinOnValue, err := nestedResult.GetJoinOnValue(relationship.Id())
 		if err != nil || joinOnValue == "" {
-			return internalErr("unable to get join on value: %v", err)
+			return qerr.InternalErr("unable to get join on value: %v", err)
 		}
 		parent, ok := parentResultsMap[joinOnValue]
 		if !ok || parent == nil {
-			return internalErr("unable to join query results")
+			return qerr.InternalErr("unable to join query results")
 		}
 		if err := parent.SetRelationshipField(relationship.Id(), nestedResult); err != nil {
 			return err

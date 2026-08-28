@@ -1,8 +1,11 @@
-package query
+package queryParser
 
 import (
 	"fmt"
 	"strings"
+
+	qerr "github.com/turnerbenjamin/heterogen_portal/internal/query/queryError"
+	mdl "github.com/turnerbenjamin/heterogen_portal/internal/query/queryModel"
 )
 
 // tokenType identifies the kinds of tokens recognised by the tokeniser.
@@ -272,15 +275,15 @@ func (t *Tokeniser) readIdentifier() token {
 func classifyIdentifier(identifier string) (tokenType, string) {
 	lIdentifier := strings.ToLower(identifier)
 
-	if _, isLogicalOperation := supportedLogicalOperators[lIdentifier]; isLogicalOperation {
+	if _, isLogicalOperation := mdl.SupportedLogicalOperators[lIdentifier]; isLogicalOperation {
 		return TokenLogicalOperator, lIdentifier
 	}
 
-	if _, isComparisonOperation := supportedComparisonOperators[lIdentifier]; isComparisonOperation {
+	if _, isComparisonOperation := mdl.SupportedComparisonOperators[lIdentifier]; isComparisonOperation {
 		return TokenComparisonOperator, lIdentifier
 	}
 
-	if _, isCollectionOperation := supportedCollectionOperators[lIdentifier]; isCollectionOperation {
+	if _, isCollectionOperation := mdl.SupportedCollectionOperators[lIdentifier]; isCollectionOperation {
 		return TokenCollectionOperator, lIdentifier
 	}
 
@@ -312,7 +315,7 @@ func isWhiteSpace(b byte) bool {
 // end of the offending tkn to provide context
 func (t Tokeniser) TknErr(tkn token, m string, a ...any) error {
 	if tkn.Type == TokenEmpty || tkn.Type == TokenEOF {
-		return syntaxErr(m, a...)
+		return qerr.SyntaxErr(m, a...)
 	}
 
 	em := fmt.Sprintf(m, a...)
@@ -320,5 +323,5 @@ func (t Tokeniser) TknErr(tkn token, m string, a ...any) error {
 	maxCtxLen := 50
 	ctx := t.input[max(0, tkn.endIdx-maxCtxLen):min(len(t.input), tkn.endIdx)]
 
-	return syntaxErr("%s: __%s <--", em, ctx)
+	return qerr.SyntaxErr("%s: __%s <--", em, ctx)
 }

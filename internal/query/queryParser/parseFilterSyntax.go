@@ -1,9 +1,13 @@
-package query
+package queryParser
 
 import (
 	"slices"
 	"strconv"
 	"strings"
+
+	qstore "github.com/turnerbenjamin/heterogen_portal/internal/query/queryDataStore"
+	qerr "github.com/turnerbenjamin/heterogen_portal/internal/query/queryError"
+	mdl "github.com/turnerbenjamin/heterogen_portal/internal/query/queryModel"
 )
 
 // type FilterOperation struct {
@@ -13,7 +17,7 @@ import (
 // func (o *FilterOperation) IsQueryOperation() {}
 
 func parseFilterOperation(
-	s QueryDataStore,
+	s qstore.QueryDataStore,
 	t *Tokeniser,
 	operationSeparator tokenType,
 	endOfOperationsSentinal tokenType,
@@ -33,11 +37,11 @@ func parseFilterOperation(
 	return nil
 }
 
-func parseFilterExpression(b FilterExpressionBuilder, t *Tokeniser) (FilterExpression, error) {
+func parseFilterExpression(b qstore.FilterExpressionBuilder, t *Tokeniser) (mdl.FilterExpression, error) {
 	return parseOr(b, t)
 }
 
-func parseOr(b FilterExpressionBuilder, t *Tokeniser) (FilterExpression, error) {
+func parseOr(b qstore.FilterExpressionBuilder, t *Tokeniser) (mdl.FilterExpression, error) {
 
 	left, err := parseAnd(b, t)
 	if err != nil {
@@ -58,7 +62,7 @@ func parseOr(b FilterExpressionBuilder, t *Tokeniser) (FilterExpression, error) 
 
 		if left, err = b.NewLogicalExpression(
 			left,
-			LogicalOr,
+			mdl.LogicalOr,
 			right,
 		); err != nil {
 			return nil, err
@@ -68,7 +72,7 @@ func parseOr(b FilterExpressionBuilder, t *Tokeniser) (FilterExpression, error) 
 	return left, nil
 }
 
-func parseAnd(b FilterExpressionBuilder, t *Tokeniser) (FilterExpression, error) {
+func parseAnd(b qstore.FilterExpressionBuilder, t *Tokeniser) (mdl.FilterExpression, error) {
 
 	left, err := parsePrimary(b, t)
 	if err != nil {
@@ -89,7 +93,7 @@ func parseAnd(b FilterExpressionBuilder, t *Tokeniser) (FilterExpression, error)
 
 		if left, err = b.NewLogicalExpression(
 			left,
-			LogicalAnd,
+			mdl.LogicalAnd,
 			right,
 		); err != nil {
 			return nil, err
@@ -99,7 +103,7 @@ func parseAnd(b FilterExpressionBuilder, t *Tokeniser) (FilterExpression, error)
 	return left, nil
 }
 
-func parsePrimary(b FilterExpressionBuilder, t *Tokeniser) (FilterExpression, error) {
+func parsePrimary(b qstore.FilterExpressionBuilder, t *Tokeniser) (mdl.FilterExpression, error) {
 
 	tkn := t.Peek()
 
@@ -138,10 +142,10 @@ func parsePrimary(b FilterExpressionBuilder, t *Tokeniser) (FilterExpression, er
 }
 
 func parseComparison(
-	b FilterExpressionBuilder,
+	b qstore.FilterExpressionBuilder,
 	t *Tokeniser,
 	columnPath string,
-) (FilterExpression, error) {
+) (mdl.FilterExpression, error) {
 	operator := t.Next()
 	if operator.Type != TokenComparisonOperator {
 		return nil, t.TknErr(
@@ -164,8 +168,8 @@ func parseComparison(
 	return b.NewComparisonExpression(columnPath, op, right)
 }
 
-func parseComparisonOperator(t *Tokeniser, tkn token) (ComparisonOperator, error) {
-	operator, ok := supportedComparisonOperators[tkn.Value]
+func parseComparisonOperator(t *Tokeniser, tkn token) (mdl.ComparisonOperator, error) {
+	operator, ok := mdl.SupportedComparisonOperators[tkn.Value]
 	if !ok {
 		return "", t.TknErr(
 			tkn,
@@ -177,13 +181,13 @@ func parseComparisonOperator(t *Tokeniser, tkn token) (ComparisonOperator, error
 }
 
 func parseCollectionOperator(
-	b FilterExpressionBuilder,
+	b qstore.FilterExpressionBuilder,
 	t *Tokeniser,
 	resourcePath string,
-) (FilterExpression, error) {
+) (mdl.FilterExpression, error) {
 
 	tkn := t.Next()
-	operator, exists := supportedCollectionOperators[tkn.Value]
+	operator, exists := mdl.SupportedCollectionOperators[tkn.Value]
 	if !exists {
 		return nil, t.TknErr(tkn, "expected collection operator but received '%s'", tkn.Value)
 	}
@@ -238,19 +242,19 @@ func parsePath(t *Tokeniser) (string, error) {
 	return pathBuilder.String(), nil
 }
 
-func parseValue(t *Tokeniser) (ValueExpression, error) {
+func parseValue(t *Tokeniser) (mdl.ValueExpression, error) {
 
 	tkn := t.Next()
 
 	switch tkn.Type {
 	case TokenNull:
-		return &NullLiteral{}, nil
+		return &mdl.NullLiteral{}, nil
 	case TokenStringRaw:
 		str, err := t.processRawStringToken(tkn)
 		if err != nil {
-			return &StringLiteral{}, err
+			return &mdl.StringLiteral{}, err
 		}
-		return &StringLiteral{
+		return &mdl.StringLiteral{
 			Value: str,
 		}, nil
 	case TokenNumberRaw:
@@ -269,82 +273,82 @@ func (t *Tokeniser) processRawStringToken(raw token) (string, error) {
 	}
 
 	if len(raw.Value) < 2 {
-		return "", syntaxErr("raw string token should be at least 2 characters")
+		return "", qerr.SyntaxErr("raw string token should be at least 2 characters")
 	}
 
 	openingQuotationMark := raw.Value[0]
 	closingQuotationMark := raw.Value[len(raw.Value)-1]
 
 	if openingQuotationMark != '\'' && openingQuotationMark != '"' {
-		return "", syntaxErr("raw string token should be prefixed with a ' or \"")
+		return "", qerr.SyntaxErr("raw string token should be prefixed with a ' or \"")
 	}
 
 	if closingQuotationMark != openingQuotationMark {
-		return "", syntaxErr("unterminated string literal %s", raw.Value)
+		return "", qerr.SyntaxErr("unterminated string literal %s", raw.Value)
 	}
 
 	return raw.Value[1 : len(raw.Value)-1], nil
 }
 
-func parseList(t *Tokeniser) (ValueExpression, error) {
+func parseList(t *Tokeniser) (mdl.ValueExpression, error) {
 	first, err := parseValue(t)
 	if err != nil {
 		return nil, err
 	}
 
 	if first == nil {
-		return nil, syntaxErr("a list literal must have at least 1 element")
+		return nil, qerr.SyntaxErr("a list literal must have at least 1 element")
 	}
 
 	switch first := first.(type) {
-	case *StringLiteral:
+	case *mdl.StringLiteral:
 		vs, err := parseListElements(
 			t,
 			first.GetTypeName(),
-			func(v *StringLiteral) string {
+			func(v *mdl.StringLiteral) string {
 				return v.Value
 			},
 		)
 		if err != nil {
 			return nil, err
 		}
-		return &StringListLiteral{
+		return &mdl.StringListLiteral{
 			Values: slices.Concat([]string{first.Value}, vs),
 		}, nil
-	case *IntLiteral:
+	case *mdl.IntLiteral:
 		vs, err := parseListElements(
 			t,
 			first.GetTypeName(),
-			func(v *IntLiteral) int64 {
+			func(v *mdl.IntLiteral) int64 {
 				return v.Value
 			},
 		)
 		if err != nil {
 			return nil, err
 		}
-		return &IntListLiteral{
+		return &mdl.IntListLiteral{
 			Values: slices.Concat([]int64{first.Value}, vs),
 		}, nil
-	case *FloatLiteral:
+	case *mdl.FloatLiteral:
 		vs, err := parseListElements(
 			t,
 			first.GetTypeName(),
-			func(v *FloatLiteral) float64 {
+			func(v *mdl.FloatLiteral) float64 {
 				return v.Value
 			},
 		)
 		if err != nil {
 			return nil, err
 		}
-		return &FloatListLiteral{
+		return &mdl.FloatListLiteral{
 			Values: slices.Concat([]float64{first.Value}, vs),
 		}, nil
 	default:
-		return nil, syntaxErr("invalid list element type '%s'", first.GetTypeName())
+		return nil, qerr.SyntaxErr("invalid list element type '%s'", first.GetTypeName())
 	}
 }
 
-func parseListElements[WT ValueExpression, RT any](
+func parseListElements[WT mdl.ValueExpression, RT any](
 	t *Tokeniser,
 	listType string,
 	unwrap func(WT) RT,
@@ -368,13 +372,13 @@ func parseListElements[WT ValueExpression, RT any](
 
 		wv, ok := v.(WT)
 		if !ok {
-			return nil, syntaxErr("%s lists cannot contain elements of type %s", listType, v.GetTypeName())
+			return nil, qerr.SyntaxErr("%s lists cannot contain elements of type %s", listType, v.GetTypeName())
 		}
 		o = append(o, unwrap(wv))
 	}
 }
 
-func processRawNumberToken(tkn token) (ValueExpression, error) {
+func processRawNumberToken(tkn token) (mdl.ValueExpression, error) {
 	dpCount := 0
 	for _, c := range tkn.Value {
 		if c == '.' {
@@ -389,20 +393,20 @@ func processRawNumberToken(tkn token) (ValueExpression, error) {
 	case 0:
 		i, err := strconv.Atoi(tkn.Value)
 		if err != nil {
-			return &IntLiteral{}, internalErr("unable to convert string to int: %v", err)
+			return &mdl.IntLiteral{}, qerr.InternalErr("unable to convert string to int: %v", err)
 		}
-		return &IntLiteral{
+		return &mdl.IntLiteral{
 			Value: int64(i),
 		}, nil
 	case 1:
 		f, err := strconv.ParseFloat(tkn.Value, 64)
 		if err != nil {
-			return &FloatLiteral{}, internalErr("unable to convert string to float: %v", err)
+			return &mdl.FloatLiteral{}, qerr.InternalErr("unable to convert string to float: %v", err)
 		}
-		return &FloatLiteral{
+		return &mdl.FloatLiteral{
 			Value: f,
 		}, nil
 	default:
-		return &IntLiteral{}, internalErr("invalid number value: %s", tkn.Value)
+		return &mdl.IntLiteral{}, qerr.InternalErr("invalid number value: %s", tkn.Value)
 	}
 }

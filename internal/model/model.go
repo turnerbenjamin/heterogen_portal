@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/turnerbenjamin/heterogen_portal/internal/query"
+	"github.com/turnerbenjamin/heterogen_portal/internal/query/queryModel"
 )
 
 var metadataIsBound = false
@@ -29,20 +29,20 @@ func NewSchemaMetadata() *schemaMetadata {
 
 // GetTableModel returns a new instance of a given table or nill if
 // the table name is invalid
-func (s *schemaMetadata) GetTableModel(tableName string) query.TableModel {
+func (s *schemaMetadata) GetTableModel(tableName string) queryModel.TableModel {
 	return getTableModel(tableName)
 }
 
 // GetTableMetadata returns the metadata for a given table or nill if
 // the table name is invalid
-func (s *schemaMetadata) GetTableMetadata(tableName string) query.TableMetadata {
+func (s *schemaMetadata) GetTableMetadata(tableName string) queryModel.TableMetadata {
 	return getTableMetadata(tableName)
 }
 
 // columnMetadata describes the metadata associated with a database table column.
 type columnMetadata struct {
 	name         string
-	dbType       query.DbDataTypeName
+	dbType       queryModel.DbDataTypeName
 	maxLength    int
 	isPrimaryKey bool
 	isRequired   bool
@@ -54,29 +54,37 @@ func (c *columnMetadata) Name() string {
 }
 
 // Type returns the column's type
-func (c *columnMetadata) Type() query.DbDataTypeName {
+func (c *columnMetadata) Type() queryModel.DbDataTypeName {
 	return c.dbType
-}
-
-// RelationshipColumn returns the name of the pseudo relationship column on the table
-func (r *relationship) RelationshipColumn() string {
-	return r.name
 }
 
 // relationship describes a foreign key relationship between two database columns.
 type relationship struct {
-	id               string
-	name             string
-	relationshipType query.RelationshipType
-	from             query.TableMetadata
-	to               query.TableMetadata
-	fromColumn       query.ColumnMetadata
-	toColumn         query.ColumnMetadata
-	fromTableName    string
-	toTableName      string
-	fromColumnName   string
-	toColumnName     string
-	isInitialised    bool
+	id                  string
+	columnName          string
+	expansionColumnName string
+	relationshipType    queryModel.RelationshipType
+	from                queryModel.TableMetadata
+	to                  queryModel.TableMetadata
+	fromColumn          queryModel.ColumnMetadata
+	toColumn            queryModel.ColumnMetadata
+	fromTableName       string
+	toTableName         string
+	fromColumnName      string
+	toColumnName        string
+	isInitialised       bool
+}
+
+// ExpansionColumnName returns the name of the pseudo relationship column on the
+// table used to store expanded results
+func (r *relationship) ExpansionColumnName() string {
+	return r.expansionColumnName
+}
+
+// ColumnName returns the name of the column, as it should be referenced in a
+// query string
+func (r *relationship) ColumnName() string {
+	return r.columnName
 }
 
 // bindMetadata binds metadata references at runtime to avoid invalid initiation
@@ -98,27 +106,27 @@ func (r *relationship) Id() string {
 }
 
 // From returns table metadata for the from table
-func (r *relationship) From() query.TableMetadata {
+func (r *relationship) From() queryModel.TableMetadata {
 	return r.from
 }
 
 // To returns table metadata for the to table
-func (r *relationship) To() query.TableMetadata {
+func (r *relationship) To() queryModel.TableMetadata {
 	return r.to
 }
 
 // From returns table metadata for the from table
-func (r *relationship) FromColumn() query.ColumnMetadata {
+func (r *relationship) FromColumn() queryModel.ColumnMetadata {
 	return r.fromColumn
 }
 
 // To returns table metadata for the to table
-func (r *relationship) ToColumn() query.ColumnMetadata {
+func (r *relationship) ToColumn() queryModel.ColumnMetadata {
 	return r.toColumn
 }
 
 // Type returns the relationship type
-func (r *relationship) Type() query.RelationshipType {
+func (r *relationship) Type() queryModel.RelationshipType {
 	return r.relationshipType
 }
 
@@ -143,7 +151,7 @@ func (t *tableMetadata) bindMetadata() {
 
 // GetColumnMetadata returns metadata for a given table column; returns nil if
 // the column does not exist on the table
-func (t *tableMetadata) GetColumnMetadata(columnName string) query.ColumnMetadata {
+func (t *tableMetadata) GetColumnMetadata(columnName string) queryModel.ColumnMetadata {
 	c, exists := t.columns[columnName]
 	if !exists {
 		return nil
@@ -153,7 +161,7 @@ func (t *tableMetadata) GetColumnMetadata(columnName string) query.ColumnMetadat
 
 // GetRelationshipMetadata returns metadata for a given table column; returns
 // nil if the relationship does not exist on the table
-func (t *tableMetadata) GetRelationshipMetadata(relationshipName string) query.RelationshipMetadata {
+func (t *tableMetadata) GetRelationshipMetadata(relationshipName string) queryModel.RelationshipMetadata {
 	r, exists := t.relationships[relationshipName]
 	if !exists {
 		return nil
@@ -162,7 +170,7 @@ func (t *tableMetadata) GetRelationshipMetadata(relationshipName string) query.R
 }
 
 // GetTableModel returns a model representing the table
-func (t *tableMetadata) GetModel() query.TableModel {
+func (t *tableMetadata) GetModel() queryModel.TableModel {
 	return getTableModel(t.name)
 }
 
@@ -178,8 +186,8 @@ func (t *tableMetadata) FullyQualifiedName() string {
 }
 
 // Columns iterates over all columns associated with the table
-func (t *tableMetadata) Columns() iter.Seq[query.ColumnMetadata] {
-	return func(yield func(query.ColumnMetadata) bool) {
+func (t *tableMetadata) Columns() iter.Seq[queryModel.ColumnMetadata] {
+	return func(yield func(queryModel.ColumnMetadata) bool) {
 		for _, col := range t.columns {
 			if !yield(col) {
 				return
@@ -197,10 +205,10 @@ func (t *tableMetadata) ColumnCount() int {
 }
 
 // PrimaryKeyField returns the column metadata for the primary key field
-func (t *tableMetadata) PrimaryKeyField() query.ColumnMetadata {
+func (t *tableMetadata) PrimaryKeyField() queryModel.ColumnMetadata {
 	pk, ok := t.columns[t.primaryKey]
 	if !ok || pk == nil {
-		panic(fmt.Sprintf("unable to access primary key for %t table", t.name))
+		panic(fmt.Sprintf("unable to access primary key for %s table", t.name))
 	}
 	return pk
 }
@@ -367,147 +375,147 @@ var businessesMetadata = &tableMetadata{
 	columns: map[string]*columnMetadata{
 		"id": {
 			name:         "id",
-			dbType:       query.DbTypeNvarchar,
+			dbType:       queryModel.DbTypeNvarchar,
 			maxLength:    72,
 			isRequired:   true,
 			isPrimaryKey: true,
 		},
 		"reference": {
 			name:         "reference",
-			dbType:       query.DbTypeNvarchar,
+			dbType:       queryModel.DbTypeNvarchar,
 			maxLength:    16,
 			isRequired:   true,
 			isPrimaryKey: false,
 		},
 		"trading_name": {
 			name:         "trading_name",
-			dbType:       query.DbTypeNvarchar,
+			dbType:       queryModel.DbTypeNvarchar,
 			maxLength:    510,
 			isRequired:   true,
 			isPrimaryKey: false,
 		},
 		"logo_url": {
 			name:         "logo_url",
-			dbType:       query.DbTypeNvarchar,
+			dbType:       queryModel.DbTypeNvarchar,
 			maxLength:    4096,
 			isRequired:   false,
 			isPrimaryKey: false,
 		},
 		"description": {
 			name:         "description",
-			dbType:       query.DbTypeNvarchar,
+			dbType:       queryModel.DbTypeNvarchar,
 			maxLength:    8000,
 			isRequired:   false,
 			isPrimaryKey: false,
 		},
 		"business_type": {
 			name:         "business_type",
-			dbType:       query.DbTypeInt,
+			dbType:       queryModel.DbTypeInt,
 			maxLength:    4,
 			isRequired:   true,
 			isPrimaryKey: false,
 		},
 		"cph_number": {
 			name:         "cph_number",
-			dbType:       query.DbTypeNvarchar,
+			dbType:       queryModel.DbTypeNvarchar,
 			maxLength:    22,
 			isRequired:   false,
 			isPrimaryKey: false,
 		},
 		"email_address": {
 			name:         "email_address",
-			dbType:       query.DbTypeNvarchar,
+			dbType:       queryModel.DbTypeNvarchar,
 			maxLength:    640,
 			isRequired:   false,
 			isPrimaryKey: false,
 		},
 		"contact_number": {
 			name:         "contact_number",
-			dbType:       query.DbTypeNvarchar,
+			dbType:       queryModel.DbTypeNvarchar,
 			maxLength:    100,
 			isRequired:   false,
 			isPrimaryKey: false,
 		},
 		"website_url": {
 			name:         "website_url",
-			dbType:       query.DbTypeNvarchar,
+			dbType:       queryModel.DbTypeNvarchar,
 			maxLength:    4096,
 			isRequired:   false,
 			isPrimaryKey: false,
 		},
 		"address_line_1": {
 			name:         "address_line_1",
-			dbType:       query.DbTypeNvarchar,
+			dbType:       queryModel.DbTypeNvarchar,
 			maxLength:    510,
 			isRequired:   true,
 			isPrimaryKey: false,
 		},
 		"address_line_2": {
 			name:         "address_line_2",
-			dbType:       query.DbTypeNvarchar,
+			dbType:       queryModel.DbTypeNvarchar,
 			maxLength:    510,
 			isRequired:   false,
 			isPrimaryKey: false,
 		},
 		"town": {
 			name:         "town",
-			dbType:       query.DbTypeNvarchar,
+			dbType:       queryModel.DbTypeNvarchar,
 			maxLength:    200,
 			isRequired:   false,
 			isPrimaryKey: false,
 		},
 		"county": {
 			name:         "county",
-			dbType:       query.DbTypeNvarchar,
+			dbType:       queryModel.DbTypeNvarchar,
 			maxLength:    200,
 			isRequired:   false,
 			isPrimaryKey: false,
 		},
 		"country": {
 			name:         "country",
-			dbType:       query.DbTypeNvarchar,
+			dbType:       queryModel.DbTypeNvarchar,
 			maxLength:    200,
 			isRequired:   false,
 			isPrimaryKey: false,
 		},
 		"postcode": {
 			name:         "postcode",
-			dbType:       query.DbTypeNvarchar,
+			dbType:       queryModel.DbTypeNvarchar,
 			maxLength:    40,
 			isRequired:   true,
 			isPrimaryKey: false,
 		},
 		"location": {
 			name:         "location",
-			dbType:       query.DbTypeGeography,
+			dbType:       queryModel.DbTypeGeography,
 			maxLength:    -1,
 			isRequired:   true,
 			isPrimaryKey: false,
 		},
 		"created_at": {
 			name:         "created_at",
-			dbType:       query.DbTypeDateTimeOffset,
+			dbType:       queryModel.DbTypeDateTimeOffset,
 			maxLength:    10,
 			isRequired:   true,
 			isPrimaryKey: false,
 		},
 		"created_by_id": {
 			name:         "created_by_id",
-			dbType:       query.DbTypeNvarchar,
+			dbType:       queryModel.DbTypeNvarchar,
 			maxLength:    72,
 			isRequired:   true,
 			isPrimaryKey: false,
 		},
 		"modified_at": {
 			name:         "modified_at",
-			dbType:       query.DbTypeDateTimeOffset,
+			dbType:       queryModel.DbTypeDateTimeOffset,
 			maxLength:    10,
 			isRequired:   true,
 			isPrimaryKey: false,
 		},
 		"modified_by_id": {
 			name:         "modified_by_id",
-			dbType:       query.DbTypeNvarchar,
+			dbType:       queryModel.DbTypeNvarchar,
 			maxLength:    72,
 			isRequired:   true,
 			isPrimaryKey: false,
@@ -515,31 +523,34 @@ var businessesMetadata = &tableMetadata{
 	},
 	relationships: map[string]*relationship{
 		"created_by_id": {
-			id:               "businesses_created_by_id_users_id",
-			name:             "created_by",
-			relationshipType: query.RelationshipManyToOne,
-			fromTableName:    "businesses",
-			toTableName:      "users",
-			fromColumnName:   "created_by_id",
-			toColumnName:     "id",
+			id:                  "businesses_created_by_id_users_id",
+			columnName:          "created_by_id",
+			expansionColumnName: "created_by",
+			relationshipType:    queryModel.RelationshipManyToOne,
+			fromTableName:       "businesses",
+			toTableName:         "users",
+			fromColumnName:      "created_by_id",
+			toColumnName:        "id",
 		},
 		"modified_by_id": {
-			id:               "businesses_modified_by_id_users_id",
-			name:             "modified_by",
-			relationshipType: query.RelationshipManyToOne,
-			fromTableName:    "businesses",
-			toTableName:      "users",
-			fromColumnName:   "modified_by_id",
-			toColumnName:     "id",
+			id:                  "businesses_modified_by_id_users_id",
+			columnName:          "modified_by_id",
+			expansionColumnName: "modified_by",
+			relationshipType:    queryModel.RelationshipManyToOne,
+			fromTableName:       "businesses",
+			toTableName:         "users",
+			fromColumnName:      "modified_by_id",
+			toColumnName:        "id",
 		},
 		"farm_fields_businesses_business_id": {
-			id:               "farm_fields_business_id_businesses_id",
-			name:             "farm_fields_businesses_business_id",
-			relationshipType: query.RelationshipOneToMany,
-			fromTableName:    "businesses",
-			toTableName:      "farm_fields",
-			fromColumnName:   "id",
-			toColumnName:     "business_id",
+			id:                  "farm_fields_business_id_businesses_id",
+			columnName:          "farm_fields_businesses_business_id",
+			expansionColumnName: "farm_fields_businesses_business_id",
+			relationshipType:    queryModel.RelationshipOneToMany,
+			fromTableName:       "businesses",
+			toTableName:         "farm_fields",
+			fromColumnName:      "id",
+			toColumnName:        "business_id",
 		},
 	},
 	columnCount: -1,
@@ -580,16 +591,16 @@ type BusinessesModel struct {
 }
 
 // NewSlice unmarshals a json array of businesses and returns it as a slice
-func (m *BusinessesModel) NewSlice(jsonData []byte, projectColumns []string) ([]query.TableModel, error) {
+func (m *BusinessesModel) NewSlice(jsonData []byte, projectColumns []string) ([]queryModel.TableModel, error) {
 	if len(jsonData) == 0 {
-		return []query.TableModel{}, nil
+		return []queryModel.TableModel{}, nil
 	}
 
 	var concreteSlice []*BusinessesModel
 	if err := json.Unmarshal(jsonData, &concreteSlice); err != nil {
 		return nil, err
 	}
-	result := make([]query.TableModel, len(concreteSlice))
+	result := make([]queryModel.TableModel, len(concreteSlice))
 
 	projection := BusinessesProjection(0)
 	for _, column := range projectColumns {
@@ -780,6 +791,14 @@ func (m *BusinessesModel) MarshalJSON() ([]byte, error) {
 		isFirst = false
 	}
 
+	if m.projection.Has(businessesProjectionCreatedBy) {
+		err := marshalProperty(&buf, isFirst, "created_by", m.CreatedBy)
+		if err != nil {
+			return nil, err
+		}
+		isFirst = false
+	}
+
 	if m.projection.Has(businessesProjectionModifiedBy) {
 		err := marshalProperty(&buf, isFirst, "modified_by", m.ModifiedBy)
 		if err != nil {
@@ -796,20 +815,12 @@ func (m *BusinessesModel) MarshalJSON() ([]byte, error) {
 		isFirst = false
 	}
 
-	if m.projection.Has(businessesProjectionCreatedBy) {
-		err := marshalProperty(&buf, isFirst, "created_by", m.CreatedBy)
-		if err != nil {
-			return nil, err
-		}
-		isFirst = false
-	}
-
 	buf.WriteByte('}')
 	return buf.Bytes(), nil
 }
 
 // SetRelationshipField sets a given relationship field on the hg.businesses table
-func (m *BusinessesModel) SetRelationshipField(relationshipId string, value query.TableModel) error {
+func (m *BusinessesModel) SetRelationshipField(relationshipId string, value queryModel.TableModel) error {
 	switch relationshipId {
 	case "businesses_created_by_id_users_id":
 		v, ok := value.(*UsersModel)
@@ -867,7 +878,7 @@ func (m *BusinessesModel) GetJoinOnValue(relationshipId string) (string, error) 
 }
 
 // GetValueExpression returns the value from a given path as a ValueExpression
-func (m *BusinessesModel) GetValueExpression(path []*query.TraversalStep, columnName string) (query.ValueExpression, error) {
+func (m *BusinessesModel) GetValueExpression(path []*queryModel.TraversalStep, columnName string) (queryModel.ValueExpression, error) {
 	if len(path) > 0 {
 		nextStep := path[0]
 		nextEntity, err := m.getRelatedEntity(nextStep.Relationship)
@@ -875,7 +886,7 @@ func (m *BusinessesModel) GetValueExpression(path []*query.TraversalStep, column
 			return nil, err
 		}
 		if nextEntity.IsNil() {
-			return &query.NullLiteral{}, nil
+			return &queryModel.NullLiteral{}, nil
 		}
 		return nextEntity.GetValueExpression(path[1:], columnName)
 	}
@@ -884,19 +895,19 @@ func (m *BusinessesModel) GetValueExpression(path []*query.TraversalStep, column
 		return nil, err
 	}
 	if v == nil {
-		return &query.NullLiteral{}, nil
+		return &queryModel.NullLiteral{}, nil
 	}
 	return v, nil
 }
 
 // GetRelatedEntity returns the value from N:1/1:1 relationships as a TableModel
 // It will return an error for invalid relationships and relationship types
-func (m *BusinessesModel) getRelatedEntity(relationship query.RelationshipMetadata) (query.TableModel, error) {
+func (m *BusinessesModel) getRelatedEntity(relationship queryModel.RelationshipMetadata) (queryModel.TableModel, error) {
 	switch relationship.Id() {
-	case "businesses_modified_by_id_users_id":
-		return m.ModifiedBy, nil
 	case "businesses_created_by_id_users_id":
 		return m.CreatedBy, nil
+	case "businesses_modified_by_id_users_id":
+		return m.ModifiedBy, nil
 	default:
 		return nil, fmt.Errorf("unable to get related entity: unsupported relationship '%s'", relationship.Id())
 	}
@@ -908,59 +919,59 @@ func (m *BusinessesModel) IsNil() bool {
 }
 
 // getValueExpression returns the value from a given column as a value expression
-func (m *BusinessesModel) getValueExpression(columnName string) (query.ValueExpression, error) {
+func (m *BusinessesModel) getValueExpression(columnName string) (queryModel.ValueExpression, error) {
 	switch columnName {
 	case "id":
-		return &query.StringLiteral{Value: m.Id}, nil
+		return &queryModel.StringLiteral{Value: m.Id}, nil
 	case "reference":
-		return &query.StringLiteral{Value: m.Reference}, nil
+		return &queryModel.StringLiteral{Value: m.Reference}, nil
 	case "trading_name":
-		return &query.StringLiteral{Value: m.TradingName}, nil
+		return &queryModel.StringLiteral{Value: m.TradingName}, nil
 	case "logo_url":
-		return &query.StringLiteral{Value: m.LogoUrl}, nil
+		return &queryModel.StringLiteral{Value: m.LogoUrl}, nil
 	case "description":
-		return &query.StringLiteral{Value: m.Description}, nil
+		return &queryModel.StringLiteral{Value: m.Description}, nil
 	case "business_type":
-		return &query.IntLiteral{Value: m.BusinessType}, nil
+		return &queryModel.IntLiteral{Value: m.BusinessType}, nil
 	case "cph_number":
-		return &query.StringLiteral{Value: m.CphNumber}, nil
+		return &queryModel.StringLiteral{Value: m.CphNumber}, nil
 	case "email_address":
-		return &query.StringLiteral{Value: m.EmailAddress}, nil
+		return &queryModel.StringLiteral{Value: m.EmailAddress}, nil
 	case "contact_number":
-		return &query.StringLiteral{Value: m.ContactNumber}, nil
+		return &queryModel.StringLiteral{Value: m.ContactNumber}, nil
 	case "website_url":
-		return &query.StringLiteral{Value: m.WebsiteUrl}, nil
+		return &queryModel.StringLiteral{Value: m.WebsiteUrl}, nil
 	case "address_line_1":
-		return &query.StringLiteral{Value: m.AddressLine1}, nil
+		return &queryModel.StringLiteral{Value: m.AddressLine1}, nil
 	case "address_line_2":
-		return &query.StringLiteral{Value: m.AddressLine2}, nil
+		return &queryModel.StringLiteral{Value: m.AddressLine2}, nil
 	case "town":
-		return &query.StringLiteral{Value: m.Town}, nil
+		return &queryModel.StringLiteral{Value: m.Town}, nil
 	case "county":
-		return &query.StringLiteral{Value: m.County}, nil
+		return &queryModel.StringLiteral{Value: m.County}, nil
 	case "country":
-		return &query.StringLiteral{Value: m.Country}, nil
+		return &queryModel.StringLiteral{Value: m.Country}, nil
 	case "postcode":
-		return &query.StringLiteral{Value: m.Postcode}, nil
+		return &queryModel.StringLiteral{Value: m.Postcode}, nil
 	case "location":
 		if m.Location == nil {
-			return &query.NullLiteral{}, nil
+			return &queryModel.NullLiteral{}, nil
 		}
-		return &query.StringLiteral{Value: m.Location.String()}, nil
+		return &queryModel.StringLiteral{Value: m.Location.String()}, nil
 	case "created_at":
 		if m.CreatedAt == nil {
-			return &query.NullLiteral{}, nil
+			return &queryModel.NullLiteral{}, nil
 		}
-		return &query.StringLiteral{Value: m.CreatedAt.String()}, nil
+		return &queryModel.StringLiteral{Value: m.CreatedAt.String()}, nil
 	case "created_by_id":
-		return &query.StringLiteral{Value: m.CreatedById}, nil
+		return &queryModel.StringLiteral{Value: m.CreatedById}, nil
 	case "modified_at":
 		if m.ModifiedAt == nil {
-			return &query.NullLiteral{}, nil
+			return &queryModel.NullLiteral{}, nil
 		}
-		return &query.StringLiteral{Value: m.ModifiedAt.String()}, nil
+		return &queryModel.StringLiteral{Value: m.ModifiedAt.String()}, nil
 	case "modified_by_id":
-		return &query.StringLiteral{Value: m.ModifiedById}, nil
+		return &queryModel.StringLiteral{Value: m.ModifiedById}, nil
 	default:
 		return nil, fmt.Errorf("unsupported column: '%s'", columnName)
 	}
@@ -996,9 +1007,9 @@ const (
 	businessesProjectionCreatedById
 	businessesProjectionModifiedAt
 	businessesProjectionModifiedById
-	businessesProjectionFarmFieldsBusinessesBusinessId
 	businessesProjectionCreatedBy
 	businessesProjectionModifiedBy
+	businessesProjectionFarmFieldsBusinessesBusinessId
 )
 
 // Add includes a given column within the projection
@@ -1046,12 +1057,12 @@ func (p *BusinessesProjection) Add(columnName string) error {
 		*p |= businessesProjectionModifiedAt
 	case "modified_by_id":
 		*p |= businessesProjectionModifiedById
+	case "farm_fields_businesses_business_id":
+		*p |= businessesProjectionFarmFieldsBusinessesBusinessId
 	case "created_by":
 		*p |= businessesProjectionCreatedBy
 	case "modified_by":
 		*p |= businessesProjectionModifiedBy
-	case "farm_fields_businesses_business_id":
-		*p |= businessesProjectionFarmFieldsBusinessesBusinessId
 	default:
 		return fmt.Errorf("unsupported column: '%s'", columnName)
 	}
@@ -1072,88 +1083,91 @@ var farmFieldsMetadata = &tableMetadata{
 	columns: map[string]*columnMetadata{
 		"id": {
 			name:         "id",
-			dbType:       query.DbTypeNvarchar,
+			dbType:       queryModel.DbTypeNvarchar,
 			maxLength:    72,
 			isRequired:   true,
 			isPrimaryKey: true,
 		},
 		"reference": {
 			name:         "reference",
-			dbType:       query.DbTypeNvarchar,
+			dbType:       queryModel.DbTypeNvarchar,
 			maxLength:    510,
 			isRequired:   true,
 			isPrimaryKey: false,
 		},
 		"business_id": {
 			name:         "business_id",
-			dbType:       query.DbTypeNvarchar,
+			dbType:       queryModel.DbTypeNvarchar,
 			maxLength:    72,
 			isRequired:   true,
 			isPrimaryKey: false,
 		},
 		"location": {
 			name:         "location",
-			dbType:       query.DbTypeGeography,
+			dbType:       queryModel.DbTypeGeography,
 			maxLength:    -1,
 			isRequired:   true,
 			isPrimaryKey: false,
 		},
 		"created_at": {
 			name:         "created_at",
-			dbType:       query.DbTypeDateTimeOffset,
+			dbType:       queryModel.DbTypeDateTimeOffset,
 			maxLength:    10,
 			isRequired:   true,
 			isPrimaryKey: false,
 		},
 		"created_by_id": {
 			name:         "created_by_id",
-			dbType:       query.DbTypeNvarchar,
+			dbType:       queryModel.DbTypeNvarchar,
 			maxLength:    72,
 			isRequired:   true,
 			isPrimaryKey: false,
 		},
 		"modified_at": {
 			name:         "modified_at",
-			dbType:       query.DbTypeDateTimeOffset,
+			dbType:       queryModel.DbTypeDateTimeOffset,
 			maxLength:    10,
 			isRequired:   true,
 			isPrimaryKey: false,
 		},
 		"modified_by_id": {
 			name:         "modified_by_id",
-			dbType:       query.DbTypeNvarchar,
+			dbType:       queryModel.DbTypeNvarchar,
 			maxLength:    72,
 			isRequired:   true,
 			isPrimaryKey: false,
 		},
 	},
 	relationships: map[string]*relationship{
+		"business_id": {
+			id:                  "farm_fields_business_id_businesses_id",
+			columnName:          "business_id",
+			expansionColumnName: "business",
+			relationshipType:    queryModel.RelationshipManyToOne,
+			fromTableName:       "farm_fields",
+			toTableName:         "businesses",
+			fromColumnName:      "business_id",
+			toColumnName:        "id",
+		},
 		"created_by_id": {
-			id:               "farm_fields_created_by_id_users_id",
-			name:             "created_by",
-			relationshipType: query.RelationshipManyToOne,
-			fromTableName:    "farm_fields",
-			toTableName:      "users",
-			fromColumnName:   "created_by_id",
-			toColumnName:     "id",
+			id:                  "farm_fields_created_by_id_users_id",
+			columnName:          "created_by_id",
+			expansionColumnName: "created_by",
+			relationshipType:    queryModel.RelationshipManyToOne,
+			fromTableName:       "farm_fields",
+			toTableName:         "users",
+			fromColumnName:      "created_by_id",
+			toColumnName:        "id",
 		},
 		"modified_by_id": {
-			id:               "farm_fields_modified_by_id_users_id",
-			name:             "modified_by",
-			relationshipType: query.RelationshipManyToOne,
-			fromTableName:    "farm_fields",
-			toTableName:      "users",
-			fromColumnName:   "modified_by_id",
-			toColumnName:     "id",
-		},
-		"business_id": {
-			id:               "farm_fields_business_id_businesses_id",
-			name:             "business",
-			relationshipType: query.RelationshipManyToOne,
-			fromTableName:    "farm_fields",
-			toTableName:      "businesses",
-			fromColumnName:   "business_id",
-			toColumnName:     "id",
+			id:                  "farm_fields_modified_by_id_users_id",
+			columnName:          "modified_by_id",
+			expansionColumnName: "modified_by",
+			relationshipType:    queryModel.RelationshipManyToOne,
+			fromTableName:       "farm_fields",
+			toTableName:         "users",
+			fromColumnName:      "modified_by_id",
+			toColumnName:        "id",
 		},
 	},
 	columnCount: -1,
@@ -1174,23 +1188,23 @@ type FarmFieldsModel struct {
 	CreatedById  string               `json:"created_by_id"`
 	ModifiedAt   *time.Time           `json:"modified_at"`
 	ModifiedById string               `json:"modified_by_id"`
+	ModifiedBy   *UsersModel          `json:"modified_by"`
 	Business     *BusinessesModel     `json:"business"`
 	CreatedBy    *UsersModel          `json:"created_by"`
-	ModifiedBy   *UsersModel          `json:"modified_by"`
 	projection   FarmFieldsProjection `json:"-"`
 }
 
 // NewSlice unmarshals a json array of farm_fields and returns it as a slice
-func (m *FarmFieldsModel) NewSlice(jsonData []byte, projectColumns []string) ([]query.TableModel, error) {
+func (m *FarmFieldsModel) NewSlice(jsonData []byte, projectColumns []string) ([]queryModel.TableModel, error) {
 	if len(jsonData) == 0 {
-		return []query.TableModel{}, nil
+		return []queryModel.TableModel{}, nil
 	}
 
 	var concreteSlice []*FarmFieldsModel
 	if err := json.Unmarshal(jsonData, &concreteSlice); err != nil {
 		return nil, err
 	}
-	result := make([]query.TableModel, len(concreteSlice))
+	result := make([]queryModel.TableModel, len(concreteSlice))
 
 	projection := FarmFieldsProjection(0)
 	for _, column := range projectColumns {
@@ -1306,7 +1320,7 @@ func (m *FarmFieldsModel) MarshalJSON() ([]byte, error) {
 }
 
 // SetRelationshipField sets a given relationship field on the hg.farm_fields table
-func (m *FarmFieldsModel) SetRelationshipField(relationshipId string, value query.TableModel) error {
+func (m *FarmFieldsModel) SetRelationshipField(relationshipId string, value queryModel.TableModel) error {
 	switch relationshipId {
 	case "farm_fields_created_by_id_users_id":
 		v, ok := value.(*UsersModel)
@@ -1361,7 +1375,7 @@ func (m *FarmFieldsModel) GetJoinOnValue(relationshipId string) (string, error) 
 }
 
 // GetValueExpression returns the value from a given path as a ValueExpression
-func (m *FarmFieldsModel) GetValueExpression(path []*query.TraversalStep, columnName string) (query.ValueExpression, error) {
+func (m *FarmFieldsModel) GetValueExpression(path []*queryModel.TraversalStep, columnName string) (queryModel.ValueExpression, error) {
 	if len(path) > 0 {
 		nextStep := path[0]
 		nextEntity, err := m.getRelatedEntity(nextStep.Relationship)
@@ -1369,7 +1383,7 @@ func (m *FarmFieldsModel) GetValueExpression(path []*query.TraversalStep, column
 			return nil, err
 		}
 		if nextEntity.IsNil() {
-			return &query.NullLiteral{}, nil
+			return &queryModel.NullLiteral{}, nil
 		}
 		return nextEntity.GetValueExpression(path[1:], columnName)
 	}
@@ -1378,14 +1392,14 @@ func (m *FarmFieldsModel) GetValueExpression(path []*query.TraversalStep, column
 		return nil, err
 	}
 	if v == nil {
-		return &query.NullLiteral{}, nil
+		return &queryModel.NullLiteral{}, nil
 	}
 	return v, nil
 }
 
 // GetRelatedEntity returns the value from N:1/1:1 relationships as a TableModel
 // It will return an error for invalid relationships and relationship types
-func (m *FarmFieldsModel) getRelatedEntity(relationship query.RelationshipMetadata) (query.TableModel, error) {
+func (m *FarmFieldsModel) getRelatedEntity(relationship queryModel.RelationshipMetadata) (queryModel.TableModel, error) {
 	switch relationship.Id() {
 	case "farm_fields_business_id_businesses_id":
 		return m.Business, nil
@@ -1404,33 +1418,33 @@ func (m *FarmFieldsModel) IsNil() bool {
 }
 
 // getValueExpression returns the value from a given column as a value expression
-func (m *FarmFieldsModel) getValueExpression(columnName string) (query.ValueExpression, error) {
+func (m *FarmFieldsModel) getValueExpression(columnName string) (queryModel.ValueExpression, error) {
 	switch columnName {
 	case "id":
-		return &query.StringLiteral{Value: m.Id}, nil
+		return &queryModel.StringLiteral{Value: m.Id}, nil
 	case "reference":
-		return &query.StringLiteral{Value: m.Reference}, nil
+		return &queryModel.StringLiteral{Value: m.Reference}, nil
 	case "business_id":
-		return &query.StringLiteral{Value: m.BusinessId}, nil
+		return &queryModel.StringLiteral{Value: m.BusinessId}, nil
 	case "location":
 		if m.Location == nil {
-			return &query.NullLiteral{}, nil
+			return &queryModel.NullLiteral{}, nil
 		}
-		return &query.StringLiteral{Value: m.Location.String()}, nil
+		return &queryModel.StringLiteral{Value: m.Location.String()}, nil
 	case "created_at":
 		if m.CreatedAt == nil {
-			return &query.NullLiteral{}, nil
+			return &queryModel.NullLiteral{}, nil
 		}
-		return &query.StringLiteral{Value: m.CreatedAt.String()}, nil
+		return &queryModel.StringLiteral{Value: m.CreatedAt.String()}, nil
 	case "created_by_id":
-		return &query.StringLiteral{Value: m.CreatedById}, nil
+		return &queryModel.StringLiteral{Value: m.CreatedById}, nil
 	case "modified_at":
 		if m.ModifiedAt == nil {
-			return &query.NullLiteral{}, nil
+			return &queryModel.NullLiteral{}, nil
 		}
-		return &query.StringLiteral{Value: m.ModifiedAt.String()}, nil
+		return &queryModel.StringLiteral{Value: m.ModifiedAt.String()}, nil
 	case "modified_by_id":
-		return &query.StringLiteral{Value: m.ModifiedById}, nil
+		return &queryModel.StringLiteral{Value: m.ModifiedById}, nil
 	default:
 		return nil, fmt.Errorf("unsupported column: '%s'", columnName)
 	}
@@ -1503,56 +1517,56 @@ var usersMetadata = &tableMetadata{
 	columns: map[string]*columnMetadata{
 		"id": {
 			name:         "id",
-			dbType:       query.DbTypeNvarchar,
+			dbType:       queryModel.DbTypeNvarchar,
 			maxLength:    72,
 			isRequired:   true,
 			isPrimaryKey: true,
 		},
 		"oid": {
 			name:         "oid",
-			dbType:       query.DbTypeNvarchar,
+			dbType:       queryModel.DbTypeNvarchar,
 			maxLength:    72,
 			isRequired:   true,
 			isPrimaryKey: false,
 		},
 		"given_name": {
 			name:         "given_name",
-			dbType:       query.DbTypeNvarchar,
+			dbType:       queryModel.DbTypeNvarchar,
 			maxLength:    128,
 			isRequired:   true,
 			isPrimaryKey: false,
 		},
 		"family_name": {
 			name:         "family_name",
-			dbType:       query.DbTypeNvarchar,
+			dbType:       queryModel.DbTypeNvarchar,
 			maxLength:    128,
 			isRequired:   true,
 			isPrimaryKey: false,
 		},
 		"user_name": {
 			name:         "user_name",
-			dbType:       query.DbTypeNvarchar,
+			dbType:       queryModel.DbTypeNvarchar,
 			maxLength:    256,
 			isRequired:   true,
 			isPrimaryKey: false,
 		},
 		"email_address": {
 			name:         "email_address",
-			dbType:       query.DbTypeNvarchar,
+			dbType:       queryModel.DbTypeNvarchar,
 			maxLength:    640,
 			isRequired:   true,
 			isPrimaryKey: false,
 		},
 		"created_at": {
 			name:         "created_at",
-			dbType:       query.DbTypeDateTimeOffset,
+			dbType:       queryModel.DbTypeDateTimeOffset,
 			maxLength:    10,
 			isRequired:   true,
 			isPrimaryKey: false,
 		},
 		"modified_at": {
 			name:         "modified_at",
-			dbType:       query.DbTypeDateTimeOffset,
+			dbType:       queryModel.DbTypeDateTimeOffset,
 			maxLength:    10,
 			isRequired:   true,
 			isPrimaryKey: false,
@@ -1560,40 +1574,44 @@ var usersMetadata = &tableMetadata{
 	},
 	relationships: map[string]*relationship{
 		"farm_fields_users_modified_by_id": {
-			id:               "farm_fields_modified_by_id_users_id",
-			name:             "farm_fields_users_modified_by_id",
-			relationshipType: query.RelationshipOneToMany,
-			fromTableName:    "users",
-			toTableName:      "farm_fields",
-			fromColumnName:   "id",
-			toColumnName:     "modified_by_id",
+			id:                  "farm_fields_modified_by_id_users_id",
+			columnName:          "farm_fields_users_modified_by_id",
+			expansionColumnName: "farm_fields_users_modified_by_id",
+			relationshipType:    queryModel.RelationshipOneToMany,
+			fromTableName:       "users",
+			toTableName:         "farm_fields",
+			fromColumnName:      "id",
+			toColumnName:        "modified_by_id",
 		},
 		"businesses_users_created_by_id": {
-			id:               "businesses_created_by_id_users_id",
-			name:             "businesses_users_created_by_id",
-			relationshipType: query.RelationshipOneToMany,
-			fromTableName:    "users",
-			toTableName:      "businesses",
-			fromColumnName:   "id",
-			toColumnName:     "created_by_id",
+			id:                  "businesses_created_by_id_users_id",
+			columnName:          "businesses_users_created_by_id",
+			expansionColumnName: "businesses_users_created_by_id",
+			relationshipType:    queryModel.RelationshipOneToMany,
+			fromTableName:       "users",
+			toTableName:         "businesses",
+			fromColumnName:      "id",
+			toColumnName:        "created_by_id",
 		},
 		"businesses_users_modified_by_id": {
-			id:               "businesses_modified_by_id_users_id",
-			name:             "businesses_users_modified_by_id",
-			relationshipType: query.RelationshipOneToMany,
-			fromTableName:    "users",
-			toTableName:      "businesses",
-			fromColumnName:   "id",
-			toColumnName:     "modified_by_id",
+			id:                  "businesses_modified_by_id_users_id",
+			columnName:          "businesses_users_modified_by_id",
+			expansionColumnName: "businesses_users_modified_by_id",
+			relationshipType:    queryModel.RelationshipOneToMany,
+			fromTableName:       "users",
+			toTableName:         "businesses",
+			fromColumnName:      "id",
+			toColumnName:        "modified_by_id",
 		},
 		"farm_fields_users_created_by_id": {
-			id:               "farm_fields_created_by_id_users_id",
-			name:             "farm_fields_users_created_by_id",
-			relationshipType: query.RelationshipOneToMany,
-			fromTableName:    "users",
-			toTableName:      "farm_fields",
-			fromColumnName:   "id",
-			toColumnName:     "created_by_id",
+			id:                  "farm_fields_created_by_id_users_id",
+			columnName:          "farm_fields_users_created_by_id",
+			expansionColumnName: "farm_fields_users_created_by_id",
+			relationshipType:    queryModel.RelationshipOneToMany,
+			fromTableName:       "users",
+			toTableName:         "farm_fields",
+			fromColumnName:      "id",
+			toColumnName:        "created_by_id",
 		},
 	},
 	columnCount: -1,
@@ -1622,16 +1640,16 @@ type UsersModel struct {
 }
 
 // NewSlice unmarshals a json array of users and returns it as a slice
-func (m *UsersModel) NewSlice(jsonData []byte, projectColumns []string) ([]query.TableModel, error) {
+func (m *UsersModel) NewSlice(jsonData []byte, projectColumns []string) ([]queryModel.TableModel, error) {
 	if len(jsonData) == 0 {
-		return []query.TableModel{}, nil
+		return []queryModel.TableModel{}, nil
 	}
 
 	var concreteSlice []*UsersModel
 	if err := json.Unmarshal(jsonData, &concreteSlice); err != nil {
 		return nil, err
 	}
-	result := make([]query.TableModel, len(concreteSlice))
+	result := make([]queryModel.TableModel, len(concreteSlice))
 
 	projection := UsersProjection(0)
 	for _, column := range projectColumns {
@@ -1718,22 +1736,6 @@ func (m *UsersModel) MarshalJSON() ([]byte, error) {
 		isFirst = false
 	}
 
-	if m.projection.Has(usersProjectionFarmFieldsUsersModifiedById) {
-		err := marshalProperty(&buf, isFirst, "farm_fields_users_modified_by_id", m.FarmFieldsUsersModifiedById)
-		if err != nil {
-			return nil, err
-		}
-		isFirst = false
-	}
-
-	if m.projection.Has(usersProjectionBusinessesUsersCreatedById) {
-		err := marshalProperty(&buf, isFirst, "businesses_users_created_by_id", m.BusinessesUsersCreatedById)
-		if err != nil {
-			return nil, err
-		}
-		isFirst = false
-	}
-
 	if m.projection.Has(usersProjectionBusinessesUsersModifiedById) {
 		err := marshalProperty(&buf, isFirst, "businesses_users_modified_by_id", m.BusinessesUsersModifiedById)
 		if err != nil {
@@ -1750,20 +1752,29 @@ func (m *UsersModel) MarshalJSON() ([]byte, error) {
 		isFirst = false
 	}
 
+	if m.projection.Has(usersProjectionFarmFieldsUsersModifiedById) {
+		err := marshalProperty(&buf, isFirst, "farm_fields_users_modified_by_id", m.FarmFieldsUsersModifiedById)
+		if err != nil {
+			return nil, err
+		}
+		isFirst = false
+	}
+
+	if m.projection.Has(usersProjectionBusinessesUsersCreatedById) {
+		err := marshalProperty(&buf, isFirst, "businesses_users_created_by_id", m.BusinessesUsersCreatedById)
+		if err != nil {
+			return nil, err
+		}
+		isFirst = false
+	}
+
 	buf.WriteByte('}')
 	return buf.Bytes(), nil
 }
 
 // SetRelationshipField sets a given relationship field on the hg.users table
-func (m *UsersModel) SetRelationshipField(relationshipId string, value query.TableModel) error {
+func (m *UsersModel) SetRelationshipField(relationshipId string, value queryModel.TableModel) error {
 	switch relationshipId {
-	case "farm_fields_created_by_id_users_id":
-		v, ok := value.(*FarmFieldsModel)
-		if !ok {
-			return errors.New("unexpected relationship type received")
-		}
-		m.FarmFieldsUsersCreatedById = append(m.FarmFieldsUsersCreatedById, v)
-
 	case "farm_fields_modified_by_id_users_id":
 		v, ok := value.(*FarmFieldsModel)
 		if !ok {
@@ -1784,6 +1795,13 @@ func (m *UsersModel) SetRelationshipField(relationshipId string, value query.Tab
 			return errors.New("unexpected relationship type received")
 		}
 		m.BusinessesUsersModifiedById = append(m.BusinessesUsersModifiedById, v)
+
+	case "farm_fields_created_by_id_users_id":
+		v, ok := value.(*FarmFieldsModel)
+		if !ok {
+			return errors.New("unexpected relationship type received")
+		}
+		m.FarmFieldsUsersCreatedById = append(m.FarmFieldsUsersCreatedById, v)
 
 	default:
 		return fmt.Errorf("unknown relationship: %s", relationshipId)
@@ -1829,7 +1847,7 @@ func (m *UsersModel) GetJoinOnValue(relationshipId string) (string, error) {
 }
 
 // GetValueExpression returns the value from a given path as a ValueExpression
-func (m *UsersModel) GetValueExpression(path []*query.TraversalStep, columnName string) (query.ValueExpression, error) {
+func (m *UsersModel) GetValueExpression(path []*queryModel.TraversalStep, columnName string) (queryModel.ValueExpression, error) {
 	if len(path) > 0 {
 		nextStep := path[0]
 		nextEntity, err := m.getRelatedEntity(nextStep.Relationship)
@@ -1837,7 +1855,7 @@ func (m *UsersModel) GetValueExpression(path []*query.TraversalStep, columnName 
 			return nil, err
 		}
 		if nextEntity.IsNil() {
-			return &query.NullLiteral{}, nil
+			return &queryModel.NullLiteral{}, nil
 		}
 		return nextEntity.GetValueExpression(path[1:], columnName)
 	}
@@ -1846,14 +1864,14 @@ func (m *UsersModel) GetValueExpression(path []*query.TraversalStep, columnName 
 		return nil, err
 	}
 	if v == nil {
-		return &query.NullLiteral{}, nil
+		return &queryModel.NullLiteral{}, nil
 	}
 	return v, nil
 }
 
 // GetRelatedEntity returns the value from N:1/1:1 relationships as a TableModel
 // It will return an error for invalid relationships and relationship types
-func (m *UsersModel) getRelatedEntity(relationship query.RelationshipMetadata) (query.TableModel, error) {
+func (m *UsersModel) getRelatedEntity(relationship queryModel.RelationshipMetadata) (queryModel.TableModel, error) {
 	switch relationship.Id() {
 	default:
 		return nil, fmt.Errorf("unable to get related entity: unsupported relationship '%s'", relationship.Id())
@@ -1866,30 +1884,30 @@ func (m *UsersModel) IsNil() bool {
 }
 
 // getValueExpression returns the value from a given column as a value expression
-func (m *UsersModel) getValueExpression(columnName string) (query.ValueExpression, error) {
+func (m *UsersModel) getValueExpression(columnName string) (queryModel.ValueExpression, error) {
 	switch columnName {
 	case "id":
-		return &query.StringLiteral{Value: m.Id}, nil
+		return &queryModel.StringLiteral{Value: m.Id}, nil
 	case "oid":
-		return &query.StringLiteral{Value: m.Oid}, nil
+		return &queryModel.StringLiteral{Value: m.Oid}, nil
 	case "given_name":
-		return &query.StringLiteral{Value: m.GivenName}, nil
+		return &queryModel.StringLiteral{Value: m.GivenName}, nil
 	case "family_name":
-		return &query.StringLiteral{Value: m.FamilyName}, nil
+		return &queryModel.StringLiteral{Value: m.FamilyName}, nil
 	case "user_name":
-		return &query.StringLiteral{Value: m.UserName}, nil
+		return &queryModel.StringLiteral{Value: m.UserName}, nil
 	case "email_address":
-		return &query.StringLiteral{Value: m.EmailAddress}, nil
+		return &queryModel.StringLiteral{Value: m.EmailAddress}, nil
 	case "created_at":
 		if m.CreatedAt == nil {
-			return &query.NullLiteral{}, nil
+			return &queryModel.NullLiteral{}, nil
 		}
-		return &query.StringLiteral{Value: m.CreatedAt.String()}, nil
+		return &queryModel.StringLiteral{Value: m.CreatedAt.String()}, nil
 	case "modified_at":
 		if m.ModifiedAt == nil {
-			return &query.NullLiteral{}, nil
+			return &queryModel.NullLiteral{}, nil
 		}
-		return &query.StringLiteral{Value: m.ModifiedAt.String()}, nil
+		return &queryModel.StringLiteral{Value: m.ModifiedAt.String()}, nil
 	default:
 		return nil, fmt.Errorf("unsupported column: '%s'", columnName)
 	}
@@ -1958,7 +1976,7 @@ func (p UsersProjection) Has(projection UsersProjection) bool {
 
 // getTableModel returns a new instance of a given table or nill if
 // the table name is invalid
-func getTableModel(tableName string) query.TableModel {
+func getTableModel(tableName string) queryModel.TableModel {
 	switch tableName {
 	case businessesMetadata.name:
 		return new(BusinessesModel)
@@ -1973,7 +1991,7 @@ func getTableModel(tableName string) query.TableModel {
 
 // getTableMetadata returns the metadata for a given table or nill if
 // the table name is invalid
-func getTableMetadata(tableName string) query.TableMetadata {
+func getTableMetadata(tableName string) queryModel.TableMetadata {
 	switch tableName {
 	case businessesMetadata.name:
 		return businessesMetadata
@@ -2003,7 +2021,7 @@ type DatabaseAccessPolicy struct {
 
 // GetTableAccessPolicy returns an access policy for a given table for nil
 // if the table does not exist
-func (p *DatabaseAccessPolicy) GetTableAccessPolicy(tableName string) query.TableAccessPolicy {
+func (p *DatabaseAccessPolicy) GetTableAccessPolicy(tableName string) queryModel.TableAccessPolicy {
 	switch tableName {
 	case "businesses":
 		return p.BusinessesAccessPolicy
@@ -2051,7 +2069,7 @@ func (p *BusinessesAccessPolicy) CanAccess() bool {
 
 // GetColumnAccessPolicy returns an access policy for a specific column on
 // the businesses table. Returns nil if the column does not exist
-func (p *BusinessesAccessPolicy) GetColumnAccessPolicy(columnName string) query.ColumnAccessPolicy {
+func (p *BusinessesAccessPolicy) GetColumnAccessPolicy(columnName string) queryModel.ColumnAccessPolicy {
 	switch columnName {
 	case "id":
 		return p.Id
@@ -2122,7 +2140,7 @@ func (p *FarmFieldsAccessPolicy) CanAccess() bool {
 
 // GetColumnAccessPolicy returns an access policy for a specific column on
 // the farm_fields table. Returns nil if the column does not exist
-func (p *FarmFieldsAccessPolicy) GetColumnAccessPolicy(columnName string) query.ColumnAccessPolicy {
+func (p *FarmFieldsAccessPolicy) GetColumnAccessPolicy(columnName string) queryModel.ColumnAccessPolicy {
 	switch columnName {
 	case "id":
 		return p.Id
@@ -2167,7 +2185,7 @@ func (p *UsersAccessPolicy) CanAccess() bool {
 
 // GetColumnAccessPolicy returns an access policy for a specific column on
 // the users table. Returns nil if the column does not exist
-func (p *UsersAccessPolicy) GetColumnAccessPolicy(columnName string) query.ColumnAccessPolicy {
+func (p *UsersAccessPolicy) GetColumnAccessPolicy(columnName string) queryModel.ColumnAccessPolicy {
 	switch columnName {
 	case "id":
 		return p.Id

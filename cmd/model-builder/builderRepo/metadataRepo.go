@@ -43,8 +43,10 @@ type RelationshipMetadata struct {
 
 type TableRelationship struct {
 	Id                     string
+	Name                   string
 	Type                   string
-	RelationshipColumn     string
+	ColumnName             string
+	ExpansionColumnName    string
 	RelationshipColumnType string
 	RelatedTable           string
 	LocalColumn            string

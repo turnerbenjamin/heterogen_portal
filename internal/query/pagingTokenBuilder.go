@@ -5,6 +5,10 @@ import (
 	"encoding/binary"
 	"io"
 	"math"
+
+	qstore "github.com/turnerbenjamin/heterogen_portal/internal/query/queryDataStore"
+	qerr "github.com/turnerbenjamin/heterogen_portal/internal/query/queryError"
+	mdl "github.com/turnerbenjamin/heterogen_portal/internal/query/queryModel"
 )
 
 var querySchemaVersion uint32 = 1
@@ -16,7 +20,7 @@ type PayloadSigner interface {
 
 type pagingToken struct {
 	Version      uint32
-	CursorValues []ValueExpression
+	CursorValues []mdl.ValueExpression
 	ResourceName string
 	QueryString  string
 }
@@ -28,11 +32,11 @@ type pagingTokenBuilder struct {
 
 func NewNextPageTokenBuilder(payloadSigner PayloadSigner, payloadSecret []byte) (*pagingTokenBuilder, error) {
 	if payloadSigner == nil {
-		return nil, internalErr("unable to build next page token. payload signer cannot be nil")
+		return nil, qerr.InternalErr("unable to build next page token. payload signer cannot be nil")
 	}
 
 	if payloadSecret == nil {
-		return nil, internalErr("unable to build next page token. payload secret cannot be nil")
+		return nil, qerr.InternalErr("unable to build next page token. payload secret cannot be nil")
 	}
 
 	return &pagingTokenBuilder{
@@ -42,15 +46,15 @@ func NewNextPageTokenBuilder(payloadSigner PayloadSigner, payloadSecret []byte) 
 }
 
 func (b *pagingTokenBuilder) BuildToken(
-	queryDataStore QueryDataStore,
-	lastRecord TableModel,
+	queryDataStore qstore.QueryDataStore,
+	lastRecord mdl.TableModel,
 ) (string, error) {
 	if b.payloadSigner == nil {
-		return "", internalErr("unable to build next page token. payload signer cannot be nil")
+		return "", qerr.InternalErr("unable to build next page token. payload signer cannot be nil")
 	}
 
 	if b.payloadSecret == nil {
-		return "", internalErr("unable to build next page token. payload secret cannot be nil")
+		return "", qerr.InternalErr("unable to build next page token. payload secret cannot be nil")
 	}
 
 	cursorValues, err := getCursorValues(queryDataStore, lastRecord)
@@ -69,14 +73,14 @@ func (b *pagingTokenBuilder) BuildToken(
 }
 
 func getCursorValues(
-	s QueryDataStore,
-	lastRecord TableModel,
-) ([]ValueExpression, error) {
-	cursorValues := make([]ValueExpression, s.OrderByLen())
+	s qstore.QueryDataStore,
+	lastRecord mdl.TableModel,
+) ([]mdl.ValueExpression, error) {
+	cursorValues := make([]mdl.ValueExpression, s.OrderByLen())
 
 	i := 0
 	for rule := range s.OrderBy() {
-		// THIS IS GROSS - CHANGE SIGNITURE OF GetValueExpression !!!!!!!!!!!!!!
+		// THIS IS GROSS - CHANGE SIGNATURE OF GetValueExpression !!!!!!!!!!!!!!
 		nextRecordValue, err := lastRecord.GetValueExpression(
 			rule.ResolvedColumn.ResolvedPath.Steps,
 			rule.ResolvedColumn.Metadata.Name(),
@@ -92,20 +96,20 @@ func getCursorValues(
 
 func (b *pagingTokenBuilder) ParseToken(token string) (*pagingToken, error) {
 	if b.payloadSigner == nil {
-		return nil, internalErr(
+		return nil, qerr.InternalErr(
 			"unable to build next page token. payload signer cannot be nil",
 		)
 	}
 
 	if b.payloadSecret == nil {
-		return nil, internalErr(
+		return nil, qerr.InternalErr(
 			"unable to build next page token. payload secret cannot be nil",
 		)
 	}
 
 	payloadBytes, ok := b.payloadSigner.Verify(b.payloadSecret, token)
 	if !ok {
-		return nil, nextPageTokenErr(
+		return nil, qerr.NextPageTokenErr(
 			"the next page token is invalid",
 		)
 	}
@@ -116,7 +120,7 @@ func (b *pagingTokenBuilder) ParseToken(token string) (*pagingToken, error) {
 	}
 
 	if tokenPayload.Version != querySchemaVersion {
-		return nil, nextPageTokenErr(
+		return nil, qerr.NextPageTokenErr(
 			"the next page token has expired",
 		)
 	}
@@ -125,8 +129,8 @@ func (b *pagingTokenBuilder) ParseToken(token string) (*pagingToken, error) {
 }
 
 func writeToken(
-	s QueryDataStore,
-	cursorValues []ValueExpression,
+	s qstore.QueryDataStore,
+	cursorValues []mdl.ValueExpression,
 ) ([]byte, error) {
 	buf := new(bytes.Buffer)
 
@@ -138,7 +142,7 @@ func writeToken(
 	// Write cursor value count
 	cursorValueCount := len(cursorValues)
 	if cursorValueCount > math.MaxUint16 {
-		return nil, internalErr("max cursor value count exceeded: %d", math.MaxUint16)
+		return nil, qerr.InternalErr("max cursor value count exceeded: %d", math.MaxUint16)
 	}
 
 	var ccb [2]byte
@@ -147,7 +151,7 @@ func writeToken(
 
 	// Write cursor values
 	if s.OrderByLen() != len(cursorValues) {
-		return nil, internalErr("mismatch between order by rules and cursor values")
+		return nil, qerr.InternalErr("mismatch between order by rules and cursor values")
 	}
 
 	for _, v := range cursorValues {
@@ -182,7 +186,7 @@ func readToken(r *bytes.Reader) (*pagingToken, error) {
 	cursorValueCount := binary.BigEndian.Uint16(cursorValueCountBuff[:])
 
 	// read cursor values
-	o.CursorValues = make([]ValueExpression, cursorValueCount)
+	o.CursorValues = make([]mdl.ValueExpression, cursorValueCount)
 	for i := range cursorValueCount {
 		v, err := readValueExpression(r)
 		if err != nil {
@@ -230,7 +234,7 @@ func readNullTerminatedString(r *bytes.Reader) (string, error) {
 	}
 }
 
-func writeValueExpression(buf *bytes.Buffer, expression ValueExpression) error {
+func writeValueExpression(buf *bytes.Buffer, expression mdl.ValueExpression) error {
 	// Write type
 	_ = buf.WriteByte(uint8(expression.GetType()))
 
@@ -242,23 +246,23 @@ func writeValueExpression(buf *bytes.Buffer, expression ValueExpression) error {
 
 	// Write content
 	switch tex := expression.(type) {
-	case *NullLiteral:
+	case *mdl.NullLiteral:
 		// No content.
 
-	case *StringLiteral:
+	case *mdl.StringLiteral:
 		_, _ = buf.WriteString(tex.Value)
 
-	case *IntLiteral:
+	case *mdl.IntLiteral:
 		var b [8]byte
 		binary.BigEndian.PutUint64(b[:], uint64(tex.Value))
 		_, _ = buf.Write(b[:])
 
-	case *FloatLiteral:
+	case *mdl.FloatLiteral:
 		var b [8]byte
 		binary.BigEndian.PutUint64(b[:], math.Float64bits(tex.Value))
 		_, _ = buf.Write(b[:])
 
-	case *StringListLiteral:
+	case *mdl.StringListLiteral:
 		for i, s := range tex.Values {
 			if i > 0 {
 				_ = buf.WriteByte(0)
@@ -266,14 +270,14 @@ func writeValueExpression(buf *bytes.Buffer, expression ValueExpression) error {
 			_, _ = buf.WriteString(s)
 		}
 
-	case *IntListLiteral:
+	case *mdl.IntListLiteral:
 		for _, n := range tex.Values {
 			var b [8]byte
 			binary.BigEndian.PutUint64(b[:], uint64(n))
 			_, _ = buf.Write(b[:])
 		}
 
-	case *FloatListLiteral:
+	case *mdl.FloatListLiteral:
 		for _, n := range tex.Values {
 			var b [8]byte
 			binary.BigEndian.PutUint64(b[:], math.Float64bits(n))
@@ -281,14 +285,14 @@ func writeValueExpression(buf *bytes.Buffer, expression ValueExpression) error {
 		}
 
 	default:
-		return internalErr(
+		return qerr.InternalErr(
 			"unable to write value expression: unfamiliar type encountered",
 		)
 	}
 
 	contentLenRaw := buf.Len() - contentStart
 	if contentLenRaw > math.MaxUint16 {
-		return internalErr("token content exceeds the maximum length %d", math.MaxUint16)
+		return qerr.InternalErr("token content exceeds the maximum length %d", math.MaxUint16)
 	}
 
 	// Content length.
@@ -298,13 +302,13 @@ func writeValueExpression(buf *bytes.Buffer, expression ValueExpression) error {
 	return nil
 }
 
-func readValueExpression(buf *bytes.Reader) (ValueExpression, error) {
+func readValueExpression(buf *bytes.Reader) (mdl.ValueExpression, error) {
 	// Read type
 	typeByte, err := buf.ReadByte()
 	if err != nil {
 		return nil, err
 	}
-	ltype := literalType(typeByte)
+	ltype := mdl.LiteralType(typeByte)
 
 	// Read content length
 	b1, err := buf.ReadByte()
@@ -321,7 +325,7 @@ func readValueExpression(buf *bytes.Reader) (ValueExpression, error) {
 	// Read content bytes
 	content := make([]byte, contentLength)
 	if _, err := io.ReadFull(buf, content); err != nil {
-		return nil, internalErr(
+		return nil, qerr.InternalErr(
 			"unable to read value expression content: %w",
 			err,
 		)
@@ -329,43 +333,43 @@ func readValueExpression(buf *bytes.Reader) (ValueExpression, error) {
 
 	// Parse content to value type
 	switch ltype {
-	case literalTypeNull:
+	case mdl.LiteralTypeNull:
 		if len(content) != 0 {
-			return nil, internalErr(
+			return nil, qerr.InternalErr(
 				"invalid null literal content length: got %d, expected 0",
 				len(content),
 			)
 		}
-		return &NullLiteral{}, nil
+		return &mdl.NullLiteral{}, nil
 
-	case literalTypeString:
-		return &StringLiteral{Value: string(content)}, nil
+	case mdl.LiteralTypeString:
+		return &mdl.StringLiteral{Value: string(content)}, nil
 
-	case literalTypeInt:
+	case mdl.LiteralTypeInt:
 		if len(content) != 8 {
-			return nil, internalErr(
+			return nil, qerr.InternalErr(
 				"invalid int literal content length: got %d, expected 8",
 				len(content),
 			)
 		}
 
 		v := int64(binary.BigEndian.Uint64(content))
-		return &IntLiteral{Value: v}, nil
+		return &mdl.IntLiteral{Value: v}, nil
 
-	case literalTypeFloat:
+	case mdl.LiteralTypeFloat:
 		if len(content) != 8 {
-			return nil, internalErr(
+			return nil, qerr.InternalErr(
 				"invalid float literal content length: got %d, expected 8",
 				len(content),
 			)
 		}
 
 		v := math.Float64frombits(binary.BigEndian.Uint64(content))
-		return &FloatLiteral{Value: v}, nil
+		return &mdl.FloatLiteral{Value: v}, nil
 
-	case literalTypeStringList:
+	case mdl.LiteralTypeStringList:
 		if len(content) == 0 {
-			return &StringListLiteral{}, nil
+			return &mdl.StringListLiteral{}, nil
 		}
 
 		// NUL is reserved as the string-list separator.
@@ -376,11 +380,11 @@ func readValueExpression(buf *bytes.Reader) (ValueExpression, error) {
 			result[i] = string(value)
 		}
 
-		return &StringListLiteral{Values: result}, nil
+		return &mdl.StringListLiteral{Values: result}, nil
 
-	case literalTypeIntList:
+	case mdl.LiteralTypeIntList:
 		if len(content)%8 != 0 {
-			return nil, internalErr(
+			return nil, qerr.InternalErr(
 				"invalid int list content length: %d is not divisible by 8",
 				len(content),
 			)
@@ -393,11 +397,11 @@ func readValueExpression(buf *bytes.Reader) (ValueExpression, error) {
 			values[i] = int64(binary.BigEndian.Uint64(content[offset : offset+8]))
 		}
 
-		return &IntListLiteral{Values: values}, nil
+		return &mdl.IntListLiteral{Values: values}, nil
 
-	case literalTypeFloatList:
+	case mdl.LiteralTypeFloatList:
 		if len(content)%8 != 0 {
-			return nil, internalErr(
+			return nil, qerr.InternalErr(
 				"invalid float list content length: %d is not divisible by 8",
 				len(content),
 			)
@@ -412,10 +416,10 @@ func readValueExpression(buf *bytes.Reader) (ValueExpression, error) {
 			)
 		}
 
-		return &FloatListLiteral{Values: values}, nil
+		return &mdl.FloatListLiteral{Values: values}, nil
 
 	default:
-		return nil, internalErr(
+		return nil, qerr.InternalErr(
 			"unable to read value expression: unfamiliar type encountered",
 		)
 	}

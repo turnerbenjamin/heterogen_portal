@@ -1,30 +1,12 @@
-package query
+package queryParser
 
-// // ColumnValue represents a column, the syntax parser populates the column name
-// // directly from the query string. The binder will then associate this with
-// // column metadata
-// type ColumnValue struct {
-
-// 	// ColumnName is the column name as defined in the database
-// 	ColumnName string `json:"columnName"`
-
-// 	// ColumnData contains metadata for the column
-// 	ColumnData ColumnMetadata `json:"-"`
-// }
-
-// // SelectOperation is used to select specific columns from the resource
-// type SelectOperation struct {
-// 	Columns map[string]*ColumnValue
-// }
-
-// // IsQueryOperation indicates that SelectOperation is a QueryOperation
-// func (o *SelectOperation) IsQueryOperation() {}
+import qstore "github.com/turnerbenjamin/heterogen_portal/internal/query/queryDataStore"
 
 // parseSelectOperation is responsible for parsing select operations It expects
 // a simple list of comma-separated values containing at least one column
 // identifier
 func parseSelectOperation(
-	queryDataStore QueryDataStore,
+	queryDataStore qstore.QueryDataStore,
 	t *Tokeniser,
 	operationSeparator tokenType,
 	operationTerminator tokenType,

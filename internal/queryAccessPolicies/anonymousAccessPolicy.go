@@ -2,7 +2,7 @@ package queryAccessPolicies
 
 import (
 	"github.com/turnerbenjamin/heterogen_portal/internal/model"
-	"github.com/turnerbenjamin/heterogen_portal/internal/query"
+	"github.com/turnerbenjamin/heterogen_portal/internal/query/queryModel"
 )
 
 var allowAccess = model.ColumnAccessPolicy{UserCanAccess: true}
@@ -76,6 +76,6 @@ var anonymousAccessPolicy = &model.DatabaseAccessPolicy{
 	},
 }
 
-func GetAnonymousAccessPolicy() query.AccessPolicy {
+func GetAnonymousAccessPolicy() queryModel.AccessPolicy {
 	return anonymousAccessPolicy
 }

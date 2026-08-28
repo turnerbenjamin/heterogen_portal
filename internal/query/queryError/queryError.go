@@ -36,9 +36,9 @@ const (
 	QueryErrInternalErr queryErrorCategory = iota
 )
 
-// queryError is used to return an error with a category. This may be used to
+// QueryError is used to return an error with a category. This may be used to
 // determine whether to surface the specifc error to the user or not
-type queryError struct {
+type QueryError struct {
 	category queryErrorCategory
 	err      error
 }
@@ -50,8 +50,8 @@ func GetErrorCategory(err error) queryErrorCategory {
 		return QueryErrUnknown
 	}
 
-	var qerr *queryError
-	if errors.As(err, &qerr) {
+	qerr, success := errors.AsType[*QueryError](err)
+	if !success {
 		return qerr.Category()
 	}
 
@@ -60,50 +60,50 @@ func GetErrorCategory(err error) queryErrorCategory {
 
 // Category returns the error category, this can be used to determine
 // whether to surface the error message to the user or not
-func (e *queryError) Category() queryErrorCategory {
+func (e *QueryError) Category() queryErrorCategory {
 	return e.category
 }
 
 // Error returns the error message
-func (e *queryError) Error() string {
+func (e *QueryError) Error() string {
 	return e.err.Error()
 }
 
 // syntaxErr builds a queryError with the category QueryErrSyntaxErr
-func syntaxErr(m string, a ...any) error {
-	return &queryError{
+func SyntaxErr(m string, a ...any) error {
+	return &QueryError{
 		category: QueryErrSyntaxErr,
 		err:      fmt.Errorf(m, a...),
 	}
 }
 
 // bindingErr builds a queryError with the category QueryErrBindingErr
-func bindingErr(m string, a ...any) error {
-	return &queryError{
+func BindingErr(m string, a ...any) error {
+	return &QueryError{
 		category: QueryErrBindingErr,
 		err:      fmt.Errorf(m, a...),
 	}
 }
 
 // accessErr builds a queryError with the category QueryErrAccessErr
-func accessErr(m string, a ...any) error {
-	return &queryError{
+func AccessErr(m string, a ...any) error {
+	return &QueryError{
 		category: QueryErrAccessErr,
 		err:      fmt.Errorf(m, a...),
 	}
 }
 
 // nextPageTokenErr builds a queryError with the category QueryErrInvalidTokenErr
-func nextPageTokenErr(m string, a ...any) error {
-	return &queryError{
+func NextPageTokenErr(m string, a ...any) error {
+	return &QueryError{
 		category: QueryErrInvalidTokenErr,
 		err:      fmt.Errorf(m, a...),
 	}
 }
 
 // internalErr builds a queryError with the category QueryErrInternalErr
-func internalErr(m string, a ...any) error {
-	return &queryError{
+func InternalErr(m string, a ...any) error {
+	return &QueryError{
 		category: QueryErrInternalErr,
 		err:      fmt.Errorf(m, a...),
 	}

@@ -1,3 +1,4 @@
+/* Don't look at me, I'm ugly */
 package modelWriter
 
 import (
@@ -105,7 +106,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/turnerbenjamin/heterogen_portal/internal/query"
+	"github.com/turnerbenjamin/heterogen_portal/internal/query/queryModel"
 )
 
 var metadataIsBound = false
@@ -122,20 +123,20 @@ func NewSchemaMetadata() *schemaMetadata {
 
 // GetTableModel returns a new instance of a given table or nill if
 // the table name is invalid
-func (s *schemaMetadata) GetTableModel(tableName string) query.TableModel {
+func (s *schemaMetadata) GetTableModel(tableName string) queryModel.TableModel {
 	return getTableModel(tableName)
 }
 
 // GetTableMetadata returns the metadata for a given table or nill if
 // the table name is invalid
-func (s *schemaMetadata) GetTableMetadata(tableName string) query.TableMetadata {
+func (s *schemaMetadata) GetTableMetadata(tableName string) queryModel.TableMetadata {
 	return getTableMetadata(tableName)
 }
 
 // columnMetadata describes the metadata associated with a database table column.
 type columnMetadata struct {
 	name         string
-	dbType       query.DbDataTypeName
+	dbType       queryModel.DbDataTypeName
 	maxLength    int
 	isPrimaryKey bool
 	isRequired   bool
@@ -147,29 +148,39 @@ func (c *columnMetadata) Name() string {
 }
 
 // Type returns the column's type
-func (c *columnMetadata) Type() query.DbDataTypeName {
+func (c *columnMetadata) Type() queryModel.DbDataTypeName {
 	return c.dbType
 }
 
-// RelationshipColumn returns the name of the pseudo relationship column on the table
-func (r *relationship) RelationshipColumn() string {
-	return r.name
-}
+
 
 // relationship describes a foreign key relationship between two database columns.
 type relationship struct {
 	id               string
-	name             string
-	relationshipType query.RelationshipType
-	from             query.TableMetadata
-	to               query.TableMetadata
-	fromColumn       query.ColumnMetadata
-	toColumn         query.ColumnMetadata
+	columnName             string
+	expansionColumnName             string
+	relationshipType queryModel.RelationshipType
+	from             queryModel.TableMetadata
+	to               queryModel.TableMetadata
+	fromColumn       queryModel.ColumnMetadata
+	toColumn         queryModel.ColumnMetadata
 	fromTableName    string
 	toTableName      string
 	fromColumnName   string
 	toColumnName     string
 	isInitialised    bool
+}
+
+// ExpansionColumnName returns the name of the pseudo relationship column on the 
+// table used to store expanded results
+func (r *relationship) ExpansionColumnName() string {
+	return r.expansionColumnName
+}
+
+// ColumnName returns the name of the column, as it should be referenced in a
+// query string
+func (r *relationship) ColumnName() string{
+	return r.columnName
 }
 
 // bindMetadata binds metadata references at runtime to avoid invalid initiation
@@ -191,27 +202,27 @@ func (r *relationship) Id() string {
 }
 
 // From returns table metadata for the from table
-func (r *relationship) From() query.TableMetadata {
+func (r *relationship) From() queryModel.TableMetadata {
 	return r.from
 }
 
 // To returns table metadata for the to table
-func (r *relationship) To() query.TableMetadata {
+func (r *relationship) To() queryModel.TableMetadata {
 	return r.to
 }
 
 // From returns table metadata for the from table
-func (r *relationship) FromColumn() query.ColumnMetadata {
+func (r *relationship) FromColumn() queryModel.ColumnMetadata {
 	return r.fromColumn
 }
 
 // To returns table metadata for the to table
-func (r *relationship) ToColumn() query.ColumnMetadata {
+func (r *relationship) ToColumn() queryModel.ColumnMetadata {
 	return r.toColumn
 }
 
 // Type returns the relationship type
-func (r *relationship) Type() query.RelationshipType {
+func (r *relationship) Type() queryModel.RelationshipType {
 	return r.relationshipType
 }
 
@@ -236,7 +247,7 @@ func (t *tableMetadata) bindMetadata() {
 
 // GetColumnMetadata returns metadata for a given table column; returns nil if
 // the column does not exist on the table
-func (t *tableMetadata) GetColumnMetadata(columnName string) query.ColumnMetadata {
+func (t *tableMetadata) GetColumnMetadata(columnName string) queryModel.ColumnMetadata {
 	c, exists := t.columns[columnName]
 	if !exists {
 		return nil
@@ -246,7 +257,7 @@ func (t *tableMetadata) GetColumnMetadata(columnName string) query.ColumnMetadat
 
 // GetRelationshipMetadata returns metadata for a given table column; returns
 // nil if the relationship does not exist on the table
-func (t *tableMetadata) GetRelationshipMetadata(relationshipName string) query.RelationshipMetadata {
+func (t *tableMetadata) GetRelationshipMetadata(relationshipName string) queryModel.RelationshipMetadata {
 	r, exists := t.relationships[relationshipName]
 	if !exists {
 		return nil
@@ -255,7 +266,7 @@ func (t *tableMetadata) GetRelationshipMetadata(relationshipName string) query.R
 }
 
 // GetTableModel returns a model representing the table
-func (t *tableMetadata) GetModel() query.TableModel {
+func (t *tableMetadata) GetModel() queryModel.TableModel {
 	return getTableModel(t.name)
 }
 
@@ -271,8 +282,8 @@ func (t *tableMetadata) FullyQualifiedName() string {
 }
 
 // Columns iterates over all columns associated with the table
-func (t *tableMetadata) Columns() iter.Seq[query.ColumnMetadata] {
-	return func(yield func(query.ColumnMetadata) bool) {
+func (t *tableMetadata) Columns() iter.Seq[queryModel.ColumnMetadata] {
+	return func(yield func(queryModel.ColumnMetadata) bool) {
 		for _, col := range t.columns {
 			if !yield(col) {
 				return
@@ -290,10 +301,10 @@ func (t *tableMetadata) ColumnCount() int {
 }
 
 // PrimaryKeyField returns the column metadata for the primary key field
-func (t *tableMetadata) PrimaryKeyField() query.ColumnMetadata {
+func (t *tableMetadata) PrimaryKeyField() queryModel.ColumnMetadata {
 	pk, ok := t.columns[t.primaryKey]
 	if !ok || pk == nil {
-		panic(fmt.Sprintf("unable to access primary key for %t table", t.name))
+		panic(fmt.Sprintf("unable to access primary key for %s table", t.name))
 	}
 	return pk
 }
@@ -492,7 +503,8 @@ func (w *modelWriter) buildRelationshipMap(tableData *builderRepo.TableMetadata)
 	for key, relationship := range tableData.Relationships {
 		writeToBuilder(sbR, fmt.Sprintf("\"%s\": {\n", key))
 		writeToBuilder(sbR, fmt.Sprintf("id: \"%s\",\n", relationship.Id))
-		writeToBuilder(sbR, fmt.Sprintf("name: \"%s\",\n", relationship.RelationshipColumn))
+		writeToBuilder(sbR, fmt.Sprintf("columnName: \"%s\",\n", relationship.ColumnName))
+		writeToBuilder(sbR, fmt.Sprintf("expansionColumnName: \"%s\",\n", relationship.ExpansionColumnName))
 		writeToBuilder(sbR, fmt.Sprintf("relationshipType: %s,\n", relationship.Type))
 		writeToBuilder(sbR, fmt.Sprintf("fromTableName: \"%s\",\n", tableData.Name))
 		writeToBuilder(sbR, fmt.Sprintf("toTableName: \"%s\",\n", relationship.RelatedTable))
@@ -508,13 +520,13 @@ func (w *modelWriter) buildRelationshipMap(tableData *builderRepo.TableMetadata)
 func getColTypeString(typeName builderRepo.MsqlDataTypeName) string {
 	switch typeName {
 	case MsqlTypeNvarchar:
-		return "query.DbTypeNvarchar"
+		return "queryModel.DbTypeNvarchar"
 	case MsqlTypeInt:
-		return "query.DbTypeInt"
+		return "queryModel.DbTypeInt"
 	case MsqlTypeDateTimeOffset:
-		return "query.DbTypeDateTimeOffset"
+		return "queryModel.DbTypeDateTimeOffset"
 	case MsqlTypeGeography:
-		return "query.DbTypeGeography"
+		return "queryModel.DbTypeGeography"
 	default:
 		return ""
 	}
@@ -546,8 +558,8 @@ func (w *modelWriter) WriteTableModel(tableData *builderRepo.TableMetadata) {
 
 	// Relationship Cols
 	for _, tableRelationship := range tableData.Relationships {
-		tag := fmt.Sprintf("`json:\"%s\"`", tableRelationship.RelationshipColumn)
-		identifer := snakeToPascal(tableRelationship.RelationshipColumn)
+		tag := fmt.Sprintf("`json:\"%s\"`", tableRelationship.ExpansionColumnName)
+		identifer := snakeToPascal(tableRelationship.ExpansionColumnName)
 		writeToBuilder(w.sb, fmt.Sprintf("%s %s %s\n", identifer, tableRelationship.RelationshipColumnType, tag))
 	}
 
@@ -582,10 +594,10 @@ func (w *modelWriter) WriteGetSliceGetterFunction(modelStructName string, tableD
 		tableData.Name,
 	))
 
-	writeToBuilder(w.sb, fmt.Sprintf("func (m *%s) NewSlice(jsonData []byte, projectColumns []string) ([]query.TableModel, error) {\n", modelStructName))
+	writeToBuilder(w.sb, fmt.Sprintf("func (m *%s) NewSlice(jsonData []byte, projectColumns []string) ([]queryModel.TableModel, error) {\n", modelStructName))
 
 	writeToBuilder(w.sb, "if len(jsonData) == 0 {\n")
-	writeToBuilder(w.sb, "return []query.TableModel{}, nil\n")
+	writeToBuilder(w.sb, "return []queryModel.TableModel{}, nil\n")
 	writeToBuilder(w.sb, "}\n\n")
 
 	writeToBuilder(w.sb, fmt.Sprintf("var concreteSlice []*%s\n", modelStructName))
@@ -594,7 +606,7 @@ func (w *modelWriter) WriteGetSliceGetterFunction(modelStructName string, tableD
 	writeToBuilder(w.sb, "return nil, err\n")
 	writeToBuilder(w.sb, "}\n")
 
-	writeToBuilder(w.sb, "result := make([]query.TableModel, len(concreteSlice))\n\n")
+	writeToBuilder(w.sb, "result := make([]queryModel.TableModel, len(concreteSlice))\n\n")
 
 	writeToBuilder(w.sb, fmt.Sprintf("projection := %s(0)\n", getModelProjectionName(tableData.Name)))
 	writeToBuilder(w.sb, "for _, column := range projectColumns {\n")
@@ -643,7 +655,7 @@ func (w *modelWriter) WriteModelMarshalJSONFunction(modelStructName string, tabl
 	}
 
 	for _, relationship := range tableData.Relationships {
-		writeColumn(relationship.RelationshipColumn)
+		writeColumn(relationship.ExpansionColumnName)
 	}
 
 	writeToBuilder(w.sb, "buf.WriteByte('}')\n")
@@ -658,22 +670,22 @@ func (w *modelWriter) WriteRelationshipColumnSetterFunction(modelStructName stri
 		tableData.Name,
 	))
 
-	writeToBuilder(w.sb, fmt.Sprintf("func (m *%s) SetRelationshipField(relationshipId string, value query.TableModel) error {\n", modelStructName))
+	writeToBuilder(w.sb, fmt.Sprintf("func (m *%s) SetRelationshipField(relationshipId string, value queryModel.TableModel) error {\n", modelStructName))
 	writeToBuilder(w.sb, "switch relationshipId {\n")
 
 	for _, relationship := range tableData.Relationships {
-		relationshipColumnIdentifier := snakeToPascal(relationship.RelationshipColumn)
+		relationshipColumnIdentifier := snakeToPascal(relationship.ExpansionColumnName)
 		writeToBuilder(w.sb, fmt.Sprintf("case \"%s\":\n", relationship.Id))
 		writeToBuilder(w.sb, fmt.Sprintf("v, ok := value.(*%s)\n", getModelStructName(relationship.RelatedTable)))
 		writeToBuilder(w.sb, "if !ok {\n")
 		writeToBuilder(w.sb, "return errors.New(\"unexpected relationship type received\")\n")
 		writeToBuilder(w.sb, "}\n")
 
-		if relationship.Type == "query.RelationshipManyToOne" {
+		if relationship.Type == "queryModel.RelationshipManyToOne" {
 			writeToBuilder(w.sb, fmt.Sprintf("m.%s = v\n\n", relationshipColumnIdentifier))
 		}
 
-		if relationship.Type == "query.RelationshipOneToMany" {
+		if relationship.Type == "queryModel.RelationshipOneToMany" {
 			writeToBuilder(w.sb, fmt.Sprintf("m.%s = append(m.%s, v)\n\n", relationshipColumnIdentifier, relationshipColumnIdentifier))
 		}
 	}
@@ -698,7 +710,7 @@ func (w *modelWriter) WriteInitRelationshipFieldFunction(modelStructName string,
 	// Write do nothing code for N:1 relationships
 	countN1 := 0
 	for _, relationship := range tableData.Relationships {
-		if relationship.Type != "query.RelationshipManyToOne" {
+		if relationship.Type != "queryModel.RelationshipManyToOne" {
 			continue
 		}
 		countN1++
@@ -717,11 +729,11 @@ func (w *modelWriter) WriteInitRelationshipFieldFunction(modelStructName string,
 
 	// Write array setters for 1:N relationships
 	for _, relationship := range tableData.Relationships {
-		if relationship.Type != "query.RelationshipOneToMany" {
+		if relationship.Type != "queryModel.RelationshipOneToMany" {
 			continue
 		}
 
-		relationshipColumnIdentifier := snakeToPascal(relationship.RelationshipColumn)
+		relationshipColumnIdentifier := snakeToPascal(relationship.ExpansionColumnName)
 		writeToBuilder(w.sb, fmt.Sprintf("case \"%s\":\n", relationship.Id))
 		writeToBuilder(w.sb, fmt.Sprintf("m.%s = []*%s{}\n", relationshipColumnIdentifier, getModelStructName(relationship.RelatedTable)))
 		writeToBuilder(w.sb, "return nil\n")
@@ -764,7 +776,7 @@ func (w *modelWriter) WriteGetJoinOnValueFunction(modelStructName string, tableD
 func (w *modelWriter) WriteGetValueExpressionFunction(modelStructName string, tableData *builderRepo.TableMetadata) {
 	writeToBuilder(w.sb, "// GetValueExpression returns the value from a given path as a ValueExpression\n")
 
-	writeToBuilder(w.sb, fmt.Sprintf("func (m *%s) GetValueExpression(path []*query.TraversalStep, columnName string) (query.ValueExpression, error){\n", modelStructName))
+	writeToBuilder(w.sb, fmt.Sprintf("func (m *%s) GetValueExpression(path []*queryModel.TraversalStep, columnName string) (queryModel.ValueExpression, error){\n", modelStructName))
 	writeToBuilder(w.sb, "if len(path) > 0 {\n")
 	writeToBuilder(w.sb, "nextStep := path[0]\n")
 	writeToBuilder(w.sb, "nextEntity, err := m.getRelatedEntity(nextStep.Relationship)\n")
@@ -774,7 +786,7 @@ func (w *modelWriter) WriteGetValueExpressionFunction(modelStructName string, ta
 	writeToBuilder(w.sb, "}\n")
 
 	writeToBuilder(w.sb, "if nextEntity.IsNil(){\n")
-	writeToBuilder(w.sb, "return &query.NullLiteral{}, nil\n")
+	writeToBuilder(w.sb, "return &queryModel.NullLiteral{}, nil\n")
 	writeToBuilder(w.sb, "}\n")
 
 	writeToBuilder(w.sb, "return nextEntity.GetValueExpression(path[1:], columnName)\n")
@@ -786,7 +798,7 @@ func (w *modelWriter) WriteGetValueExpressionFunction(modelStructName string, ta
 	writeToBuilder(w.sb, "}\n")
 
 	writeToBuilder(w.sb, "if v == nil{\n")
-	writeToBuilder(w.sb, "return &query.NullLiteral{}, nil\n")
+	writeToBuilder(w.sb, "return &queryModel.NullLiteral{}, nil\n")
 	writeToBuilder(w.sb, "}\n")
 
 	writeToBuilder(w.sb, "return v, nil\n")
@@ -797,15 +809,15 @@ func (w *modelWriter) WriteGetRelatedEntityFunction(modelStructName string, tabl
 	writeToBuilder(w.sb, "// GetRelatedEntity returns the value from N:1/1:1 relationships as a TableModel\n")
 	writeToBuilder(w.sb, "// It will return an error for invalid relationships and relationship types\n")
 
-	writeToBuilder(w.sb, fmt.Sprintf("func (m *%s) getRelatedEntity(relationship query.RelationshipMetadata) (query.TableModel, error) {\n", modelStructName))
+	writeToBuilder(w.sb, fmt.Sprintf("func (m *%s) getRelatedEntity(relationship queryModel.RelationshipMetadata) (queryModel.TableModel, error) {\n", modelStructName))
 	writeToBuilder(w.sb, "switch relationship.Id() {\n")
 
 	for _, relationship := range tableData.Relationships {
-		if relationship.Type != "query.RelationshipManyToOne" {
+		if relationship.Type != "queryModel.RelationshipManyToOne" {
 			continue
 		}
 		writeToBuilder(w.sb, fmt.Sprintf("case \"%s\":\n", relationship.Id))
-		writeToBuilder(w.sb, fmt.Sprintf("return m.%s, nil\n", snakeToPascal(relationship.RelationshipColumn)))
+		writeToBuilder(w.sb, fmt.Sprintf("return m.%s, nil\n", snakeToPascal(relationship.ExpansionColumnName)))
 	}
 
 	writeToBuilder(w.sb, "default:\n")
@@ -825,7 +837,7 @@ func (w *modelWriter) WriteModelIsNilFunciton(modelStructName string, tableData 
 func (w *modelWriter) WriteGetValueExpressionPrivateFunction(modelStructName string, tableData *builderRepo.TableMetadata) {
 	writeToBuilder(w.sb, "// getValueExpression returns the value from a given column as a value expression\n")
 
-	writeToBuilder(w.sb, fmt.Sprintf("func (m *%s) getValueExpression(columnName string) (query.ValueExpression, error) {\n", modelStructName))
+	writeToBuilder(w.sb, fmt.Sprintf("func (m *%s) getValueExpression(columnName string) (queryModel.ValueExpression, error) {\n", modelStructName))
 	writeToBuilder(w.sb, "switch columnName{\n")
 
 	for _, column := range tableData.Columns {
@@ -852,16 +864,16 @@ func (w *modelWriter) buildGetValueExpression(columnData *builderRepo.ColumnMeta
 	columnIdentifier := snakeToPascal(columnData.Name)
 
 	nullCheck := func(columnIdentifier string) string {
-		return fmt.Sprintf("if m.%s == nil {\n return &query.NullLiteral{}, nil }\n", columnIdentifier)
+		return fmt.Sprintf("if m.%s == nil {\n return &queryModel.NullLiteral{}, nil }\n", columnIdentifier)
 	}
 
 	switch columnData.Type {
 	case MsqlTypeNvarchar:
-		return fmt.Sprintf("return &query.StringLiteral{Value: m.%s}, nil\n", columnIdentifier)
+		return fmt.Sprintf("return &queryModel.StringLiteral{Value: m.%s}, nil\n", columnIdentifier)
 	case MsqlTypeInt:
-		return fmt.Sprintf("return &query.IntLiteral{Value: m.%s}, nil\n", columnIdentifier)
+		return fmt.Sprintf("return &queryModel.IntLiteral{Value: m.%s}, nil\n", columnIdentifier)
 	case MsqlTypeDateTimeOffset, MsqlTypeGeography:
-		return fmt.Sprintf("%s return &query.StringLiteral{Value: m.%s.String()}, nil\n", nullCheck(columnIdentifier), columnIdentifier)
+		return fmt.Sprintf("%s return &queryModel.StringLiteral{Value: m.%s.String()}, nil\n", nullCheck(columnIdentifier), columnIdentifier)
 	default:
 		return ""
 	}
@@ -931,7 +943,7 @@ func (w *modelWriter) WriteTableModelProjection(tableData *builderRepo.TableMeta
 	}
 
 	for _, rel := range tableData.Relationships {
-		identifier := getColProjectionId(tableData.Name, rel.RelationshipColumn)
+		identifier := getColProjectionId(tableData.Name, rel.ExpansionColumnName)
 		writeToBuilder(w.sb, fmt.Sprintf("%s\n", identifier))
 	}
 
@@ -950,8 +962,8 @@ func (w *modelWriter) WriteTableModelProjection(tableData *builderRepo.TableMeta
 	}
 
 	for _, rel := range tableData.Relationships {
-		writeToBuilder(w.sb, fmt.Sprintf("case \"%s\":\n", rel.RelationshipColumn))
-		writeToBuilder(w.sb, fmt.Sprintf("*p |= %s\n", getColProjectionId(tableData.Name, rel.RelationshipColumn)))
+		writeToBuilder(w.sb, fmt.Sprintf("case \"%s\":\n", rel.ExpansionColumnName))
+		writeToBuilder(w.sb, fmt.Sprintf("*p |= %s\n", getColProjectionId(tableData.Name, rel.ExpansionColumnName)))
 	}
 
 	writeToBuilder(w.sb, "default:\n")
@@ -976,7 +988,7 @@ func (w *modelWriter) WriteTableModelGetter() {
 		"// getTableModel returns a new instance of a given table or nill if \n"+
 			"// the table name is invalid\n",
 	)
-	writeToBuilder(w.sb, "func getTableModel(tableName string) query.TableModel{\n")
+	writeToBuilder(w.sb, "func getTableModel(tableName string) queryModel.TableModel{\n")
 	writeToBuilder(w.sb, "switch tableName {\n")
 
 	for _, table := range w.metadata.Tables {
@@ -997,7 +1009,7 @@ func (w *modelWriter) WriteTableMetadataGetter() {
 		"// getTableMetadata returns the metadata for a given table or nill if \n"+
 			"// the table name is invalid\n",
 	)
-	writeToBuilder(w.sb, "func getTableMetadata(tableName string) query.TableMetadata{\n")
+	writeToBuilder(w.sb, "func getTableMetadata(tableName string) queryModel.TableMetadata{\n")
 	writeToBuilder(w.sb, "switch tableName {\n")
 
 	for _, table := range w.metadata.Tables {
@@ -1045,7 +1057,7 @@ func (w *modelWriter) writeTableAccessStructs() {
 			"// if the table does not exist\n",
 	)
 
-	writeToBuilder(w.sb, "func (p *DatabaseAccessPolicy) GetTableAccessPolicy(tableName string) query.TableAccessPolicy {\n")
+	writeToBuilder(w.sb, "func (p *DatabaseAccessPolicy) GetTableAccessPolicy(tableName string) queryModel.TableAccessPolicy {\n")
 	writeToBuilder(w.sb, "switch tableName {\n")
 	for _, t := range w.metadata.Tables {
 		writeToBuilder(w.sb, fmt.Sprintf("case \"%s\":\n", t.Name))
@@ -1101,7 +1113,7 @@ func (w *modelWriter) writeTableAccessStruct(t *builderRepo.TableMetadata) {
 			"// the %s table. Returns nil if the column does not exist\n",
 		t.Name,
 	))
-	writeToBuilder(w.sb, fmt.Sprintf("func (p *%s) GetColumnAccessPolicy(columnName string) query.ColumnAccessPolicy {\n", accessPolicyStructName))
+	writeToBuilder(w.sb, fmt.Sprintf("func (p *%s) GetColumnAccessPolicy(columnName string) queryModel.ColumnAccessPolicy {\n", accessPolicyStructName))
 	writeToBuilder(w.sb, "switch columnName {\n")
 	for _, c := range t.Columns {
 		writeToBuilder(w.sb, fmt.Sprintf("case \"%s\":\n", c.Name))
@@ -1188,15 +1200,16 @@ func buildTableRelationshipData(schema *builderRepo.DatabaseSchema) {
 				continue
 			}
 
-			key := tableRelationship.RelationshipColumn
 			if relationship.ParentTable == table.Name {
-				key = tableRelationship.LocalColumn
+				tableRelationship.ColumnName = tableRelationship.LocalColumn
+			} else {
+				tableRelationship.ColumnName = tableRelationship.ExpansionColumnName
 			}
 
 			if table.Relationships == nil {
 				table.Relationships = map[string]*builderRepo.TableRelationship{}
 			}
-			table.Relationships[key] = tableRelationship
+			table.Relationships[tableRelationship.ColumnName] = tableRelationship
 		}
 	}
 }
@@ -1218,9 +1231,9 @@ func getTableRelationship(
 		if !strings.HasSuffix(relationship.ParentColumn, "_id") {
 			log.Fatalf("invalid parent column: %s. Parent columns must be suffixes with _id", relationship.ParentColumn)
 		}
-		r.RelationshipColumn = strings.TrimSuffix(relationship.ParentColumn, "_id")
+		r.ExpansionColumnName = strings.TrimSuffix(relationship.ParentColumn, "_id")
 
-		r.Type = "query.RelationshipManyToOne"
+		r.Type = "queryModel.RelationshipManyToOne"
 		r.RelatedTable = relationship.ReferencedTable
 		r.LocalColumn = relationship.ParentColumn
 		r.ForeignColumn = relationship.ReferencedColumn
@@ -1229,14 +1242,14 @@ func getTableRelationship(
 	}
 
 	if relationship.ReferencedTable == table.Name {
-		r.RelationshipColumn = fmt.Sprintf(
+		r.ExpansionColumnName = fmt.Sprintf(
 			"%s_%s_%s",
 			relationship.ParentTable,
 			relationship.ReferencedTable,
 			relationship.ParentColumn,
 		)
 
-		r.Type = "query.RelationshipOneToMany"
+		r.Type = "queryModel.RelationshipOneToMany"
 		r.RelatedTable = relationship.ParentTable
 		r.LocalColumn = relationship.ReferencedColumn
 		r.ForeignColumn = relationship.ParentColumn

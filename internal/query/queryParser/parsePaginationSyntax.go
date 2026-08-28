@@ -1,38 +1,16 @@
-package query
+package queryParser
 
 import (
 	"strconv"
 	"strings"
+
+	qstore "github.com/turnerbenjamin/heterogen_portal/internal/query/queryDataStore"
+	qerr "github.com/turnerbenjamin/heterogen_portal/internal/query/queryError"
 )
-
-// // LimitOperation is used to set the maximim number of rows to return
-// type LimitOperation struct {
-// 	Limit int `json:"limit"`
-// }
-
-// // IsQueryOperation indicates that LimitOperation is a QueryOperation
-// func (o *LimitOperation) IsQueryOperation() {}
-
-// // CountOperation is a flag used to indicate whether Count should be included
-// // with the results
-// type CountOperation struct {
-// 	DoCount bool `json:"doCount"`
-// }
-
-// // IsQueryOperation indicates that CountOperation is a QueryOperation
-// func (o *CountOperation) IsQueryOperation() {}
-
-// // Paging token operations is used to access the next page of results
-// type PagingTokenOperation struct {
-// 	token string
-// }
-
-// // IsQueryOperation indicates that PagingTokenOperation is a QueryOperation
-// func (o *PagingTokenOperation) IsQueryOperation() {}
 
 // parseSelectOperation is responsible for parsing limit operations, it expects
 // a single number value will be provided
-func parseLimitOperation(s QueryDataStore, t *Tokeniser) error {
+func parseLimitOperation(s qstore.QueryDataStore, t *Tokeniser) error {
 	limitValue := t.Next()
 	if limitValue.Type != TokenNumberRaw {
 		return t.TknErr(limitValue, "expected an integer but received '%s'", limitValue.Value)
@@ -44,7 +22,7 @@ func parseLimitOperation(s QueryDataStore, t *Tokeniser) error {
 
 	limitInt, err := strconv.Atoi(limitValue.Value)
 	if err != nil {
-		return internalErr("unable to parse string as int: %v", err)
+		return qerr.InternalErr("unable to parse string as int: %v", err)
 	}
 
 	return s.SetLimit(limitInt)
@@ -52,7 +30,7 @@ func parseLimitOperation(s QueryDataStore, t *Tokeniser) error {
 
 // parseCountOperation is responsible for parsing count operations. It expects a
 // single boolean value will be provided
-func parseCountOperation(s QueryDataStore, t *Tokeniser) error {
+func parseCountOperation(s qstore.QueryDataStore, t *Tokeniser) error {
 
 	countValue := t.Next()
 	if countValue.Type != TokenBool {
@@ -68,7 +46,7 @@ func parseCountOperation(s QueryDataStore, t *Tokeniser) error {
 // operation separator, endOfOperationsSentinal and EOF as part of the token and
 // leave validation for the token parser
 func parsePagingTokenOperation(
-	s QueryDataStore,
+	s qstore.QueryDataStore,
 	t *Tokeniser,
 	operationSeparator tokenType,
 	endOfOperationsSentinal tokenType,
@@ -84,14 +62,14 @@ func parsePagingTokenOperation(
 		tkn := t.Next()
 		_, err := tknBuilder.WriteString(tkn.Value)
 		if err != nil {
-			return internalErr("unable to add token to token builder: %v", err)
+			return qerr.InternalErr("unable to add token to token builder: %v", err)
 		}
 
 	}
 
 	s.SetPagingToken(tknBuilder.String())
 	if _, exists := s.PagingToken(); !exists {
-		return syntaxErr("pagingToken must be provided")
+		return qerr.SyntaxErr("pagingToken must be provided")
 	}
 	return nil
 }

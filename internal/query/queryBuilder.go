@@ -1,15 +1,21 @@
 package query
 
+import (
+	qstore "github.com/turnerbenjamin/heterogen_portal/internal/query/queryDataStore"
+	qerr "github.com/turnerbenjamin/heterogen_portal/internal/query/queryError"
+	mdl "github.com/turnerbenjamin/heterogen_portal/internal/query/queryModel"
+)
+
 const MAX_LIMIT = 5000
 
 func BuildQuery(
 	queryString string,
 	queryParser QueryParser,
-	rootResource TableMetadata,
-	accessPolicy AccessPolicy,
-) (QueryDataStore, error) {
+	rootResource mdl.TableMetadata,
+	accessPolicy mdl.AccessPolicy,
+) (qstore.QueryDataStore, error) {
 	// Initialise query data store
-	s, err := NewQueryDataStore(
+	s, err := qstore.NewQueryDataStore(
 		queryString,
 		rootResource,
 		accessPolicy,
@@ -31,7 +37,8 @@ func BuildQuery(
 	return s, err
 }
 
-func configureQuery(s QueryDataStore) error {
+func configureQuery(s qstore.QueryDataStore) error {
+
 	// Validate user query as parsed before mutating
 	if err := validateUserQuery(s); err != nil {
 		return err
@@ -54,7 +61,7 @@ func configureQuery(s QueryDataStore) error {
 
 	// Configure expanded queries
 	for _, expansion := range s.Expands() {
-		if err := configureQuery(expansion.queryData); err != nil {
+		if err := configureQuery(expansion.QueryData); err != nil {
 			return err
 		}
 	}
@@ -62,14 +69,14 @@ func configureQuery(s QueryDataStore) error {
 	return nil
 }
 
-func validateUserQuery(s QueryDataStore) error {
+func validateUserQuery(s qstore.QueryDataStore) error {
 	if s.Limit() > MAX_LIMIT {
-		return syntaxErr("limit must be between 1 and %d", MAX_LIMIT)
+		return qerr.SyntaxErr("limit must be between 1 and %d", MAX_LIMIT)
 	}
 	return nil
 }
 
-func addSystemDefaults(s QueryDataStore) error {
+func addSystemDefaults(s qstore.QueryDataStore) error {
 	if len(s.Projection()) == 0 {
 		if err := addDefaultSelects(s); err != nil {
 			return err
@@ -81,19 +88,20 @@ func addSystemDefaults(s QueryDataStore) error {
 	}
 
 	if s.OrderByLen() == 0 {
-		s.AddOrderBy(s.RootResource().PrimaryKeyField().Name(), SortDirectionAsc)
+		s.AddOrderBy(s.RootResource().PrimaryKeyField().Name(), mdl.SortDirectionAsc)
+
 	}
 
 	return nil
 }
 
-func addDefaultSelects(s QueryDataStore) error {
+func addDefaultSelects(s qstore.QueryDataStore) error {
 	// Add all columns the user can access to the table
 	tableAccessPolicy := s.RootResourceAccessPolicy()
 	for col := range s.RootResource().Columns() {
 		colAccessPolicy := tableAccessPolicy.GetColumnAccessPolicy(col.Name())
 		if colAccessPolicy == nil {
-			return internalErr(
+			return qerr.InternalErr(
 				"unable to add default select: access policy for %s is nil",
 				col.Name(),
 			)
@@ -109,12 +117,13 @@ func addDefaultSelects(s QueryDataStore) error {
 	}
 
 	if s.SelectsLen() == 0 {
-		return internalErr("invalid access policy, the user does not have access to any columns")
+		return qerr.InternalErr("invalid access policy, the user does not have access to any columns")
 	}
 	return nil
 }
 
-func ensureDeterministicOrdering(s QueryDataStore) error {
+func ensureDeterministicOrdering(s qstore.QueryDataStore) error {
+
 	primaryKeyField := s.RootResource().PrimaryKeyField().Name()
 
 	// exit early if query is already sorted by the primary key field
@@ -124,10 +133,10 @@ func ensureDeterministicOrdering(s QueryDataStore) error {
 			return nil
 		}
 	}
-	return s.AddOrderBy(primaryKeyField, SortDirectionAsc)
+	return s.AddOrderBy(primaryKeyField, mdl.SortDirectionAsc)
 }
 
-func addRequiredOperationsForCursorPagination(s QueryDataStore) error {
+func addRequiredOperationsForCursorPagination(s qstore.QueryDataStore) error {
 	if !s.IsTopLevelQuery() {
 		return nil
 	}
@@ -150,7 +159,7 @@ func addRequiredOperationsForCursorPagination(s QueryDataStore) error {
 	return nil
 }
 
-func addNestedSystemSelect(s QueryDataStore, resolvedColumn ResolvedColumn) error {
+func addNestedSystemSelect(s qstore.QueryDataStore, resolvedColumn mdl.ResolvedColumn) error {
 	// Shift first step from the array
 	nextStep := resolvedColumn.ResolvedPath.Steps[0]
 
@@ -164,7 +173,7 @@ func addNestedSystemSelect(s QueryDataStore, resolvedColumn ResolvedColumn) erro
 		// If an existing nested query is found for the orderby column, add a
 		// system select to that query for the column and return
 		if len(remainingSteps) == 0 {
-			return nestedOperation.queryData.AddSystemSelect(resolvedColumn.Metadata.Name())
+			return nestedOperation.QueryData.AddSystemSelect(resolvedColumn.Metadata.Name())
 		} else {
 			// If a nested query is found, but it is not the final resource, recall
 			// the current function against the nested query with the remaining path
@@ -177,7 +186,7 @@ func addNestedSystemSelect(s QueryDataStore, resolvedColumn ResolvedColumn) erro
 	}
 }
 
-func addSystemExpand(s QueryDataStore, resolvedColumn ResolvedColumn) error {
+func addSystemExpand(s qstore.QueryDataStore, resolvedColumn mdl.ResolvedColumn) error {
 	pathSteps := resolvedColumn.ResolvedPath.Steps
 	totalSteps := len(pathSteps)
 
@@ -185,7 +194,7 @@ func addSystemExpand(s QueryDataStore, resolvedColumn ResolvedColumn) error {
 	for i := totalSteps - 1; i >= 0; i-- {
 		step := pathSteps[i]
 
-		nestedOperations, err := currentStore.AddSystemExpand(step.Relationship.Id())
+		nestedOperations, err := currentStore.AddSystemExpand(step.Relationship.FromColumn().Name())
 		if err != nil {
 			return err
 		}

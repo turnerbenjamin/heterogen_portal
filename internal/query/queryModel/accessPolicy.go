@@ -1,4 +1,4 @@
-package query
+package queryModel
 
 // AccessPolicy defines the access policy for a database
 type AccessPolicy interface {

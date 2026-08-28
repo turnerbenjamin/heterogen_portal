@@ -3,6 +3,11 @@ package query
 import (
 	"fmt"
 	"strings"
+
+	qstore "github.com/turnerbenjamin/heterogen_portal/internal/query/queryDataStore"
+	qerr "github.com/turnerbenjamin/heterogen_portal/internal/query/queryError"
+	mdl "github.com/turnerbenjamin/heterogen_portal/internal/query/queryModel"
+	"github.com/turnerbenjamin/heterogen_portal/internal/query/relationships"
 )
 
 // sqlQuery is used to build sql query data, it includes a strings builder for
@@ -30,14 +35,18 @@ type queryWriter struct {
 
 // arg adds a new argument to the args list and returns a unique placeholder for
 // use in the sql statement
-func (q *queryWriter) arg(v any) string {
+func (q *queryWriter) Placeholder(v any) string {
 	q.args = append(q.args, v)
 	return fmt.Sprintf("@p%d", len(q.args))
 }
 
+func (q *queryWriter) Write(statement string, args ...any) {
+	fmt.Fprintf(q.sb, statement, args...)
+}
+
 // aliasedResource binds a resourse to a table alias in an sql query
 type aliasedResource struct {
-	resource TableMetadata
+	resource mdl.TableMetadata
 	alias    string
 }
 
@@ -51,14 +60,18 @@ type aliasedResource struct {
 
 // sqlQueryBuilder is used to build and execute sql queries
 type sqlQueryBuilder struct {
-	queryDataStore QueryDataStore
+	queryDataStore qstore.QueryDataStore
+	aliasStore     relationships.AliasStore
 }
 
 // newSqlQueryBuilder constructs a new sqlQueryBuilderInstance from
 // QueryOperations. It will return an error if the operations cannot be bound to
 // the schema metadata
-func newSqlQueryBuilder(queryDataStore QueryDataStore) *sqlQueryBuilder {
-	return &sqlQueryBuilder{queryDataStore: queryDataStore}
+func newSqlQueryBuilder(queryDataStore qstore.QueryDataStore) *sqlQueryBuilder {
+	return &sqlQueryBuilder{
+		queryDataStore: queryDataStore,
+		aliasStore:     queryDataStore.GetAliasStore(),
+	}
 }
 
 // func (b *sqlQueryBuilder) newNestedSqlQueryBuilder(
@@ -217,7 +230,7 @@ func (b *sqlQueryBuilder) writeFromStatement(w *queryWriter) {
 	w.fromLocation.left = w.sb.Len()
 
 	rootResource := b.queryDataStore.RootResource()
-	rootAlias := b.queryDataStore.RootAlias()
+	rootAlias := b.aliasStore.GetRootAlias()
 
 	w.sb.WriteString("FROM ")
 	w.sb.WriteString(rootResource.FullyQualifiedName())
@@ -232,7 +245,7 @@ func (b *sqlQueryBuilder) writeFromStatement(w *queryWriter) {
 func (b *sqlQueryBuilder) writeSelectStatement(w *queryWriter) error {
 
 	if b.queryDataStore.SelectsLen() == 0 {
-		return internalErr("expected a select operation with at least one column specified")
+		return qerr.InternalErr("expected a select operation with at least one column specified")
 	}
 
 	w.selectLocation.left = w.sb.Len()
@@ -247,7 +260,7 @@ func (b *sqlQueryBuilder) writeSelectStatement(w *queryWriter) error {
 		fmt.Fprintf(
 			w.sb,
 			"%s.%s",
-			b.queryDataStore.RootAlias(),
+			b.aliasStore.GetRootAlias(),
 			b.formatSelectValue(columnValue.Metadata),
 		)
 		i++
@@ -259,32 +272,32 @@ func (b *sqlQueryBuilder) writeSelectStatement(w *queryWriter) error {
 	return nil
 }
 
-func (b *sqlQueryBuilder) formatSelectValue(columnData ColumnMetadata) string {
+func (b *sqlQueryBuilder) formatSelectValue(columnData mdl.ColumnMetadata) string {
 	switch columnData.Type() {
-	case DbTypeGeography:
+	case mdl.DbTypeGeography:
 		return fmt.Sprintf("%s.STAsText() AS %s", columnData.Name(), columnData.Name())
 	default:
 		return columnData.Name()
 	}
 }
 
-func (b *sqlQueryBuilder) writeJoins(w *queryWriter, joinCollection JoinCollection) {
-	for join := range joinCollection.Joins() {
-		relationship := join.step.Relationship
+func (b *sqlQueryBuilder) writeJoins(w *queryWriter, joinCollection relationships.JoinCollection) {
+	for _, join := range joinCollection.Joins() {
+		relationship := join.Step.Relationship
 
 		fmt.Fprintf(w.sb,
 			"LEFT JOIN %s %s on %s.%s = %s.%s",
 			relationship.To().FullyQualifiedName(),
-			join.alias,
-			join.ParentAlias(),
+			join.Alias,
+			join.ParentAlias,
 			relationship.FromColumn().Name(),
-			join.alias,
+			join.Alias,
 			relationship.ToColumn().Name(),
 		)
 
-		if join.JoinsLen() > 0 {
+		if join.SubJoins.JoinsLen() > 0 {
 			w.sb.WriteRune(' ')
-			b.writeJoins(w, &join)
+			b.writeJoins(w, join.SubJoins)
 		}
 		w.sb.WriteRune(' ')
 	}
@@ -292,7 +305,7 @@ func (b *sqlQueryBuilder) writeJoins(w *queryWriter, joinCollection JoinCollecti
 
 func (b *sqlQueryBuilder) writeOrderByStatement(w *queryWriter) error {
 	if b.queryDataStore.OrderByLen() == 0 {
-		return internalErr("expected an orderby operation with at least the primary column specified")
+		return qerr.InternalErr("expected an orderby operation with at least the primary column specified")
 	}
 
 	w.orderByLocation.left = w.sb.Len()
@@ -300,9 +313,12 @@ func (b *sqlQueryBuilder) writeOrderByStatement(w *queryWriter) error {
 
 	i := 0
 	for r := range b.queryDataStore.OrderBy() {
-		tableAlias, exists := b.queryDataStore.GetPathAlias(r.ResolvedColumn.ResolvedPath.Id)
+		tableAlias, exists := b.aliasStore.GetJoinAlias(r.ResolvedColumn.ResolvedPath)
 		if !exists {
-			return internalErr("unable to access join alias for path %s", r.ResolvedColumn.ResolvedPath.Id)
+			return qerr.InternalErr(
+				"unable to access join alias for path %s",
+				r.ResolvedColumn.ResolvedPath.Id,
+			)
 		}
 
 		if i > 0 {
@@ -328,7 +344,7 @@ func (b *sqlQueryBuilder) writeOrderByStatement(w *queryWriter) error {
 func (b *sqlQueryBuilder) writeLimitStatement(w *queryWriter) error {
 	limit := b.queryDataStore.Limit()
 	if limit == 0 {
-		return internalErr("expected either a user or system defined limit operation")
+		return qerr.InternalErr("expected either a user or system defined limit operation")
 	}
 
 	w.sb.WriteString(fmt.Sprintf("OFFSET 0 ROWS FETCH NEXT %d ROWS ONLY", limit))
@@ -348,7 +364,7 @@ func (b *sqlQueryBuilder) writeFilterStatement(w *queryWriter) error {
 
 	rootResource := &aliasedResource{
 		resource: b.queryDataStore.RootResource(),
-		alias:    b.queryDataStore.RootAlias(),
+		alias:    b.aliasStore.GetRootAlias(),
 	}
 
 	err := b.buildFilterExpression(rootResource, filterExpression, w)
@@ -364,34 +380,34 @@ func (b *sqlQueryBuilder) writeFilterStatement(w *queryWriter) error {
 
 func (b *sqlQueryBuilder) buildFilterExpression(
 	rootResource *aliasedResource,
-	expression FilterExpression,
+	expression mdl.FilterExpression,
 	o *queryWriter,
 ) error {
 	switch expression := expression.(type) {
-	case *LogicalExpression:
+	case *mdl.LogicalExpression:
 		return b.buildLogicalExpression(rootResource, expression, o)
-	case *ComparisonExpression:
+	case *mdl.ComparisonExpression:
 		return b.buildComparisonExpression(expression, rootResource, o)
-	case *CollectionExpression:
+	case *mdl.CollectionExpression:
 		return b.buildCollectionExpression(expression, rootResource, o)
 	default:
-		return internalErr("unexpected filter expression received")
+		return qerr.InternalErr("unexpected filter expression received")
 	}
 }
 
 func (b *sqlQueryBuilder) buildLogicalExpression(
 	rootResource *aliasedResource,
-	expression *LogicalExpression,
+	expression *mdl.LogicalExpression,
 	w *queryWriter,
 ) error {
 	operator := ""
 	switch expression.Operator {
-	case LogicalOr:
+	case mdl.LogicalOr:
 		operator = "or"
-	case LogicalAnd:
+	case mdl.LogicalAnd:
 		operator = "and"
 	default:
-		return internalErr("unexpected logical operator received '%v'", operator)
+		return qerr.InternalErr("unexpected logical operator received '%v'", operator)
 	}
 	w.sb.WriteRune('(')
 	b.buildFilterExpression(rootResource, expression.Left, w)
@@ -405,12 +421,12 @@ func (b *sqlQueryBuilder) buildLogicalExpression(
 }
 
 func (b *sqlQueryBuilder) buildComparisonExpression(
-	ex *ComparisonExpression,
+	ex *mdl.ComparisonExpression,
 	rootResource *aliasedResource,
 	w *queryWriter,
 ) error {
 	if ex == nil {
-		return internalErr("comparison expression is nil")
+		return qerr.InternalErr("comparison expression is nil")
 	}
 
 	writeExpression := func(endResource *aliasedResource) error {
@@ -424,12 +440,8 @@ func (b *sqlQueryBuilder) buildComparisonExpression(
 		)
 	}
 
-	if ex.ExistsPlan == nil {
-		return internalErr("comparison exists plan has not been populated")
-	}
-
 	return b.writeExpressionWithPath(
-		ex.ExistsPlan.FirstNode,
+		ex.ExistsNodes,
 		writeExpression,
 		false,
 		w,
@@ -437,11 +449,10 @@ func (b *sqlQueryBuilder) buildComparisonExpression(
 }
 
 func (b *sqlQueryBuilder) buildCollectionExpression(
-	ex *CollectionExpression,
+	ex *mdl.CollectionExpression,
 	rootResource *aliasedResource,
 	w *queryWriter,
 ) error {
-
 	writeExpression := func(endResource *aliasedResource) error {
 		if endResource == nil {
 			endResource = rootResource
@@ -453,7 +464,7 @@ func (b *sqlQueryBuilder) buildCollectionExpression(
 		)
 	}
 
-	doNegate := ex.Operator == CollectionAll
+	doNegate := ex.Operator == mdl.CollectionAll
 	if doNegate {
 		negatedCondition, err := b.negate(ex.FilterExpression)
 		if err != nil {
@@ -464,7 +475,7 @@ func (b *sqlQueryBuilder) buildCollectionExpression(
 	}
 
 	return b.writeExpressionWithPath(
-		ex.ExistsPlan.FirstNode,
+		ex.ExistsNodes,
 		writeExpression,
 		doNegate,
 		w,
@@ -472,45 +483,52 @@ func (b *sqlQueryBuilder) buildCollectionExpression(
 }
 
 func (b *sqlQueryBuilder) writeExpressionWithPath(
-	existsNode *ExistsNode,
+	existsNodes []mdl.ExistsNodeNew,
 	writeExpression func(resource *aliasedResource) error,
 	doNegate bool,
 	w *queryWriter,
 ) error {
-	if existsNode == nil {
+	if existsNodes == nil {
+		return qerr.InternalErr("exists nodes should not be nil")
+	}
+
+	if len(existsNodes) == 0 {
 		return writeExpression(nil)
 	}
+
+	currentNode := existsNodes[0]
 
 	if doNegate {
 		w.sb.WriteString("NOT ")
 	}
 
-	relationship := existsNode.step.Relationship
+	relationship := currentNode.Step.Relationship
 
 	w.sb.WriteString("EXISTS (SELECT 1 FROM ")
 	w.sb.WriteString(relationship.To().FullyQualifiedName())
 	w.sb.WriteRune(' ')
-	w.sb.WriteString(existsNode.alias)
+	w.sb.WriteString(currentNode.Alias)
 	w.sb.WriteString(" WHERE ")
-	w.sb.WriteString(existsNode.alias)
+	w.sb.WriteString(currentNode.Alias)
 	w.sb.WriteRune('.')
 	w.sb.WriteString(relationship.ToColumn().Name())
 	w.sb.WriteString(" = ")
-	w.sb.WriteString(existsNode.ParentAlias)
+	w.sb.WriteString(currentNode.ParentAlias)
 	w.sb.WriteRune('.')
 	w.sb.WriteString(relationship.FromColumn().Name())
 	w.sb.WriteString(" AND ")
 
-	if existsNode.Next == nil {
+	// If last node write expression and return
+	if len(existsNodes) == 1 {
 		if err := writeExpression(&aliasedResource{
-			alias:    existsNode.alias,
+			alias:    currentNode.Alias,
 			resource: relationship.To(),
 		}); err != nil {
 			return err
 		}
 	} else {
 		if err := b.writeExpressionWithPath(
-			existsNode.Next,
+			existsNodes[1:],
 			writeExpression,
 			doNegate,
 			w,
@@ -523,11 +541,11 @@ func (b *sqlQueryBuilder) writeExpressionWithPath(
 	return nil
 }
 
-func (b *sqlQueryBuilder) negate(expression FilterExpression) (FilterExpression, error) {
+func (b *sqlQueryBuilder) negate(expression mdl.FilterExpression) (mdl.FilterExpression, error) {
 	filterExpressionBuilder := b.queryDataStore.FilterExpressionBuilder()
 
 	switch ex := expression.(type) {
-	case *LogicalExpression:
+	case *mdl.LogicalExpression:
 		l, err := b.negate(ex.Left)
 		if err != nil {
 			return nil, err
@@ -539,15 +557,15 @@ func (b *sqlQueryBuilder) negate(expression FilterExpression) (FilterExpression,
 		}
 
 		switch ex.Operator {
-		case LogicalAnd:
-			return filterExpressionBuilder.NewLogicalExpression(l, LogicalOr, r)
-		case LogicalOr:
-			return filterExpressionBuilder.NewLogicalExpression(l, LogicalAnd, r)
+		case mdl.LogicalAnd:
+			return filterExpressionBuilder.NewLogicalExpression(l, mdl.LogicalOr, r)
+		case mdl.LogicalOr:
+			return filterExpressionBuilder.NewLogicalExpression(l, mdl.LogicalAnd, r)
 		default:
 			return nil, fmt.Errorf("unexpected logical operator received '%v'", ex.Operator)
 		}
 
-	case *ComparisonExpression:
+	case *mdl.ComparisonExpression:
 		negatedOperator, err := negateComparisonOperator(ex.Operator)
 		if err != nil {
 			return nil, err
@@ -555,13 +573,13 @@ func (b *sqlQueryBuilder) negate(expression FilterExpression) (FilterExpression,
 
 		return ex.WithValues(negatedOperator, ex.Value), nil
 
-	case *CollectionExpression:
+	case *mdl.CollectionExpression:
 		operator := ex.Operator
 		switch ex.Operator {
-		case CollectionAny:
-			operator = CollectionAll
-		case CollectionAll:
-			operator = CollectionAny
+		case mdl.CollectionAny:
+			operator = mdl.CollectionAll
+		case mdl.CollectionAll:
+			operator = mdl.CollectionAny
 		default:
 			return nil, fmt.Errorf("unexpected collection operator received '%v'", ex.Operator)
 		}
@@ -577,37 +595,37 @@ func (b *sqlQueryBuilder) negate(expression FilterExpression) (FilterExpression,
 	}
 }
 
-func negateComparisonOperator(operator ComparisonOperator) (ComparisonOperator, error) {
+func negateComparisonOperator(operator mdl.ComparisonOperator) (mdl.ComparisonOperator, error) {
 	switch operator {
-	case ComparisonEq:
-		return ComparisonNe, nil
+	case mdl.ComparisonEq:
+		return mdl.ComparisonNe, nil
 
-	case ComparisonNe:
-		return ComparisonEq, nil
+	case mdl.ComparisonNe:
+		return mdl.ComparisonEq, nil
 
-	case ComparisonStartsWith:
-		return comparisonNotStartsWith, nil
+	case mdl.ComparisonStartsWith:
+		return mdl.ComparisonNotStartsWith, nil
 
-	case ComparisonEndsWith:
-		return comparisonNotEndsWith, nil
+	case mdl.ComparisonEndsWith:
+		return mdl.ComparisonNotEndsWith, nil
 
-	case ComparisonContains:
-		return comparisonNotContains, nil
+	case mdl.ComparisonContains:
+		return mdl.ComparisonNotContains, nil
 
-	case ComparisonIn:
-		return comparisonNotIn, nil
+	case mdl.ComparisonIn:
+		return mdl.ComparisonNotIn, nil
 
-	case ComparisonGt:
-		return ComparisonLe, nil
+	case mdl.ComparisonGt:
+		return mdl.ComparisonLe, nil
 
-	case ComparisonGe:
-		return ComparisonLt, nil
+	case mdl.ComparisonGe:
+		return mdl.ComparisonLt, nil
 
-	case ComparisonLt:
-		return ComparisonGe, nil
+	case mdl.ComparisonLt:
+		return mdl.ComparisonGe, nil
 
-	case ComparisonLe:
-		return ComparisonGt, nil
+	case mdl.ComparisonLe:
+		return mdl.ComparisonGt, nil
 
 	default:
 		return operator, fmt.Errorf("no negation defined for comparison operatior %v", operator)

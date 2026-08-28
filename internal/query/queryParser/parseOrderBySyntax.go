@@ -1,27 +1,21 @@
-package query
+package queryParser
 
-var supportedSortDirectionOperators = map[string]SortDirectionOperator{
-	"asc":  SortDirectionAsc,
-	"desc": SortDirectionDesc,
+import (
+	qstore "github.com/turnerbenjamin/heterogen_portal/internal/query/queryDataStore"
+	qerr "github.com/turnerbenjamin/heterogen_portal/internal/query/queryError"
+	mdl "github.com/turnerbenjamin/heterogen_portal/internal/query/queryModel"
+)
+
+var supportedSortDirectionOperators = map[string]mdl.SortDirectionOperator{
+	"asc":  mdl.SortDirectionAsc,
+	"desc": mdl.SortDirectionDesc,
 }
-
-type SortingRule struct {
-	ResolvedColumn ResolvedColumn
-	Direction      SortDirectionOperator
-}
-
-// type OrderByOperation struct {
-// 	Rules []*SortingRule `json:"rules"`
-// }
-
-// // IsQueryOperation indicates that OrderByOperation is a QueryOperation
-// func (o *OrderByOperation) IsQueryOperation() {}
 
 // parseSelectOperation is responsible for parsing select operations It expects
 // a simple list of comma-separated values containing at least one column
 // identifier
 func parseOrderByOperation(
-	s QueryDataStore,
+	s qstore.QueryDataStore,
 	t *Tokeniser,
 	operationSeparator tokenType,
 	operationTerminator tokenType,
@@ -36,14 +30,14 @@ func parseOrderByOperation(
 		if err != nil {
 			return err
 		}
-		dir := SortDirectionAsc
+		dir := mdl.SortDirectionAsc
 
 		nxt := t.Peek()
 		if nxt.Type == TokenSortDirectionOperator {
 			sortDirectionStr := t.Next()
 			sortDirection, ok := supportedSortDirectionOperators[sortDirectionStr.Value]
 			if !ok {
-				return internalErr(
+				return qerr.InternalErr(
 					"unable to match sort direction token %s to an operator",
 					sortDirectionStr.Value,
 				)
@@ -51,7 +45,9 @@ func parseOrderByOperation(
 			dir = sortDirection
 		}
 
-		s.AddOrderBy(path, dir)
+		if err := s.AddOrderBy(path, dir); err != nil {
+			return err
+		}
 
 		nxt = t.Peek()
 		switch nxt.Type {

@@ -1,6 +1,11 @@
-package query
+package queryParser
 
-import "strings"
+import (
+	"strings"
+
+	qstore "github.com/turnerbenjamin/heterogen_portal/internal/query/queryDataStore"
+	qerr "github.com/turnerbenjamin/heterogen_portal/internal/query/queryError"
+)
 
 // QueryOperation represents an operations in a query string such as select,
 // expand or filter
@@ -16,7 +21,7 @@ type QuerySyntaxParser struct{}
 // Parse is used to parse query strings as a collection of query operations
 func (p *QuerySyntaxParser) Parse(
 	queryString string,
-	queryDataStore QueryDataStore,
+	s qstore.QueryDataStore,
 ) error {
 	if strings.TrimSpace(queryString) == "" {
 		return nil
@@ -24,13 +29,13 @@ func (p *QuerySyntaxParser) Parse(
 
 	tokeniser := NewTokeniser(queryString)
 
-	return parseOperations(queryDataStore, tokeniser, TokenAmpersand, TokenEOF)
+	return parseOperations(s, tokeniser, TokenAmpersand, TokenEOF)
 }
 
 // parseOperations is used to parse operations at the top-level of query strings
 // and those passed as arguments to an expand operation
 func parseOperations(
-	queryDataStore QueryDataStore,
+	s qstore.QueryDataStore,
 	t *Tokeniser,
 	operationSeparator tokenType,
 	operationTerminator tokenType,
@@ -52,7 +57,7 @@ func parseOperations(
 		switch operator {
 		case "select":
 			if err := parseSelectOperation(
-				queryDataStore,
+				s,
 				t,
 				operationSeparator,
 				operationTerminator,
@@ -62,7 +67,7 @@ func parseOperations(
 
 		case "expand":
 			if err := parseExpandOperation(
-				queryDataStore,
+				s,
 				t,
 				operationSeparator,
 				operationTerminator,
@@ -72,7 +77,7 @@ func parseOperations(
 
 		case "filter":
 			if err := parseFilterOperation(
-				queryDataStore,
+				s,
 				t,
 				operationSeparator,
 				operationTerminator,
@@ -82,7 +87,7 @@ func parseOperations(
 
 		case "orderby":
 			if err := parseOrderByOperation(
-				queryDataStore,
+				s,
 				t,
 				operationSeparator,
 				operationTerminator,
@@ -91,18 +96,18 @@ func parseOperations(
 			}
 
 		case "limit":
-			if err := parseLimitOperation(queryDataStore, t); err != nil {
+			if err := parseLimitOperation(s, t); err != nil {
 				return err
 			}
 
 		case "count":
-			if err := parseCountOperation(queryDataStore, t); err != nil {
+			if err := parseCountOperation(s, t); err != nil {
 				return err
 			}
 
 		case "pagingtoken":
 			if err := parsePagingTokenOperation(
-				queryDataStore,
+				s,
 				t,
 				operationSeparator,
 				operationTerminator,
@@ -111,7 +116,7 @@ func parseOperations(
 			}
 
 		default:
-			return syntaxErr("unsupported operator: %s", operator)
+			return qerr.SyntaxErr("unsupported operator: %s", operator)
 		}
 
 		tkn = t.Next()

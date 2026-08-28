@@ -10,6 +10,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/turnerbenjamin/heterogen_portal/internal/etc"
 	"github.com/turnerbenjamin/heterogen_portal/internal/query"
+	"github.com/turnerbenjamin/heterogen_portal/internal/query/queryParser"
 	"github.com/turnerbenjamin/heterogen_portal/internal/services"
 	"github.com/turnerbenjamin/heterogen_portal/internal/utils"
 	"golang.org/x/oauth2"
@@ -40,7 +41,7 @@ func initAppDependencies(appSettings *etc.AppSettings) (*appDependencies, error)
 		tokenSigner:          &jwtTokenSigner{},
 		payloadSigner:        &utils.PayloadSigner{},
 		httpClient:           &http.Client{},
-		queryParser:          &query.QuerySyntaxParser{},
+		queryParser:          &queryParser.QuerySyntaxParser{},
 		newOidcProvider:      oidcNewProvider,
 		randReader:           rand.Read,
 		nextPageTokenBuilder: nextPageTokenBuilder,

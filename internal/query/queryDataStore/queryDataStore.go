@@ -1,48 +1,52 @@
-package query
+package queryDataStore
 
 import (
 	"iter"
 	"math"
+
+	"github.com/turnerbenjamin/heterogen_portal/internal/query/metadataStore"
+	qerr "github.com/turnerbenjamin/heterogen_portal/internal/query/queryError"
+	mdl "github.com/turnerbenjamin/heterogen_portal/internal/query/queryModel"
+	"github.com/turnerbenjamin/heterogen_portal/internal/query/relationships"
 )
 
 type FilterExpressionBuilder interface {
 	NewLogicalExpression(
-		left FilterExpression,
-		operator LogicalOperator,
-		right FilterExpression,
-	) (*LogicalExpression, error)
+		left mdl.FilterExpression,
+		operator mdl.LogicalOperator,
+		right mdl.FilterExpression,
+	) (*mdl.LogicalExpression, error)
 
 	NewComparisonExpression(
 		columnPath string,
-		operator ComparisonOperator,
-		value ValueExpression,
-	) (*ComparisonExpression, error)
+		operator mdl.ComparisonOperator,
+		value mdl.ValueExpression,
+	) (*mdl.ComparisonExpression, error)
 
 	NewCollectionExpression(
 		resourcePath string,
-		operator CollectionOperator,
-		filterExpression FilterExpression,
-	) (*CollectionExpression, error)
+		operator mdl.CollectionOperator,
+		filterExpression mdl.FilterExpression,
+	) (*mdl.CollectionExpression, error)
 }
 
 type QueryDataStore interface {
-	RootResource() TableMetadata
-	RootResourceAccessPolicy() TableAccessPolicy
+	RootResource() mdl.TableMetadata
+	RootResourceAccessPolicy() mdl.TableAccessPolicy
 
 	QueryString() string
 	FilterExpressionBuilder() FilterExpressionBuilder
 	IsTopLevelQuery() bool
 
-	JoinCollection() JoinCollection
-	RootAlias() string
-	GetPathAlias(pathId string) (string, bool)
+	GetAliasStore() relationships.AliasStore
+	JoinCollection() relationships.JoinCollection
 
 	Projection() []string // FOR NOW
 
 	AddSelect(columnName string) error
 	AddSystemSelect(columnName string) error
 	SelectsLen() int
-	Selects() iter.Seq2[string, ResolvedColumn]
+	Selects() iter.Seq2[string, mdl.ResolvedColumn]
 
 	AddExpand(relationshipId string) (QueryDataStore, error)
 	AddSystemExpand(relationshipId string) (QueryDataStore, error)
@@ -50,10 +54,10 @@ type QueryDataStore interface {
 	Expands() iter.Seq2[string, Expansion]
 	GetExpansionByRelationshipId(relationshipId string) (Expansion, bool)
 
-	SetFilterExpression(ex FilterExpression)
-	FilterExpression() FilterExpression
+	SetFilterExpression(ex mdl.FilterExpression)
+	FilterExpression() mdl.FilterExpression
 	AddAssociatedWithParentFilter(
-		linkFromParent TraversalStep,
+		linkFromParent mdl.TraversalStep,
 		joinParentOnValues []string,
 	) error // FOR NOW
 
@@ -66,14 +70,14 @@ type QueryDataStore interface {
 	SetPagingToken(string)
 	PagingToken() (string, bool)
 
-	AddOrderBy(columnPath string, dir SortDirectionOperator) error
+	AddOrderBy(columnPath string, dir mdl.SortDirectionOperator) error
 	OrderByLen() int
-	OrderBy() iter.Seq[SortingRule]
+	OrderBy() iter.Seq[mdl.SortingRule]
 }
 
 type Expansion struct {
-	queryData     QueryDataStore
-	traversalStep TraversalStep
+	QueryData     QueryDataStore
+	TraversalStep mdl.TraversalStep
 }
 
 // queryDataStore is the primary store for all query data. When any operation is
@@ -83,24 +87,24 @@ type Expansion struct {
 type queryDataStore struct {
 	// overview data
 	queryString  string
-	rootResource TableMetadata
+	rootResource mdl.TableMetadata
 	depth        uint8
 	projection   []string // change to actual projection type
 
 	// metadata and relationship binding deps
-	metadataBinder          *metadataBinderNew
-	relationshipPlanner     *RelationshipPlannerNew
+	metadataBinder          *metadataStore.MetadataBinder
+	relationshipPlanner     *relationships.RelationshipPlanner
 	filterExpressionBuilder filterExpressionBuilder
 
 	// access policies
-	accessPolicy             AccessPolicy
-	rootResourceAccessPolicy TableAccessPolicy
+	accessPolicy             mdl.AccessPolicy
+	rootResourceAccessPolicy mdl.TableAccessPolicy
 
 	// operations
-	selects     map[string]ResolvedColumn
+	selects     map[string]mdl.ResolvedColumn
 	expands     map[string]Expansion
-	filter      FilterExpression
-	orderBy     []SortingRule
+	filter      mdl.FilterExpression
+	orderBy     []mdl.SortingRule
 	doCount     bool
 	limit       uint16
 	pagingToken string
@@ -108,8 +112,8 @@ type queryDataStore struct {
 
 func NewQueryDataStore(
 	queryString string,
-	rootResource TableMetadata,
-	accessPolicy AccessPolicy,
+	rootResource mdl.TableMetadata,
+	accessPolicy mdl.AccessPolicy,
 ) (QueryDataStore, error) {
 	depth := uint8(0)
 	return newQueryDataStore(queryString, rootResource, accessPolicy, depth)
@@ -117,23 +121,23 @@ func NewQueryDataStore(
 
 func newQueryDataStore(
 	queryString string,
-	rootResource TableMetadata,
-	accessPolicy AccessPolicy,
+	rootResource mdl.TableMetadata,
+	accessPolicy mdl.AccessPolicy,
 	depth uint8,
 ) (QueryDataStore, error) {
-	metadataBinder, err := NewMetadataBinder(rootResource, accessPolicy)
+	metadataBinder, err := metadataStore.NewMetadataBinder(rootResource, accessPolicy)
 	if err != nil {
 		return nil, err
 	}
 
-	relationshipPlanner, err := NewRelationshipPlanner(rootResource)
+	relationshipPlanner, err := relationships.NewRelationshipPlanner(rootResource)
 	if err != nil {
 		return nil, err
 	}
 
 	rootResourceAccessPolicy := accessPolicy.GetTableAccessPolicy(rootResource.Name())
 	if rootResourceAccessPolicy == nil {
-		return nil, internalErr(
+		return nil, qerr.InternalErr(
 			"unable to create new data store: root resource access policy is nil",
 		)
 	}
@@ -167,20 +171,24 @@ func (qd *queryDataStore) FilterExpressionBuilder() FilterExpressionBuilder {
 	return qd.filterExpressionBuilder
 }
 
-func (qd *queryDataStore) RootResource() TableMetadata {
+func (qd *queryDataStore) RootResource() mdl.TableMetadata {
 	return qd.rootResource
 }
 
-func (qd *queryDataStore) RootResourceAccessPolicy() TableAccessPolicy {
+func (qd *queryDataStore) RootResourceAccessPolicy() mdl.TableAccessPolicy {
 	return qd.rootResourceAccessPolicy
+}
+
+func (qd *queryDataStore) JoinCollection() relationships.JoinCollection {
+	return qd.relationshipPlanner.JoinStore
 }
 
 func (qd *queryDataStore) QueryString() string {
 	return qd.queryString
 }
 
-func (qd *queryDataStore) GetPathAlias(pathId string) (string, bool) {
-	return qd.relationshipPlanner.Aliases.GetAlias(pathId)
+func (qd *queryDataStore) GetAliasStore() relationships.AliasStore {
+	return qd.relationshipPlanner.Aliases
 }
 
 func (qd *queryDataStore) AddSelect(columnName string) error {
@@ -200,7 +208,7 @@ func (qd *queryDataStore) addSelect(columnName string, doProject bool) error {
 
 	// Ensure select initialised
 	if qd.selects == nil {
-		qd.selects = make(map[string]ResolvedColumn, 1)
+		qd.selects = make(map[string]mdl.ResolvedColumn, 1)
 	}
 
 	// Set the selects
@@ -217,8 +225,8 @@ func (qd *queryDataStore) SelectsLen() int {
 	return len(qd.selects)
 }
 
-func (qd *queryDataStore) Selects() iter.Seq2[string, ResolvedColumn] {
-	return func(yield func(string, ResolvedColumn) bool) {
+func (qd *queryDataStore) Selects() iter.Seq2[string, mdl.ResolvedColumn] {
+	return func(yield func(string, mdl.ResolvedColumn) bool) {
 		for k, v := range qd.selects {
 			if !yield(k, v) {
 				return
@@ -227,18 +235,10 @@ func (qd *queryDataStore) Selects() iter.Seq2[string, ResolvedColumn] {
 	}
 }
 
-func (qd *queryDataStore) JoinCollection() JoinCollection {
-	return qd.relationshipPlanner.JoinStore
-}
-
-func (qd *queryDataStore) RootAlias() string {
-	return qd.relationshipPlanner.rootAlias
-}
-
 func (qd *queryDataStore) AddExpand(relationshipId string) (QueryDataStore, error) {
 	if qd.expands != nil {
 		if _, exists := qd.expands[relationshipId]; exists {
-			return nil, syntaxErr(
+			return nil, qerr.SyntaxErr(
 				"an expand operations has already been declared for %s", relationshipId,
 			)
 		}
@@ -251,7 +251,7 @@ func (qd *queryDataStore) AddSystemExpand(relationshipId string) (QueryDataStore
 }
 
 func (qd *queryDataStore) addExpand(relationshipId string, doProject bool) (QueryDataStore, error) {
-	traversalStep, err := qd.metadataBinder.resolveRelationship(qd.rootResource, relationshipId)
+	traversalStep, err := qd.metadataBinder.ResolveRelationship(qd.rootResource, relationshipId)
 	if err != nil {
 		return nil, err
 	}
@@ -261,7 +261,7 @@ func (qd *queryDataStore) addExpand(relationshipId string, doProject bool) (Quer
 	}
 
 	if qd.depth == math.MaxUint8 {
-		return nil, internalErr("unable to add expand as it will cause depth overflow")
+		return nil, qerr.InternalErr("unable to add expand as it will cause depth overflow")
 	}
 
 	expandedQuery, err := newQueryDataStore(
@@ -275,27 +275,27 @@ func (qd *queryDataStore) addExpand(relationshipId string, doProject bool) (Quer
 	}
 
 	expansion := Expansion{
-		queryData:     expandedQuery,
-		traversalStep: traversalStep,
+		QueryData:     expandedQuery,
+		TraversalStep: traversalStep,
 	}
 
 	if _, exists := qd.expands[relationshipId]; exists {
-		return nil, internalErr("an expand already exists for %s", relationshipId)
+		return nil, qerr.InternalErr("an expand already exists for %s", relationshipId)
 	}
 
-	qd.expands[relationshipId] = expansion
+	qd.expands[traversalStep.Relationship.Id()] = expansion
 
 	if doProject {
 		qd.projection = append(
 			qd.projection,
-			traversalStep.Relationship.RelationshipColumn(),
+			traversalStep.Relationship.ExpansionColumnName(),
 		)
 	}
 
 	qd.AddSystemSelect(traversalStep.Relationship.FromColumn().Name())
-	expansion.queryData.AddSystemSelect(traversalStep.Relationship.ToColumn().Name())
+	expansion.QueryData.AddSystemSelect(traversalStep.Relationship.ToColumn().Name())
 
-	return expansion.queryData, nil
+	return expansion.QueryData, nil
 }
 
 func (qd *queryDataStore) ExpandsLen() int {
@@ -324,22 +324,22 @@ func (qd *queryDataStore) GetExpansionByRelationshipId(relationshipId string) (E
 	return qd.expands[relationshipId], true
 }
 
-func (qd *queryDataStore) SetFilterExpression(ex FilterExpression) {
+func (qd *queryDataStore) SetFilterExpression(ex mdl.FilterExpression) {
 	qd.filter = ex
 }
 
-func (qd *queryDataStore) FilterExpression() FilterExpression {
+func (qd *queryDataStore) FilterExpression() mdl.FilterExpression {
 	return qd.filter
 }
 
 func (qd *queryDataStore) AddAssociatedWithParentFilter(
-	linkFromParent TraversalStep,
+	linkFromParent mdl.TraversalStep,
 	joinParentOnValues []string,
 ) error {
 	assocationFilter, err := qd.filterExpressionBuilder.NewComparisonExpression(
 		linkFromParent.Relationship.ToColumn().Name(),
-		ComparisonIn,
-		&StringListLiteral{Values: joinParentOnValues},
+		mdl.ComparisonIn,
+		&mdl.StringListLiteral{Values: joinParentOnValues},
 	)
 	if err != nil {
 		return err
@@ -349,23 +349,23 @@ func (qd *queryDataStore) AddAssociatedWithParentFilter(
 	return nil
 }
 
-func (qd *queryDataStore) SetOrAppendFilter(ex FilterExpression) {
+func (qd *queryDataStore) SetOrAppendFilter(ex mdl.FilterExpression) {
 	if qd.filter == nil {
 		qd.filter = ex
 	} else {
-		qd.filter = &LogicalExpression{
+		qd.filter = &mdl.LogicalExpression{
 			Left:     qd.filter,
-			Operator: LogicalAnd,
+			Operator: mdl.LogicalAnd,
 			Right:    ex,
 		}
 	}
 }
 
-func (qd *queryDataStore) GetFilter() FilterExpression {
+func (qd *queryDataStore) GetFilter() mdl.FilterExpression {
 	return qd.filter
 }
 
-func (qd *queryDataStore) AddOrderBy(columnPath string, dir SortDirectionOperator) error {
+func (qd *queryDataStore) AddOrderBy(columnPath string, dir mdl.SortDirectionOperator) error {
 	// Get the metadata
 	c, err := qd.metadataBinder.ResolveColumn(columnPath)
 	if err != nil {
@@ -378,13 +378,13 @@ func (qd *queryDataStore) AddOrderBy(columnPath string, dir SortDirectionOperato
 
 	// ensure order by field is created
 	if qd.orderBy == nil {
-		qd.orderBy = make([]SortingRule, 0, 1)
+		qd.orderBy = make([]mdl.SortingRule, 0, 1)
 	}
 
 	// add the rule
 	qd.orderBy = append(
 		qd.orderBy,
-		SortingRule{
+		mdl.SortingRule{
 			ResolvedColumn: c,
 			Direction:      dir,
 		},
@@ -396,8 +396,8 @@ func (qd *queryDataStore) OrderByLen() int {
 	return len(qd.orderBy)
 }
 
-func (qd *queryDataStore) OrderBy() iter.Seq[SortingRule] {
-	return func(yield func(SortingRule) bool) {
+func (qd *queryDataStore) OrderBy() iter.Seq[mdl.SortingRule] {
+	return func(yield func(mdl.SortingRule) bool) {
 		for _, rule := range qd.orderBy {
 			if !yield(rule) {
 				return
@@ -416,7 +416,7 @@ func (qd *queryDataStore) DoCount() bool {
 
 func (qd *queryDataStore) SetLimit(limit int) error {
 	if limit < 0 || limit > math.MaxUint16 {
-		return internalErr("limit must be between 1 and %d", math.MaxUint16)
+		return qerr.InternalErr("limit must be between 1 and %d", math.MaxUint16)
 	}
 	qd.limit = uint16(limit)
 	return nil

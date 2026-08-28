@@ -1,69 +1,53 @@
-package query
+package metadataStore
 
 import (
 	"fmt"
 	"strings"
+
+	qerr "github.com/turnerbenjamin/heterogen_portal/internal/query/queryError"
+	mdl "github.com/turnerbenjamin/heterogen_portal/internal/query/queryModel"
 )
 
-type ResolvedPath struct {
-	Id            string
-	StartResource TableMetadata
-	Steps         []*TraversalStep
-	EndResource   TableMetadata
-	Type          RelationshipType
-}
-
-type TraversalStep struct {
-	SubPathId    string
-	Relationship RelationshipMetadata
-}
-
 // Paths are persisted to reduce short lived objects in the query pipeline
-var pathStore = map[string]ResolvedPath{}
+var pathStore = map[string]mdl.ResolvedPath{}
 
-type metadataBinderNew struct {
-	accessPolicy         AccessPolicy
-	rootResourceMetadata TableMetadata
-	rootAccessPolicy     TableAccessPolicy
+type MetadataBinder struct { // USE INTERFACE
+	accessPolicy         mdl.AccessPolicy
+	rootResourceMetadata mdl.TableMetadata
+	rootAccessPolicy     mdl.TableAccessPolicy
 
 	pathIdBuilder *strings.Builder
 }
 
-// All columns, for select and order by will be represented by this type
-type ResolvedColumn struct {
-	ResolvedPath ResolvedPath
-	Metadata     ColumnMetadata
-}
-
 func NewMetadataBinder(
-	rootMetadata TableMetadata,
-	accessPolicy AccessPolicy,
-) (*metadataBinderNew, error) {
+	rootMetadata mdl.TableMetadata,
+	accessPolicy mdl.AccessPolicy,
+) (*MetadataBinder, error) {
 	if rootMetadata == nil {
-		return nil, internalErr("unable to create new MetadataBinder: rootMetadata cannot be nil")
+		return nil, qerr.InternalErr("unable to create new MetadataBinder: rootMetadata cannot be nil")
 	}
 
 	if accessPolicy == nil {
-		return nil, internalErr("unable to create new MetadataBinder: accessPolicy cannot be nil")
+		return nil, qerr.InternalErr("unable to create new MetadataBinder: accessPolicy cannot be nil")
 	}
 
 	rootAccessPolicy, err := getTableAccessPolicy(accessPolicy, rootMetadata)
 	if err != nil {
-		return nil, internalErr("unable to create new MetadataBinder: %w", err)
+		return nil, qerr.InternalErr("unable to create new MetadataBinder: %w", err)
 	}
 
-	return &metadataBinderNew{
+	return &MetadataBinder{
 		accessPolicy:         accessPolicy,
 		rootResourceMetadata: rootMetadata,
 		rootAccessPolicy:     rootAccessPolicy,
 	}, nil
 }
 
-func (b *metadataBinderNew) ResolveColumn(columnPath string) (ResolvedColumn, error) {
+func (b *MetadataBinder) ResolveColumn(columnPath string) (mdl.ResolvedColumn, error) {
 	pathSegments := strings.Split(columnPath, "/")
 	pathLen := len(pathSegments)
 	if pathLen == 0 {
-		return ResolvedColumn{}, syntaxErr(
+		return mdl.ResolvedColumn{}, qerr.SyntaxErr(
 			"unable to resolve column: invalid column path: '%s'", columnPath,
 		)
 	}
@@ -73,13 +57,13 @@ func (b *metadataBinderNew) ResolveColumn(columnPath string) (ResolvedColumn, er
 
 	resolvedPath, err := b.resolvePath(pathToColumn, b.rootResourceMetadata)
 	if err != nil {
-		return ResolvedColumn{}, err
+		return mdl.ResolvedColumn{}, err
 	}
 
 	resource := resolvedPath.EndResource
 	columnMetadata := resource.GetColumnMetadata(columnName)
 	if columnMetadata == nil {
-		return ResolvedColumn{}, bindingErr(
+		return mdl.ResolvedColumn{}, qerr.BindingErr(
 			"table %s does not include a column definition for %s",
 			resource.Name(),
 			columnName,
@@ -91,7 +75,7 @@ func (b *metadataBinderNew) ResolveColumn(columnPath string) (ResolvedColumn, er
 		resource,
 	)
 	if err != nil {
-		return ResolvedColumn{}, internalErr("unable to resolve column: %w", err)
+		return mdl.ResolvedColumn{}, qerr.InternalErr("unable to resolve column: %w", err)
 	}
 
 	if err := validateColumnAccess(
@@ -99,60 +83,60 @@ func (b *metadataBinderNew) ResolveColumn(columnPath string) (ResolvedColumn, er
 		resolvedPath.EndResource,
 		columnMetadata,
 	); err != nil {
-		return ResolvedColumn{}, internalErr("unable to resolve column: %w", err)
+		return mdl.ResolvedColumn{}, qerr.InternalErr("unable to resolve column: %w", err)
 	}
 
-	return ResolvedColumn{
+	return mdl.ResolvedColumn{
 		ResolvedPath: resolvedPath,
 		Metadata:     columnMetadata,
 	}, nil
 }
 
-func (b *metadataBinderNew) ResolvePath(pathString string) (ResolvedPath, error) {
+func (b *MetadataBinder) ResolvePath(pathString string) (mdl.ResolvedPath, error) {
 	pathSegments := strings.Split(pathString, "/")
 	pathLen := len(pathSegments)
 	if pathLen == 0 {
-		return ResolvedPath{}, syntaxErr("unable to resolve path: '%s'", pathString)
+		return mdl.ResolvedPath{}, qerr.SyntaxErr("unable to resolve path: '%s'", pathString)
 	}
 
 	resolvedPath, err := b.resolvePath(pathSegments, b.rootResourceMetadata)
 	if err != nil {
-		return ResolvedPath{}, err
+		return mdl.ResolvedPath{}, err
 	}
 
 	return resolvedPath, nil
 }
 
-func (b *metadataBinderNew) resolveRelationship(resource TableMetadata, relationshipName string) (TraversalStep, error) {
+func (b *MetadataBinder) ResolveRelationship(resource mdl.TableMetadata, relationshipName string) (mdl.TraversalStep, error) {
 	if resource == nil {
-		return TraversalStep{}, internalErr("unable to get table access policy: resource cannot be nil")
+		return mdl.TraversalStep{}, qerr.InternalErr("unable to get table access policy: resource cannot be nil")
 	}
 
 	relationshipData := resource.GetRelationshipMetadata(relationshipName)
 	if relationshipData == nil {
-		return TraversalStep{}, bindingErr(
+		return mdl.TraversalStep{}, qerr.BindingErr(
 			"table %s does not include a relationship definition for %s",
 			resource.Name(),
 			relationshipName,
 		)
 	}
 
-	step := TraversalStep{
+	step := mdl.TraversalStep{
 		SubPathId:    appendToPath(resource.Name(), relationshipData),
 		Relationship: relationshipData,
 	}
 
 	if err := b.validateTraversalPermissions(step); err != nil {
-		return TraversalStep{}, err
+		return mdl.TraversalStep{}, err
 	}
 
 	return step, nil
 }
 
-func (b *metadataBinderNew) resolvePath(
+func (b *MetadataBinder) resolvePath(
 	pathSegments []string,
-	rootResource TableMetadata,
-) (ResolvedPath, error) {
+	rootResource mdl.TableMetadata,
+) (mdl.ResolvedPath, error) {
 	// final pathId
 	finalPathId := fmt.Sprintf(
 		"%s/%s",
@@ -176,7 +160,7 @@ func (b *metadataBinderNew) resolvePath(
 	b.pathIdBuilder.WriteString(rootResource.Name())
 
 	// initialise resolved path
-	o := ResolvedPath{
+	o := mdl.ResolvedPath{
 		StartResource: rootResource,
 		EndResource:   rootResource,
 	}
@@ -190,13 +174,13 @@ func (b *metadataBinderNew) resolvePath(
 
 	// Traverse through intermediate steps
 	i := 0
-	o.Steps = make([]*TraversalStep, traversalPathLength)
+	o.Steps = make([]*mdl.TraversalStep, traversalPathLength)
 	for i < traversalPathLength {
 		// Get relationship data
 		relationshipName := pathSegments[i]
 		relationshipData := o.EndResource.GetRelationshipMetadata(relationshipName)
 		if relationshipData == nil {
-			return o, bindingErr(
+			return o, qerr.BindingErr(
 				"%s does not include a relationship definition for '%s'",
 				o.EndResource.FullyQualifiedName(),
 				relationshipName,
@@ -206,16 +190,19 @@ func (b *metadataBinderNew) resolvePath(
 		// validate relationship type
 		relationshipType := relationshipData.Type()
 		isIntermediateStep := i < traversalPathLength-1
-		if isIntermediateStep && relationshipType == RelationshipOneToMany {
-			return o, bindingErr(
+		if isIntermediateStep && relationshipType == mdl.RelationshipOneToMany {
+			return o, qerr.BindingErr(
 				"%s is a 1:N relationship and cannot be used as an "+
 					"intermediate path step, please use a collection operator",
-				relationshipData.Id(),
+				relationshipData.ColumnName(),
 			)
 		}
 
+		// update the path id
+		appendToPathSB(b.pathIdBuilder, relationshipData)
+
 		// append the traversal step to the resolved path
-		o.Steps[i] = &TraversalStep{
+		o.Steps[i] = &mdl.TraversalStep{
 			SubPathId:    b.pathIdBuilder.String(),
 			Relationship: relationshipData,
 		}
@@ -226,9 +213,6 @@ func (b *metadataBinderNew) resolvePath(
 			return o, err
 		}
 
-		// update the path id
-		appendToPathSB(b.pathIdBuilder, relationshipData)
-
 		// update the final end resource and relationship type
 		o.EndResource = relationshipData.To()
 		o.Type = relationshipType
@@ -238,7 +222,7 @@ func (b *metadataBinderNew) resolvePath(
 	// Set the final pathid and return
 	o.Id = b.pathIdBuilder.String()
 	if o.Id != finalPathId {
-		return o, internalErr(
+		return o, qerr.InternalErr(
 			"unable to resolve path. There is a disconnect between the " +
 				"projected final path id and the built final path id",
 		)
@@ -248,7 +232,7 @@ func (b *metadataBinderNew) resolvePath(
 	return o, nil
 }
 
-func (b *metadataBinderNew) validateTraversalPermissions(step TraversalStep) error {
+func (b *MetadataBinder) validateTraversalPermissions(step mdl.TraversalStep) error {
 	fromTableAccessPolicy, err := getTableAccessPolicy(b.accessPolicy, step.Relationship.From())
 	if err != nil {
 		return err
@@ -280,13 +264,13 @@ func (b *metadataBinderNew) validateTraversalPermissions(step TraversalStep) err
 }
 
 func validateColumnAccess(
-	tableAccessPolicy TableAccessPolicy,
-	tableData TableMetadata,
-	columnData ColumnMetadata,
+	tableAccessPolicy mdl.TableAccessPolicy,
+	tableData mdl.TableMetadata,
+	columnData mdl.ColumnMetadata,
 ) error {
 	columnAccessPolicy := tableAccessPolicy.GetColumnAccessPolicy(columnData.Name())
 	if columnAccessPolicy == nil {
-		return internalErr(
+		return qerr.InternalErr(
 			"unable to find access policy for %s.%s",
 			tableData.Name(),
 			columnData.Name(),
@@ -294,7 +278,7 @@ func validateColumnAccess(
 	}
 
 	if !columnAccessPolicy.CanAccess() {
-		return accessErr(
+		return qerr.AccessErr(
 			"you do not have permission to access the %s column on the %s table",
 			columnData.Name(),
 			tableData.Name(),
@@ -303,18 +287,21 @@ func validateColumnAccess(
 	return nil
 }
 
-func getTableAccessPolicy(accessPolicy AccessPolicy, tableData TableMetadata) (TableAccessPolicy, error) {
+func getTableAccessPolicy(
+	accessPolicy mdl.AccessPolicy,
+	tableData mdl.TableMetadata,
+) (mdl.TableAccessPolicy, error) {
 	if accessPolicy == nil {
-		return nil, internalErr("access policy cannot be nil")
+		return nil, qerr.InternalErr("access policy cannot be nil")
 	}
 
 	tablePolicy := accessPolicy.GetTableAccessPolicy(tableData.Name())
 	if tablePolicy == nil {
-		return nil, internalErr("unable to find access policy for the %s table", tableData.Name())
+		return nil, qerr.InternalErr("unable to find access policy for the %s table", tableData.Name())
 	}
 
 	if !tablePolicy.CanAccess() {
-		return nil, accessErr("you do not have permission to access the %s table", tableData.Name())
+		return nil, qerr.AccessErr("you do not have permission to access the %s table", tableData.Name())
 	}
 	return tablePolicy, nil
 }
@@ -323,11 +310,11 @@ func getTableAccessPolicy(accessPolicy AccessPolicy, tableData TableMetadata) (T
 DO WE NEED THESE????
 */
 
-func appendToPath(path string, relationship RelationshipMetadata) string {
-	return fmt.Sprintf("%s/%s", path, relationship.RelationshipColumn())
+func appendToPath(path string, relationship mdl.RelationshipMetadata) string {
+	return fmt.Sprintf("%s/%s", path, relationship.ColumnName())
 }
 
-func appendToPathSB(sb *strings.Builder, relationship RelationshipMetadata) {
+func appendToPathSB(sb *strings.Builder, relationship mdl.RelationshipMetadata) {
 	sb.WriteByte('/')
-	sb.WriteString(relationship.RelationshipColumn())
+	sb.WriteString(relationship.ColumnName())
 }

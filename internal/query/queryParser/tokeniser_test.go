@@ -1,10 +1,11 @@
-package query
+package queryParser
 
 import (
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	qerr "github.com/turnerbenjamin/heterogen_portal/internal/query/queryError"
 )
 
 func TestTokeniser_ReadsSingleStringTokens(t *testing.T) {
@@ -501,10 +502,10 @@ func TestTokeniser_TknErr(t *testing.T) {
 				tkn = tokeniser.Next()
 			}
 
-			actualErr, ok := tokeniser.TknErr(tkn, customErrPattern).(*queryError)
+			actualErr, ok := tokeniser.TknErr(tkn, customErrPattern).(*qerr.QueryError)
 
 			assert.True(t, ok)
-			assert.Equal(t, QueryErrSyntaxErr, actualErr.category)
+			assert.Equal(t, qerr.QueryErrSyntaxErr, actualErr.Category())
 			assert.Equal(t, td.expect, actualErr.Error())
 		})
 	}
@@ -513,10 +514,10 @@ func TestTokeniser_TknErr(t *testing.T) {
 		tokeniser := NewTokeniser("")
 		tkn := token{Type: TokenEOF}
 
-		actualErr, ok := tokeniser.TknErr(tkn, customErrPattern).(*queryError)
+		actualErr, ok := tokeniser.TknErr(tkn, customErrPattern).(*qerr.QueryError)
 
 		assert.True(t, ok)
-		assert.Equal(t, QueryErrSyntaxErr, actualErr.category)
+		assert.Equal(t, qerr.QueryErrSyntaxErr, actualErr.Category())
 		assert.Equal(t, customErrPattern, actualErr.Error())
 	})
 
@@ -524,10 +525,10 @@ func TestTokeniser_TknErr(t *testing.T) {
 		tokeniser := NewTokeniser("")
 		tkn := token{Type: TokenEmpty}
 
-		actualErr, ok := tokeniser.TknErr(tkn, customErrPattern).(*queryError)
+		actualErr, ok := tokeniser.TknErr(tkn, customErrPattern).(*qerr.QueryError)
 
 		assert.True(t, ok)
-		assert.Equal(t, QueryErrSyntaxErr, actualErr.category)
+		assert.Equal(t, qerr.QueryErrSyntaxErr, actualErr.Category())
 		assert.Equal(t, customErrPattern, actualErr.Error())
 	})
 }
