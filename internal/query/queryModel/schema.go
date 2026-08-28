@@ -21,7 +21,7 @@ type TableModel interface {
 	// NewSlice unmarshals a json array and returns it as a slice
 	NewSlice(
 		jsonData []byte,
-		projectColumns []string,
+		projection Projection,
 	) ([]TableModel, error)
 
 	// SetRelationshipField sets a given relationship field
@@ -49,6 +49,12 @@ type TableMetadata interface {
 	Columns() iter.Seq[ColumnMetadata]
 	ColumnCount() int
 	PrimaryKeyField() ColumnMetadata
+	InitProjection() (Projection, error)
+}
+
+type Projection interface {
+	Add(columnName string) error
+	IsEmpty() bool
 }
 
 type ColumnMetadata interface {

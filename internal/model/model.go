@@ -213,6 +213,11 @@ func (t *tableMetadata) PrimaryKeyField() queryModel.ColumnMetadata {
 	return pk
 }
 
+// InitProjection initialises a projection object for the table
+func (t *tableMetadata) InitProjection() (queryModel.Projection, error) {
+	return initTableProjection(t.name)
+}
+
 // Point represents a geographic point with a GeoJSON-compatible structure.
 type Point struct {
 	Type        string     `json:"type"`
@@ -591,9 +596,17 @@ type BusinessesModel struct {
 }
 
 // NewSlice unmarshals a json array of businesses and returns it as a slice
-func (m *BusinessesModel) NewSlice(jsonData []byte, projectColumns []string) ([]queryModel.TableModel, error) {
+func (m *BusinessesModel) NewSlice(jsonData []byte, projection queryModel.Projection) ([]queryModel.TableModel, error) {
 	if len(jsonData) == 0 {
 		return []queryModel.TableModel{}, nil
+	}
+
+	var typedProjection *BusinessesProjection
+	switch p := projection.(type) {
+	case *BusinessesProjection:
+		typedProjection = p
+	default:
+		return nil, fmt.Errorf("unable to create new slice: invalid projection type received")
 	}
 
 	var concreteSlice []*BusinessesModel
@@ -602,16 +615,8 @@ func (m *BusinessesModel) NewSlice(jsonData []byte, projectColumns []string) ([]
 	}
 	result := make([]queryModel.TableModel, len(concreteSlice))
 
-	projection := BusinessesProjection(0)
-	for _, column := range projectColumns {
-		err := projection.Add(column)
-		if err != nil {
-			return nil, err
-		}
-	}
-
 	for i := range concreteSlice {
-		concreteSlice[i].projection = projection
+		concreteSlice[i].projection = *typedProjection
 		result[i] = concreteSlice[i]
 	}
 	return result, nil
@@ -1057,12 +1062,12 @@ func (p *BusinessesProjection) Add(columnName string) error {
 		*p |= businessesProjectionModifiedAt
 	case "modified_by_id":
 		*p |= businessesProjectionModifiedById
-	case "farm_fields_businesses_business_id":
-		*p |= businessesProjectionFarmFieldsBusinessesBusinessId
 	case "created_by":
 		*p |= businessesProjectionCreatedBy
 	case "modified_by":
 		*p |= businessesProjectionModifiedBy
+	case "farm_fields_businesses_business_id":
+		*p |= businessesProjectionFarmFieldsBusinessesBusinessId
 	default:
 		return fmt.Errorf("unsupported column: '%s'", columnName)
 	}
@@ -1072,6 +1077,11 @@ func (p *BusinessesProjection) Add(columnName string) error {
 // Has is used to determine if a given column is in a projection
 func (p BusinessesProjection) Has(projection BusinessesProjection) bool {
 	return p&projection != 0
+}
+
+// IsEmpty is used to determine if there are no projections
+func (p BusinessesProjection) IsEmpty() bool {
+	return p == 0
 }
 
 // farmFieldsMetadata contains the database metadata for the hg.farm_fields table.
@@ -1188,16 +1198,24 @@ type FarmFieldsModel struct {
 	CreatedById  string               `json:"created_by_id"`
 	ModifiedAt   *time.Time           `json:"modified_at"`
 	ModifiedById string               `json:"modified_by_id"`
-	ModifiedBy   *UsersModel          `json:"modified_by"`
 	Business     *BusinessesModel     `json:"business"`
 	CreatedBy    *UsersModel          `json:"created_by"`
+	ModifiedBy   *UsersModel          `json:"modified_by"`
 	projection   FarmFieldsProjection `json:"-"`
 }
 
 // NewSlice unmarshals a json array of farm_fields and returns it as a slice
-func (m *FarmFieldsModel) NewSlice(jsonData []byte, projectColumns []string) ([]queryModel.TableModel, error) {
+func (m *FarmFieldsModel) NewSlice(jsonData []byte, projection queryModel.Projection) ([]queryModel.TableModel, error) {
 	if len(jsonData) == 0 {
 		return []queryModel.TableModel{}, nil
+	}
+
+	var typedProjection *FarmFieldsProjection
+	switch p := projection.(type) {
+	case *FarmFieldsProjection:
+		typedProjection = p
+	default:
+		return nil, fmt.Errorf("unable to create new slice: invalid projection type received")
 	}
 
 	var concreteSlice []*FarmFieldsModel
@@ -1206,16 +1224,8 @@ func (m *FarmFieldsModel) NewSlice(jsonData []byte, projectColumns []string) ([]
 	}
 	result := make([]queryModel.TableModel, len(concreteSlice))
 
-	projection := FarmFieldsProjection(0)
-	for _, column := range projectColumns {
-		err := projection.Add(column)
-		if err != nil {
-			return nil, err
-		}
-	}
-
 	for i := range concreteSlice {
-		concreteSlice[i].projection = projection
+		concreteSlice[i].projection = *typedProjection
 		result[i] = concreteSlice[i]
 	}
 	return result, nil
@@ -1322,6 +1332,13 @@ func (m *FarmFieldsModel) MarshalJSON() ([]byte, error) {
 // SetRelationshipField sets a given relationship field on the hg.farm_fields table
 func (m *FarmFieldsModel) SetRelationshipField(relationshipId string, value queryModel.TableModel) error {
 	switch relationshipId {
+	case "farm_fields_business_id_businesses_id":
+		v, ok := value.(*BusinessesModel)
+		if !ok {
+			return errors.New("unexpected relationship type received")
+		}
+		m.Business = v
+
 	case "farm_fields_created_by_id_users_id":
 		v, ok := value.(*UsersModel)
 		if !ok {
@@ -1335,13 +1352,6 @@ func (m *FarmFieldsModel) SetRelationshipField(relationshipId string, value quer
 			return errors.New("unexpected relationship type received")
 		}
 		m.ModifiedBy = v
-
-	case "farm_fields_business_id_businesses_id":
-		v, ok := value.(*BusinessesModel)
-		if !ok {
-			return errors.New("unexpected relationship type received")
-		}
-		m.Business = v
 
 	default:
 		return fmt.Errorf("unknown relationship: %s", relationshipId)
@@ -1401,12 +1411,12 @@ func (m *FarmFieldsModel) GetValueExpression(path []*queryModel.TraversalStep, c
 // It will return an error for invalid relationships and relationship types
 func (m *FarmFieldsModel) getRelatedEntity(relationship queryModel.RelationshipMetadata) (queryModel.TableModel, error) {
 	switch relationship.Id() {
-	case "farm_fields_business_id_businesses_id":
-		return m.Business, nil
 	case "farm_fields_created_by_id_users_id":
 		return m.CreatedBy, nil
 	case "farm_fields_modified_by_id_users_id":
 		return m.ModifiedBy, nil
+	case "farm_fields_business_id_businesses_id":
+		return m.Business, nil
 	default:
 		return nil, fmt.Errorf("unable to get related entity: unsupported relationship '%s'", relationship.Id())
 	}
@@ -1508,6 +1518,11 @@ func (p FarmFieldsProjection) Has(projection FarmFieldsProjection) bool {
 	return p&projection != 0
 }
 
+// IsEmpty is used to determine if there are no projections
+func (p FarmFieldsProjection) IsEmpty() bool {
+	return p == 0
+}
+
 // usersMetadata contains the database metadata for the hg.users table.
 var usersMetadata = &tableMetadata{
 	name:               "users",
@@ -1573,16 +1588,6 @@ var usersMetadata = &tableMetadata{
 		},
 	},
 	relationships: map[string]*relationship{
-		"farm_fields_users_modified_by_id": {
-			id:                  "farm_fields_modified_by_id_users_id",
-			columnName:          "farm_fields_users_modified_by_id",
-			expansionColumnName: "farm_fields_users_modified_by_id",
-			relationshipType:    queryModel.RelationshipOneToMany,
-			fromTableName:       "users",
-			toTableName:         "farm_fields",
-			fromColumnName:      "id",
-			toColumnName:        "modified_by_id",
-		},
 		"businesses_users_created_by_id": {
 			id:                  "businesses_created_by_id_users_id",
 			columnName:          "businesses_users_created_by_id",
@@ -1613,6 +1618,16 @@ var usersMetadata = &tableMetadata{
 			fromColumnName:      "id",
 			toColumnName:        "created_by_id",
 		},
+		"farm_fields_users_modified_by_id": {
+			id:                  "farm_fields_modified_by_id_users_id",
+			columnName:          "farm_fields_users_modified_by_id",
+			expansionColumnName: "farm_fields_users_modified_by_id",
+			relationshipType:    queryModel.RelationshipOneToMany,
+			fromTableName:       "users",
+			toTableName:         "farm_fields",
+			fromColumnName:      "id",
+			toColumnName:        "modified_by_id",
+		},
 	},
 	columnCount: -1,
 }
@@ -1640,9 +1655,17 @@ type UsersModel struct {
 }
 
 // NewSlice unmarshals a json array of users and returns it as a slice
-func (m *UsersModel) NewSlice(jsonData []byte, projectColumns []string) ([]queryModel.TableModel, error) {
+func (m *UsersModel) NewSlice(jsonData []byte, projection queryModel.Projection) ([]queryModel.TableModel, error) {
 	if len(jsonData) == 0 {
 		return []queryModel.TableModel{}, nil
+	}
+
+	var typedProjection *UsersProjection
+	switch p := projection.(type) {
+	case *UsersProjection:
+		typedProjection = p
+	default:
+		return nil, fmt.Errorf("unable to create new slice: invalid projection type received")
 	}
 
 	var concreteSlice []*UsersModel
@@ -1651,16 +1674,8 @@ func (m *UsersModel) NewSlice(jsonData []byte, projectColumns []string) ([]query
 	}
 	result := make([]queryModel.TableModel, len(concreteSlice))
 
-	projection := UsersProjection(0)
-	for _, column := range projectColumns {
-		err := projection.Add(column)
-		if err != nil {
-			return nil, err
-		}
-	}
-
 	for i := range concreteSlice {
-		concreteSlice[i].projection = projection
+		concreteSlice[i].projection = *typedProjection
 		result[i] = concreteSlice[i]
 	}
 	return result, nil
@@ -1736,6 +1751,14 @@ func (m *UsersModel) MarshalJSON() ([]byte, error) {
 		isFirst = false
 	}
 
+	if m.projection.Has(usersProjectionBusinessesUsersCreatedById) {
+		err := marshalProperty(&buf, isFirst, "businesses_users_created_by_id", m.BusinessesUsersCreatedById)
+		if err != nil {
+			return nil, err
+		}
+		isFirst = false
+	}
+
 	if m.projection.Has(usersProjectionBusinessesUsersModifiedById) {
 		err := marshalProperty(&buf, isFirst, "businesses_users_modified_by_id", m.BusinessesUsersModifiedById)
 		if err != nil {
@@ -1760,14 +1783,6 @@ func (m *UsersModel) MarshalJSON() ([]byte, error) {
 		isFirst = false
 	}
 
-	if m.projection.Has(usersProjectionBusinessesUsersCreatedById) {
-		err := marshalProperty(&buf, isFirst, "businesses_users_created_by_id", m.BusinessesUsersCreatedById)
-		if err != nil {
-			return nil, err
-		}
-		isFirst = false
-	}
-
 	buf.WriteByte('}')
 	return buf.Bytes(), nil
 }
@@ -1775,13 +1790,6 @@ func (m *UsersModel) MarshalJSON() ([]byte, error) {
 // SetRelationshipField sets a given relationship field on the hg.users table
 func (m *UsersModel) SetRelationshipField(relationshipId string, value queryModel.TableModel) error {
 	switch relationshipId {
-	case "farm_fields_modified_by_id_users_id":
-		v, ok := value.(*FarmFieldsModel)
-		if !ok {
-			return errors.New("unexpected relationship type received")
-		}
-		m.FarmFieldsUsersModifiedById = append(m.FarmFieldsUsersModifiedById, v)
-
 	case "businesses_created_by_id_users_id":
 		v, ok := value.(*BusinessesModel)
 		if !ok {
@@ -1802,6 +1810,13 @@ func (m *UsersModel) SetRelationshipField(relationshipId string, value queryMode
 			return errors.New("unexpected relationship type received")
 		}
 		m.FarmFieldsUsersCreatedById = append(m.FarmFieldsUsersCreatedById, v)
+
+	case "farm_fields_modified_by_id_users_id":
+		v, ok := value.(*FarmFieldsModel)
+		if !ok {
+			return errors.New("unexpected relationship type received")
+		}
+		m.FarmFieldsUsersModifiedById = append(m.FarmFieldsUsersModifiedById, v)
 
 	default:
 		return fmt.Errorf("unknown relationship: %s", relationshipId)
@@ -1955,14 +1970,14 @@ func (p *UsersProjection) Add(columnName string) error {
 		*p |= usersProjectionCreatedAt
 	case "modified_at":
 		*p |= usersProjectionModifiedAt
-	case "businesses_users_created_by_id":
-		*p |= usersProjectionBusinessesUsersCreatedById
 	case "businesses_users_modified_by_id":
 		*p |= usersProjectionBusinessesUsersModifiedById
 	case "farm_fields_users_created_by_id":
 		*p |= usersProjectionFarmFieldsUsersCreatedById
 	case "farm_fields_users_modified_by_id":
 		*p |= usersProjectionFarmFieldsUsersModifiedById
+	case "businesses_users_created_by_id":
+		*p |= usersProjectionBusinessesUsersCreatedById
 	default:
 		return fmt.Errorf("unsupported column: '%s'", columnName)
 	}
@@ -1972,6 +1987,11 @@ func (p *UsersProjection) Add(columnName string) error {
 // Has is used to determine if a given column is in a projection
 func (p UsersProjection) Has(projection UsersProjection) bool {
 	return p&projection != 0
+}
+
+// IsEmpty is used to determine if there are no projections
+func (p UsersProjection) IsEmpty() bool {
+	return p == 0
 }
 
 // getTableModel returns a new instance of a given table or nill if
@@ -2001,6 +2021,23 @@ func getTableMetadata(tableName string) queryModel.TableMetadata {
 		return usersMetadata
 	default:
 		return nil
+	}
+}
+
+// func initTableProjection initialises a projection for the table
+func initTableProjection(tableName string) (queryModel.Projection, error) {
+	switch tableName {
+	case businessesMetadata.name:
+		p := BusinessesProjection(0)
+		return &p, nil
+	case farmFieldsMetadata.name:
+		p := FarmFieldsProjection(0)
+		return &p, nil
+	case usersMetadata.name:
+		p := UsersProjection(0)
+		return &p, nil
+	default:
+		return nil, fmt.Errorf("unsupported table: '%s'", tableName)
 	}
 }
 

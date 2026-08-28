@@ -77,7 +77,8 @@ func validateUserQuery(s qstore.QueryDataStore) error {
 }
 
 func addSystemDefaults(s qstore.QueryDataStore) error {
-	if len(s.Projection()) == 0 {
+	p := s.Projection()
+	if p.IsEmpty() {
 		if err := addDefaultSelects(s); err != nil {
 			return err
 		}

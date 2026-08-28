@@ -64,6 +64,9 @@ func (w *modelWriter) Write() {
 	w.WriteTableMetadataGetter()
 
 	w.writeNewLine()
+	w.WriteTableProjectionGetter()
+
+	w.writeNewLine()
 	w.WriteTableMetadataBinder()
 	w.writeNewLine()
 	w.writeTableAccessStructs()
@@ -307,6 +310,11 @@ func (t *tableMetadata) PrimaryKeyField() queryModel.ColumnMetadata {
 		panic(fmt.Sprintf("unable to access primary key for %s table", t.name))
 	}
 	return pk
+}
+
+// InitProjection initialises a projection object for the table
+func (t *tableMetadata) InitProjection() (queryModel.Projection, error) {
+	return initTableProjection(t.name)
 }
 
 // Point represents a geographic point with a GeoJSON-compatible structure.
@@ -594,10 +602,19 @@ func (w *modelWriter) WriteGetSliceGetterFunction(modelStructName string, tableD
 		tableData.Name,
 	))
 
-	writeToBuilder(w.sb, fmt.Sprintf("func (m *%s) NewSlice(jsonData []byte, projectColumns []string) ([]queryModel.TableModel, error) {\n", modelStructName))
+	writeToBuilder(w.sb, fmt.Sprintf("func (m *%s) NewSlice(jsonData []byte, projection queryModel.Projection) ([]queryModel.TableModel, error) {\n", modelStructName))
 
 	writeToBuilder(w.sb, "if len(jsonData) == 0 {\n")
 	writeToBuilder(w.sb, "return []queryModel.TableModel{}, nil\n")
+	writeToBuilder(w.sb, "}\n\n")
+
+	projectionName := getModelProjectionName(tableData.Name)
+	writeToBuilder(w.sb, fmt.Sprintf("var typedProjection *%s\n", projectionName))
+	writeToBuilder(w.sb, "switch p := projection.(type){\n")
+	writeToBuilder(w.sb, fmt.Sprintf("case *%s:\n", projectionName))
+	writeToBuilder(w.sb, "typedProjection = p\n")
+	writeToBuilder(w.sb, "default:\n")
+	writeToBuilder(w.sb, "return nil, fmt.Errorf(\"unable to create new slice: invalid projection type received\")\n")
 	writeToBuilder(w.sb, "}\n\n")
 
 	writeToBuilder(w.sb, fmt.Sprintf("var concreteSlice []*%s\n", modelStructName))
@@ -608,16 +625,8 @@ func (w *modelWriter) WriteGetSliceGetterFunction(modelStructName string, tableD
 
 	writeToBuilder(w.sb, "result := make([]queryModel.TableModel, len(concreteSlice))\n\n")
 
-	writeToBuilder(w.sb, fmt.Sprintf("projection := %s(0)\n", getModelProjectionName(tableData.Name)))
-	writeToBuilder(w.sb, "for _, column := range projectColumns {\n")
-	writeToBuilder(w.sb, "err := projection.Add(column)\n")
-	writeToBuilder(w.sb, "if err != nil {\n")
-	writeToBuilder(w.sb, "return nil, err\n")
-	writeToBuilder(w.sb, "}\n")
-	writeToBuilder(w.sb, "}\n\n")
-
 	writeToBuilder(w.sb, "for i := range concreteSlice {\n")
-	writeToBuilder(w.sb, "concreteSlice[i].projection = projection\n")
+	writeToBuilder(w.sb, "concreteSlice[i].projection = *typedProjection\n")
 	writeToBuilder(w.sb, "result[i] = concreteSlice[i]\n")
 	writeToBuilder(w.sb, "}\n")
 
@@ -980,6 +989,12 @@ func (w *modelWriter) WriteTableModelProjection(tableData *builderRepo.TableMeta
 	writeToBuilder(w.sb, "}\n")
 	w.writeNewLine()
 
+	// WRITE IS EMPTY
+	writeToBuilder(w.sb, "// IsEmpty is used to determine if there are no projections\n")
+	writeToBuilder(w.sb, fmt.Sprintf("func (p %s) IsEmpty() bool {\n", projectionName))
+	writeToBuilder(w.sb, "return p == 0\n")
+	writeToBuilder(w.sb, "}\n")
+	w.writeNewLine()
 }
 
 func (w *modelWriter) WriteTableModelGetter() {
@@ -1020,6 +1035,29 @@ func (w *modelWriter) WriteTableMetadataGetter() {
 
 	writeToBuilder(w.sb, "default:\n")
 	writeToBuilder(w.sb, "return nil\n")
+	writeToBuilder(w.sb, "}\n")
+	writeToBuilder(w.sb, "}\n")
+}
+
+func (w *modelWriter) WriteTableProjectionGetter() {
+	writeToBuilder(
+		w.sb,
+		"// func initTableProjection initialises a projection for the table\n",
+	)
+	writeToBuilder(w.sb, "func initTableProjection(tableName string) (queryModel.Projection, error){\n")
+	writeToBuilder(w.sb, "switch tableName {\n")
+
+	for _, table := range w.metadata.Tables {
+		metadataStoreId := modelMetadataStoreIdentifier(table.Name)
+		projectionName := getModelProjectionName(table.Name)
+
+		writeToBuilder(w.sb, fmt.Sprintf("case %s.name:\n", metadataStoreId))
+		writeToBuilder(w.sb, fmt.Sprintf("p := %s(0)\n", projectionName))
+		writeToBuilder(w.sb, "return &p, nil\n")
+	}
+
+	writeToBuilder(w.sb, "default:\n")
+	writeToBuilder(w.sb, "return nil, fmt.Errorf(\"unsupported table: '%s'\", tableName)\n")
 	writeToBuilder(w.sb, "}\n")
 	writeToBuilder(w.sb, "}\n")
 }

@@ -41,7 +41,7 @@ type QueryDataStore interface {
 	GetAliasStore() relationships.AliasStore
 	JoinCollection() relationships.JoinCollection
 
-	Projection() []string // FOR NOW
+	Projection() mdl.Projection
 
 	AddSelect(columnName string) error
 	AddSystemSelect(columnName string) error
@@ -89,7 +89,7 @@ type queryDataStore struct {
 	queryString  string
 	rootResource mdl.TableMetadata
 	depth        uint8
-	projection   []string // change to actual projection type
+	projection   mdl.Projection
 
 	// metadata and relationship binding deps
 	metadataBinder          *metadataStore.MetadataBinder
@@ -125,6 +125,11 @@ func newQueryDataStore(
 	accessPolicy mdl.AccessPolicy,
 	depth uint8,
 ) (QueryDataStore, error) {
+	projection, err := rootResource.InitProjection()
+	if err != nil {
+		return nil, err
+	}
+
 	metadataBinder, err := metadataStore.NewMetadataBinder(rootResource, accessPolicy)
 	if err != nil {
 		return nil, err
@@ -144,6 +149,7 @@ func newQueryDataStore(
 
 	return &queryDataStore{
 		depth:               depth,
+		projection:          projection,
 		queryString:         queryString,
 		rootResource:        rootResource,
 		accessPolicy:        accessPolicy,
@@ -159,7 +165,7 @@ func newQueryDataStore(
 	}, nil
 }
 
-func (qd *queryDataStore) Projection() []string {
+func (qd *queryDataStore) Projection() mdl.Projection {
 	return qd.projection
 }
 
@@ -216,7 +222,9 @@ func (qd *queryDataStore) addSelect(columnName string, doProject bool) error {
 
 	// Set the projection if required
 	if doProject {
-		qd.projection = append(qd.projection, columnName)
+		if err := qd.projection.Add(columnName); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -286,10 +294,11 @@ func (qd *queryDataStore) addExpand(relationshipId string, doProject bool) (Quer
 	qd.expands[traversalStep.Relationship.Id()] = expansion
 
 	if doProject {
-		qd.projection = append(
-			qd.projection,
+		if err := qd.projection.Add(
 			traversalStep.Relationship.ExpansionColumnName(),
-		)
+		); err != nil {
+			return nil, err
+		}
 	}
 
 	qd.AddSystemSelect(traversalStep.Relationship.FromColumn().Name())
