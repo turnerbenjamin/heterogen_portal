@@ -34,7 +34,7 @@ type TableModel interface {
 	GetJoinOnValue(relationshipId string) (string, error)
 
 	// GetValueExpression returns a value expression for a given path
-	GetValueExpression(path []*TraversalStep, columnName string) (ValueExpression, error)
+	GetValueExpression(path []*TraversalStep, columnName string, valueBuilder ValueBuilder) (ValueExpression, error)
 
 	// IsNil is used to determine if a typed nil pointer contains a nil value
 	IsNil() bool

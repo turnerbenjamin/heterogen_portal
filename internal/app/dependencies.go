@@ -10,6 +10,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/turnerbenjamin/heterogen_portal/internal/etc"
 	"github.com/turnerbenjamin/heterogen_portal/internal/query"
+	"github.com/turnerbenjamin/heterogen_portal/internal/query/paginationTokens"
 	"github.com/turnerbenjamin/heterogen_portal/internal/query/queryBuilder"
 	"github.com/turnerbenjamin/heterogen_portal/internal/query/queryParser"
 	"github.com/turnerbenjamin/heterogen_portal/internal/services"
@@ -29,7 +30,7 @@ type appDependencies struct {
 }
 
 func initAppDependencies(appSettings *etc.AppSettings) (*appDependencies, error) {
-	nextPageTokenBuilder, err := query.NewNextPageTokenBuilder(
+	nextPageTokenBuilder, err := paginationTokens.NewNextPageTokenBuilder(
 		&utils.PayloadSigner{},
 		appSettings.QueryTokenSecret,
 	)

@@ -1,6 +1,8 @@
 package queryParser
 
-import qstore "github.com/turnerbenjamin/heterogen_portal/internal/query/queryDataStore"
+import (
+	qstore "github.com/turnerbenjamin/heterogen_portal/internal/query/queryDataStore"
+)
 
 func parseExpandOperation(
 	s qstore.QueryDataStore,

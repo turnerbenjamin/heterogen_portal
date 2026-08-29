@@ -29,7 +29,12 @@ func (p *QuerySyntaxParser) Parse(
 
 	tokeniser := NewTokeniser(queryString)
 
-	return parseOperations(s, tokeniser, TokenAmpersand, TokenEOF)
+	return parseOperations(
+		s,
+		tokeniser,
+		TokenAmpersand,
+		TokenEOF,
+	)
 }
 
 // parseOperations is used to parse operations at the top-level of query strings

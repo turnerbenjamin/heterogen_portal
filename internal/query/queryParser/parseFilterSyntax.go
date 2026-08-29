@@ -1,7 +1,6 @@
 package queryParser
 
 import (
-	"slices"
 	"strconv"
 	"strings"
 
@@ -160,7 +159,8 @@ func parseComparison(
 		return nil, err
 	}
 
-	right, err := parseValue(t)
+	valueBuilder := b.ValueBuilder()
+	right, err := parseValue(t, valueBuilder)
 	if err != nil {
 		return nil, err
 	}
@@ -242,25 +242,26 @@ func parsePath(t *Tokeniser) (string, error) {
 	return pathBuilder.String(), nil
 }
 
-func parseValue(t *Tokeniser) (mdl.ValueExpression, error) {
-
+func parseValue(t *Tokeniser, v mdl.ValueBuilder) (mdl.ValueExpression, error) {
 	tkn := t.Next()
 
 	switch tkn.Type {
+
 	case TokenNull:
-		return &mdl.NullLiteral{}, nil
+		return v.Null(), nil
+
 	case TokenStringRaw:
 		str, err := t.processRawStringToken(tkn)
 		if err != nil {
-			return &mdl.StringLiteral{}, err
+			return nil, err
 		}
-		return &mdl.StringLiteral{
-			Value: str,
-		}, nil
+		return v.String(str), nil
+
 	case TokenNumberRaw:
-		return processRawNumberToken(tkn)
+		return processRawNumberToken(tkn, v)
+
 	case TokenParenL:
-		return parseList(t)
+		return parseList(t, v)
 
 	default:
 		return nil, t.TknErr(tkn, "unexpected value %s", tkn.Value)
@@ -290,8 +291,8 @@ func (t *Tokeniser) processRawStringToken(raw token) (string, error) {
 	return raw.Value[1 : len(raw.Value)-1], nil
 }
 
-func parseList(t *Tokeniser) (mdl.ValueExpression, error) {
-	first, err := parseValue(t)
+func parseList(t *Tokeniser, v mdl.ValueBuilder) (mdl.ValueExpression, error) {
+	first, err := parseValue(t, v)
 	if err != nil {
 		return nil, err
 	}
@@ -300,64 +301,24 @@ func parseList(t *Tokeniser) (mdl.ValueExpression, error) {
 		return nil, qerr.SyntaxErr("a list literal must have at least 1 element")
 	}
 
-	switch first := first.(type) {
-	case *mdl.StringLiteral:
-		vs, err := parseListElements(
-			t,
-			first.GetTypeName(),
-			func(v *mdl.StringLiteral) string {
-				return v.Value
-			},
-		)
-		if err != nil {
-			return nil, err
-		}
-		return &mdl.StringListLiteral{
-			Values: slices.Concat([]string{first.Value}, vs),
-		}, nil
-	case *mdl.IntLiteral:
-		vs, err := parseListElements(
-			t,
-			first.GetTypeName(),
-			func(v *mdl.IntLiteral) int64 {
-				return v.Value
-			},
-		)
-		if err != nil {
-			return nil, err
-		}
-		return &mdl.IntListLiteral{
-			Values: slices.Concat([]int64{first.Value}, vs),
-		}, nil
-	case *mdl.FloatLiteral:
-		vs, err := parseListElements(
-			t,
-			first.GetTypeName(),
-			func(v *mdl.FloatLiteral) float64 {
-				return v.Value
-			},
-		)
-		if err != nil {
-			return nil, err
-		}
-		return &mdl.FloatListLiteral{
-			Values: slices.Concat([]float64{first.Value}, vs),
-		}, nil
-	default:
-		return nil, qerr.SyntaxErr("invalid list element type '%s'", first.GetTypeName())
+	els, err := parseListElements(t, v, first)
+	if err != nil {
+		return nil, err
 	}
+
+	return v.List(els)
 }
 
-func parseListElements[WT mdl.ValueExpression, RT any](
+func parseListElements(
 	t *Tokeniser,
-	listType string,
-	unwrap func(WT) RT,
-) ([]RT, error) {
-	o := []RT{}
+	v mdl.ValueBuilder,
+	firstEl mdl.ValueExpression,
+) ([]mdl.ValueExpression, error) {
+	els := []mdl.ValueExpression{firstEl}
 	for {
 		if t.Peek().Type == TokenParenR {
 			_ = t.Next()
-			return o, nil
+			return els, nil
 		}
 
 		if t.Peek().Type == TokenComma {
@@ -365,20 +326,20 @@ func parseListElements[WT mdl.ValueExpression, RT any](
 			continue
 		}
 
-		v, err := parseValue(t)
+		v, err := parseValue(t, v)
 		if err != nil {
 			return nil, err
 		}
 
-		wv, ok := v.(WT)
-		if !ok {
-			return nil, qerr.SyntaxErr("%s lists cannot contain elements of type %s", listType, v.GetTypeName())
+		if v.Type() != firstEl.Type() {
+			return nil, qerr.SyntaxErr("mixed type lists are not supported")
 		}
-		o = append(o, unwrap(wv))
+
+		els = append(els, v)
 	}
 }
 
-func processRawNumberToken(tkn token) (mdl.ValueExpression, error) {
+func processRawNumberToken(tkn token, v mdl.ValueBuilder) (mdl.ValueExpression, error) {
 	dpCount := 0
 	for _, c := range tkn.Value {
 		if c == '.' {
@@ -393,20 +354,16 @@ func processRawNumberToken(tkn token) (mdl.ValueExpression, error) {
 	case 0:
 		i, err := strconv.Atoi(tkn.Value)
 		if err != nil {
-			return &mdl.IntLiteral{}, qerr.InternalErr("unable to convert string to int: %v", err)
+			return nil, qerr.InternalErr("unable to convert string to int: %v", err)
 		}
-		return &mdl.IntLiteral{
-			Value: int64(i),
-		}, nil
+		return v.Int(int64(i)), nil
 	case 1:
 		f, err := strconv.ParseFloat(tkn.Value, 64)
 		if err != nil {
-			return &mdl.FloatLiteral{}, qerr.InternalErr("unable to convert string to float: %v", err)
+			return nil, qerr.InternalErr("unable to convert string to float: %v", err)
 		}
-		return &mdl.FloatLiteral{
-			Value: f,
-		}, nil
+		return v.Float(f), nil
 	default:
-		return &mdl.IntLiteral{}, qerr.InternalErr("invalid number value: %s", tkn.Value)
+		return nil, qerr.InternalErr("invalid number value: %s", tkn.Value)
 	}
 }

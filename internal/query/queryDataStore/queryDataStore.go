@@ -11,6 +11,8 @@ import (
 )
 
 type FilterExpressionBuilder interface {
+	ValueBuilder() mdl.ValueBuilder
+
 	NewLogicalExpression(
 		left mdl.FilterExpression,
 		operator mdl.LogicalOperator,
@@ -58,7 +60,7 @@ type QueryDataStore interface {
 	FilterExpression() mdl.FilterExpression
 	AddAssociatedWithParentFilter(
 		linkFromParent mdl.TraversalStep,
-		joinParentOnValues []string,
+		joinParentOnValues []mdl.ValueExpression,
 	) error // FOR NOW
 
 	SetLimit(limit int) error
@@ -95,6 +97,7 @@ type queryDataStore struct {
 	metadataBinder          *metadataStore.MetadataBinder
 	relationshipPlanner     *relationships.RelationshipPlanner
 	filterExpressionBuilder filterExpressionBuilder
+	valueBuilder            mdl.ValueBuilder
 
 	// access policies
 	accessPolicy             mdl.AccessPolicy
@@ -114,15 +117,17 @@ func NewQueryDataStore(
 	queryString string,
 	rootResource mdl.TableMetadata,
 	accessPolicy mdl.AccessPolicy,
+	valueBuilder mdl.ValueBuilder,
 ) (QueryDataStore, error) {
 	depth := uint8(0)
-	return newQueryDataStore(queryString, rootResource, accessPolicy, depth)
+	return newQueryDataStore(queryString, rootResource, accessPolicy, valueBuilder, depth)
 }
 
 func newQueryDataStore(
 	queryString string,
 	rootResource mdl.TableMetadata,
 	accessPolicy mdl.AccessPolicy,
+	valueBuilder mdl.ValueBuilder,
 	depth uint8,
 ) (QueryDataStore, error) {
 	projection, err := rootResource.InitProjection()
@@ -161,7 +166,9 @@ func newQueryDataStore(
 			rootResource:        rootResource,
 			metadataBinder:      metadataBinder,
 			relationshipPlanner: relationshipPlanner,
+			valueBuilder:        valueBuilder,
 		},
+		valueBuilder: valueBuilder,
 	}, nil
 }
 
@@ -276,6 +283,7 @@ func (qd *queryDataStore) addExpand(relationshipId string, doProject bool) (Quer
 		qd.queryString,
 		traversalStep.Relationship.To(),
 		qd.accessPolicy,
+		qd.valueBuilder,
 		qd.depth+1,
 	)
 	if err != nil {
@@ -343,12 +351,17 @@ func (qd *queryDataStore) FilterExpression() mdl.FilterExpression {
 
 func (qd *queryDataStore) AddAssociatedWithParentFilter(
 	linkFromParent mdl.TraversalStep,
-	joinParentOnValues []string,
+	joinParentOnValues []mdl.ValueExpression,
 ) error {
+	values, err := qd.valueBuilder.List(joinParentOnValues)
+	if err != nil {
+		return err
+	}
+
 	assocationFilter, err := qd.filterExpressionBuilder.NewComparisonExpression(
 		linkFromParent.Relationship.ToColumn().Name(),
 		mdl.ComparisonIn,
-		&mdl.StringListLiteral{Values: joinParentOnValues},
+		values,
 	)
 	if err != nil {
 		return err

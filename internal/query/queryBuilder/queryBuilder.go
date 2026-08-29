@@ -18,6 +18,7 @@ type QueryParser interface {
 func BuildQuery(
 	queryString string,
 	queryParser QueryParser,
+	valueBuilder mdl.ValueBuilder,
 	rootResource mdl.TableMetadata,
 	accessPolicy mdl.AccessPolicy,
 ) (qstore.QueryDataStore, error) {
@@ -26,6 +27,7 @@ func BuildQuery(
 		queryString,
 		rootResource,
 		accessPolicy,
+		valueBuilder,
 	)
 	if err != nil {
 		return nil, err

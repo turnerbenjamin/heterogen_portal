@@ -589,9 +589,9 @@ type BusinessesModel struct {
 	CreatedById                    string               `json:"created_by_id"`
 	ModifiedAt                     *time.Time           `json:"modified_at"`
 	ModifiedById                   string               `json:"modified_by_id"`
+	FarmFieldsBusinessesBusinessId []*FarmFieldsModel   `json:"farm_fields_businesses_business_id"`
 	CreatedBy                      *UsersModel          `json:"created_by"`
 	ModifiedBy                     *UsersModel          `json:"modified_by"`
-	FarmFieldsBusinessesBusinessId []*FarmFieldsModel   `json:"farm_fields_businesses_business_id"`
 	projection                     BusinessesProjection `json:"-"`
 }
 
@@ -883,7 +883,7 @@ func (m *BusinessesModel) GetJoinOnValue(relationshipId string) (string, error) 
 }
 
 // GetValueExpression returns the value from a given path as a ValueExpression
-func (m *BusinessesModel) GetValueExpression(path []*queryModel.TraversalStep, columnName string) (queryModel.ValueExpression, error) {
+func (m *BusinessesModel) GetValueExpression(path []*queryModel.TraversalStep, columnName string, v queryModel.ValueBuilder) (queryModel.ValueExpression, error) {
 	if len(path) > 0 {
 		nextStep := path[0]
 		nextEntity, err := m.getRelatedEntity(nextStep.Relationship)
@@ -891,18 +891,18 @@ func (m *BusinessesModel) GetValueExpression(path []*queryModel.TraversalStep, c
 			return nil, err
 		}
 		if nextEntity.IsNil() {
-			return &queryModel.NullLiteral{}, nil
+			return v.Null(), nil
 		}
-		return nextEntity.GetValueExpression(path[1:], columnName)
+		return nextEntity.GetValueExpression(path[1:], columnName, v)
 	}
-	v, err := m.getValueExpression(columnName)
+	val, err := m.getValueExpression(columnName, v)
 	if err != nil {
 		return nil, err
 	}
-	if v == nil {
-		return &queryModel.NullLiteral{}, nil
+	if val == nil {
+		return v.Null(), nil
 	}
-	return v, nil
+	return val, nil
 }
 
 // GetRelatedEntity returns the value from N:1/1:1 relationships as a TableModel
@@ -924,59 +924,59 @@ func (m *BusinessesModel) IsNil() bool {
 }
 
 // getValueExpression returns the value from a given column as a value expression
-func (m *BusinessesModel) getValueExpression(columnName string) (queryModel.ValueExpression, error) {
+func (m *BusinessesModel) getValueExpression(columnName string, v queryModel.ValueBuilder) (queryModel.ValueExpression, error) {
 	switch columnName {
 	case "id":
-		return &queryModel.StringLiteral{Value: m.Id}, nil
+		return v.String(m.Id), nil
 	case "reference":
-		return &queryModel.StringLiteral{Value: m.Reference}, nil
+		return v.String(m.Reference), nil
 	case "trading_name":
-		return &queryModel.StringLiteral{Value: m.TradingName}, nil
+		return v.String(m.TradingName), nil
 	case "logo_url":
-		return &queryModel.StringLiteral{Value: m.LogoUrl}, nil
+		return v.String(m.LogoUrl), nil
 	case "description":
-		return &queryModel.StringLiteral{Value: m.Description}, nil
+		return v.String(m.Description), nil
 	case "business_type":
-		return &queryModel.IntLiteral{Value: m.BusinessType}, nil
+		return v.Int(m.BusinessType), nil
 	case "cph_number":
-		return &queryModel.StringLiteral{Value: m.CphNumber}, nil
+		return v.String(m.CphNumber), nil
 	case "email_address":
-		return &queryModel.StringLiteral{Value: m.EmailAddress}, nil
+		return v.String(m.EmailAddress), nil
 	case "contact_number":
-		return &queryModel.StringLiteral{Value: m.ContactNumber}, nil
+		return v.String(m.ContactNumber), nil
 	case "website_url":
-		return &queryModel.StringLiteral{Value: m.WebsiteUrl}, nil
+		return v.String(m.WebsiteUrl), nil
 	case "address_line_1":
-		return &queryModel.StringLiteral{Value: m.AddressLine1}, nil
+		return v.String(m.AddressLine1), nil
 	case "address_line_2":
-		return &queryModel.StringLiteral{Value: m.AddressLine2}, nil
+		return v.String(m.AddressLine2), nil
 	case "town":
-		return &queryModel.StringLiteral{Value: m.Town}, nil
+		return v.String(m.Town), nil
 	case "county":
-		return &queryModel.StringLiteral{Value: m.County}, nil
+		return v.String(m.County), nil
 	case "country":
-		return &queryModel.StringLiteral{Value: m.Country}, nil
+		return v.String(m.Country), nil
 	case "postcode":
-		return &queryModel.StringLiteral{Value: m.Postcode}, nil
+		return v.String(m.Postcode), nil
 	case "location":
 		if m.Location == nil {
-			return &queryModel.NullLiteral{}, nil
+			return v.Null(), nil
 		}
-		return &queryModel.StringLiteral{Value: m.Location.String()}, nil
+		return v.String(m.Location.String()), nil
 	case "created_at":
 		if m.CreatedAt == nil {
-			return &queryModel.NullLiteral{}, nil
+			return v.Null(), nil
 		}
-		return &queryModel.StringLiteral{Value: m.CreatedAt.String()}, nil
+		return v.String(m.CreatedAt.String()), nil
 	case "created_by_id":
-		return &queryModel.StringLiteral{Value: m.CreatedById}, nil
+		return v.String(m.CreatedById), nil
 	case "modified_at":
 		if m.ModifiedAt == nil {
-			return &queryModel.NullLiteral{}, nil
+			return v.Null(), nil
 		}
-		return &queryModel.StringLiteral{Value: m.ModifiedAt.String()}, nil
+		return v.String(m.ModifiedAt.String()), nil
 	case "modified_by_id":
-		return &queryModel.StringLiteral{Value: m.ModifiedById}, nil
+		return v.String(m.ModifiedById), nil
 	default:
 		return nil, fmt.Errorf("unsupported column: '%s'", columnName)
 	}
@@ -1062,12 +1062,12 @@ func (p *BusinessesProjection) Add(columnName string) error {
 		*p |= businessesProjectionModifiedAt
 	case "modified_by_id":
 		*p |= businessesProjectionModifiedById
+	case "farm_fields_businesses_business_id":
+		*p |= businessesProjectionFarmFieldsBusinessesBusinessId
 	case "created_by":
 		*p |= businessesProjectionCreatedBy
 	case "modified_by":
 		*p |= businessesProjectionModifiedBy
-	case "farm_fields_businesses_business_id":
-		*p |= businessesProjectionFarmFieldsBusinessesBusinessId
 	default:
 		return fmt.Errorf("unsupported column: '%s'", columnName)
 	}
@@ -1332,13 +1332,6 @@ func (m *FarmFieldsModel) MarshalJSON() ([]byte, error) {
 // SetRelationshipField sets a given relationship field on the hg.farm_fields table
 func (m *FarmFieldsModel) SetRelationshipField(relationshipId string, value queryModel.TableModel) error {
 	switch relationshipId {
-	case "farm_fields_business_id_businesses_id":
-		v, ok := value.(*BusinessesModel)
-		if !ok {
-			return errors.New("unexpected relationship type received")
-		}
-		m.Business = v
-
 	case "farm_fields_created_by_id_users_id":
 		v, ok := value.(*UsersModel)
 		if !ok {
@@ -1352,6 +1345,13 @@ func (m *FarmFieldsModel) SetRelationshipField(relationshipId string, value quer
 			return errors.New("unexpected relationship type received")
 		}
 		m.ModifiedBy = v
+
+	case "farm_fields_business_id_businesses_id":
+		v, ok := value.(*BusinessesModel)
+		if !ok {
+			return errors.New("unexpected relationship type received")
+		}
+		m.Business = v
 
 	default:
 		return fmt.Errorf("unknown relationship: %s", relationshipId)
@@ -1385,7 +1385,7 @@ func (m *FarmFieldsModel) GetJoinOnValue(relationshipId string) (string, error) 
 }
 
 // GetValueExpression returns the value from a given path as a ValueExpression
-func (m *FarmFieldsModel) GetValueExpression(path []*queryModel.TraversalStep, columnName string) (queryModel.ValueExpression, error) {
+func (m *FarmFieldsModel) GetValueExpression(path []*queryModel.TraversalStep, columnName string, v queryModel.ValueBuilder) (queryModel.ValueExpression, error) {
 	if len(path) > 0 {
 		nextStep := path[0]
 		nextEntity, err := m.getRelatedEntity(nextStep.Relationship)
@@ -1393,30 +1393,30 @@ func (m *FarmFieldsModel) GetValueExpression(path []*queryModel.TraversalStep, c
 			return nil, err
 		}
 		if nextEntity.IsNil() {
-			return &queryModel.NullLiteral{}, nil
+			return v.Null(), nil
 		}
-		return nextEntity.GetValueExpression(path[1:], columnName)
+		return nextEntity.GetValueExpression(path[1:], columnName, v)
 	}
-	v, err := m.getValueExpression(columnName)
+	val, err := m.getValueExpression(columnName, v)
 	if err != nil {
 		return nil, err
 	}
-	if v == nil {
-		return &queryModel.NullLiteral{}, nil
+	if val == nil {
+		return v.Null(), nil
 	}
-	return v, nil
+	return val, nil
 }
 
 // GetRelatedEntity returns the value from N:1/1:1 relationships as a TableModel
 // It will return an error for invalid relationships and relationship types
 func (m *FarmFieldsModel) getRelatedEntity(relationship queryModel.RelationshipMetadata) (queryModel.TableModel, error) {
 	switch relationship.Id() {
+	case "farm_fields_business_id_businesses_id":
+		return m.Business, nil
 	case "farm_fields_created_by_id_users_id":
 		return m.CreatedBy, nil
 	case "farm_fields_modified_by_id_users_id":
 		return m.ModifiedBy, nil
-	case "farm_fields_business_id_businesses_id":
-		return m.Business, nil
 	default:
 		return nil, fmt.Errorf("unable to get related entity: unsupported relationship '%s'", relationship.Id())
 	}
@@ -1428,33 +1428,33 @@ func (m *FarmFieldsModel) IsNil() bool {
 }
 
 // getValueExpression returns the value from a given column as a value expression
-func (m *FarmFieldsModel) getValueExpression(columnName string) (queryModel.ValueExpression, error) {
+func (m *FarmFieldsModel) getValueExpression(columnName string, v queryModel.ValueBuilder) (queryModel.ValueExpression, error) {
 	switch columnName {
 	case "id":
-		return &queryModel.StringLiteral{Value: m.Id}, nil
+		return v.String(m.Id), nil
 	case "reference":
-		return &queryModel.StringLiteral{Value: m.Reference}, nil
+		return v.String(m.Reference), nil
 	case "business_id":
-		return &queryModel.StringLiteral{Value: m.BusinessId}, nil
+		return v.String(m.BusinessId), nil
 	case "location":
 		if m.Location == nil {
-			return &queryModel.NullLiteral{}, nil
+			return v.Null(), nil
 		}
-		return &queryModel.StringLiteral{Value: m.Location.String()}, nil
+		return v.String(m.Location.String()), nil
 	case "created_at":
 		if m.CreatedAt == nil {
-			return &queryModel.NullLiteral{}, nil
+			return v.Null(), nil
 		}
-		return &queryModel.StringLiteral{Value: m.CreatedAt.String()}, nil
+		return v.String(m.CreatedAt.String()), nil
 	case "created_by_id":
-		return &queryModel.StringLiteral{Value: m.CreatedById}, nil
+		return v.String(m.CreatedById), nil
 	case "modified_at":
 		if m.ModifiedAt == nil {
-			return &queryModel.NullLiteral{}, nil
+			return v.Null(), nil
 		}
-		return &queryModel.StringLiteral{Value: m.ModifiedAt.String()}, nil
+		return v.String(m.ModifiedAt.String()), nil
 	case "modified_by_id":
-		return &queryModel.StringLiteral{Value: m.ModifiedById}, nil
+		return v.String(m.ModifiedById), nil
 	default:
 		return nil, fmt.Errorf("unsupported column: '%s'", columnName)
 	}
@@ -1751,14 +1751,6 @@ func (m *UsersModel) MarshalJSON() ([]byte, error) {
 		isFirst = false
 	}
 
-	if m.projection.Has(usersProjectionBusinessesUsersCreatedById) {
-		err := marshalProperty(&buf, isFirst, "businesses_users_created_by_id", m.BusinessesUsersCreatedById)
-		if err != nil {
-			return nil, err
-		}
-		isFirst = false
-	}
-
 	if m.projection.Has(usersProjectionBusinessesUsersModifiedById) {
 		err := marshalProperty(&buf, isFirst, "businesses_users_modified_by_id", m.BusinessesUsersModifiedById)
 		if err != nil {
@@ -1783,6 +1775,14 @@ func (m *UsersModel) MarshalJSON() ([]byte, error) {
 		isFirst = false
 	}
 
+	if m.projection.Has(usersProjectionBusinessesUsersCreatedById) {
+		err := marshalProperty(&buf, isFirst, "businesses_users_created_by_id", m.BusinessesUsersCreatedById)
+		if err != nil {
+			return nil, err
+		}
+		isFirst = false
+	}
+
 	buf.WriteByte('}')
 	return buf.Bytes(), nil
 }
@@ -1790,20 +1790,6 @@ func (m *UsersModel) MarshalJSON() ([]byte, error) {
 // SetRelationshipField sets a given relationship field on the hg.users table
 func (m *UsersModel) SetRelationshipField(relationshipId string, value queryModel.TableModel) error {
 	switch relationshipId {
-	case "businesses_created_by_id_users_id":
-		v, ok := value.(*BusinessesModel)
-		if !ok {
-			return errors.New("unexpected relationship type received")
-		}
-		m.BusinessesUsersCreatedById = append(m.BusinessesUsersCreatedById, v)
-
-	case "businesses_modified_by_id_users_id":
-		v, ok := value.(*BusinessesModel)
-		if !ok {
-			return errors.New("unexpected relationship type received")
-		}
-		m.BusinessesUsersModifiedById = append(m.BusinessesUsersModifiedById, v)
-
 	case "farm_fields_created_by_id_users_id":
 		v, ok := value.(*FarmFieldsModel)
 		if !ok {
@@ -1818,6 +1804,20 @@ func (m *UsersModel) SetRelationshipField(relationshipId string, value queryMode
 		}
 		m.FarmFieldsUsersModifiedById = append(m.FarmFieldsUsersModifiedById, v)
 
+	case "businesses_created_by_id_users_id":
+		v, ok := value.(*BusinessesModel)
+		if !ok {
+			return errors.New("unexpected relationship type received")
+		}
+		m.BusinessesUsersCreatedById = append(m.BusinessesUsersCreatedById, v)
+
+	case "businesses_modified_by_id_users_id":
+		v, ok := value.(*BusinessesModel)
+		if !ok {
+			return errors.New("unexpected relationship type received")
+		}
+		m.BusinessesUsersModifiedById = append(m.BusinessesUsersModifiedById, v)
+
 	default:
 		return fmt.Errorf("unknown relationship: %s", relationshipId)
 	}
@@ -1828,17 +1828,17 @@ func (m *UsersModel) SetRelationshipField(relationshipId string, value queryMode
 // the hg.users table
 func (m *UsersModel) InitRelationshipField(relationshipId string) error {
 	switch relationshipId {
-	case "businesses_created_by_id_users_id":
-		m.BusinessesUsersCreatedById = []*BusinessesModel{}
-		return nil
-	case "businesses_modified_by_id_users_id":
-		m.BusinessesUsersModifiedById = []*BusinessesModel{}
-		return nil
 	case "farm_fields_created_by_id_users_id":
 		m.FarmFieldsUsersCreatedById = []*FarmFieldsModel{}
 		return nil
 	case "farm_fields_modified_by_id_users_id":
 		m.FarmFieldsUsersModifiedById = []*FarmFieldsModel{}
+		return nil
+	case "businesses_created_by_id_users_id":
+		m.BusinessesUsersCreatedById = []*BusinessesModel{}
+		return nil
+	case "businesses_modified_by_id_users_id":
+		m.BusinessesUsersModifiedById = []*BusinessesModel{}
 		return nil
 	default:
 		return fmt.Errorf("unknown relationship: %s", relationshipId)
@@ -1862,7 +1862,7 @@ func (m *UsersModel) GetJoinOnValue(relationshipId string) (string, error) {
 }
 
 // GetValueExpression returns the value from a given path as a ValueExpression
-func (m *UsersModel) GetValueExpression(path []*queryModel.TraversalStep, columnName string) (queryModel.ValueExpression, error) {
+func (m *UsersModel) GetValueExpression(path []*queryModel.TraversalStep, columnName string, v queryModel.ValueBuilder) (queryModel.ValueExpression, error) {
 	if len(path) > 0 {
 		nextStep := path[0]
 		nextEntity, err := m.getRelatedEntity(nextStep.Relationship)
@@ -1870,18 +1870,18 @@ func (m *UsersModel) GetValueExpression(path []*queryModel.TraversalStep, column
 			return nil, err
 		}
 		if nextEntity.IsNil() {
-			return &queryModel.NullLiteral{}, nil
+			return v.Null(), nil
 		}
-		return nextEntity.GetValueExpression(path[1:], columnName)
+		return nextEntity.GetValueExpression(path[1:], columnName, v)
 	}
-	v, err := m.getValueExpression(columnName)
+	val, err := m.getValueExpression(columnName, v)
 	if err != nil {
 		return nil, err
 	}
-	if v == nil {
-		return &queryModel.NullLiteral{}, nil
+	if val == nil {
+		return v.Null(), nil
 	}
-	return v, nil
+	return val, nil
 }
 
 // GetRelatedEntity returns the value from N:1/1:1 relationships as a TableModel
@@ -1899,30 +1899,30 @@ func (m *UsersModel) IsNil() bool {
 }
 
 // getValueExpression returns the value from a given column as a value expression
-func (m *UsersModel) getValueExpression(columnName string) (queryModel.ValueExpression, error) {
+func (m *UsersModel) getValueExpression(columnName string, v queryModel.ValueBuilder) (queryModel.ValueExpression, error) {
 	switch columnName {
 	case "id":
-		return &queryModel.StringLiteral{Value: m.Id}, nil
+		return v.String(m.Id), nil
 	case "oid":
-		return &queryModel.StringLiteral{Value: m.Oid}, nil
+		return v.String(m.Oid), nil
 	case "given_name":
-		return &queryModel.StringLiteral{Value: m.GivenName}, nil
+		return v.String(m.GivenName), nil
 	case "family_name":
-		return &queryModel.StringLiteral{Value: m.FamilyName}, nil
+		return v.String(m.FamilyName), nil
 	case "user_name":
-		return &queryModel.StringLiteral{Value: m.UserName}, nil
+		return v.String(m.UserName), nil
 	case "email_address":
-		return &queryModel.StringLiteral{Value: m.EmailAddress}, nil
+		return v.String(m.EmailAddress), nil
 	case "created_at":
 		if m.CreatedAt == nil {
-			return &queryModel.NullLiteral{}, nil
+			return v.Null(), nil
 		}
-		return &queryModel.StringLiteral{Value: m.CreatedAt.String()}, nil
+		return v.String(m.CreatedAt.String()), nil
 	case "modified_at":
 		if m.ModifiedAt == nil {
-			return &queryModel.NullLiteral{}, nil
+			return v.Null(), nil
 		}
-		return &queryModel.StringLiteral{Value: m.ModifiedAt.String()}, nil
+		return v.String(m.ModifiedAt.String()), nil
 	default:
 		return nil, fmt.Errorf("unsupported column: '%s'", columnName)
 	}
@@ -1970,14 +1970,14 @@ func (p *UsersProjection) Add(columnName string) error {
 		*p |= usersProjectionCreatedAt
 	case "modified_at":
 		*p |= usersProjectionModifiedAt
+	case "businesses_users_created_by_id":
+		*p |= usersProjectionBusinessesUsersCreatedById
 	case "businesses_users_modified_by_id":
 		*p |= usersProjectionBusinessesUsersModifiedById
 	case "farm_fields_users_created_by_id":
 		*p |= usersProjectionFarmFieldsUsersCreatedById
 	case "farm_fields_users_modified_by_id":
 		*p |= usersProjectionFarmFieldsUsersModifiedById
-	case "businesses_users_created_by_id":
-		*p |= usersProjectionBusinessesUsersCreatedById
 	default:
 		return fmt.Errorf("unsupported column: '%s'", columnName)
 	}

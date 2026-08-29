@@ -11,6 +11,11 @@ type filterExpressionBuilder struct {
 	rootResource        mdl.TableMetadata
 	metadataBinder      *metadataStore.MetadataBinder
 	relationshipPlanner *relationships.RelationshipPlanner
+	valueBuilder        mdl.ValueBuilder
+}
+
+func (eb filterExpressionBuilder) ValueBuilder() mdl.ValueBuilder {
+	return eb.valueBuilder
 }
 
 func (eb filterExpressionBuilder) NewLogicalExpression(

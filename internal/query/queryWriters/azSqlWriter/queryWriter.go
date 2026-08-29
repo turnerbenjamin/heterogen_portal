@@ -1,4 +1,4 @@
-package queryWriter
+package azSqlWriter
 
 import (
 	"fmt"
@@ -25,12 +25,12 @@ type stringCoords struct {
 
 // arg adds a new argument to the args list and returns a unique placeholder for
 // use in the sql statement
-func (w *QueryWriter) Placeholder(v any) string {
+func (w *queryWriter) Placeholder(v any) string {
 	w.args = append(w.args, v)
 	return fmt.Sprintf("@p%d", len(w.args))
 }
 
-func (w *QueryWriter) Write(statement string, args ...any) {
+func (w *queryWriter) Write(statement string, args ...any) {
 	fmt.Fprintf(w.sb, statement, args...)
 }
 
@@ -54,7 +54,7 @@ type aliasedResource struct {
 // 	aliasStore     relationships.AliasStore
 // }
 
-type QueryWriter struct {
+type queryWriter struct {
 	queryDataStore qstore.QueryDataStore
 	aliasStore     relationships.AliasStore
 
@@ -78,8 +78,8 @@ type QueryWriter struct {
 // 	}
 // }
 
-func NewQueryWriter(s qstore.QueryDataStore) (*QueryWriter, error) {
-	w := QueryWriter{
+func NewQueryWriter(s qstore.QueryDataStore) (*queryWriter, error) {
+	w := queryWriter{
 		queryDataStore: s,
 		aliasStore:     s.GetAliasStore(),
 		sb:             &strings.Builder{},
@@ -95,18 +95,18 @@ func NewQueryWriter(s qstore.QueryDataStore) (*QueryWriter, error) {
 	return &w, nil
 }
 
-func (w QueryWriter) WriteQueryStatement() string {
+func (w queryWriter) WriteQueryStatement() string {
 	return w.statement
 }
 
-func (w QueryWriter) WriteCountStatement() string {
+func (w queryWriter) WriteCountStatement() string {
 	if w.countStatement == "" {
 		w.buildCountStatement()
 	}
 	return w.countStatement
 }
 
-func (w QueryWriter) Args() []any {
+func (w queryWriter) Args() []any {
 	return w.args
 }
 
@@ -195,7 +195,7 @@ func (w QueryWriter) Args() []any {
 
 // }
 
-func (w *QueryWriter) writeQuery() error {
+func (w *queryWriter) writeQuery() error {
 	err := w.writeSelectStatement()
 	if err != nil {
 		return err
@@ -226,7 +226,7 @@ func (w *QueryWriter) writeQuery() error {
 	return nil
 }
 
-func (w *QueryWriter) buildCountStatement() {
+func (w *queryWriter) buildCountStatement() {
 	coreQueryString := w.sb.String()
 
 	countSb := strings.Builder{}
@@ -244,7 +244,7 @@ func (w *QueryWriter) buildCountStatement() {
 	w.countStatement = countSb.String()
 }
 
-func (w *QueryWriter) writeFromStatement() {
+func (w *queryWriter) writeFromStatement() {
 	w.fromLocation.left = w.sb.Len()
 
 	rootResource := w.queryDataStore.RootResource()
@@ -260,7 +260,7 @@ func (w *QueryWriter) writeFromStatement() {
 	w.sb.WriteRune(' ')
 }
 
-func (w *QueryWriter) writeSelectStatement() error {
+func (w *queryWriter) writeSelectStatement() error {
 
 	if w.queryDataStore.SelectsLen() == 0 {
 		return qerr.InternalErr("expected a select operation with at least one column specified")
@@ -290,7 +290,7 @@ func (w *QueryWriter) writeSelectStatement() error {
 	return nil
 }
 
-func (w *QueryWriter) formatSelectValue(columnData mdl.ColumnMetadata) string {
+func (w *queryWriter) formatSelectValue(columnData mdl.ColumnMetadata) string {
 	switch columnData.Type() {
 	case mdl.DbTypeGeography:
 		return fmt.Sprintf("%s.STAsText() AS %s", columnData.Name(), columnData.Name())
@@ -299,7 +299,7 @@ func (w *QueryWriter) formatSelectValue(columnData mdl.ColumnMetadata) string {
 	}
 }
 
-func (w *QueryWriter) writeJoins(joinCollection relationships.JoinCollection) {
+func (w *queryWriter) writeJoins(joinCollection relationships.JoinCollection) {
 	for _, join := range joinCollection.Joins() {
 		relationship := join.Step.Relationship
 
@@ -321,7 +321,7 @@ func (w *QueryWriter) writeJoins(joinCollection relationships.JoinCollection) {
 	}
 }
 
-func (w *QueryWriter) writeOrderByStatement() error {
+func (w *queryWriter) writeOrderByStatement() error {
 	if w.queryDataStore.OrderByLen() == 0 {
 		return qerr.InternalErr("expected an orderby operation with at least the primary column specified")
 	}
@@ -359,7 +359,7 @@ func (w *QueryWriter) writeOrderByStatement() error {
 	return nil
 }
 
-func (w *QueryWriter) writeLimitStatement() error {
+func (w *queryWriter) writeLimitStatement() error {
 	limit := w.queryDataStore.Limit()
 	if limit == 0 {
 		return qerr.InternalErr("expected either a user or system defined limit operation")
@@ -370,7 +370,7 @@ func (w *QueryWriter) writeLimitStatement() error {
 	return nil
 }
 
-func (w *QueryWriter) writeFilterStatement() error {
+func (w *queryWriter) writeFilterStatement() error {
 	filterExpression := w.queryDataStore.FilterExpression()
 	if filterExpression == nil {
 		return nil
@@ -396,7 +396,7 @@ func (w *QueryWriter) writeFilterStatement() error {
 	return nil
 }
 
-func (w *QueryWriter) buildFilterExpression(
+func (w *queryWriter) buildFilterExpression(
 	rootResource *aliasedResource,
 	expression mdl.FilterExpression,
 ) error {
@@ -412,7 +412,7 @@ func (w *QueryWriter) buildFilterExpression(
 	}
 }
 
-func (w *QueryWriter) buildLogicalExpression(
+func (w *queryWriter) buildLogicalExpression(
 	rootResource *aliasedResource,
 	expression *mdl.LogicalExpression,
 ) error {
@@ -436,7 +436,7 @@ func (w *QueryWriter) buildLogicalExpression(
 	return nil
 }
 
-func (w *QueryWriter) buildComparisonExpression(
+func (w *queryWriter) buildComparisonExpression(
 	ex *mdl.ComparisonExpression,
 	rootResource *aliasedResource,
 ) error {
@@ -462,7 +462,7 @@ func (w *QueryWriter) buildComparisonExpression(
 	)
 }
 
-func (w *QueryWriter) buildCollectionExpression(
+func (w *queryWriter) buildCollectionExpression(
 	ex *mdl.CollectionExpression,
 	rootResource *aliasedResource,
 ) error {
@@ -493,7 +493,7 @@ func (w *QueryWriter) buildCollectionExpression(
 	)
 }
 
-func (w *QueryWriter) writeExpressionWithPath(
+func (w *queryWriter) writeExpressionWithPath(
 	existsNodes []mdl.ExistsNodeNew,
 	writeExpression func(resource *aliasedResource) error,
 	doNegate bool,
@@ -550,7 +550,7 @@ func (w *QueryWriter) writeExpressionWithPath(
 	return nil
 }
 
-func (w *QueryWriter) negate(expression mdl.FilterExpression) (mdl.FilterExpression, error) {
+func (w *queryWriter) negate(expression mdl.FilterExpression) (mdl.FilterExpression, error) {
 	filterExpressionBuilder := w.queryDataStore.FilterExpressionBuilder()
 
 	switch ex := expression.(type) {

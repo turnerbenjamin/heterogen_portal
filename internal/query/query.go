@@ -4,11 +4,12 @@ import (
 	"context"
 	"sync"
 
+	tkns "github.com/turnerbenjamin/heterogen_portal/internal/query/paginationTokens"
 	bldr "github.com/turnerbenjamin/heterogen_portal/internal/query/queryBuilder"
 	qstore "github.com/turnerbenjamin/heterogen_portal/internal/query/queryDataStore"
 	qerr "github.com/turnerbenjamin/heterogen_portal/internal/query/queryError"
 	mdl "github.com/turnerbenjamin/heterogen_portal/internal/query/queryModel"
-	"github.com/turnerbenjamin/heterogen_portal/internal/query/queryWriter"
+	azSqlWriter "github.com/turnerbenjamin/heterogen_portal/internal/query/queryWriters/azSqlWriter"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -33,7 +34,7 @@ type PagingTokenBuilder interface {
 		lastRecord mdl.TableModel,
 	) (string, error)
 
-	ParseToken(token string) (*pagingToken, error)
+	ParseToken(token string, valueBuilder mdl.ValueBuilder) (*tkns.PagingToken, error)
 }
 
 type nestedQueryResult struct {
@@ -55,6 +56,7 @@ type Query struct {
 	AccessPolicy      mdl.AccessPolicy
 	TableAccessPolicy mdl.TableAccessPolicy
 	queryDataStore    qstore.QueryDataStore
+	valueBuilder      mdl.ValueBuilder
 }
 
 func NewQuery(
@@ -81,8 +83,16 @@ func NewQuery(
 		return nil, qerr.InternalErr("unable to find table access policy for table %s", resourceName)
 	}
 
+	valueBuilder := azSqlWriter.NewValueBuilder()
+
 	// Build query
-	queryDataStore, err := bldr.BuildQuery(queryString, queryParser, resource, accessPolicy)
+	queryDataStore, err := bldr.BuildQuery(
+		queryString,
+		queryParser,
+		valueBuilder,
+		resource,
+		accessPolicy,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -93,6 +103,7 @@ func NewQuery(
 		queryExecutor:  queryExecutor,
 		tableMetadata:  resource,
 		queryDataStore: queryDataStore,
+		valueBuilder:   valueBuilder,
 	}
 	return q, nil
 }
@@ -107,7 +118,7 @@ func (q *Query) Execute() (*ExecuteResult, error) {
 		)
 	}
 
-	w, err := queryWriter.NewQueryWriter(q.queryDataStore)
+	w, err := azSqlWriter.NewQueryWriter(q.queryDataStore)
 	if err != nil {
 		return nil, err
 	}
@@ -246,7 +257,7 @@ func (q *Query) executeNestedQueries(s qstore.QueryDataStore) ([]mdl.TableModel,
 		)
 	}
 
-	w, err := queryWriter.NewQueryWriter(s)
+	w, err := azSqlWriter.NewQueryWriter(s)
 	if err != nil {
 		return nil, err
 	}
@@ -309,9 +320,9 @@ func (q *Query) executeNestedQuery(
 func (q Query) getJoinOnValues(
 	link mdl.TraversalStep,
 	fromResults []mdl.TableModel,
-) ([]string, error) {
+) ([]mdl.ValueExpression, error) {
 	seen := map[string]struct{}{}
-	joinValues := make([]string, 0, len(fromResults))
+	joinValues := make([]mdl.ValueExpression, 0, len(fromResults))
 
 	for _, fromResult := range fromResults {
 		value, err := fromResult.GetJoinOnValue(link.Relationship.Id())
@@ -320,7 +331,7 @@ func (q Query) getJoinOnValues(
 		}
 
 		if _, exists := seen[value]; !exists {
-			joinValues = append(joinValues, value)
+			joinValues = append(joinValues, q.valueBuilder.String(value))
 		}
 		seen[value] = struct{}{}
 	}

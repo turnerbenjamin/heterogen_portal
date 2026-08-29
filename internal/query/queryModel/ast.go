@@ -24,25 +24,93 @@ type LiteralType uint8
 
 const (
 	LiteralTypeNull LiteralType = iota
+
 	LiteralTypeString
+	LiteralTypeListString
+
 	LiteralTypeInt
+	LiteralTypeListInt
+
 	LiteralTypeFloat
-	LiteralTypeStringList
-	LiteralTypeIntList
-	LiteralTypeFloatList
+	LiteralTypeListFloat
 )
+
+func LiteralTypeName(t LiteralType) string {
+	switch t {
+	case LiteralTypeNull:
+		return "null"
+
+	case LiteralTypeString:
+		return "string"
+
+	case LiteralTypeListString:
+		return "string list"
+
+	case LiteralTypeInt:
+		return "integer"
+
+	case LiteralTypeListInt:
+		return "integer list"
+
+	case LiteralTypeFloat:
+		return "decimal"
+
+	case LiteralTypeListFloat:
+		return "decimal list"
+
+	default:
+		panic("unexpected literal type received")
+	}
+}
+
+type Serialiser interface {
+	SerialiseString(str string)
+	SerialiseInt(n int64)
+	SerialiseFloat(f float64)
+
+	SerialiseList(els []ValueExpression)
+}
+
+type Deserialiser interface {
+	DeserialiseString(d []byte) string
+	DeserialiseListString(d []byte) []string
+
+	DeserialiseInt(d []byte) (int64, error)
+	DeserialiseListInt(d []byte) ([]int64, error)
+
+	DeserialiseFloat(d []byte) (float64, error)
+	DeserialiseListFloat(d []byte) ([]float64, error)
+}
+
+type ValueBuilder interface {
+	Null() ValueExpression
+	String(str string) ValueExpression
+	Int(n int64) ValueExpression
+	Float(float float64) ValueExpression
+	List(elements []ValueExpression) (ValueExpression, error)
+
+	Deserialise(
+		deserialiser Deserialiser,
+		literalType LiteralType,
+		data []byte,
+	) (ValueExpression, error)
+}
 
 type QueryWriter interface {
 	Write(statement string, args ...any)
 	Placeholder(v any) string
 }
 
+// TRY TO SIMPLIFY THIS
 type ValueExpression interface {
-	GetTypeName() string
-	GetType() LiteralType
+	Type() LiteralType
+	Value() any
 	IsCompatibleWithComparisonOperator(op ComparisonOperator) bool
 	IsSupportedByDbType(dbType DbDataTypeName) bool
+
 	WriteFilterExpression(w QueryWriter, fieldName string, op ComparisonOperator) error
+
+	Serialise(s Serialiser)
 }
 
 type ResolvedPath struct {

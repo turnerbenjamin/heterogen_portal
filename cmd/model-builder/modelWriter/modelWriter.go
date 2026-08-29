@@ -785,7 +785,7 @@ func (w *modelWriter) WriteGetJoinOnValueFunction(modelStructName string, tableD
 func (w *modelWriter) WriteGetValueExpressionFunction(modelStructName string, tableData *builderRepo.TableMetadata) {
 	writeToBuilder(w.sb, "// GetValueExpression returns the value from a given path as a ValueExpression\n")
 
-	writeToBuilder(w.sb, fmt.Sprintf("func (m *%s) GetValueExpression(path []*queryModel.TraversalStep, columnName string) (queryModel.ValueExpression, error){\n", modelStructName))
+	writeToBuilder(w.sb, fmt.Sprintf("func (m *%s) GetValueExpression(path []*queryModel.TraversalStep, columnName string, v queryModel.ValueBuilder) (queryModel.ValueExpression, error){\n", modelStructName))
 	writeToBuilder(w.sb, "if len(path) > 0 {\n")
 	writeToBuilder(w.sb, "nextStep := path[0]\n")
 	writeToBuilder(w.sb, "nextEntity, err := m.getRelatedEntity(nextStep.Relationship)\n")
@@ -795,22 +795,22 @@ func (w *modelWriter) WriteGetValueExpressionFunction(modelStructName string, ta
 	writeToBuilder(w.sb, "}\n")
 
 	writeToBuilder(w.sb, "if nextEntity.IsNil(){\n")
-	writeToBuilder(w.sb, "return &queryModel.NullLiteral{}, nil\n")
+	writeToBuilder(w.sb, "return v.Null(), nil\n")
 	writeToBuilder(w.sb, "}\n")
 
-	writeToBuilder(w.sb, "return nextEntity.GetValueExpression(path[1:], columnName)\n")
+	writeToBuilder(w.sb, "return nextEntity.GetValueExpression(path[1:], columnName, v)\n")
 	writeToBuilder(w.sb, "}\n")
 
-	writeToBuilder(w.sb, "v, err := m.getValueExpression(columnName)\n")
+	writeToBuilder(w.sb, "val, err := m.getValueExpression(columnName, v)\n")
 	writeToBuilder(w.sb, "if err != nil {\n")
 	writeToBuilder(w.sb, "return nil, err\n")
 	writeToBuilder(w.sb, "}\n")
 
-	writeToBuilder(w.sb, "if v == nil{\n")
-	writeToBuilder(w.sb, "return &queryModel.NullLiteral{}, nil\n")
+	writeToBuilder(w.sb, "if val == nil{\n")
+	writeToBuilder(w.sb, "return v.Null(), nil\n")
 	writeToBuilder(w.sb, "}\n")
 
-	writeToBuilder(w.sb, "return v, nil\n")
+	writeToBuilder(w.sb, "return val, nil\n")
 	writeToBuilder(w.sb, "}\n")
 }
 
@@ -846,7 +846,7 @@ func (w *modelWriter) WriteModelIsNilFunciton(modelStructName string, tableData 
 func (w *modelWriter) WriteGetValueExpressionPrivateFunction(modelStructName string, tableData *builderRepo.TableMetadata) {
 	writeToBuilder(w.sb, "// getValueExpression returns the value from a given column as a value expression\n")
 
-	writeToBuilder(w.sb, fmt.Sprintf("func (m *%s) getValueExpression(columnName string) (queryModel.ValueExpression, error) {\n", modelStructName))
+	writeToBuilder(w.sb, fmt.Sprintf("func (m *%s) getValueExpression(columnName string, v queryModel.ValueBuilder) (queryModel.ValueExpression, error) {\n", modelStructName))
 	writeToBuilder(w.sb, "switch columnName{\n")
 
 	for _, column := range tableData.Columns {
@@ -873,16 +873,16 @@ func (w *modelWriter) buildGetValueExpression(columnData *builderRepo.ColumnMeta
 	columnIdentifier := snakeToPascal(columnData.Name)
 
 	nullCheck := func(columnIdentifier string) string {
-		return fmt.Sprintf("if m.%s == nil {\n return &queryModel.NullLiteral{}, nil }\n", columnIdentifier)
+		return fmt.Sprintf("if m.%s == nil {\n return v.Null(), nil }\n", columnIdentifier)
 	}
 
 	switch columnData.Type {
 	case MsqlTypeNvarchar:
-		return fmt.Sprintf("return &queryModel.StringLiteral{Value: m.%s}, nil\n", columnIdentifier)
+		return fmt.Sprintf("return v.String(m.%s), nil\n", columnIdentifier)
 	case MsqlTypeInt:
-		return fmt.Sprintf("return &queryModel.IntLiteral{Value: m.%s}, nil\n", columnIdentifier)
+		return fmt.Sprintf("return v.Int(m.%s), nil\n", columnIdentifier)
 	case MsqlTypeDateTimeOffset, MsqlTypeGeography:
-		return fmt.Sprintf("%s return &queryModel.StringLiteral{Value: m.%s.String()}, nil\n", nullCheck(columnIdentifier), columnIdentifier)
+		return fmt.Sprintf("%s return v.String(m.%s.String()), nil\n", nullCheck(columnIdentifier), columnIdentifier)
 	default:
 		return ""
 	}
