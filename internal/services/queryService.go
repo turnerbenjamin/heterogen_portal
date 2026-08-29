@@ -31,7 +31,7 @@ var schemaMetadata = model.NewSchemaMetadata()
 type QueryService struct {
 	queryRepo            QueryRepo
 	queryParser          queryBuilder.QueryParser
-	nextPageTokenBuilder query.PagingTokenBuilder
+	nextPageTokenBuilder queryBuilder.PagingTokenBuilder
 }
 
 var accessPolicy = queryAccessPolicies.GetAnonymousAccessPolicy()
@@ -39,7 +39,7 @@ var accessPolicy = queryAccessPolicies.GetAnonymousAccessPolicy()
 func NewQueryService(
 	queryRepo QueryRepo,
 	queryParser queryBuilder.QueryParser,
-	nextPageTokenBuilder query.PagingTokenBuilder,
+	nextPageTokenBuilder queryBuilder.PagingTokenBuilder,
 ) *QueryService {
 	return &QueryService{
 		queryRepo:            queryRepo,

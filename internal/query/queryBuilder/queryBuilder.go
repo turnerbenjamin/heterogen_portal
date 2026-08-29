@@ -1,12 +1,23 @@
 package queryBuilder
 
 import (
+	tkns "github.com/turnerbenjamin/heterogen_portal/internal/query/paginationTokens"
 	qstore "github.com/turnerbenjamin/heterogen_portal/internal/query/queryDataStore"
 	qerr "github.com/turnerbenjamin/heterogen_portal/internal/query/queryError"
 	mdl "github.com/turnerbenjamin/heterogen_portal/internal/query/queryModel"
 )
 
+// TODO: SORT OUT SOME CONFIG
 const MAX_LIMIT = 5000
+
+type PagingTokenBuilder interface {
+	BuildToken(
+		queryDataStore qstore.QueryDataStore,
+		lastRecord mdl.TableModel,
+	) (string, error)
+
+	ParseToken(token string, valueBuilder mdl.ValueBuilder) (*tkns.PagingToken, error)
+}
 
 type QueryParser interface {
 	Parse(
@@ -18,6 +29,7 @@ type QueryParser interface {
 func BuildQuery(
 	queryString string,
 	queryParser QueryParser,
+	pagingTokenBuilder PagingTokenBuilder,
 	valueBuilder mdl.ValueBuilder,
 	rootResource mdl.TableMetadata,
 	accessPolicy mdl.AccessPolicy,
@@ -36,6 +48,20 @@ func BuildQuery(
 	// Parse query string into data store
 	if err := queryParser.Parse(queryString, s); err != nil {
 		return nil, err
+	}
+
+	// Parse Token
+	if tknStr, exists := s.PagingToken(); exists {
+		tkn, err := pagingTokenBuilder.ParseToken(
+			tknStr,
+			valueBuilder,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		// TODO implement token logic
+		_ = tkn
 	}
 
 	// Configure the query
@@ -65,6 +91,11 @@ func configureQuery(s qstore.QueryDataStore) error {
 
 	// Add any required systems selects/expands required for cursor pagination
 	if err := addRequiredOperationsForCursorPagination(s); err != nil {
+		return err
+	}
+
+	// Set system limit for pagination record
+	if err := setSystemLimit(s); err != nil {
 		return err
 	}
 
@@ -223,4 +254,15 @@ func addSystemExpand(s qstore.QueryDataStore, resolvedColumn mdl.ResolvedColumn)
 		currentStore = nestedOperations
 	}
 	return nil
+}
+
+func setSystemLimit(s qstore.QueryDataStore) error {
+	l := int(s.Limit())
+
+	// Set system limit
+	if s.IsTopLevelQuery() && s.DoCount() {
+		l++
+	}
+
+	return s.SetSystemLimit(l)
 }

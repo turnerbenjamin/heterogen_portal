@@ -4,7 +4,6 @@ import (
 	"context"
 	"sync"
 
-	tkns "github.com/turnerbenjamin/heterogen_portal/internal/query/paginationTokens"
 	bldr "github.com/turnerbenjamin/heterogen_portal/internal/query/queryBuilder"
 	qstore "github.com/turnerbenjamin/heterogen_portal/internal/query/queryDataStore"
 	qerr "github.com/turnerbenjamin/heterogen_portal/internal/query/queryError"
@@ -28,15 +27,6 @@ type QueryExecutor interface {
 	) ([]byte, *int64, error)
 }
 
-type PagingTokenBuilder interface {
-	BuildToken(
-		queryDataStore qstore.QueryDataStore,
-		lastRecord mdl.TableModel,
-	) (string, error)
-
-	ParseToken(token string, valueBuilder mdl.ValueBuilder) (*tkns.PagingToken, error)
-}
-
 type nestedQueryResult struct {
 	link    mdl.TraversalStep
 	results []mdl.TableModel
@@ -49,15 +39,29 @@ type ExecuteResult struct {
 }
 
 type Query struct {
-	ctx               context.Context
-	queryString       string
-	queryExecutor     QueryExecutor
-	tableMetadata     mdl.TableMetadata
-	AccessPolicy      mdl.AccessPolicy
-	TableAccessPolicy mdl.TableAccessPolicy
-	queryDataStore    qstore.QueryDataStore
-	valueBuilder      mdl.ValueBuilder
+	ctx                  context.Context
+	queryString          string
+	queryExecutor        QueryExecutor
+	tableMetadata        mdl.TableMetadata
+	AccessPolicy         mdl.AccessPolicy
+	TableAccessPolicy    mdl.TableAccessPolicy
+	queryDataStore       qstore.QueryDataStore
+	valueBuilder         mdl.ValueBuilder
+	nextPageTokenBuilder bldr.PagingTokenBuilder
 }
+
+// TODO simplify query to wiring only
+// Add a query executor factory struct which takes a config - This can then be
+// passed to the services as the sole dependency needed for queries. The query
+// factory will simply initialise a query using dependencies from the current
+// package. Query should have very little in it, it will be responsible for
+// wiring and won't be unit tested.
+//
+// Query executor will change to repository and the execution logic will move to
+// a new query executor which will be the main control - Building the query,
+// generating statements, sending to the repo, and stitching together results
+//
+// This should get things set up nicely for unit testing
 
 func NewQuery(
 	ctx context.Context,
@@ -65,7 +69,7 @@ func NewQuery(
 	accessPolicy mdl.AccessPolicy,
 	resourceName string,
 	queryString string,
-	nextPageTokenBuilder PagingTokenBuilder,
+	nextPageTokenBuilder bldr.PagingTokenBuilder,
 	queryParser bldr.QueryParser,
 	queryExecutor QueryExecutor,
 ) (*Query, error) {
@@ -89,6 +93,7 @@ func NewQuery(
 	queryDataStore, err := bldr.BuildQuery(
 		queryString,
 		queryParser,
+		nextPageTokenBuilder,
 		valueBuilder,
 		resource,
 		accessPolicy,
@@ -98,12 +103,13 @@ func NewQuery(
 	}
 
 	q := &Query{
-		ctx:            ctx,
-		queryString:    queryString,
-		queryExecutor:  queryExecutor,
-		tableMetadata:  resource,
-		queryDataStore: queryDataStore,
-		valueBuilder:   valueBuilder,
+		ctx:                  ctx,
+		queryString:          queryString,
+		queryExecutor:        queryExecutor,
+		tableMetadata:        resource,
+		queryDataStore:       queryDataStore,
+		valueBuilder:         valueBuilder,
+		nextPageTokenBuilder: nextPageTokenBuilder,
 	}
 	return q, nil
 }
@@ -149,29 +155,30 @@ func (q *Query) Execute() (*ExecuteResult, error) {
 
 	// Top level queries set the limit to the requested limit + 1 so that it is
 	// possible to determine if a next page of results exists
-	/*
-		var nextPageToken string
-		limit := q.queryDataStore.Limit()
-		isNextRecord := len(queryResults) > int(limit)
+	var nextPageToken string
+	limit := q.queryDataStore.Limit()
+	isNextRecord := len(queryResults) > int(limit)
 
+	if isNextRecord {
+		// If there is a next page of results, trim the sentinel record from the
+		// query results
+		queryResults = queryResults[0:limit]
 
-		if isNextRecord {
-			// If there is a next page of results, trim the sentinel record from the
-			// query results
-			queryResults = queryResults[0:limit]
+		// Generate the next page token using the actual last record
+		lastRecord := queryResults[len(queryResults)-1]
 
-			// Generate the next page token using the actual last record
-			lastRecord := queryResults[len(queryResults)-1]
-			nextPageToken, err = q.queryBuilder.operations.GetPagingToken(lastRecord)
-			if err != nil {
-				return nil, err
-			}
+		nextPageToken, err = q.nextPageTokenBuilder.BuildToken(
+			q.queryDataStore,
+			lastRecord,
+		)
+		if err != nil {
+			return nil, err
 		}
-	*/
+	}
 
 	return &ExecuteResult{
 		Count:         count,
-		NextPageToken: "",
+		NextPageToken: nextPageToken,
 		Data:          queryResults,
 	}, nil
 }

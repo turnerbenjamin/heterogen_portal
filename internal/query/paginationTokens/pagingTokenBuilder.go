@@ -87,6 +87,7 @@ func getCursorValues(
 		}
 
 		cursorValues[i] = nextRecordValue
+		i++
 	}
 	return cursorValues, nil
 }

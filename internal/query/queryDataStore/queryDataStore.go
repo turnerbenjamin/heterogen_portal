@@ -66,6 +66,9 @@ type QueryDataStore interface {
 	SetLimit(limit int) error
 	Limit() uint16
 
+	SetSystemLimit(limit int) error
+	SystemLimit() uint16
+
 	SetDoCount(doCount bool)
 	DoCount() bool
 
@@ -110,6 +113,7 @@ type queryDataStore struct {
 	orderBy     []mdl.SortingRule
 	doCount     bool
 	limit       uint16
+	systemLimit uint16
 	pagingToken string
 }
 
@@ -444,8 +448,20 @@ func (qd *queryDataStore) SetLimit(limit int) error {
 	return nil
 }
 
+func (qd *queryDataStore) SetSystemLimit(limit int) error {
+	if limit < 0 || limit > math.MaxUint16-1 {
+		return qerr.InternalErr("limit must be between 1 and %d", math.MaxUint16-1)
+	}
+	qd.systemLimit = uint16(limit)
+	return nil
+}
+
 func (qd *queryDataStore) Limit() uint16 {
 	return qd.limit
+}
+
+func (qd *queryDataStore) SystemLimit() uint16 {
+	return qd.systemLimit
 }
 
 func (qd *queryDataStore) SetPagingToken(pagingToken string) {

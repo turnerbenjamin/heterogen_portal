@@ -9,7 +9,6 @@ import (
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/turnerbenjamin/heterogen_portal/internal/etc"
-	"github.com/turnerbenjamin/heterogen_portal/internal/query"
 	"github.com/turnerbenjamin/heterogen_portal/internal/query/paginationTokens"
 	"github.com/turnerbenjamin/heterogen_portal/internal/query/queryBuilder"
 	"github.com/turnerbenjamin/heterogen_portal/internal/query/queryParser"
@@ -26,7 +25,7 @@ type appDependencies struct {
 	newOidcProvider      func(ctx context.Context, issuer string) (services.OidcProvider, error)
 	randReader           services.RandReader
 	queryParser          queryBuilder.QueryParser
-	nextPageTokenBuilder query.PagingTokenBuilder
+	nextPageTokenBuilder queryBuilder.PagingTokenBuilder
 }
 
 func initAppDependencies(appSettings *etc.AppSettings) (*appDependencies, error) {

@@ -345,8 +345,8 @@ func (ds *deserialiser) DeserialiseUint32() (uint32, error) {
 }
 
 func (s *serialiser) SerialiseUint16(n uint16) {
-	var vb [4]byte
-	binary.BigEndian.PutUint32(vb[:], querySchemaVersion)
+	var vb [2]byte
+	binary.BigEndian.PutUint16(vb[:], n)
 	_, _ = s.buf.Write(vb[:])
 }
 

@@ -360,7 +360,7 @@ func (w *queryWriter) writeOrderByStatement() error {
 }
 
 func (w *queryWriter) writeLimitStatement() error {
-	limit := w.queryDataStore.Limit()
+	limit := w.queryDataStore.SystemLimit()
 	if limit == 0 {
 		return qerr.InternalErr("expected either a user or system defined limit operation")
 	}
