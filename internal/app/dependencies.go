@@ -10,6 +10,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/turnerbenjamin/heterogen_portal/internal/etc"
 	"github.com/turnerbenjamin/heterogen_portal/internal/query"
+	"github.com/turnerbenjamin/heterogen_portal/internal/query/queryBuilder"
 	"github.com/turnerbenjamin/heterogen_portal/internal/query/queryParser"
 	"github.com/turnerbenjamin/heterogen_portal/internal/services"
 	"github.com/turnerbenjamin/heterogen_portal/internal/utils"
@@ -23,7 +24,7 @@ type appDependencies struct {
 	httpClient           *http.Client
 	newOidcProvider      func(ctx context.Context, issuer string) (services.OidcProvider, error)
 	randReader           services.RandReader
-	queryParser          query.QueryParser
+	queryParser          queryBuilder.QueryParser
 	nextPageTokenBuilder query.PagingTokenBuilder
 }
 

@@ -4,18 +4,13 @@ import (
 	"context"
 	"sync"
 
+	bldr "github.com/turnerbenjamin/heterogen_portal/internal/query/queryBuilder"
 	qstore "github.com/turnerbenjamin/heterogen_portal/internal/query/queryDataStore"
 	qerr "github.com/turnerbenjamin/heterogen_portal/internal/query/queryError"
 	mdl "github.com/turnerbenjamin/heterogen_portal/internal/query/queryModel"
+	"github.com/turnerbenjamin/heterogen_portal/internal/query/queryWriter"
 	"golang.org/x/sync/errgroup"
 )
-
-type QueryParser interface {
-	Parse(
-		queryString string,
-		queryDataStore qstore.QueryDataStore,
-	) error
-}
 
 type QueryExecutor interface {
 	ExecuteJsonRequest(
@@ -60,7 +55,6 @@ type Query struct {
 	AccessPolicy      mdl.AccessPolicy
 	TableAccessPolicy mdl.TableAccessPolicy
 	queryDataStore    qstore.QueryDataStore
-	queryBuilder      *sqlQueryBuilder
 }
 
 func NewQuery(
@@ -70,7 +64,7 @@ func NewQuery(
 	resourceName string,
 	queryString string,
 	nextPageTokenBuilder PagingTokenBuilder,
-	queryParser QueryParser,
+	queryParser bldr.QueryParser,
 	queryExecutor QueryExecutor,
 ) (*Query, error) {
 	resource := schema.GetTableMetadata(resourceName)
@@ -88,19 +82,16 @@ func NewQuery(
 	}
 
 	// Build query
-	queryDataStore, err := BuildQuery(queryString, queryParser, resource, accessPolicy)
+	queryDataStore, err := bldr.BuildQuery(queryString, queryParser, resource, accessPolicy)
 	if err != nil {
 		return nil, err
 	}
-
-	queryBuilder := newSqlQueryBuilder(queryDataStore)
 
 	q := &Query{
 		ctx:            ctx,
 		queryString:    queryString,
 		queryExecutor:  queryExecutor,
 		tableMetadata:  resource,
-		queryBuilder:   queryBuilder,
 		queryDataStore: queryDataStore,
 	}
 	return q, nil
@@ -116,16 +107,20 @@ func (q *Query) Execute() (*ExecuteResult, error) {
 		)
 	}
 
-	query, countStatement, err := q.queryBuilder.buildTopLevelQuery()
+	w, err := queryWriter.NewQueryWriter(q.queryDataStore)
 	if err != nil {
 		return nil, err
 	}
 
+	queryStatement := w.WriteQueryStatement()
+	countStatement := w.WriteCountStatement()
+	args := w.Args()
+
 	json, count, err := q.queryExecutor.ExecuteJsonRequestWithCount(
 		q.ctx,
-		query.statement,
+		queryStatement,
 		countStatement,
-		query.args,
+		args,
 	)
 	if err != nil {
 		return nil, qerr.InternalErr("query executor failed: %v", err)
@@ -251,13 +246,15 @@ func (q *Query) executeNestedQueries(s qstore.QueryDataStore) ([]mdl.TableModel,
 		)
 	}
 
-	queryBuilder := newSqlQueryBuilder(s)
-	query, err := queryBuilder.build()
+	w, err := queryWriter.NewQueryWriter(s)
 	if err != nil {
 		return nil, err
 	}
 
-	json, err := q.queryExecutor.ExecuteJsonRequest(q.ctx, query.statement, query.args)
+	queryStatement := w.WriteQueryStatement()
+	args := w.Args()
+
+	json, err := q.queryExecutor.ExecuteJsonRequest(q.ctx, queryStatement, args)
 	if err != nil {
 		return nil, qerr.InternalErr("query executor failed: %v", err)
 	}

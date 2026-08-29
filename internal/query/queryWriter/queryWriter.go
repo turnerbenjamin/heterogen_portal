@@ -1,4 +1,4 @@
-package query
+package queryWriter
 
 import (
 	"fmt"
@@ -23,25 +23,15 @@ type stringCoords struct {
 	right int
 }
 
-type queryWriter struct {
-	sb              *strings.Builder
-	args            []any
-	statement       string
-	selectLocation  stringCoords
-	fromLocation    stringCoords
-	filterLocation  stringCoords
-	orderByLocation stringCoords
-}
-
 // arg adds a new argument to the args list and returns a unique placeholder for
 // use in the sql statement
-func (q *queryWriter) Placeholder(v any) string {
-	q.args = append(q.args, v)
-	return fmt.Sprintf("@p%d", len(q.args))
+func (w *QueryWriter) Placeholder(v any) string {
+	w.args = append(w.args, v)
+	return fmt.Sprintf("@p%d", len(w.args))
 }
 
-func (q *queryWriter) Write(statement string, args ...any) {
-	fmt.Fprintf(q.sb, statement, args...)
+func (w *QueryWriter) Write(statement string, args ...any) {
+	fmt.Fprintf(w.sb, statement, args...)
 }
 
 // aliasedResource binds a resourse to a table alias in an sql query
@@ -59,19 +49,65 @@ type aliasedResource struct {
 // }
 
 // sqlQueryBuilder is used to build and execute sql queries
-type sqlQueryBuilder struct {
+// type sqlQueryBuilder struct {
+// 	queryDataStore qstore.QueryDataStore
+// 	aliasStore     relationships.AliasStore
+// }
+
+type QueryWriter struct {
 	queryDataStore qstore.QueryDataStore
 	aliasStore     relationships.AliasStore
+
+	sb              *strings.Builder
+	args            []any
+	statement       string
+	countStatement  string
+	selectLocation  stringCoords
+	fromLocation    stringCoords
+	filterLocation  stringCoords
+	orderByLocation stringCoords
 }
 
 // newSqlQueryBuilder constructs a new sqlQueryBuilderInstance from
 // QueryOperations. It will return an error if the operations cannot be bound to
 // the schema metadata
-func newSqlQueryBuilder(queryDataStore qstore.QueryDataStore) *sqlQueryBuilder {
-	return &sqlQueryBuilder{
-		queryDataStore: queryDataStore,
-		aliasStore:     queryDataStore.GetAliasStore(),
+// func newSqlQueryBuilder(queryDataStore qstore.QueryDataStore) *sqlQueryBuilder {
+// 	return &sqlQueryBuilder{
+// 		queryDataStore: queryDataStore,
+// 		aliasStore:     queryDataStore.GetAliasStore(),
+// 	}
+// }
+
+func NewQueryWriter(s qstore.QueryDataStore) (*QueryWriter, error) {
+	w := QueryWriter{
+		queryDataStore: s,
+		aliasStore:     s.GetAliasStore(),
+		sb:             &strings.Builder{},
+		args:           []any{},
 	}
+
+	err := w.writeQuery()
+	if err != nil {
+		return nil, err
+	}
+	w.statement = w.sb.String()
+
+	return &w, nil
+}
+
+func (w QueryWriter) WriteQueryStatement() string {
+	return w.statement
+}
+
+func (w QueryWriter) WriteCountStatement() string {
+	if w.countStatement == "" {
+		w.buildCountStatement()
+	}
+	return w.countStatement
+}
+
+func (w QueryWriter) Args() []any {
+	return w.args
 }
 
 // func (b *sqlQueryBuilder) newNestedSqlQueryBuilder(
@@ -135,69 +171,51 @@ func newSqlQueryBuilder(queryDataStore qstore.QueryDataStore) *sqlQueryBuilder {
 // 	)
 // }
 
-func (b *sqlQueryBuilder) build() (*sqlQuery, error) {
-	w := &queryWriter{
-		sb:   &strings.Builder{},
-		args: []any{},
-	}
+// func (b *queryWriter) buildTopLevelQuery() (*sqlQuery, string, error) {
+// 	// Initialise a streaming query writer
+// 	w := &queryWriter{
+// 		sb:   &strings.Builder{},
+// 		args: []any{},
+// 	}
 
-	err := b.writeQuery(w)
-	if err != nil {
-		return nil, err
-	}
-	w.statement = w.sb.String()
+// 	// Write the main query
+// 	err := b.writeQuery()
+// 	if err != nil {
+// 		return nil, "", err
+// 	}
+// 	w.statement = w.sb.String()
 
-	return &sqlQuery{
-		statement: w.sb.String(),
-		args:      w.args,
-	}, nil
-}
+// 	// Construct the count statement
+// 	countStatement := b.buildCountStatement()
 
-func (b *sqlQueryBuilder) buildTopLevelQuery() (*sqlQuery, string, error) {
-	// Initialise a streaming query writer
-	w := &queryWriter{
-		sb:   &strings.Builder{},
-		args: []any{},
-	}
+// 	return &sqlQuery{
+// 		statement: w.sb.String(),
+// 		args:      w.args,
+// 	}, countStatement, nil
 
-	// Write the main query
-	err := b.writeQuery(w)
-	if err != nil {
-		return nil, "", err
-	}
-	w.statement = w.sb.String()
+// }
 
-	// Construct the count statement
-	countStatement := b.buildCountStatement(w)
-
-	return &sqlQuery{
-		statement: w.sb.String(),
-		args:      w.args,
-	}, countStatement, nil
-
-}
-
-func (b *sqlQueryBuilder) writeQuery(w *queryWriter) error {
-	err := b.writeSelectStatement(w)
+func (w *QueryWriter) writeQuery() error {
+	err := w.writeSelectStatement()
 	if err != nil {
 		return err
 	}
 
-	b.writeFromStatement(w)
+	w.writeFromStatement()
 
-	b.writeJoins(w, b.queryDataStore.JoinCollection())
+	w.writeJoins(w.queryDataStore.JoinCollection())
 
-	err = b.writeFilterStatement(w)
+	err = w.writeFilterStatement()
 	if err != nil {
 		return err
 	}
 
-	err = b.writeOrderByStatement(w)
+	err = w.writeOrderByStatement()
 	if err != nil {
 		return err
 	}
 
-	err = b.writeLimitStatement(w)
+	err = w.writeLimitStatement()
 	if err != nil {
 		return err
 	}
@@ -208,7 +226,7 @@ func (b *sqlQueryBuilder) writeQuery(w *queryWriter) error {
 	return nil
 }
 
-func (b *sqlQueryBuilder) buildCountStatement(w *queryWriter) string {
+func (w *QueryWriter) buildCountStatement() {
 	coreQueryString := w.sb.String()
 
 	countSb := strings.Builder{}
@@ -223,14 +241,14 @@ func (b *sqlQueryBuilder) buildCountStatement(w *queryWriter) string {
 	countSb.WriteString(filterString)
 	countSb.WriteRune(';')
 
-	return countSb.String()
+	w.countStatement = countSb.String()
 }
 
-func (b *sqlQueryBuilder) writeFromStatement(w *queryWriter) {
+func (w *QueryWriter) writeFromStatement() {
 	w.fromLocation.left = w.sb.Len()
 
-	rootResource := b.queryDataStore.RootResource()
-	rootAlias := b.aliasStore.GetRootAlias()
+	rootResource := w.queryDataStore.RootResource()
+	rootAlias := w.aliasStore.GetRootAlias()
 
 	w.sb.WriteString("FROM ")
 	w.sb.WriteString(rootResource.FullyQualifiedName())
@@ -242,9 +260,9 @@ func (b *sqlQueryBuilder) writeFromStatement(w *queryWriter) {
 	w.sb.WriteRune(' ')
 }
 
-func (b *sqlQueryBuilder) writeSelectStatement(w *queryWriter) error {
+func (w *QueryWriter) writeSelectStatement() error {
 
-	if b.queryDataStore.SelectsLen() == 0 {
+	if w.queryDataStore.SelectsLen() == 0 {
 		return qerr.InternalErr("expected a select operation with at least one column specified")
 	}
 
@@ -252,7 +270,7 @@ func (b *sqlQueryBuilder) writeSelectStatement(w *queryWriter) error {
 	w.sb.WriteString("SELECT ")
 
 	i := 0
-	for _, columnValue := range b.queryDataStore.Selects() {
+	for _, columnValue := range w.queryDataStore.Selects() {
 		if i > 0 {
 			w.sb.WriteString(",")
 		}
@@ -260,8 +278,8 @@ func (b *sqlQueryBuilder) writeSelectStatement(w *queryWriter) error {
 		fmt.Fprintf(
 			w.sb,
 			"%s.%s",
-			b.aliasStore.GetRootAlias(),
-			b.formatSelectValue(columnValue.Metadata),
+			w.aliasStore.GetRootAlias(),
+			w.formatSelectValue(columnValue.Metadata),
 		)
 		i++
 	}
@@ -272,7 +290,7 @@ func (b *sqlQueryBuilder) writeSelectStatement(w *queryWriter) error {
 	return nil
 }
 
-func (b *sqlQueryBuilder) formatSelectValue(columnData mdl.ColumnMetadata) string {
+func (w *QueryWriter) formatSelectValue(columnData mdl.ColumnMetadata) string {
 	switch columnData.Type() {
 	case mdl.DbTypeGeography:
 		return fmt.Sprintf("%s.STAsText() AS %s", columnData.Name(), columnData.Name())
@@ -281,7 +299,7 @@ func (b *sqlQueryBuilder) formatSelectValue(columnData mdl.ColumnMetadata) strin
 	}
 }
 
-func (b *sqlQueryBuilder) writeJoins(w *queryWriter, joinCollection relationships.JoinCollection) {
+func (w *QueryWriter) writeJoins(joinCollection relationships.JoinCollection) {
 	for _, join := range joinCollection.Joins() {
 		relationship := join.Step.Relationship
 
@@ -297,14 +315,14 @@ func (b *sqlQueryBuilder) writeJoins(w *queryWriter, joinCollection relationship
 
 		if join.SubJoins.JoinsLen() > 0 {
 			w.sb.WriteRune(' ')
-			b.writeJoins(w, join.SubJoins)
+			w.writeJoins(join.SubJoins)
 		}
 		w.sb.WriteRune(' ')
 	}
 }
 
-func (b *sqlQueryBuilder) writeOrderByStatement(w *queryWriter) error {
-	if b.queryDataStore.OrderByLen() == 0 {
+func (w *QueryWriter) writeOrderByStatement() error {
+	if w.queryDataStore.OrderByLen() == 0 {
 		return qerr.InternalErr("expected an orderby operation with at least the primary column specified")
 	}
 
@@ -312,8 +330,8 @@ func (b *sqlQueryBuilder) writeOrderByStatement(w *queryWriter) error {
 	w.sb.WriteString("ORDER BY ")
 
 	i := 0
-	for r := range b.queryDataStore.OrderBy() {
-		tableAlias, exists := b.aliasStore.GetJoinAlias(r.ResolvedColumn.ResolvedPath)
+	for r := range w.queryDataStore.OrderBy() {
+		tableAlias, exists := w.aliasStore.GetJoinAlias(r.ResolvedColumn.ResolvedPath)
 		if !exists {
 			return qerr.InternalErr(
 				"unable to access join alias for path %s",
@@ -341,8 +359,8 @@ func (b *sqlQueryBuilder) writeOrderByStatement(w *queryWriter) error {
 	return nil
 }
 
-func (b *sqlQueryBuilder) writeLimitStatement(w *queryWriter) error {
-	limit := b.queryDataStore.Limit()
+func (w *QueryWriter) writeLimitStatement() error {
+	limit := w.queryDataStore.Limit()
 	if limit == 0 {
 		return qerr.InternalErr("expected either a user or system defined limit operation")
 	}
@@ -352,8 +370,8 @@ func (b *sqlQueryBuilder) writeLimitStatement(w *queryWriter) error {
 	return nil
 }
 
-func (b *sqlQueryBuilder) writeFilterStatement(w *queryWriter) error {
-	filterExpression := b.queryDataStore.FilterExpression()
+func (w *QueryWriter) writeFilterStatement() error {
+	filterExpression := w.queryDataStore.FilterExpression()
 	if filterExpression == nil {
 		return nil
 	}
@@ -363,11 +381,11 @@ func (b *sqlQueryBuilder) writeFilterStatement(w *queryWriter) error {
 	w.sb.WriteString("WHERE ")
 
 	rootResource := &aliasedResource{
-		resource: b.queryDataStore.RootResource(),
-		alias:    b.aliasStore.GetRootAlias(),
+		resource: w.queryDataStore.RootResource(),
+		alias:    w.aliasStore.GetRootAlias(),
 	}
 
-	err := b.buildFilterExpression(rootResource, filterExpression, w)
+	err := w.buildFilterExpression(rootResource, filterExpression)
 	if err != nil {
 		return err
 	}
@@ -378,27 +396,25 @@ func (b *sqlQueryBuilder) writeFilterStatement(w *queryWriter) error {
 	return nil
 }
 
-func (b *sqlQueryBuilder) buildFilterExpression(
+func (w *QueryWriter) buildFilterExpression(
 	rootResource *aliasedResource,
 	expression mdl.FilterExpression,
-	o *queryWriter,
 ) error {
 	switch expression := expression.(type) {
 	case *mdl.LogicalExpression:
-		return b.buildLogicalExpression(rootResource, expression, o)
+		return w.buildLogicalExpression(rootResource, expression)
 	case *mdl.ComparisonExpression:
-		return b.buildComparisonExpression(expression, rootResource, o)
+		return w.buildComparisonExpression(expression, rootResource)
 	case *mdl.CollectionExpression:
-		return b.buildCollectionExpression(expression, rootResource, o)
+		return w.buildCollectionExpression(expression, rootResource)
 	default:
 		return qerr.InternalErr("unexpected filter expression received")
 	}
 }
 
-func (b *sqlQueryBuilder) buildLogicalExpression(
+func (w *QueryWriter) buildLogicalExpression(
 	rootResource *aliasedResource,
 	expression *mdl.LogicalExpression,
-	w *queryWriter,
 ) error {
 	operator := ""
 	switch expression.Operator {
@@ -410,20 +426,19 @@ func (b *sqlQueryBuilder) buildLogicalExpression(
 		return qerr.InternalErr("unexpected logical operator received '%v'", operator)
 	}
 	w.sb.WriteRune('(')
-	b.buildFilterExpression(rootResource, expression.Left, w)
+	w.buildFilterExpression(rootResource, expression.Left)
 	w.sb.WriteRune(' ')
 	w.sb.WriteString(operator)
 	w.sb.WriteRune(' ')
-	b.buildFilterExpression(rootResource, expression.Right, w)
+	w.buildFilterExpression(rootResource, expression.Right)
 	w.sb.WriteRune(')')
 
 	return nil
 }
 
-func (b *sqlQueryBuilder) buildComparisonExpression(
+func (w *QueryWriter) buildComparisonExpression(
 	ex *mdl.ComparisonExpression,
 	rootResource *aliasedResource,
-	w *queryWriter,
 ) error {
 	if ex == nil {
 		return qerr.InternalErr("comparison expression is nil")
@@ -440,33 +455,30 @@ func (b *sqlQueryBuilder) buildComparisonExpression(
 		)
 	}
 
-	return b.writeExpressionWithPath(
+	return w.writeExpressionWithPath(
 		ex.ExistsNodes,
 		writeExpression,
 		false,
-		w,
 	)
 }
 
-func (b *sqlQueryBuilder) buildCollectionExpression(
+func (w *QueryWriter) buildCollectionExpression(
 	ex *mdl.CollectionExpression,
 	rootResource *aliasedResource,
-	w *queryWriter,
 ) error {
 	writeExpression := func(endResource *aliasedResource) error {
 		if endResource == nil {
 			endResource = rootResource
 		}
-		return b.buildFilterExpression(
+		return w.buildFilterExpression(
 			endResource,
 			ex.FilterExpression,
-			w,
 		)
 	}
 
 	doNegate := ex.Operator == mdl.CollectionAll
 	if doNegate {
-		negatedCondition, err := b.negate(ex.FilterExpression)
+		negatedCondition, err := w.negate(ex.FilterExpression)
 		if err != nil {
 			return err
 		}
@@ -474,19 +486,17 @@ func (b *sqlQueryBuilder) buildCollectionExpression(
 		ex.FilterExpression = negatedCondition
 	}
 
-	return b.writeExpressionWithPath(
+	return w.writeExpressionWithPath(
 		ex.ExistsNodes,
 		writeExpression,
 		doNegate,
-		w,
 	)
 }
 
-func (b *sqlQueryBuilder) writeExpressionWithPath(
+func (w *QueryWriter) writeExpressionWithPath(
 	existsNodes []mdl.ExistsNodeNew,
 	writeExpression func(resource *aliasedResource) error,
 	doNegate bool,
-	w *queryWriter,
 ) error {
 	if existsNodes == nil {
 		return qerr.InternalErr("exists nodes should not be nil")
@@ -527,11 +537,10 @@ func (b *sqlQueryBuilder) writeExpressionWithPath(
 			return err
 		}
 	} else {
-		if err := b.writeExpressionWithPath(
+		if err := w.writeExpressionWithPath(
 			existsNodes[1:],
 			writeExpression,
 			doNegate,
-			w,
 		); err != nil {
 			return err
 		}
@@ -541,17 +550,17 @@ func (b *sqlQueryBuilder) writeExpressionWithPath(
 	return nil
 }
 
-func (b *sqlQueryBuilder) negate(expression mdl.FilterExpression) (mdl.FilterExpression, error) {
-	filterExpressionBuilder := b.queryDataStore.FilterExpressionBuilder()
+func (w *QueryWriter) negate(expression mdl.FilterExpression) (mdl.FilterExpression, error) {
+	filterExpressionBuilder := w.queryDataStore.FilterExpressionBuilder()
 
 	switch ex := expression.(type) {
 	case *mdl.LogicalExpression:
-		l, err := b.negate(ex.Left)
+		l, err := w.negate(ex.Left)
 		if err != nil {
 			return nil, err
 		}
 
-		r, err := b.negate(ex.Right)
+		r, err := w.negate(ex.Right)
 		if err != nil {
 			return nil, err
 		}
@@ -584,7 +593,7 @@ func (b *sqlQueryBuilder) negate(expression mdl.FilterExpression) (mdl.FilterExp
 			return nil, fmt.Errorf("unexpected collection operator received '%v'", ex.Operator)
 		}
 
-		expression, err := b.negate(ex.FilterExpression)
+		expression, err := w.negate(ex.FilterExpression)
 		if err != nil {
 			return nil, err
 		}

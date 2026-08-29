@@ -1,4 +1,4 @@
-package query
+package queryBuilder
 
 import (
 	qstore "github.com/turnerbenjamin/heterogen_portal/internal/query/queryDataStore"
@@ -7,6 +7,13 @@ import (
 )
 
 const MAX_LIMIT = 5000
+
+type QueryParser interface {
+	Parse(
+		queryString string,
+		queryDataStore qstore.QueryDataStore,
+	) error
+}
 
 func BuildQuery(
 	queryString string,

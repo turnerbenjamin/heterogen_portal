@@ -7,6 +7,7 @@ import (
 	"github.com/turnerbenjamin/heterogen_portal/internal/etc"
 	"github.com/turnerbenjamin/heterogen_portal/internal/model"
 	"github.com/turnerbenjamin/heterogen_portal/internal/query"
+	"github.com/turnerbenjamin/heterogen_portal/internal/query/queryBuilder"
 	"github.com/turnerbenjamin/heterogen_portal/internal/queryAccessPolicies"
 )
 
@@ -29,7 +30,7 @@ var schemaMetadata = model.NewSchemaMetadata()
 
 type QueryService struct {
 	queryRepo            QueryRepo
-	queryParser          query.QueryParser
+	queryParser          queryBuilder.QueryParser
 	nextPageTokenBuilder query.PagingTokenBuilder
 }
 
@@ -37,7 +38,7 @@ var accessPolicy = queryAccessPolicies.GetAnonymousAccessPolicy()
 
 func NewQueryService(
 	queryRepo QueryRepo,
-	queryParser query.QueryParser,
+	queryParser queryBuilder.QueryParser,
 	nextPageTokenBuilder query.PagingTokenBuilder,
 ) *QueryService {
 	return &QueryService{
