@@ -8,6 +8,7 @@ import (
 	"github.com/turnerbenjamin/heterogen_portal/internal/model"
 	"github.com/turnerbenjamin/heterogen_portal/internal/query"
 	"github.com/turnerbenjamin/heterogen_portal/internal/query/queryBuilder"
+	"github.com/turnerbenjamin/heterogen_portal/internal/query/queryExecutor"
 	"github.com/turnerbenjamin/heterogen_portal/internal/queryAccessPolicies"
 )
 
@@ -48,7 +49,7 @@ func NewQueryService(
 	}
 }
 
-func (s *QueryService) Execute(ctx context.Context, resource string, queryString string) (*query.ExecuteResult, *etc.AppError) {
+func (s *QueryService) Execute(ctx context.Context, resource string, queryString string) (*queryExecutor.ExecuteResult, *etc.AppError) {
 
 	q, err := query.NewQuery(
 		ctx,
@@ -78,5 +79,5 @@ func (s *QueryService) Execute(ctx context.Context, resource string, queryString
 			ResponseType: etc.ResponseTypeJson,
 		}
 	}
-	return results, nil
+	return &results, nil
 }

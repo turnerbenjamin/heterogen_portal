@@ -1,6 +1,7 @@
 package queryBuilder
 
 import (
+	"github.com/turnerbenjamin/heterogen_portal/internal/query/paginationTokens"
 	tkns "github.com/turnerbenjamin/heterogen_portal/internal/query/paginationTokens"
 	qstore "github.com/turnerbenjamin/heterogen_portal/internal/query/queryDataStore"
 	qerr "github.com/turnerbenjamin/heterogen_portal/internal/query/queryError"
@@ -35,6 +36,56 @@ func BuildQuery(
 	accessPolicy mdl.AccessPolicy,
 ) (qstore.QueryDataStore, error) {
 	// Initialise query data store
+	s, err := initStore(
+		queryString,
+		queryParser,
+		valueBuilder,
+		rootResource,
+		accessPolicy,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	// Parse Token
+	var pagingToken *tkns.PagingToken
+	if tknStr, exists := s.PagingToken(); exists {
+		pagingToken, err = pagingTokenBuilder.ParseToken(
+			tknStr,
+			valueBuilder,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		// TODO implement token validation logic
+		s, err = initStore(
+			pagingToken.QueryString,
+			queryParser,
+			valueBuilder,
+			rootResource,
+			accessPolicy,
+		)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	// Configure the query
+	if err := configureQuery(s, pagingToken); err != nil {
+		return nil, err
+	}
+
+	return s, err
+}
+
+func initStore(
+	queryString string,
+	queryParser QueryParser,
+	valueBuilder mdl.ValueBuilder,
+	rootResource mdl.TableMetadata,
+	accessPolicy mdl.AccessPolicy,
+) (qstore.QueryDataStore, error) {
 	s, err := qstore.NewQueryDataStore(
 		queryString,
 		rootResource,
@@ -50,30 +101,13 @@ func BuildQuery(
 		return nil, err
 	}
 
-	// Parse Token
-	if tknStr, exists := s.PagingToken(); exists {
-		tkn, err := pagingTokenBuilder.ParseToken(
-			tknStr,
-			valueBuilder,
-		)
-		if err != nil {
-			return nil, err
-		}
-
-		// TODO implement token logic
-		_ = tkn
-	}
-
-	// Configure the query
-	if err := configureQuery(s); err != nil {
-		return nil, err
-	}
-
-	return s, err
+	return s, nil
 }
 
-func configureQuery(s qstore.QueryDataStore) error {
-
+func configureQuery(
+	s qstore.QueryDataStore,
+	pagingToken *paginationTokens.PagingToken,
+) error {
 	// Validate user query as parsed before mutating
 	if err := validateUserQuery(s); err != nil {
 		return err
@@ -101,10 +135,13 @@ func configureQuery(s qstore.QueryDataStore) error {
 
 	// Configure expanded queries
 	for _, expansion := range s.Expands() {
-		if err := configureQuery(expansion.QueryData); err != nil {
+		if err := configureQuery(expansion.QueryData, nil); err != nil {
 			return err
 		}
 	}
+
+	// Add cursor filter where required
+	addCursorFilter(s, pagingToken)
 
 	return nil
 }
@@ -259,10 +296,162 @@ func addSystemExpand(s qstore.QueryDataStore, resolvedColumn mdl.ResolvedColumn)
 func setSystemLimit(s qstore.QueryDataStore) error {
 	l := int(s.Limit())
 
-	// Set system limit
-	if s.IsTopLevelQuery() && s.DoCount() {
+	// Set system limit as limit + 1 for top-level queries so that we can
+	// check if there are additional records
+	if s.IsTopLevelQuery() {
 		l++
 	}
 
 	return s.SetSystemLimit(l)
+}
+
+func addCursorFilter(
+	s qstore.QueryDataStore,
+	paginationToken *paginationTokens.PagingToken,
+) error {
+	if paginationToken == nil {
+		return nil
+	}
+
+	cursorValues := paginationToken.CursorValues
+
+	// validate that order by set and order by can be zipped to cursor values
+	if s.OrderByLen() == 0 || s.OrderByLen() != len(cursorValues) {
+		return qerr.InternalErr(
+			"expected at least one orderby rule with one value expression" +
+				"for each rule",
+		)
+	}
+
+	b := s.FilterExpressionBuilder()
+	// Build the cursor filter
+	var cursorFilter mdl.FilterExpression
+	i := 0
+	for rule := range s.OrderBy() {
+		cursorValue := cursorValues[i]
+
+		if rule.Direction == mdl.SortDirectionDesc &&
+			cursorValue.Type() == mdl.LiteralTypeNull {
+			continue
+		}
+
+		ruleExpression, err := getCursorFilterComparisonOperator(
+			rule,
+			cursorValue,
+			b,
+		)
+		if err != nil {
+			return err
+		}
+
+		if ruleExpression == nil {
+			return qerr.InternalErr("unable to generate cursor filter")
+		}
+
+		j := 0
+		for previousRule := range s.OrderBy() {
+			if j == i {
+				break
+			}
+
+			previousValue := cursorValues[j]
+			previousRuleFilter, err := b.NewComparisonExpressionFromResolvedColumn(
+				previousRule.ResolvedColumn,
+				mdl.ComparisonEq,
+				previousValue,
+			)
+			if err != nil {
+				return err
+			}
+
+			ruleExpression, err = b.NewLogicalExpression(
+				ruleExpression,
+				mdl.LogicalAnd,
+				previousRuleFilter,
+			)
+			if err != nil {
+				return err
+			}
+			j++
+		}
+
+		if cursorFilter == nil {
+			cursorFilter = ruleExpression
+		} else {
+			cursorFilter, err = b.NewLogicalExpression(
+				cursorFilter,
+				mdl.LogicalOr,
+				ruleExpression,
+			)
+			if err != nil {
+				return err
+			}
+		}
+		i++
+	}
+
+	if s.FilterExpression() == nil {
+		s.SetFilterExpression(cursorFilter)
+		return nil
+	}
+
+	finalFilter, err := b.NewLogicalExpression(
+		s.FilterExpression(),
+		mdl.LogicalAnd,
+		cursorFilter,
+	)
+	if err != nil {
+		return err
+	}
+	s.SetFilterExpression(finalFilter)
+
+	return nil
+}
+
+func getCursorFilterComparisonOperator(
+	rule mdl.SortingRule,
+	value mdl.ValueExpression,
+	b qstore.FilterExpressionBuilder,
+) (mdl.FilterExpression, error) {
+	if rule.Direction == mdl.SortDirectionAsc {
+		if value.Type() == mdl.LiteralTypeNull {
+			// Ascending logic for null value
+			return b.NewComparisonExpressionFromResolvedColumn(
+				rule.ResolvedColumn,
+				mdl.ComparisonNe,
+				value,
+			)
+		} else {
+			// Ascending logic for non-null value
+			return b.NewComparisonExpressionFromResolvedColumn(
+				rule.ResolvedColumn,
+				mdl.ComparisonGt,
+				value,
+			)
+		}
+	} else {
+		if value.Type() == mdl.LiteralTypeNull {
+			// Descending logic for null value, null is already the last value
+			// so do not add a filter
+			return nil, nil
+		}
+		l, err := b.NewComparisonExpressionFromResolvedColumn(
+			rule.ResolvedColumn,
+			mdl.ComparisonLt,
+			value,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		r, err := b.NewComparisonExpressionFromResolvedColumn(
+			rule.ResolvedColumn,
+			mdl.ComparisonEq,
+			b.ValueBuilder().Null(),
+		)
+		if err != nil {
+			return nil, err
+		}
+		return b.NewLogicalExpression(l, mdl.LogicalOr, r)
+	}
 }

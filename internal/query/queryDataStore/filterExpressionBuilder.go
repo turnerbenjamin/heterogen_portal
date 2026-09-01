@@ -55,6 +55,15 @@ func (eb filterExpressionBuilder) NewComparisonExpression(
 		)
 	}
 
+	return eb.NewComparisonExpressionFromResolvedColumn(column, operator, value)
+}
+
+
+func (eb filterExpressionBuilder) NewComparisonExpressionFromResolvedColumn(
+	column mdl.ResolvedColumn,
+	operator mdl.ComparisonOperator,
+	value mdl.ValueExpression,
+) (*mdl.ComparisonExpression, error) {
 	existsNodes := eb.relationshipPlanner.ProcessExists(column.ResolvedPath)
 
 	return &mdl.ComparisonExpression{
@@ -64,6 +73,7 @@ func (eb filterExpressionBuilder) NewComparisonExpression(
 		ExistsNodes:    existsNodes,
 	}, nil
 }
+
 
 func (eb filterExpressionBuilder) NewCollectionExpression(
 	resourcePath string,

@@ -589,9 +589,9 @@ type BusinessesModel struct {
 	CreatedById                    string               `json:"created_by_id"`
 	ModifiedAt                     *time.Time           `json:"modified_at"`
 	ModifiedById                   string               `json:"modified_by_id"`
-	FarmFieldsBusinessesBusinessId []*FarmFieldsModel   `json:"farm_fields_businesses_business_id"`
 	CreatedBy                      *UsersModel          `json:"created_by"`
 	ModifiedBy                     *UsersModel          `json:"modified_by"`
+	FarmFieldsBusinessesBusinessId []*FarmFieldsModel   `json:"farm_fields_businesses_business_id"`
 	projection                     BusinessesProjection `json:"-"`
 }
 
@@ -1062,12 +1062,12 @@ func (p *BusinessesProjection) Add(columnName string) error {
 		*p |= businessesProjectionModifiedAt
 	case "modified_by_id":
 		*p |= businessesProjectionModifiedById
+	case "modified_by":
+		*p |= businessesProjectionModifiedBy
 	case "farm_fields_businesses_business_id":
 		*p |= businessesProjectionFarmFieldsBusinessesBusinessId
 	case "created_by":
 		*p |= businessesProjectionCreatedBy
-	case "modified_by":
-		*p |= businessesProjectionModifiedBy
 	default:
 		return fmt.Errorf("unsupported column: '%s'", columnName)
 	}
@@ -1149,6 +1149,16 @@ var farmFieldsMetadata = &tableMetadata{
 		},
 	},
 	relationships: map[string]*relationship{
+		"modified_by_id": {
+			id:                  "farm_fields_modified_by_id_users_id",
+			columnName:          "modified_by_id",
+			expansionColumnName: "modified_by",
+			relationshipType:    queryModel.RelationshipManyToOne,
+			fromTableName:       "farm_fields",
+			toTableName:         "users",
+			fromColumnName:      "modified_by_id",
+			toColumnName:        "id",
+		},
 		"business_id": {
 			id:                  "farm_fields_business_id_businesses_id",
 			columnName:          "business_id",
@@ -1167,16 +1177,6 @@ var farmFieldsMetadata = &tableMetadata{
 			fromTableName:       "farm_fields",
 			toTableName:         "users",
 			fromColumnName:      "created_by_id",
-			toColumnName:        "id",
-		},
-		"modified_by_id": {
-			id:                  "farm_fields_modified_by_id_users_id",
-			columnName:          "modified_by_id",
-			expansionColumnName: "modified_by",
-			relationshipType:    queryModel.RelationshipManyToOne,
-			fromTableName:       "farm_fields",
-			toTableName:         "users",
-			fromColumnName:      "modified_by_id",
 			toColumnName:        "id",
 		},
 	},
@@ -1301,14 +1301,6 @@ func (m *FarmFieldsModel) MarshalJSON() ([]byte, error) {
 		isFirst = false
 	}
 
-	if m.projection.Has(farmFieldsProjectionBusiness) {
-		err := marshalProperty(&buf, isFirst, "business", m.Business)
-		if err != nil {
-			return nil, err
-		}
-		isFirst = false
-	}
-
 	if m.projection.Has(farmFieldsProjectionCreatedBy) {
 		err := marshalProperty(&buf, isFirst, "created_by", m.CreatedBy)
 		if err != nil {
@@ -1325,6 +1317,14 @@ func (m *FarmFieldsModel) MarshalJSON() ([]byte, error) {
 		isFirst = false
 	}
 
+	if m.projection.Has(farmFieldsProjectionBusiness) {
+		err := marshalProperty(&buf, isFirst, "business", m.Business)
+		if err != nil {
+			return nil, err
+		}
+		isFirst = false
+	}
+
 	buf.WriteByte('}')
 	return buf.Bytes(), nil
 }
@@ -1332,6 +1332,13 @@ func (m *FarmFieldsModel) MarshalJSON() ([]byte, error) {
 // SetRelationshipField sets a given relationship field on the hg.farm_fields table
 func (m *FarmFieldsModel) SetRelationshipField(relationshipId string, value queryModel.TableModel) error {
 	switch relationshipId {
+	case "farm_fields_business_id_businesses_id":
+		v, ok := value.(*BusinessesModel)
+		if !ok {
+			return errors.New("unexpected relationship type received")
+		}
+		m.Business = v
+
 	case "farm_fields_created_by_id_users_id":
 		v, ok := value.(*UsersModel)
 		if !ok {
@@ -1345,13 +1352,6 @@ func (m *FarmFieldsModel) SetRelationshipField(relationshipId string, value quer
 			return errors.New("unexpected relationship type received")
 		}
 		m.ModifiedBy = v
-
-	case "farm_fields_business_id_businesses_id":
-		v, ok := value.(*BusinessesModel)
-		if !ok {
-			return errors.New("unexpected relationship type received")
-		}
-		m.Business = v
 
 	default:
 		return fmt.Errorf("unknown relationship: %s", relationshipId)
@@ -1751,6 +1751,14 @@ func (m *UsersModel) MarshalJSON() ([]byte, error) {
 		isFirst = false
 	}
 
+	if m.projection.Has(usersProjectionBusinessesUsersCreatedById) {
+		err := marshalProperty(&buf, isFirst, "businesses_users_created_by_id", m.BusinessesUsersCreatedById)
+		if err != nil {
+			return nil, err
+		}
+		isFirst = false
+	}
+
 	if m.projection.Has(usersProjectionBusinessesUsersModifiedById) {
 		err := marshalProperty(&buf, isFirst, "businesses_users_modified_by_id", m.BusinessesUsersModifiedById)
 		if err != nil {
@@ -1769,14 +1777,6 @@ func (m *UsersModel) MarshalJSON() ([]byte, error) {
 
 	if m.projection.Has(usersProjectionFarmFieldsUsersModifiedById) {
 		err := marshalProperty(&buf, isFirst, "farm_fields_users_modified_by_id", m.FarmFieldsUsersModifiedById)
-		if err != nil {
-			return nil, err
-		}
-		isFirst = false
-	}
-
-	if m.projection.Has(usersProjectionBusinessesUsersCreatedById) {
-		err := marshalProperty(&buf, isFirst, "businesses_users_created_by_id", m.BusinessesUsersCreatedById)
 		if err != nil {
 			return nil, err
 		}
@@ -1828,17 +1828,17 @@ func (m *UsersModel) SetRelationshipField(relationshipId string, value queryMode
 // the hg.users table
 func (m *UsersModel) InitRelationshipField(relationshipId string) error {
 	switch relationshipId {
-	case "farm_fields_created_by_id_users_id":
-		m.FarmFieldsUsersCreatedById = []*FarmFieldsModel{}
-		return nil
-	case "farm_fields_modified_by_id_users_id":
-		m.FarmFieldsUsersModifiedById = []*FarmFieldsModel{}
-		return nil
 	case "businesses_created_by_id_users_id":
 		m.BusinessesUsersCreatedById = []*BusinessesModel{}
 		return nil
 	case "businesses_modified_by_id_users_id":
 		m.BusinessesUsersModifiedById = []*BusinessesModel{}
+		return nil
+	case "farm_fields_created_by_id_users_id":
+		m.FarmFieldsUsersCreatedById = []*FarmFieldsModel{}
+		return nil
+	case "farm_fields_modified_by_id_users_id":
+		m.FarmFieldsUsersModifiedById = []*FarmFieldsModel{}
 		return nil
 	default:
 		return fmt.Errorf("unknown relationship: %s", relationshipId)

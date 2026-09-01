@@ -99,9 +99,13 @@ type ValueBuilder interface {
 type QueryWriter interface {
 	Write(statement string, args ...any)
 	Placeholder(v any) string
+
+	WriteQueryStatement() string
+	WriteCountStatement() string
+	Args() []any
 }
 
-// TRY TO SIMPLIFY THIS
+// TODO TO SIMPLIFY THIS
 type ValueExpression interface {
 	Type() LiteralType
 	Value() any

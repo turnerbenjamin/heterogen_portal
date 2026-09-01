@@ -10,13 +10,6 @@ import (
 	"github.com/turnerbenjamin/heterogen_portal/internal/query/relationships"
 )
 
-// sqlQuery is used to build sql query data, it includes a strings builder for
-// constructing a statement and an args slice containing placeholder values.
-// statement is a materialisation of the strings builder post build
-type sqlQuery struct {
-	args      []any
-	statement string
-}
 
 type stringCoords struct {
 	left  int
@@ -78,7 +71,7 @@ type queryWriter struct {
 // 	}
 // }
 
-func NewQueryWriter(s qstore.QueryDataStore) (*queryWriter, error) {
+func NewQueryWriter(s qstore.QueryDataStore) (mdl.QueryWriter, error) {
 	w := queryWriter{
 		queryDataStore: s,
 		aliasStore:     s.GetAliasStore(),
@@ -365,7 +358,7 @@ func (w *queryWriter) writeLimitStatement() error {
 		return qerr.InternalErr("expected either a user or system defined limit operation")
 	}
 
-	w.sb.WriteString(fmt.Sprintf("OFFSET 0 ROWS FETCH NEXT %d ROWS ONLY", limit))
+	fmt.Fprintf(w.sb, "OFFSET 0 ROWS FETCH NEXT %d ROWS ONLY", limit)
 	w.sb.WriteRune(' ')
 	return nil
 }

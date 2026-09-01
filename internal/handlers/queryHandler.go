@@ -7,11 +7,11 @@ import (
 	"net/url"
 
 	"github.com/turnerbenjamin/heterogen_portal/internal/etc"
-	"github.com/turnerbenjamin/heterogen_portal/internal/query"
+	"github.com/turnerbenjamin/heterogen_portal/internal/query/queryExecutor"
 )
 
 type QueryService interface {
-	Execute(ctx context.Context, resource string, queryString string) (*query.ExecuteResult, *etc.AppError)
+	Execute(ctx context.Context, resource string, queryString string) (*queryExecutor.ExecuteResult, *etc.AppError)
 }
 
 type QueryHandler struct {

@@ -261,6 +261,52 @@ func (_c *MockFilterExpressionBuilder_NewLogicalExpression_Call) RunAndReturn(ru
 	return _c
 }
 
+// ValueBuilder provides a mock function for the type MockFilterExpressionBuilder
+func (_mock *MockFilterExpressionBuilder) ValueBuilder() queryModel.ValueBuilder {
+	ret := _mock.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for ValueBuilder")
+	}
+
+	var r0 queryModel.ValueBuilder
+	if returnFunc, ok := ret.Get(0).(func() queryModel.ValueBuilder); ok {
+		r0 = returnFunc()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(queryModel.ValueBuilder)
+		}
+	}
+	return r0
+}
+
+// MockFilterExpressionBuilder_ValueBuilder_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ValueBuilder'
+type MockFilterExpressionBuilder_ValueBuilder_Call struct {
+	*mock.Call
+}
+
+// ValueBuilder is a helper method to define mock.On call
+func (_e *MockFilterExpressionBuilder_Expecter) ValueBuilder() *MockFilterExpressionBuilder_ValueBuilder_Call {
+	return &MockFilterExpressionBuilder_ValueBuilder_Call{Call: _e.mock.On("ValueBuilder")}
+}
+
+func (_c *MockFilterExpressionBuilder_ValueBuilder_Call) Run(run func()) *MockFilterExpressionBuilder_ValueBuilder_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *MockFilterExpressionBuilder_ValueBuilder_Call) Return(valueBuilder queryModel.ValueBuilder) *MockFilterExpressionBuilder_ValueBuilder_Call {
+	_c.Call.Return(valueBuilder)
+	return _c
+}
+
+func (_c *MockFilterExpressionBuilder_ValueBuilder_Call) RunAndReturn(run func() queryModel.ValueBuilder) *MockFilterExpressionBuilder_ValueBuilder_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // NewMockQueryDataStore creates a new instance of MockQueryDataStore. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
 // The first argument is typically a *testing.T value.
 func NewMockQueryDataStore(t interface {
@@ -289,7 +335,7 @@ func (_m *MockQueryDataStore) EXPECT() *MockQueryDataStore_Expecter {
 }
 
 // AddAssociatedWithParentFilter provides a mock function for the type MockQueryDataStore
-func (_mock *MockQueryDataStore) AddAssociatedWithParentFilter(linkFromParent queryModel.TraversalStep, joinParentOnValues []string) error {
+func (_mock *MockQueryDataStore) AddAssociatedWithParentFilter(linkFromParent queryModel.TraversalStep, joinParentOnValues []queryModel.ValueExpression) error {
 	ret := _mock.Called(linkFromParent, joinParentOnValues)
 
 	if len(ret) == 0 {
@@ -297,7 +343,7 @@ func (_mock *MockQueryDataStore) AddAssociatedWithParentFilter(linkFromParent qu
 	}
 
 	var r0 error
-	if returnFunc, ok := ret.Get(0).(func(queryModel.TraversalStep, []string) error); ok {
+	if returnFunc, ok := ret.Get(0).(func(queryModel.TraversalStep, []queryModel.ValueExpression) error); ok {
 		r0 = returnFunc(linkFromParent, joinParentOnValues)
 	} else {
 		r0 = ret.Error(0)
@@ -312,20 +358,20 @@ type MockQueryDataStore_AddAssociatedWithParentFilter_Call struct {
 
 // AddAssociatedWithParentFilter is a helper method to define mock.On call
 //   - linkFromParent queryModel.TraversalStep
-//   - joinParentOnValues []string
+//   - joinParentOnValues []queryModel.ValueExpression
 func (_e *MockQueryDataStore_Expecter) AddAssociatedWithParentFilter(linkFromParent any, joinParentOnValues any) *MockQueryDataStore_AddAssociatedWithParentFilter_Call {
 	return &MockQueryDataStore_AddAssociatedWithParentFilter_Call{Call: _e.mock.On("AddAssociatedWithParentFilter", linkFromParent, joinParentOnValues)}
 }
 
-func (_c *MockQueryDataStore_AddAssociatedWithParentFilter_Call) Run(run func(linkFromParent queryModel.TraversalStep, joinParentOnValues []string)) *MockQueryDataStore_AddAssociatedWithParentFilter_Call {
+func (_c *MockQueryDataStore_AddAssociatedWithParentFilter_Call) Run(run func(linkFromParent queryModel.TraversalStep, joinParentOnValues []queryModel.ValueExpression)) *MockQueryDataStore_AddAssociatedWithParentFilter_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 queryModel.TraversalStep
 		if args[0] != nil {
 			arg0 = args[0].(queryModel.TraversalStep)
 		}
-		var arg1 []string
+		var arg1 []queryModel.ValueExpression
 		if args[1] != nil {
-			arg1 = args[1].([]string)
+			arg1 = args[1].([]queryModel.ValueExpression)
 		}
 		run(
 			arg0,
@@ -340,7 +386,7 @@ func (_c *MockQueryDataStore_AddAssociatedWithParentFilter_Call) Return(err erro
 	return _c
 }
 
-func (_c *MockQueryDataStore_AddAssociatedWithParentFilter_Call) RunAndReturn(run func(linkFromParent queryModel.TraversalStep, joinParentOnValues []string) error) *MockQueryDataStore_AddAssociatedWithParentFilter_Call {
+func (_c *MockQueryDataStore_AddAssociatedWithParentFilter_Call) RunAndReturn(run func(linkFromParent queryModel.TraversalStep, joinParentOnValues []queryModel.ValueExpression) error) *MockQueryDataStore_AddAssociatedWithParentFilter_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -854,6 +900,50 @@ func (_c *MockQueryDataStore_FilterExpressionBuilder_Call) RunAndReturn(run func
 	return _c
 }
 
+// GetAliasStore provides a mock function for the type MockQueryDataStore
+func (_mock *MockQueryDataStore) GetAliasStore() relationships.AliasStore {
+	ret := _mock.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetAliasStore")
+	}
+
+	var r0 relationships.AliasStore
+	if returnFunc, ok := ret.Get(0).(func() relationships.AliasStore); ok {
+		r0 = returnFunc()
+	} else {
+		r0 = ret.Get(0).(relationships.AliasStore)
+	}
+	return r0
+}
+
+// MockQueryDataStore_GetAliasStore_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetAliasStore'
+type MockQueryDataStore_GetAliasStore_Call struct {
+	*mock.Call
+}
+
+// GetAliasStore is a helper method to define mock.On call
+func (_e *MockQueryDataStore_Expecter) GetAliasStore() *MockQueryDataStore_GetAliasStore_Call {
+	return &MockQueryDataStore_GetAliasStore_Call{Call: _e.mock.On("GetAliasStore")}
+}
+
+func (_c *MockQueryDataStore_GetAliasStore_Call) Run(run func()) *MockQueryDataStore_GetAliasStore_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *MockQueryDataStore_GetAliasStore_Call) Return(aliasStore relationships.AliasStore) *MockQueryDataStore_GetAliasStore_Call {
+	_c.Call.Return(aliasStore)
+	return _c
+}
+
+func (_c *MockQueryDataStore_GetAliasStore_Call) RunAndReturn(run func() relationships.AliasStore) *MockQueryDataStore_GetAliasStore_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetExpansionByRelationshipId provides a mock function for the type MockQueryDataStore
 func (_mock *MockQueryDataStore) GetExpansionByRelationshipId(relationshipId string) (Expansion, bool) {
 	ret := _mock.Called(relationshipId)
@@ -910,66 +1000,6 @@ func (_c *MockQueryDataStore_GetExpansionByRelationshipId_Call) Return(expansion
 }
 
 func (_c *MockQueryDataStore_GetExpansionByRelationshipId_Call) RunAndReturn(run func(relationshipId string) (Expansion, bool)) *MockQueryDataStore_GetExpansionByRelationshipId_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
-// GetPathAlias provides a mock function for the type MockQueryDataStore
-func (_mock *MockQueryDataStore) GetPathAlias(pathId string) (string, bool) {
-	ret := _mock.Called(pathId)
-
-	if len(ret) == 0 {
-		panic("no return value specified for GetPathAlias")
-	}
-
-	var r0 string
-	var r1 bool
-	if returnFunc, ok := ret.Get(0).(func(string) (string, bool)); ok {
-		return returnFunc(pathId)
-	}
-	if returnFunc, ok := ret.Get(0).(func(string) string); ok {
-		r0 = returnFunc(pathId)
-	} else {
-		r0 = ret.Get(0).(string)
-	}
-	if returnFunc, ok := ret.Get(1).(func(string) bool); ok {
-		r1 = returnFunc(pathId)
-	} else {
-		r1 = ret.Get(1).(bool)
-	}
-	return r0, r1
-}
-
-// MockQueryDataStore_GetPathAlias_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetPathAlias'
-type MockQueryDataStore_GetPathAlias_Call struct {
-	*mock.Call
-}
-
-// GetPathAlias is a helper method to define mock.On call
-//   - pathId string
-func (_e *MockQueryDataStore_Expecter) GetPathAlias(pathId any) *MockQueryDataStore_GetPathAlias_Call {
-	return &MockQueryDataStore_GetPathAlias_Call{Call: _e.mock.On("GetPathAlias", pathId)}
-}
-
-func (_c *MockQueryDataStore_GetPathAlias_Call) Run(run func(pathId string)) *MockQueryDataStore_GetPathAlias_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		var arg0 string
-		if args[0] != nil {
-			arg0 = args[0].(string)
-		}
-		run(
-			arg0,
-		)
-	})
-	return _c
-}
-
-func (_c *MockQueryDataStore_GetPathAlias_Call) Return(s string, b bool) *MockQueryDataStore_GetPathAlias_Call {
-	_c.Call.Return(s, b)
-	return _c
-}
-
-func (_c *MockQueryDataStore_GetPathAlias_Call) RunAndReturn(run func(pathId string) (string, bool)) *MockQueryDataStore_GetPathAlias_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -1052,8 +1082,8 @@ func (_c *MockQueryDataStore_JoinCollection_Call) Run(run func()) *MockQueryData
 	return _c
 }
 
-func (_c *MockQueryDataStore_JoinCollection_Call) Return(joinCollectionNew relationships.JoinCollection) *MockQueryDataStore_JoinCollection_Call {
-	_c.Call.Return(joinCollectionNew)
+func (_c *MockQueryDataStore_JoinCollection_Call) Return(joinCollection relationships.JoinCollection) *MockQueryDataStore_JoinCollection_Call {
+	_c.Call.Return(joinCollection)
 	return _c
 }
 
@@ -1250,19 +1280,19 @@ func (_c *MockQueryDataStore_PagingToken_Call) RunAndReturn(run func() (string, 
 }
 
 // Projection provides a mock function for the type MockQueryDataStore
-func (_mock *MockQueryDataStore) Projection() []string {
+func (_mock *MockQueryDataStore) Projection() queryModel.Projection {
 	ret := _mock.Called()
 
 	if len(ret) == 0 {
 		panic("no return value specified for Projection")
 	}
 
-	var r0 []string
-	if returnFunc, ok := ret.Get(0).(func() []string); ok {
+	var r0 queryModel.Projection
+	if returnFunc, ok := ret.Get(0).(func() queryModel.Projection); ok {
 		r0 = returnFunc()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]string)
+			r0 = ret.Get(0).(queryModel.Projection)
 		}
 	}
 	return r0
@@ -1285,12 +1315,12 @@ func (_c *MockQueryDataStore_Projection_Call) Run(run func()) *MockQueryDataStor
 	return _c
 }
 
-func (_c *MockQueryDataStore_Projection_Call) Return(strings []string) *MockQueryDataStore_Projection_Call {
-	_c.Call.Return(strings)
+func (_c *MockQueryDataStore_Projection_Call) Return(projection queryModel.Projection) *MockQueryDataStore_Projection_Call {
+	_c.Call.Return(projection)
 	return _c
 }
 
-func (_c *MockQueryDataStore_Projection_Call) RunAndReturn(run func() []string) *MockQueryDataStore_Projection_Call {
+func (_c *MockQueryDataStore_Projection_Call) RunAndReturn(run func() queryModel.Projection) *MockQueryDataStore_Projection_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -1335,50 +1365,6 @@ func (_c *MockQueryDataStore_QueryString_Call) Return(s string) *MockQueryDataSt
 }
 
 func (_c *MockQueryDataStore_QueryString_Call) RunAndReturn(run func() string) *MockQueryDataStore_QueryString_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
-// RootAlias provides a mock function for the type MockQueryDataStore
-func (_mock *MockQueryDataStore) RootAlias() string {
-	ret := _mock.Called()
-
-	if len(ret) == 0 {
-		panic("no return value specified for RootAlias")
-	}
-
-	var r0 string
-	if returnFunc, ok := ret.Get(0).(func() string); ok {
-		r0 = returnFunc()
-	} else {
-		r0 = ret.Get(0).(string)
-	}
-	return r0
-}
-
-// MockQueryDataStore_RootAlias_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'RootAlias'
-type MockQueryDataStore_RootAlias_Call struct {
-	*mock.Call
-}
-
-// RootAlias is a helper method to define mock.On call
-func (_e *MockQueryDataStore_Expecter) RootAlias() *MockQueryDataStore_RootAlias_Call {
-	return &MockQueryDataStore_RootAlias_Call{Call: _e.mock.On("RootAlias")}
-}
-
-func (_c *MockQueryDataStore_RootAlias_Call) Run(run func()) *MockQueryDataStore_RootAlias_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		run()
-	})
-	return _c
-}
-
-func (_c *MockQueryDataStore_RootAlias_Call) Return(s string) *MockQueryDataStore_RootAlias_Call {
-	_c.Call.Return(s)
-	return _c
-}
-
-func (_c *MockQueryDataStore_RootAlias_Call) RunAndReturn(run func() string) *MockQueryDataStore_RootAlias_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -1733,5 +1719,100 @@ func (_c *MockQueryDataStore_SetPagingToken_Call) Return() *MockQueryDataStore_S
 
 func (_c *MockQueryDataStore_SetPagingToken_Call) RunAndReturn(run func(s string)) *MockQueryDataStore_SetPagingToken_Call {
 	_c.Run(run)
+	return _c
+}
+
+// SetSystemLimit provides a mock function for the type MockQueryDataStore
+func (_mock *MockQueryDataStore) SetSystemLimit(limit int) error {
+	ret := _mock.Called(limit)
+
+	if len(ret) == 0 {
+		panic("no return value specified for SetSystemLimit")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(int) error); ok {
+		r0 = returnFunc(limit)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockQueryDataStore_SetSystemLimit_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SetSystemLimit'
+type MockQueryDataStore_SetSystemLimit_Call struct {
+	*mock.Call
+}
+
+// SetSystemLimit is a helper method to define mock.On call
+//   - limit int
+func (_e *MockQueryDataStore_Expecter) SetSystemLimit(limit any) *MockQueryDataStore_SetSystemLimit_Call {
+	return &MockQueryDataStore_SetSystemLimit_Call{Call: _e.mock.On("SetSystemLimit", limit)}
+}
+
+func (_c *MockQueryDataStore_SetSystemLimit_Call) Run(run func(limit int)) *MockQueryDataStore_SetSystemLimit_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 int
+		if args[0] != nil {
+			arg0 = args[0].(int)
+		}
+		run(
+			arg0,
+		)
+	})
+	return _c
+}
+
+func (_c *MockQueryDataStore_SetSystemLimit_Call) Return(err error) *MockQueryDataStore_SetSystemLimit_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockQueryDataStore_SetSystemLimit_Call) RunAndReturn(run func(limit int) error) *MockQueryDataStore_SetSystemLimit_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// SystemLimit provides a mock function for the type MockQueryDataStore
+func (_mock *MockQueryDataStore) SystemLimit() uint16 {
+	ret := _mock.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for SystemLimit")
+	}
+
+	var r0 uint16
+	if returnFunc, ok := ret.Get(0).(func() uint16); ok {
+		r0 = returnFunc()
+	} else {
+		r0 = ret.Get(0).(uint16)
+	}
+	return r0
+}
+
+// MockQueryDataStore_SystemLimit_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SystemLimit'
+type MockQueryDataStore_SystemLimit_Call struct {
+	*mock.Call
+}
+
+// SystemLimit is a helper method to define mock.On call
+func (_e *MockQueryDataStore_Expecter) SystemLimit() *MockQueryDataStore_SystemLimit_Call {
+	return &MockQueryDataStore_SystemLimit_Call{Call: _e.mock.On("SystemLimit")}
+}
+
+func (_c *MockQueryDataStore_SystemLimit_Call) Run(run func()) *MockQueryDataStore_SystemLimit_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *MockQueryDataStore_SystemLimit_Call) Return(v uint16) *MockQueryDataStore_SystemLimit_Call {
+	_c.Call.Return(v)
+	return _c
+}
+
+func (_c *MockQueryDataStore_SystemLimit_Call) RunAndReturn(run func() uint16) *MockQueryDataStore_SystemLimit_Call {
+	_c.Call.Return(run)
 	return _c
 }

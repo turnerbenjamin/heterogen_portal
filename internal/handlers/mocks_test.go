@@ -12,7 +12,7 @@ import (
 	mock "github.com/stretchr/testify/mock"
 	"github.com/turnerbenjamin/heterogen_portal/internal/etc"
 	"github.com/turnerbenjamin/heterogen_portal/internal/model"
-	"github.com/turnerbenjamin/heterogen_portal/internal/query"
+	"github.com/turnerbenjamin/heterogen_portal/internal/query/queryExecutor"
 	"github.com/turnerbenjamin/heterogen_portal/internal/services"
 	"github.com/turnerbenjamin/heterogen_portal/internal/templates"
 )
@@ -585,23 +585,23 @@ func (_m *MockQueryService) EXPECT() *MockQueryService_Expecter {
 }
 
 // Execute provides a mock function for the type MockQueryService
-func (_mock *MockQueryService) Execute(ctx context.Context, resource string, queryString string) (*query.ExecuteResult, *etc.AppError) {
+func (_mock *MockQueryService) Execute(ctx context.Context, resource string, queryString string) (*queryExecutor.ExecuteResult, *etc.AppError) {
 	ret := _mock.Called(ctx, resource, queryString)
 
 	if len(ret) == 0 {
 		panic("no return value specified for Execute")
 	}
 
-	var r0 *query.ExecuteResult
+	var r0 *queryExecutor.ExecuteResult
 	var r1 *etc.AppError
-	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string) (*query.ExecuteResult, *etc.AppError)); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string) (*queryExecutor.ExecuteResult, *etc.AppError)); ok {
 		return returnFunc(ctx, resource, queryString)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string) *query.ExecuteResult); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string) *queryExecutor.ExecuteResult); ok {
 		r0 = returnFunc(ctx, resource, queryString)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*query.ExecuteResult)
+			r0 = ret.Get(0).(*queryExecutor.ExecuteResult)
 		}
 	}
 	if returnFunc, ok := ret.Get(1).(func(context.Context, string, string) *etc.AppError); ok {
@@ -650,12 +650,12 @@ func (_c *MockQueryService_Execute_Call) Run(run func(ctx context.Context, resou
 	return _c
 }
 
-func (_c *MockQueryService_Execute_Call) Return(executeResult *query.ExecuteResult, appError *etc.AppError) *MockQueryService_Execute_Call {
+func (_c *MockQueryService_Execute_Call) Return(executeResult *queryExecutor.ExecuteResult, appError *etc.AppError) *MockQueryService_Execute_Call {
 	_c.Call.Return(executeResult, appError)
 	return _c
 }
 
-func (_c *MockQueryService_Execute_Call) RunAndReturn(run func(ctx context.Context, resource string, queryString string) (*query.ExecuteResult, *etc.AppError)) *MockQueryService_Execute_Call {
+func (_c *MockQueryService_Execute_Call) RunAndReturn(run func(ctx context.Context, resource string, queryString string) (*queryExecutor.ExecuteResult, *etc.AppError)) *MockQueryService_Execute_Call {
 	_c.Call.Return(run)
 	return _c
 }

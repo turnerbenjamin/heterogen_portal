@@ -25,6 +25,13 @@ type FilterExpressionBuilder interface {
 		value mdl.ValueExpression,
 	) (*mdl.ComparisonExpression, error)
 
+
+	NewComparisonExpressionFromResolvedColumn(
+		column mdl.ResolvedColumn,
+		operator mdl.ComparisonOperator,
+		value mdl.ValueExpression,
+	) (*mdl.ComparisonExpression, error)
+
 	NewCollectionExpression(
 		resourcePath string,
 		operator mdl.CollectionOperator,
@@ -52,7 +59,10 @@ type QueryDataStore interface {
 
 	AddExpand(relationshipId string) (QueryDataStore, error)
 	AddSystemExpand(relationshipId string) (QueryDataStore, error)
+	// ExpandsLen returns the total number of query expansions
 	ExpandsLen() int
+
+	// Expands iterates over the query expansions
 	Expands() iter.Seq2[string, Expansion]
 	GetExpansionByRelationshipId(relationshipId string) (Expansion, bool)
 
