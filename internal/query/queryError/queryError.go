@@ -51,7 +51,7 @@ func GetErrorCategory(err error) queryErrorCategory {
 	}
 
 	qerr, success := errors.AsType[*QueryError](err)
-	if !success {
+	if success {
 		return qerr.Category()
 	}
 

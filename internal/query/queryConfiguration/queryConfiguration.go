@@ -1,4 +1,4 @@
-package queryBuilder
+package queryPlanner
 
 import (
 	"github.com/turnerbenjamin/heterogen_portal/internal/query/paginationTokens"
@@ -27,7 +27,7 @@ type QueryParser interface {
 	) error
 }
 
-func BuildQuery(
+func ConfigureQuery(
 	queryString string,
 	queryParser QueryParser,
 	pagingTokenBuilder PagingTokenBuilder,

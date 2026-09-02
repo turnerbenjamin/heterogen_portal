@@ -2,7 +2,7 @@
 // github.com/vektra/mockery
 // template: testify
 
-package queryBuilder
+package queryPlanner
 
 import (
 	mock "github.com/stretchr/testify/mock"

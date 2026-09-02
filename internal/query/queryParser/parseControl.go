@@ -3,7 +3,7 @@ package queryParser
 import (
 	"strings"
 
-	"github.com/turnerbenjamin/heterogen_portal/internal/query/queryBuilder"
+	qcfg "github.com/turnerbenjamin/heterogen_portal/internal/query/queryConfiguration"
 	qstore "github.com/turnerbenjamin/heterogen_portal/internal/query/queryDataStore"
 	qerr "github.com/turnerbenjamin/heterogen_portal/internal/query/queryError"
 )
@@ -19,7 +19,7 @@ type QueryOperation interface {
 // QuerySyntaxParser is a utility for parsing query strings
 type QuerySyntaxParser struct{}
 
-func NewQueryParser() queryBuilder.QueryParser {
+func NewQueryParser() qcfg.QueryParser {
 	return &QuerySyntaxParser{}
 }
 

@@ -78,91 +78,6 @@ func (w queryWriter) Args() []any {
 	return w.args
 }
 
-// func (b *sqlQueryBuilder) newNestedSqlQueryBuilder(
-// 	rootResource TableMetadata,
-// 	accessPolicy AccessPolicy,
-// 	rawOperations *Operations,
-// ) (*sqlQueryBuilder, error) {
-// 	nestedBuilder, err := newSqlQueryBuilder(
-// 		rootResource,
-// 		accessPolicy,
-// 		rawOperations,
-// 		b.pagingTokenParser,
-// 	)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	nestedBuilder.depth = b.depth + 1
-// 	return nestedBuilder, nil
-// }
-
-// func (b *sqlQueryBuilder) createBuildersforNestedOperations() error {
-// 	op := b.operations.ExpandOperation
-// 	if op == nil {
-// 		return nil
-// 	}
-
-// 	for _, expand := range op.Expands {
-// 		nestedQueryBuilder, err := b.newNestedSqlQueryBuilder(
-// 			expand.Link.To,
-// 			b.accessPolicy,
-// 			expand.Operations,
-// 		)
-// 		if err != nil {
-// 			return err
-// 		}
-
-// 		b.nestedQueries[string(expand.Link.Relationship.Id())] = &nestedQuery{
-// 			queryBuilder: nestedQueryBuilder,
-// 			link:         expand.Link,
-// 		}
-// 	}
-// 	return nil
-// }
-
-// func (b *sqlQueryBuilder) addAssociatedWithParentFilter(
-// 	linkFromParent *TraversalStep,
-// 	joinParentOnValues []string,
-// ) error {
-
-// 	associationFilter, err := b.operations.addAssociatedWithParentFilter(
-// 		linkFromParent,
-// 		joinParentOnValues,
-// 	)
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	return b.relationshipPlan.processFilterExpression(
-// 		b.relationshipPlan.rootAlias,
-// 		associationFilter,
-// 	)
-// }
-
-// func (b *queryWriter) buildTopLevelQuery() (*sqlQuery, string, error) {
-// 	// Initialise a streaming query writer
-// 	w := &queryWriter{
-// 		sb:   &strings.Builder{},
-// 		args: []any{},
-// 	}
-
-// 	// Write the main query
-// 	err := b.writeQuery()
-// 	if err != nil {
-// 		return nil, "", err
-// 	}
-// 	w.statement = w.sb.String()
-
-// 	// Construct the count statement
-// 	countStatement := b.buildCountStatement()
-
-// 	return &sqlQuery{
-// 		statement: w.sb.String(),
-// 		args:      w.args,
-// 	}, countStatement, nil
-
-// }
-
 func (w *queryWriter) writeQuery() error {
 	err := w.writeSelectStatement()
 	if err != nil {
@@ -394,11 +309,15 @@ func (w *queryWriter) buildLogicalExpression(
 		return qerr.InternalErr("unexpected logical operator received '%v'", operator)
 	}
 	w.sb.WriteRune('(')
-	w.buildFilterExpression(rootResource, expression.Left)
+	if err := w.buildFilterExpression(rootResource, expression.Left); err != nil {
+		return err
+	}
 	w.sb.WriteRune(' ')
 	w.sb.WriteString(operator)
 	w.sb.WriteRune(' ')
-	w.buildFilterExpression(rootResource, expression.Right)
+	if err := w.buildFilterExpression(rootResource, expression.Right); err != nil {
+		return err
+	}
 	w.sb.WriteRune(')')
 
 	return nil
@@ -434,16 +353,7 @@ func (w *queryWriter) buildCollectionExpression(
 	ex *mdl.CollectionExpression,
 	rootResource *aliasedResource,
 ) error {
-	writeExpression := func(endResource *aliasedResource) error {
-		if endResource == nil {
-			endResource = rootResource
-		}
-		return w.buildFilterExpression(
-			endResource,
-			ex.FilterExpression,
-		)
-	}
-
+	filterExpression := ex.FilterExpression
 	doNegate := ex.Operator == mdl.CollectionAll
 	if doNegate {
 		negatedCondition, err := w.negate(ex.FilterExpression)
@@ -451,7 +361,17 @@ func (w *queryWriter) buildCollectionExpression(
 			return err
 		}
 
-		ex.FilterExpression = negatedCondition
+		filterExpression = negatedCondition
+	}
+
+	writeExpression := func(endResource *aliasedResource) error {
+		if endResource == nil {
+			endResource = rootResource
+		}
+		return w.buildFilterExpression(
+			endResource,
+			filterExpression,
+		)
 	}
 
 	return w.writeExpressionWithPath(

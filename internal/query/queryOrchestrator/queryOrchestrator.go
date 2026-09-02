@@ -4,7 +4,7 @@ import (
 	"context"
 	"sync"
 
-	bldr "github.com/turnerbenjamin/heterogen_portal/internal/query/queryBuilder"
+	qcfg "github.com/turnerbenjamin/heterogen_portal/internal/query/queryConfiguration"
 	qstore "github.com/turnerbenjamin/heterogen_portal/internal/query/queryDataStore"
 	qerr "github.com/turnerbenjamin/heterogen_portal/internal/query/queryError"
 	mdl "github.com/turnerbenjamin/heterogen_portal/internal/query/queryModel"
@@ -21,14 +21,14 @@ var emptyResult = mdl.ExecuteResult{}
 type QueryOrchestrator struct {
 	newWriter          func(s qstore.QueryDataStore) (mdl.QueryWriter, error)
 	repository         mdl.Repository
-	pagingTokenBuilder bldr.PagingTokenBuilder
+	pagingTokenBuilder qcfg.PagingTokenBuilder
 	valueBuilder       mdl.ValueBuilder
 }
 
 func NewQueryExecutor(
 	repository mdl.Repository,
 	newWriter func(s qstore.QueryDataStore) (mdl.QueryWriter, error),
-	pagingTokeBuilder bldr.PagingTokenBuilder,
+	pagingTokeBuilder qcfg.PagingTokenBuilder,
 	valueBuilder mdl.ValueBuilder,
 ) *QueryOrchestrator {
 	return &QueryOrchestrator{
@@ -143,7 +143,7 @@ func (e *QueryOrchestrator) getNestedQueryResults(
 	// Execute nested queries asynchronously and collect the results in a map
 	nestedQueryResults := make(map[string]*nestedQueryResult)
 	var mu sync.Mutex
-	g, _ := errgroup.WithContext(ctx)
+	g, ctx := errgroup.WithContext(ctx)
 	for _, nestedQuery := range s.Expands() {
 		g.Go(func() error {
 			nestedResults, err := e.executeNestedQuery(ctx, nestedQuery, queryResults)

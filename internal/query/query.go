@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/turnerbenjamin/heterogen_portal/internal/query/paginationTokens"
-	bldr "github.com/turnerbenjamin/heterogen_portal/internal/query/queryBuilder"
+	qcfg "github.com/turnerbenjamin/heterogen_portal/internal/query/queryConfiguration"
 	qstore "github.com/turnerbenjamin/heterogen_portal/internal/query/queryDataStore"
 	qerr "github.com/turnerbenjamin/heterogen_portal/internal/query/queryError"
 	"github.com/turnerbenjamin/heterogen_portal/internal/query/queryModel"
@@ -21,7 +21,7 @@ const SqlFlavorAzureSql sqlFlavour = "azure_sql"
 
 type QueryWriterGetter func(s qstore.QueryDataStore) (w mdl.QueryWriter, err error)
 type ValueBuilderGetter func() mdl.ValueBuilder
-type QueryParserInitialiser func() bldr.QueryParser
+type QueryParserInitialiser func() qcfg.QueryParser
 
 type sqlWriterConfig struct {
 	queryWriterGetter  QueryWriterGetter
@@ -32,7 +32,7 @@ type queryExecutor struct {
 	repository             mdl.Repository
 	schema                 mdl.Schema
 	accessPolicy           mdl.AccessPolicy
-	pagingTokenBuilder     bldr.PagingTokenBuilder
+	pagingTokenBuilder     qcfg.PagingTokenBuilder
 	queryWriterGetter      QueryWriterGetter
 	valueBuilderGetter     ValueBuilderGetter
 	queryParserInitialiser QueryParserInitialiser
@@ -97,8 +97,8 @@ func (qf *queryExecutor) Execute(
 	queryParser := qf.queryParserInitialiser()
 	valueBuilder := qf.valueBuilderGetter()
 
-	// Build query
-	queryDataStore, err := bldr.BuildQuery(
+	// Configure query
+	queryDataStore, err := qcfg.ConfigureQuery(
 		queryString,
 		queryParser,
 		qf.pagingTokenBuilder,
