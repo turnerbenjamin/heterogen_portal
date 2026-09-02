@@ -1,5 +1,7 @@
 package queryModel
 
+import "context"
+
 // DbDataTypeName represents a SQL Server data type name supported by the model metadata system.
 type DbDataTypeName string
 
@@ -272,4 +274,24 @@ type PropertyPath struct {
 type SortingRule struct {
 	ResolvedColumn ResolvedColumn
 	Direction      SortDirectionOperator
+}
+
+type PayloadSigner interface {
+	Sign(secret []byte, data []byte) string
+	Verify(secret []byte, value string) (data []byte, ok bool)
+}
+
+type Repository interface {
+	ExecuteJsonRequest(
+		ctx context.Context,
+		queryStatementStr string,
+		args []any,
+	) ([]byte, error)
+
+	ExecuteJsonRequestWithCount(
+		ctx context.Context,
+		queryStatementStr string,
+		countStatementStr string,
+		sharedArgs []any,
+	) ([]byte, *int64, error)
 }

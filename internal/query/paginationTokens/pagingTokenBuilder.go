@@ -8,11 +8,6 @@ import (
 
 var querySchemaVersion uint32 = 1
 
-type PayloadSigner interface {
-	Sign(secret []byte, data []byte) string
-	Verify(secret []byte, value string) (data []byte, ok bool)
-}
-
 type PagingToken struct {
 	Version      uint32
 	CursorValues []mdl.ValueExpression
@@ -21,11 +16,11 @@ type PagingToken struct {
 }
 
 type pagingTokenBuilder struct {
-	payloadSigner PayloadSigner
+	payloadSigner mdl.PayloadSigner
 	payloadSecret []byte
 }
 
-func NewNextPageTokenBuilder(payloadSigner PayloadSigner, payloadSecret []byte) (*pagingTokenBuilder, error) {
+func NewPagingTokenBuilder(payloadSigner mdl.PayloadSigner, payloadSecret []byte) (*pagingTokenBuilder, error) {
 	if payloadSigner == nil {
 		return nil, qerr.InternalErr("unable to build next page token. payload signer cannot be nil")
 	}

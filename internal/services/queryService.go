@@ -7,8 +7,7 @@ import (
 	"github.com/turnerbenjamin/heterogen_portal/internal/etc"
 	"github.com/turnerbenjamin/heterogen_portal/internal/model"
 	"github.com/turnerbenjamin/heterogen_portal/internal/query"
-	"github.com/turnerbenjamin/heterogen_portal/internal/query/queryBuilder"
-	"github.com/turnerbenjamin/heterogen_portal/internal/query/queryExecutor"
+	"github.com/turnerbenjamin/heterogen_portal/internal/query/queryModel"
 	"github.com/turnerbenjamin/heterogen_portal/internal/queryAccessPolicies"
 )
 
@@ -27,50 +26,42 @@ type QueryRepo interface {
 	) ([]byte, *int64, error)
 }
 
-var schemaMetadata = model.NewSchemaMetadata()
-
 type QueryService struct {
-	queryRepo            QueryRepo
-	queryParser          queryBuilder.QueryParser
-	nextPageTokenBuilder queryBuilder.PagingTokenBuilder
+	queryExecutor query.QueryOrchestrator
 }
 
 var accessPolicy = queryAccessPolicies.GetAnonymousAccessPolicy()
 
 func NewQueryService(
 	queryRepo QueryRepo,
-	queryParser queryBuilder.QueryParser,
-	nextPageTokenBuilder queryBuilder.PagingTokenBuilder,
-) *QueryService {
-	return &QueryService{
-		queryRepo:            queryRepo,
-		queryParser:          queryParser,
-		nextPageTokenBuilder: nextPageTokenBuilder,
+	paginationTokenSigner queryModel.PayloadSigner,
+	paginationTokenSecret []byte,
+
+) (*QueryService, error) {
+	queryExecutor, err := query.NewQueryExecutorFactory(query.QueryExecutorConfig{
+		Repo:                  queryRepo,
+		Schema:                model.NewSchemaMetadata(),
+		AccessPolicy:          accessPolicy,
+		PaginationTokenSigner: paginationTokenSigner,
+		PaginationTokenSecret: paginationTokenSecret,
+		SqlFlavor:             query.SqlFlavorAzureSql,
+	})
+	if err != nil {
+		return nil, err
 	}
+
+	return &QueryService{
+		queryExecutor: queryExecutor,
+	}, nil
 }
 
-func (s *QueryService) Execute(ctx context.Context, resource string, queryString string) (*queryExecutor.ExecuteResult, *etc.AppError) {
-
-	q, err := query.NewQuery(
+func (s *QueryService) Execute(ctx context.Context, resource string, queryString string) (*queryModel.ExecuteResult, *etc.AppError) {
+	results, err := s.queryExecutor.Execute(
 		ctx,
-		schemaMetadata,
-		accessPolicy,
 		resource,
 		queryString,
-		s.nextPageTokenBuilder,
-		s.queryParser,
-		s.queryRepo,
 	)
-	if err != nil {
-		return nil, &etc.AppError{
-			Code:         http.StatusBadRequest,
-			ErrorMessage: err.Error(),
-			InnerError:   err,
-			ResponseType: etc.ResponseTypeJson,
-		}
-	}
 
-	results, err := q.Execute()
 	if err != nil {
 		return nil, &etc.AppError{
 			Code:         http.StatusBadRequest,

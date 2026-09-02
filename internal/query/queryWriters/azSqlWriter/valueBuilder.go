@@ -6,7 +6,7 @@ import (
 
 type valueBuilder struct{}
 
-func NewValueBuilder() *valueBuilder {
+func NewValueBuilder() mdl.ValueBuilder {
 	return &valueBuilder{}
 }
 

@@ -2,98 +2,132 @@ package query
 
 import (
 	"context"
+	"fmt"
 
+	"github.com/turnerbenjamin/heterogen_portal/internal/query/paginationTokens"
 	bldr "github.com/turnerbenjamin/heterogen_portal/internal/query/queryBuilder"
 	qstore "github.com/turnerbenjamin/heterogen_portal/internal/query/queryDataStore"
 	qerr "github.com/turnerbenjamin/heterogen_portal/internal/query/queryError"
-	"github.com/turnerbenjamin/heterogen_portal/internal/query/queryExecutor"
+	"github.com/turnerbenjamin/heterogen_portal/internal/query/queryModel"
 	mdl "github.com/turnerbenjamin/heterogen_portal/internal/query/queryModel"
+	"github.com/turnerbenjamin/heterogen_portal/internal/query/queryOrchestrator"
+	"github.com/turnerbenjamin/heterogen_portal/internal/query/queryParser"
 	azSqlWriter "github.com/turnerbenjamin/heterogen_portal/internal/query/queryWriters/azSqlWriter"
 )
 
-type Query struct {
-	ctx                  context.Context
-	queryString          string
-	tableMetadata        mdl.TableMetadata
-	AccessPolicy         mdl.AccessPolicy
-	TableAccessPolicy    mdl.TableAccessPolicy
-	queryDataStore       qstore.QueryDataStore
-	valueBuilder         mdl.ValueBuilder
-	nextPageTokenBuilder bldr.PagingTokenBuilder
-	queryExecutor        *queryExecutor.QueryExecutor
+type sqlFlavour string
+
+const SqlFlavorAzureSql sqlFlavour = "azure_sql"
+
+type QueryWriterGetter func(s qstore.QueryDataStore) (w mdl.QueryWriter, err error)
+type ValueBuilderGetter func() mdl.ValueBuilder
+type QueryParserInitialiser func() bldr.QueryParser
+
+type sqlWriterConfig struct {
+	queryWriterGetter  QueryWriterGetter
+	ValueBuilderGetter ValueBuilderGetter
 }
 
-// TODO simplify query to wiring only
-// Add a query executor factory struct which takes a config - This can then be
-// passed to the services as the sole dependency needed for queries. The query
-// factory will simply initialise a query using dependencies from the current
-// package. Query should have very little in it, it will be responsible for
-// wiring and won't be unit tested.
-//
-// Query executor will change to repository and the execution logic will move to
-// a new query executor which will be the main control - Building the query,
-// generating statements, sending to the repo, and stitching together results
-//
-// This should get things set up nicely for unit testing
+type queryExecutor struct {
+	repository             mdl.Repository
+	schema                 mdl.Schema
+	accessPolicy           mdl.AccessPolicy
+	pagingTokenBuilder     bldr.PagingTokenBuilder
+	queryWriterGetter      QueryWriterGetter
+	valueBuilderGetter     ValueBuilderGetter
+	queryParserInitialiser QueryParserInitialiser
+}
+type QueryOrchestrator interface {
+	Execute(
+		ctx context.Context,
+		resourceName string,
+		queryString string,
+	) (queryModel.ExecuteResult, error)
+}
 
-func NewQuery(
-	ctx context.Context,
-	schema mdl.Schema,
-	accessPolicy mdl.AccessPolicy,
-	resourceName string,
-	queryString string,
-	nextPageTokenBuilder bldr.PagingTokenBuilder,
-	queryParser bldr.QueryParser,
-	repository queryExecutor.Repository,
-) (*Query, error) {
-	resource := schema.GetTableMetadata(resourceName)
-	if resource == nil {
-		return nil, qerr.BindingErr("the table %s does not exist in the schema", resourceName)
-	}
+type QueryExecutorConfig struct {
+	Repo                  mdl.Repository
+	Schema                mdl.Schema
+	AccessPolicy          mdl.AccessPolicy
+	PaginationTokenSigner mdl.PayloadSigner
+	PaginationTokenSecret []byte
+	SqlFlavor             sqlFlavour
+}
 
-	if accessPolicy == nil {
-		return nil, qerr.InternalErr("access policy cannot be nil")
-	}
-
-	resourceAccessPolicy := accessPolicy.GetTableAccessPolicy(resourceName)
-	if resourceAccessPolicy == nil {
-		return nil, qerr.InternalErr("unable to find table access policy for table %s", resourceName)
-	}
-
-	valueBuilder := azSqlWriter.NewValueBuilder()
-
-	// Build query
-	queryDataStore, err := bldr.BuildQuery(
-		queryString,
-		queryParser,
-		nextPageTokenBuilder,
-		valueBuilder,
-		resource,
-		accessPolicy,
+func NewQueryExecutorFactory(config QueryExecutorConfig) (QueryOrchestrator, error) {
+	pagingTokenBuilder, err := paginationTokens.NewPagingTokenBuilder(
+		config.PaginationTokenSigner,
+		config.PaginationTokenSecret,
 	)
 	if err != nil {
 		return nil, err
 	}
 
-	executor := queryExecutor.NewQueryExecutor(
-		repository,
+	sqlWriterConfig, err := getSqlWriterConfig(config.SqlFlavor)
+	if err != nil {
+		return nil, err
+	}
+
+	return &queryExecutor{
+		repository:             config.Repo,
+		schema:                 config.Schema,
+		accessPolicy:           config.AccessPolicy,
+		pagingTokenBuilder:     pagingTokenBuilder,
+		queryWriterGetter:      azSqlWriter.NewQueryWriter,
+		valueBuilderGetter:     sqlWriterConfig.ValueBuilderGetter,
+		queryParserInitialiser: queryParser.NewQueryParser,
+	}, err
+}
+
+func (qf *queryExecutor) Execute(
+	ctx context.Context,
+	resourceName string,
+	queryString string,
+) (queryModel.ExecuteResult, error) {
+	resource := qf.schema.GetTableMetadata(resourceName)
+	if resource == nil {
+		return queryModel.ExecuteResult{}, qerr.BindingErr("the table %s does not exist in the schema", resourceName)
+	}
+
+	resourceAccessPolicy := qf.accessPolicy.GetTableAccessPolicy(resourceName)
+	if resourceAccessPolicy == nil {
+		return queryModel.ExecuteResult{}, qerr.InternalErr("unable to find table access policy for table %s", resourceName)
+	}
+
+	queryParser := qf.queryParserInitialiser()
+	valueBuilder := qf.valueBuilderGetter()
+
+	// Build query
+	queryDataStore, err := bldr.BuildQuery(
+		queryString,
+		queryParser,
+		qf.pagingTokenBuilder,
+		valueBuilder,
+		resource,
+		qf.accessPolicy,
+	)
+	if err != nil {
+		return queryModel.ExecuteResult{}, err
+	}
+
+	executor := queryOrchestrator.NewQueryExecutor(
+		qf.repository,
 		azSqlWriter.NewQueryWriter,
-		nextPageTokenBuilder,
+		qf.pagingTokenBuilder,
 		azSqlWriter.NewValueBuilder(),
 	)
 
-	q := &Query{
-		ctx:                  ctx,
-		queryString:          queryString,
-		tableMetadata:        resource,
-		queryDataStore:       queryDataStore,
-		valueBuilder:         valueBuilder,
-		nextPageTokenBuilder: nextPageTokenBuilder,
-		queryExecutor:        executor,
-	}
-	return q, nil
+	return executor.ExecuteQuery(ctx, queryDataStore)
 }
 
-func (q *Query) Execute() (queryExecutor.ExecuteResult, error) {
-	return q.queryExecutor.ExecuteQuery(q.ctx, q.queryDataStore)
+func getSqlWriterConfig(flavour sqlFlavour) (sqlWriterConfig, error) {
+	switch flavour {
+	case SqlFlavorAzureSql:
+		return sqlWriterConfig{
+			queryWriterGetter:  azSqlWriter.NewQueryWriter,
+			ValueBuilderGetter: azSqlWriter.NewValueBuilder,
+		}, nil
+	default:
+		return sqlWriterConfig{}, fmt.Errorf("unsupported sql flavour: %s", flavour)
+	}
 }

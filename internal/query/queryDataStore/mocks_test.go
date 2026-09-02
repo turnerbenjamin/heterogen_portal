@@ -187,6 +187,80 @@ func (_c *MockFilterExpressionBuilder_NewComparisonExpression_Call) RunAndReturn
 	return _c
 }
 
+// NewComparisonExpressionFromResolvedColumn provides a mock function for the type MockFilterExpressionBuilder
+func (_mock *MockFilterExpressionBuilder) NewComparisonExpressionFromResolvedColumn(column queryModel.ResolvedColumn, operator queryModel.ComparisonOperator, value queryModel.ValueExpression) (*queryModel.ComparisonExpression, error) {
+	ret := _mock.Called(column, operator, value)
+
+	if len(ret) == 0 {
+		panic("no return value specified for NewComparisonExpressionFromResolvedColumn")
+	}
+
+	var r0 *queryModel.ComparisonExpression
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(queryModel.ResolvedColumn, queryModel.ComparisonOperator, queryModel.ValueExpression) (*queryModel.ComparisonExpression, error)); ok {
+		return returnFunc(column, operator, value)
+	}
+	if returnFunc, ok := ret.Get(0).(func(queryModel.ResolvedColumn, queryModel.ComparisonOperator, queryModel.ValueExpression) *queryModel.ComparisonExpression); ok {
+		r0 = returnFunc(column, operator, value)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*queryModel.ComparisonExpression)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(queryModel.ResolvedColumn, queryModel.ComparisonOperator, queryModel.ValueExpression) error); ok {
+		r1 = returnFunc(column, operator, value)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockFilterExpressionBuilder_NewComparisonExpressionFromResolvedColumn_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'NewComparisonExpressionFromResolvedColumn'
+type MockFilterExpressionBuilder_NewComparisonExpressionFromResolvedColumn_Call struct {
+	*mock.Call
+}
+
+// NewComparisonExpressionFromResolvedColumn is a helper method to define mock.On call
+//   - column queryModel.ResolvedColumn
+//   - operator queryModel.ComparisonOperator
+//   - value queryModel.ValueExpression
+func (_e *MockFilterExpressionBuilder_Expecter) NewComparisonExpressionFromResolvedColumn(column any, operator any, value any) *MockFilterExpressionBuilder_NewComparisonExpressionFromResolvedColumn_Call {
+	return &MockFilterExpressionBuilder_NewComparisonExpressionFromResolvedColumn_Call{Call: _e.mock.On("NewComparisonExpressionFromResolvedColumn", column, operator, value)}
+}
+
+func (_c *MockFilterExpressionBuilder_NewComparisonExpressionFromResolvedColumn_Call) Run(run func(column queryModel.ResolvedColumn, operator queryModel.ComparisonOperator, value queryModel.ValueExpression)) *MockFilterExpressionBuilder_NewComparisonExpressionFromResolvedColumn_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 queryModel.ResolvedColumn
+		if args[0] != nil {
+			arg0 = args[0].(queryModel.ResolvedColumn)
+		}
+		var arg1 queryModel.ComparisonOperator
+		if args[1] != nil {
+			arg1 = args[1].(queryModel.ComparisonOperator)
+		}
+		var arg2 queryModel.ValueExpression
+		if args[2] != nil {
+			arg2 = args[2].(queryModel.ValueExpression)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockFilterExpressionBuilder_NewComparisonExpressionFromResolvedColumn_Call) Return(comparisonExpression *queryModel.ComparisonExpression, err error) *MockFilterExpressionBuilder_NewComparisonExpressionFromResolvedColumn_Call {
+	_c.Call.Return(comparisonExpression, err)
+	return _c
+}
+
+func (_c *MockFilterExpressionBuilder_NewComparisonExpressionFromResolvedColumn_Call) RunAndReturn(run func(column queryModel.ResolvedColumn, operator queryModel.ComparisonOperator, value queryModel.ValueExpression) (*queryModel.ComparisonExpression, error)) *MockFilterExpressionBuilder_NewComparisonExpressionFromResolvedColumn_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // NewLogicalExpression provides a mock function for the type MockFilterExpressionBuilder
 func (_mock *MockFilterExpressionBuilder) NewLogicalExpression(left queryModel.FilterExpression, operator queryModel.LogicalOperator, right queryModel.FilterExpression) (*queryModel.LogicalExpression, error) {
 	ret := _mock.Called(left, operator, right)

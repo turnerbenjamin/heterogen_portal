@@ -10,7 +10,6 @@ import (
 	"github.com/turnerbenjamin/heterogen_portal/internal/query/relationships"
 )
 
-
 type stringCoords struct {
 	left  int
 	right int
@@ -33,20 +32,6 @@ type aliasedResource struct {
 	alias    string
 }
 
-// nestedQuery represents an expansion query. It binds a queryBuilder, for the
-// nested query, to a traversal step from the parent table. This enables the
-// query response to be stiched to the parent response server side
-// type nestedQuery struct {
-// 	queryBuilder *sqlQueryBuilder
-// 	link         *TraversalStep
-// }
-
-// sqlQueryBuilder is used to build and execute sql queries
-// type sqlQueryBuilder struct {
-// 	queryDataStore qstore.QueryDataStore
-// 	aliasStore     relationships.AliasStore
-// }
-
 type queryWriter struct {
 	queryDataStore qstore.QueryDataStore
 	aliasStore     relationships.AliasStore
@@ -60,16 +45,6 @@ type queryWriter struct {
 	filterLocation  stringCoords
 	orderByLocation stringCoords
 }
-
-// newSqlQueryBuilder constructs a new sqlQueryBuilderInstance from
-// QueryOperations. It will return an error if the operations cannot be bound to
-// the schema metadata
-// func newSqlQueryBuilder(queryDataStore qstore.QueryDataStore) *sqlQueryBuilder {
-// 	return &sqlQueryBuilder{
-// 		queryDataStore: queryDataStore,
-// 		aliasStore:     queryDataStore.GetAliasStore(),
-// 	}
-// }
 
 func NewQueryWriter(s qstore.QueryDataStore) (mdl.QueryWriter, error) {
 	w := queryWriter{

@@ -1,4 +1,4 @@
-package queryExecutor
+package queryOrchestrator
 
 import (
 	"context"
@@ -11,48 +11,27 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-type Repository interface {
-	ExecuteJsonRequest(
-		ctx context.Context,
-		queryStatementStr string,
-		args []any,
-	) ([]byte, error)
-
-	ExecuteJsonRequestWithCount(
-		ctx context.Context,
-		queryStatementStr string,
-		countStatementStr string,
-		sharedArgs []any,
-	) ([]byte, *int64, error)
-}
-
 type nestedQueryResult struct {
 	link    mdl.TraversalStep
 	results []mdl.TableModel
 }
 
-type ExecuteResult struct {
-	Count         *int64           `json:"count,omitempty"`
-	NextPageToken string           `json:"next_page_token,omitempty"`
-	Data          []mdl.TableModel `json:"data"`
-}
+var emptyResult = mdl.ExecuteResult{}
 
-var emptyResult = ExecuteResult{}
-
-type QueryExecutor struct {
+type QueryOrchestrator struct {
 	newWriter          func(s qstore.QueryDataStore) (mdl.QueryWriter, error)
-	repository         Repository
+	repository         mdl.Repository
 	pagingTokenBuilder bldr.PagingTokenBuilder
 	valueBuilder       mdl.ValueBuilder
 }
 
 func NewQueryExecutor(
-	repository Repository,
+	repository mdl.Repository,
 	newWriter func(s qstore.QueryDataStore) (mdl.QueryWriter, error),
 	pagingTokeBuilder bldr.PagingTokenBuilder,
 	valueBuilder mdl.ValueBuilder,
-) *QueryExecutor {
-	return &QueryExecutor{
+) *QueryOrchestrator {
+	return &QueryOrchestrator{
 		newWriter:          newWriter,
 		repository:         repository,
 		pagingTokenBuilder: pagingTokeBuilder,
@@ -60,10 +39,10 @@ func NewQueryExecutor(
 	}
 }
 
-func (e *QueryExecutor) ExecuteQuery(
+func (e *QueryOrchestrator) ExecuteQuery(
 	ctx context.Context,
 	s qstore.QueryDataStore,
-) (ExecuteResult, error) {
+) (mdl.ExecuteResult, error) {
 	rootResource := s.RootResource()
 	resourceModel := rootResource.GetModel()
 	if resourceModel == nil {
@@ -109,14 +88,14 @@ func (e *QueryExecutor) ExecuteQuery(
 
 	// Top level queries set the limit to the requested limit + 1 so that it is
 	// possible to determine if a next page of results exists
-	return ExecuteResult{
+	return mdl.ExecuteResult{
 		Count:         count,
 		NextPageToken: nextPageToken,
 		Data:          queryResults,
 	}, nil
 }
 
-func (e *QueryExecutor) populateNestedResults(
+func (e *QueryOrchestrator) populateNestedResults(
 	ctx context.Context,
 	s qstore.QueryDataStore,
 	queryResults []mdl.TableModel,
@@ -151,7 +130,7 @@ func (e *QueryExecutor) populateNestedResults(
 	return nil
 }
 
-func (e *QueryExecutor) getNestedQueryResults(
+func (e *QueryOrchestrator) getNestedQueryResults(
 	ctx context.Context,
 	s qstore.QueryDataStore,
 	queryResults []mdl.TableModel,
@@ -190,7 +169,7 @@ func (e *QueryExecutor) getNestedQueryResults(
 	return nestedQueryResults, nil
 }
 
-func (e *QueryExecutor) executeNestedQuery(
+func (e *QueryOrchestrator) executeNestedQuery(
 	ctx context.Context,
 	nestedQuery qstore.Expansion,
 	queryResults []mdl.TableModel,
@@ -222,7 +201,7 @@ func (e *QueryExecutor) executeNestedQuery(
 	}, nil
 }
 
-func (e *QueryExecutor) executeNestedQueries(
+func (e *QueryOrchestrator) executeNestedQueries(
 	ctx context.Context,
 	s qstore.QueryDataStore,
 ) ([]mdl.TableModel, error) {
@@ -264,7 +243,7 @@ func (e *QueryExecutor) executeNestedQueries(
 	return queryResults, nil
 }
 
-func (e *QueryExecutor) getJoinOnValues(
+func (e *QueryOrchestrator) getJoinOnValues(
 	link mdl.TraversalStep,
 	fromResults []mdl.TableModel,
 ) ([]mdl.ValueExpression, error) {
@@ -346,7 +325,7 @@ func attachNestedResultsForOneToManyQuery(
 	return nil
 }
 
-func (e *QueryExecutor) getNextPageToken(
+func (e *QueryOrchestrator) getNextPageToken(
 	s qstore.QueryDataStore,
 	queryResults *[]mdl.TableModel,
 ) (string, error) {

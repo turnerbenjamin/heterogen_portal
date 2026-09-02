@@ -3,6 +3,7 @@ package queryParser
 import (
 	"strings"
 
+	"github.com/turnerbenjamin/heterogen_portal/internal/query/queryBuilder"
 	qstore "github.com/turnerbenjamin/heterogen_portal/internal/query/queryDataStore"
 	qerr "github.com/turnerbenjamin/heterogen_portal/internal/query/queryError"
 )
@@ -17,6 +18,10 @@ type QueryOperation interface {
 
 // QuerySyntaxParser is a utility for parsing query strings
 type QuerySyntaxParser struct{}
+
+func NewQueryParser() queryBuilder.QueryParser {
+	return &QuerySyntaxParser{}
+}
 
 // Parse is used to parse query strings as a collection of query operations
 func (p *QuerySyntaxParser) Parse(

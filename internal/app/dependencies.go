@@ -8,45 +8,29 @@ import (
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/turnerbenjamin/heterogen_portal/internal/etc"
-	"github.com/turnerbenjamin/heterogen_portal/internal/query/paginationTokens"
-	"github.com/turnerbenjamin/heterogen_portal/internal/query/queryBuilder"
-	"github.com/turnerbenjamin/heterogen_portal/internal/query/queryParser"
 	"github.com/turnerbenjamin/heterogen_portal/internal/services"
 	"github.com/turnerbenjamin/heterogen_portal/internal/utils"
 	"golang.org/x/oauth2"
 )
 
 type appDependencies struct {
-	jsonSerialiser       *stdJsonSerialiser
-	tokenSigner          *jwtTokenSigner
-	payloadSigner        *utils.PayloadSigner
-	httpClient           *http.Client
-	newOidcProvider      func(ctx context.Context, issuer string) (services.OidcProvider, error)
-	randReader           services.RandReader
-	queryParser          queryBuilder.QueryParser
-	nextPageTokenBuilder queryBuilder.PagingTokenBuilder
+	jsonSerialiser  *stdJsonSerialiser
+	tokenSigner     *jwtTokenSigner
+	payloadSigner   *utils.PayloadSigner
+	httpClient      *http.Client
+	newOidcProvider func(ctx context.Context, issuer string) (services.OidcProvider, error)
+	randReader      services.RandReader
 }
 
-func initAppDependencies(appSettings *etc.AppSettings) (*appDependencies, error) {
-	nextPageTokenBuilder, err := paginationTokens.NewNextPageTokenBuilder(
-		&utils.PayloadSigner{},
-		appSettings.QueryTokenSecret,
-	)
-	if err != nil {
-		return nil, err
-	}
-
+func initAppDependencies() *appDependencies {
 	return &appDependencies{
-		jsonSerialiser:       &stdJsonSerialiser{},
-		tokenSigner:          &jwtTokenSigner{},
-		payloadSigner:        &utils.PayloadSigner{},
-		httpClient:           &http.Client{},
-		queryParser:          &queryParser.QuerySyntaxParser{},
-		newOidcProvider:      oidcNewProvider,
-		randReader:           rand.Read,
-		nextPageTokenBuilder: nextPageTokenBuilder,
-	}, nil
+		jsonSerialiser:  &stdJsonSerialiser{},
+		tokenSigner:     &jwtTokenSigner{},
+		payloadSigner:   &utils.PayloadSigner{},
+		httpClient:      &http.Client{},
+		newOidcProvider: oidcNewProvider,
+		randReader:      rand.Read,
+	}
 }
 
 type stdJsonSerialiser struct{}
