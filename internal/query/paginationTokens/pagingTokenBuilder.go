@@ -10,7 +10,7 @@ var querySchemaVersion uint32 = 1
 
 type PagingToken struct {
 	Version      uint32
-	CursorValues []mdl.ValueExpression
+	CursorValues []mdl.Value
 	ResourceName string
 	QueryString  string
 }
@@ -66,13 +66,13 @@ func (b *pagingTokenBuilder) BuildToken(
 func getCursorValues(
 	s qstore.QueryDataStore,
 	lastRecord mdl.TableModel,
-) ([]mdl.ValueExpression, error) {
-	cursorValues := make([]mdl.ValueExpression, s.OrderByLen())
+) ([]mdl.Value, error) {
+	cursorValues := make([]mdl.Value, s.OrderByLen())
 
 	i := 0
 	for rule := range s.OrderBy() {
-		// THIS IS GROSS - CHANGE SIGNATURE OF GetValueExpression !!!!!!!!!!!!!!
-		nextRecordValue, err := lastRecord.GetValueExpression(
+		// TODO THIS IS GROSS - CHANGE SIGNATURE OF GetValueExpression !!!!!!!!!!!!!!
+		nextRecordValue, err := lastRecord.GetValue(
 			rule.ResolvedColumn.ResolvedPath.Steps,
 			rule.ResolvedColumn.Metadata.Name(),
 			s.FilterExpressionBuilder().ValueBuilder(),

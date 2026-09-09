@@ -24,7 +24,9 @@ CREATE TABLE hg.businesses (
     country NVARCHAR(100) NULL,
     postcode NVARCHAR(20) NOT NULL,
 
-    location GEOGRAPHY NOT NULL,
+    location GEOGRAPHY NOT NULL
+        CONSTRAINT CK_Businesses_Location_IsPoint
+        CHECK (Location.STGeometryType() = 'Point'),
 
     created_at DATETIMEOFFSET(7) NOT NULL,
     created_by_id NVARCHAR(36) NOT NULL,
@@ -50,7 +52,9 @@ CREATE TABLE hg.farm_fields (
 
     business_id NVARCHAR(36) NOT NULL,
 
-    location GEOGRAPHY NOT NULL,
+    location GEOGRAPHY NOT NULL
+        CONSTRAINT CK_FarmFields_Location_IsPoint
+        CHECK (Location.STGeometryType() = 'Point'),
 
     created_at DATETIMEOFFSET(7) NOT NULL,
     created_by_id NVARCHAR(36) NOT NULL,

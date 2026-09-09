@@ -34,7 +34,7 @@ type TableModel interface {
 	GetJoinOnValue(relationshipId string) (string, error)
 
 	// GetValueExpression returns a value expression for a given path
-	GetValueExpression(path []*TraversalStep, columnName string, valueBuilder ValueBuilder) (ValueExpression, error)
+	GetValue(path []*TraversalStep, columnName string, valueBuilder ValueBuilder) (Value, error)
 
 	// IsNil is used to determine if a typed nil pointer contains a nil value
 	IsNil() bool
@@ -59,7 +59,7 @@ type Projection interface {
 
 type ColumnMetadata interface {
 	Name() string
-	Type() DbDataTypeName
+	Type() DbType
 }
 
 type RelationshipMetadata interface {

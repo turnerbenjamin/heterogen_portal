@@ -1,76 +1,45 @@
 package queryModel
 
-import "context"
-
-// DbDataTypeName represents a SQL Server data type name supported by the model metadata system.
-type DbDataTypeName string
-
-const (
-	// DbTypeNvarchar represents the SQL Server nvarchar data type.
-	DbTypeNvarchar DbDataTypeName = "nvarchar"
-
-	// DbTypeInt represents the SQL Server int data type.
-	DbTypeInt DbDataTypeName = "int"
-
-	// DbTypeFloat represents the SQL Server float data type.
-	DbTypeFloat DbDataTypeName = "float"
-
-	// DbTypeGeography represents the SQL Server geography spatial data type.
-	DbTypeGeography DbDataTypeName = "geography"
-
-	// DbTypeDateTimeOffset represents the SQL Server datetimeoffset date/time data type.
-	DbTypeDateTimeOffset DbDataTypeName = "datetimeoffset"
+import (
+	"context"
+	"time"
 )
 
-type LiteralType uint8
+// DbType represents a SQL Server data type name supported by the model metadata system.
+type DbType string
 
 const (
-	LiteralTypeNull LiteralType = iota
-
-	LiteralTypeString
-	LiteralTypeListString
-
-	LiteralTypeInt
-	LiteralTypeListInt
-
-	LiteralTypeFloat
-	LiteralTypeListFloat
+	DbTypeNull     DbType = "null"
+	DbTypeString   DbType = "string"
+	DbTypeInt      DbType = "int"
+	DbTypeFloat    DbType = "float"
+	DbTypePoint    DbType = "point"
+	DbTypeDateTime DbType = "date/time"
 )
 
-func LiteralTypeName(t LiteralType) string {
-	switch t {
-	case LiteralTypeNull:
-		return "null"
+type ValueType uint8
 
-	case LiteralTypeString:
-		return "string"
-
-	case LiteralTypeListString:
-		return "string list"
-
-	case LiteralTypeInt:
-		return "integer"
-
-	case LiteralTypeListInt:
-		return "integer list"
-
-	case LiteralTypeFloat:
-		return "decimal"
-
-	case LiteralTypeListFloat:
-		return "decimal list"
-
-	default:
-		panic("unexpected literal type received")
-	}
-}
+const (
+	ValueTypeNull ValueType = iota
+	ValueTypeString
+	ValueTypeInt
+	ValueTypeFloat
+	ValueTypePoint
+	ValueTypeDateTime
+	ValueTypeIntList
+	ValueTypeStringList
+	ValueTypeFloatList
+)
 
 type Serialiser interface {
+	SerialiseNull()
 	SerialiseString(str string)
 	SerialiseInt(n int64)
 	SerialiseFloat(f float64)
 
-	SerialiseList(els []ValueExpression)
+	SerialiseStringList(els []string)
+	SerialiseIntList(els []int64)
+	SerialiseFloatList(els []float64)
 }
 
 type Deserialiser interface {
@@ -85,38 +54,49 @@ type Deserialiser interface {
 }
 
 type ValueBuilder interface {
-	Null() ValueExpression
-	String(str string) ValueExpression
-	Int(n int64) ValueExpression
-	Float(float float64) ValueExpression
-	List(elements []ValueExpression) (ValueExpression, error)
+	Null() Value
+	String(str string) Value
+	Int(n int64) Value
+	Float(f float64) Value
+	List(elements []Value) (Value, error)
+	Point(longitude float64, latitude float64) Value
+	DateTime(dt time.Time) Value
 
-	Deserialise(
-		deserialiser Deserialiser,
-		literalType LiteralType,
-		data []byte,
-	) (ValueExpression, error)
+	ExecuteDeserialisation(
+		ds Deserialiser,
+		t ValueType,
+		d []byte,
+	) (Value, error)
 }
 
 type QueryWriter interface {
-	Write(statement string, args ...any)
-	Placeholder(v any) string
+	WriteFilterExpressionNull(field string, op ComparisonOperator) error
+	WriteFilterExpressionString(field string, op ComparisonOperator, value string) error
+	WriteFilterExpressionInt(field string, op ComparisonOperator, value int64) error
+	WriteFilterExpressionFloat(field string, op ComparisonOperator, value float64) error
+	WriteFilterExpressionPoint(field string, op ComparisonOperator, value Point) error
+	WriteFilterExpressionDateTime(field string, op ComparisonOperator, value time.Time) error
+	WriteFilterExpressionStringList(field string, op ComparisonOperator, value []string) error
+	WriteFilterExpressionIntList(field string, op ComparisonOperator, value []int64) error
+	WriteFilterExpressionFloatList(field string, op ComparisonOperator, value []float64) error
+	// Placeholder(v any) string
 
 	WriteQueryStatement() string
 	WriteCountStatement() string
 	Args() []any
 }
 
-// TODO TO SIMPLIFY THIS
-type ValueExpression interface {
-	Type() LiteralType
-	Value() any
-	IsCompatibleWithComparisonOperator(op ComparisonOperator) bool
-	IsSupportedByDbType(dbType DbDataTypeName) bool
-
-	WriteFilterExpression(w QueryWriter, fieldName string, op ComparisonOperator) error
+type Value interface {
+	Type() ValueType
+	SupportsType(DbType) bool
+	SupportsOperator(op ComparisonOperator) bool
 
 	Serialise(s Serialiser)
+	WriteFilterExpression(
+		writer QueryWriter,
+		fieldName string,
+		operator ComparisonOperator,
+	) error
 }
 
 type ResolvedPath struct {
@@ -231,14 +211,14 @@ type ExistsNodeNew struct {
 type ComparisonExpression struct {
 	ResolvedColumn *ResolvedColumn
 	Operator       ComparisonOperator
-	Value          ValueExpression
+	Value          Value
 
 	ExistsNodes []ExistsNodeNew
 }
 
 func (e *ComparisonExpression) IsFilterExpression() {}
 
-func (e *ComparisonExpression) WithValues(operator ComparisonOperator, value ValueExpression) *ComparisonExpression {
+func (e *ComparisonExpression) WithValues(operator ComparisonOperator, value Value) *ComparisonExpression {
 	c := *e
 
 	c.Operator = operator

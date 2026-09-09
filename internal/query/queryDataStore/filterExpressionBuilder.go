@@ -5,6 +5,7 @@ import (
 	qerr "github.com/turnerbenjamin/heterogen_portal/internal/query/queryError"
 	mdl "github.com/turnerbenjamin/heterogen_portal/internal/query/queryModel"
 	"github.com/turnerbenjamin/heterogen_portal/internal/query/relationships"
+	valuebuilder "github.com/turnerbenjamin/heterogen_portal/internal/query/valueBuilder"
 )
 
 type filterExpressionBuilder struct {
@@ -39,7 +40,7 @@ func (eb filterExpressionBuilder) NewLogicalExpression(
 func (eb filterExpressionBuilder) NewComparisonExpression(
 	columnPath string,
 	operator mdl.ComparisonOperator,
-	value mdl.ValueExpression,
+	value mdl.Value,
 ) (*mdl.ComparisonExpression, error) {
 	column, err := eb.metadataBinder.ResolveColumn(columnPath)
 	if err != nil {
@@ -55,14 +56,31 @@ func (eb filterExpressionBuilder) NewComparisonExpression(
 		)
 	}
 
+	// Validate that column and value have compatible types
+	if !value.SupportsType(column.Metadata.Type()) {
+		return nil, qerr.SyntaxErr(
+			"%s is not compatible with %s values",
+			column.Metadata.Name(),
+			valuebuilder.ValueTypeString(value.Type()),
+		)
+	}
+
+	// Validate that the value is compatible with the operator
+	if !value.SupportsOperator(operator) {
+		return nil, qerr.SyntaxErr(
+			"values of type %s are not compatible with the %s operator",
+			valuebuilder.ValueTypeString(value.Type()),
+			operator,
+		)
+	}
+
 	return eb.NewComparisonExpressionFromResolvedColumn(column, operator, value)
 }
-
 
 func (eb filterExpressionBuilder) NewComparisonExpressionFromResolvedColumn(
 	column mdl.ResolvedColumn,
 	operator mdl.ComparisonOperator,
-	value mdl.ValueExpression,
+	value mdl.Value,
 ) (*mdl.ComparisonExpression, error) {
 	existsNodes := eb.relationshipPlanner.ProcessExists(column.ResolvedPath)
 
@@ -73,7 +91,6 @@ func (eb filterExpressionBuilder) NewComparisonExpressionFromResolvedColumn(
 		ExistsNodes:    existsNodes,
 	}, nil
 }
-
 
 func (eb filterExpressionBuilder) NewCollectionExpression(
 	resourcePath string,

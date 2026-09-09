@@ -246,9 +246,9 @@ func (e *QueryOrchestrator) executeNestedQueries(
 func (e *QueryOrchestrator) getJoinOnValues(
 	link mdl.TraversalStep,
 	fromResults []mdl.TableModel,
-) ([]mdl.ValueExpression, error) {
+) ([]mdl.Value, error) {
 	seen := map[string]struct{}{}
-	joinValues := make([]mdl.ValueExpression, 0, len(fromResults))
+	joinValues := make([]mdl.Value, 0, len(fromResults))
 
 	for _, fromResult := range fromResults {
 		value, err := fromResult.GetJoinOnValue(link.Relationship.Id())

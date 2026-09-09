@@ -45,6 +45,7 @@ var anonymousAccessPolicy = &model.DatabaseAccessPolicy{
 		CreatedById:  allowAccess,
 		ModifiedAt:   allowAccess,
 		ModifiedById: allowAccess,
+		Location:     allowAccess,
 
 		// Businesses: Deny
 		EmailAddress:  denyAccess,
@@ -55,7 +56,6 @@ var anonymousAccessPolicy = &model.DatabaseAccessPolicy{
 		County:        denyAccess,
 		Country:       denyAccess,
 		Postcode:      denyAccess,
-		Location:      denyAccess,
 	},
 
 	// Farm Fields table permissions

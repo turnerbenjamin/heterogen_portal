@@ -114,7 +114,7 @@ func (_c *MockFilterExpressionBuilder_NewCollectionExpression_Call) RunAndReturn
 }
 
 // NewComparisonExpression provides a mock function for the type MockFilterExpressionBuilder
-func (_mock *MockFilterExpressionBuilder) NewComparisonExpression(columnPath string, operator queryModel.ComparisonOperator, value queryModel.ValueExpression) (*queryModel.ComparisonExpression, error) {
+func (_mock *MockFilterExpressionBuilder) NewComparisonExpression(columnPath string, operator queryModel.ComparisonOperator, value queryModel.Value) (*queryModel.ComparisonExpression, error) {
 	ret := _mock.Called(columnPath, operator, value)
 
 	if len(ret) == 0 {
@@ -123,17 +123,17 @@ func (_mock *MockFilterExpressionBuilder) NewComparisonExpression(columnPath str
 
 	var r0 *queryModel.ComparisonExpression
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(string, queryModel.ComparisonOperator, queryModel.ValueExpression) (*queryModel.ComparisonExpression, error)); ok {
+	if returnFunc, ok := ret.Get(0).(func(string, queryModel.ComparisonOperator, queryModel.Value) (*queryModel.ComparisonExpression, error)); ok {
 		return returnFunc(columnPath, operator, value)
 	}
-	if returnFunc, ok := ret.Get(0).(func(string, queryModel.ComparisonOperator, queryModel.ValueExpression) *queryModel.ComparisonExpression); ok {
+	if returnFunc, ok := ret.Get(0).(func(string, queryModel.ComparisonOperator, queryModel.Value) *queryModel.ComparisonExpression); ok {
 		r0 = returnFunc(columnPath, operator, value)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*queryModel.ComparisonExpression)
 		}
 	}
-	if returnFunc, ok := ret.Get(1).(func(string, queryModel.ComparisonOperator, queryModel.ValueExpression) error); ok {
+	if returnFunc, ok := ret.Get(1).(func(string, queryModel.ComparisonOperator, queryModel.Value) error); ok {
 		r1 = returnFunc(columnPath, operator, value)
 	} else {
 		r1 = ret.Error(1)
@@ -149,12 +149,12 @@ type MockFilterExpressionBuilder_NewComparisonExpression_Call struct {
 // NewComparisonExpression is a helper method to define mock.On call
 //   - columnPath string
 //   - operator queryModel.ComparisonOperator
-//   - value queryModel.ValueExpression
+//   - value queryModel.Value
 func (_e *MockFilterExpressionBuilder_Expecter) NewComparisonExpression(columnPath any, operator any, value any) *MockFilterExpressionBuilder_NewComparisonExpression_Call {
 	return &MockFilterExpressionBuilder_NewComparisonExpression_Call{Call: _e.mock.On("NewComparisonExpression", columnPath, operator, value)}
 }
 
-func (_c *MockFilterExpressionBuilder_NewComparisonExpression_Call) Run(run func(columnPath string, operator queryModel.ComparisonOperator, value queryModel.ValueExpression)) *MockFilterExpressionBuilder_NewComparisonExpression_Call {
+func (_c *MockFilterExpressionBuilder_NewComparisonExpression_Call) Run(run func(columnPath string, operator queryModel.ComparisonOperator, value queryModel.Value)) *MockFilterExpressionBuilder_NewComparisonExpression_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 string
 		if args[0] != nil {
@@ -164,9 +164,9 @@ func (_c *MockFilterExpressionBuilder_NewComparisonExpression_Call) Run(run func
 		if args[1] != nil {
 			arg1 = args[1].(queryModel.ComparisonOperator)
 		}
-		var arg2 queryModel.ValueExpression
+		var arg2 queryModel.Value
 		if args[2] != nil {
-			arg2 = args[2].(queryModel.ValueExpression)
+			arg2 = args[2].(queryModel.Value)
 		}
 		run(
 			arg0,
@@ -182,13 +182,13 @@ func (_c *MockFilterExpressionBuilder_NewComparisonExpression_Call) Return(compa
 	return _c
 }
 
-func (_c *MockFilterExpressionBuilder_NewComparisonExpression_Call) RunAndReturn(run func(columnPath string, operator queryModel.ComparisonOperator, value queryModel.ValueExpression) (*queryModel.ComparisonExpression, error)) *MockFilterExpressionBuilder_NewComparisonExpression_Call {
+func (_c *MockFilterExpressionBuilder_NewComparisonExpression_Call) RunAndReturn(run func(columnPath string, operator queryModel.ComparisonOperator, value queryModel.Value) (*queryModel.ComparisonExpression, error)) *MockFilterExpressionBuilder_NewComparisonExpression_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // NewComparisonExpressionFromResolvedColumn provides a mock function for the type MockFilterExpressionBuilder
-func (_mock *MockFilterExpressionBuilder) NewComparisonExpressionFromResolvedColumn(column queryModel.ResolvedColumn, operator queryModel.ComparisonOperator, value queryModel.ValueExpression) (*queryModel.ComparisonExpression, error) {
+func (_mock *MockFilterExpressionBuilder) NewComparisonExpressionFromResolvedColumn(column queryModel.ResolvedColumn, operator queryModel.ComparisonOperator, value queryModel.Value) (*queryModel.ComparisonExpression, error) {
 	ret := _mock.Called(column, operator, value)
 
 	if len(ret) == 0 {
@@ -197,17 +197,17 @@ func (_mock *MockFilterExpressionBuilder) NewComparisonExpressionFromResolvedCol
 
 	var r0 *queryModel.ComparisonExpression
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(queryModel.ResolvedColumn, queryModel.ComparisonOperator, queryModel.ValueExpression) (*queryModel.ComparisonExpression, error)); ok {
+	if returnFunc, ok := ret.Get(0).(func(queryModel.ResolvedColumn, queryModel.ComparisonOperator, queryModel.Value) (*queryModel.ComparisonExpression, error)); ok {
 		return returnFunc(column, operator, value)
 	}
-	if returnFunc, ok := ret.Get(0).(func(queryModel.ResolvedColumn, queryModel.ComparisonOperator, queryModel.ValueExpression) *queryModel.ComparisonExpression); ok {
+	if returnFunc, ok := ret.Get(0).(func(queryModel.ResolvedColumn, queryModel.ComparisonOperator, queryModel.Value) *queryModel.ComparisonExpression); ok {
 		r0 = returnFunc(column, operator, value)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*queryModel.ComparisonExpression)
 		}
 	}
-	if returnFunc, ok := ret.Get(1).(func(queryModel.ResolvedColumn, queryModel.ComparisonOperator, queryModel.ValueExpression) error); ok {
+	if returnFunc, ok := ret.Get(1).(func(queryModel.ResolvedColumn, queryModel.ComparisonOperator, queryModel.Value) error); ok {
 		r1 = returnFunc(column, operator, value)
 	} else {
 		r1 = ret.Error(1)
@@ -223,12 +223,12 @@ type MockFilterExpressionBuilder_NewComparisonExpressionFromResolvedColumn_Call 
 // NewComparisonExpressionFromResolvedColumn is a helper method to define mock.On call
 //   - column queryModel.ResolvedColumn
 //   - operator queryModel.ComparisonOperator
-//   - value queryModel.ValueExpression
+//   - value queryModel.Value
 func (_e *MockFilterExpressionBuilder_Expecter) NewComparisonExpressionFromResolvedColumn(column any, operator any, value any) *MockFilterExpressionBuilder_NewComparisonExpressionFromResolvedColumn_Call {
 	return &MockFilterExpressionBuilder_NewComparisonExpressionFromResolvedColumn_Call{Call: _e.mock.On("NewComparisonExpressionFromResolvedColumn", column, operator, value)}
 }
 
-func (_c *MockFilterExpressionBuilder_NewComparisonExpressionFromResolvedColumn_Call) Run(run func(column queryModel.ResolvedColumn, operator queryModel.ComparisonOperator, value queryModel.ValueExpression)) *MockFilterExpressionBuilder_NewComparisonExpressionFromResolvedColumn_Call {
+func (_c *MockFilterExpressionBuilder_NewComparisonExpressionFromResolvedColumn_Call) Run(run func(column queryModel.ResolvedColumn, operator queryModel.ComparisonOperator, value queryModel.Value)) *MockFilterExpressionBuilder_NewComparisonExpressionFromResolvedColumn_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 queryModel.ResolvedColumn
 		if args[0] != nil {
@@ -238,9 +238,9 @@ func (_c *MockFilterExpressionBuilder_NewComparisonExpressionFromResolvedColumn_
 		if args[1] != nil {
 			arg1 = args[1].(queryModel.ComparisonOperator)
 		}
-		var arg2 queryModel.ValueExpression
+		var arg2 queryModel.Value
 		if args[2] != nil {
-			arg2 = args[2].(queryModel.ValueExpression)
+			arg2 = args[2].(queryModel.Value)
 		}
 		run(
 			arg0,
@@ -256,7 +256,7 @@ func (_c *MockFilterExpressionBuilder_NewComparisonExpressionFromResolvedColumn_
 	return _c
 }
 
-func (_c *MockFilterExpressionBuilder_NewComparisonExpressionFromResolvedColumn_Call) RunAndReturn(run func(column queryModel.ResolvedColumn, operator queryModel.ComparisonOperator, value queryModel.ValueExpression) (*queryModel.ComparisonExpression, error)) *MockFilterExpressionBuilder_NewComparisonExpressionFromResolvedColumn_Call {
+func (_c *MockFilterExpressionBuilder_NewComparisonExpressionFromResolvedColumn_Call) RunAndReturn(run func(column queryModel.ResolvedColumn, operator queryModel.ComparisonOperator, value queryModel.Value) (*queryModel.ComparisonExpression, error)) *MockFilterExpressionBuilder_NewComparisonExpressionFromResolvedColumn_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -409,7 +409,7 @@ func (_m *MockQueryDataStore) EXPECT() *MockQueryDataStore_Expecter {
 }
 
 // AddAssociatedWithParentFilter provides a mock function for the type MockQueryDataStore
-func (_mock *MockQueryDataStore) AddAssociatedWithParentFilter(linkFromParent queryModel.TraversalStep, joinParentOnValues []queryModel.ValueExpression) error {
+func (_mock *MockQueryDataStore) AddAssociatedWithParentFilter(linkFromParent queryModel.TraversalStep, joinParentOnValues []queryModel.Value) error {
 	ret := _mock.Called(linkFromParent, joinParentOnValues)
 
 	if len(ret) == 0 {
@@ -417,7 +417,7 @@ func (_mock *MockQueryDataStore) AddAssociatedWithParentFilter(linkFromParent qu
 	}
 
 	var r0 error
-	if returnFunc, ok := ret.Get(0).(func(queryModel.TraversalStep, []queryModel.ValueExpression) error); ok {
+	if returnFunc, ok := ret.Get(0).(func(queryModel.TraversalStep, []queryModel.Value) error); ok {
 		r0 = returnFunc(linkFromParent, joinParentOnValues)
 	} else {
 		r0 = ret.Error(0)
@@ -432,20 +432,20 @@ type MockQueryDataStore_AddAssociatedWithParentFilter_Call struct {
 
 // AddAssociatedWithParentFilter is a helper method to define mock.On call
 //   - linkFromParent queryModel.TraversalStep
-//   - joinParentOnValues []queryModel.ValueExpression
+//   - joinParentOnValues []queryModel.Value
 func (_e *MockQueryDataStore_Expecter) AddAssociatedWithParentFilter(linkFromParent any, joinParentOnValues any) *MockQueryDataStore_AddAssociatedWithParentFilter_Call {
 	return &MockQueryDataStore_AddAssociatedWithParentFilter_Call{Call: _e.mock.On("AddAssociatedWithParentFilter", linkFromParent, joinParentOnValues)}
 }
 
-func (_c *MockQueryDataStore_AddAssociatedWithParentFilter_Call) Run(run func(linkFromParent queryModel.TraversalStep, joinParentOnValues []queryModel.ValueExpression)) *MockQueryDataStore_AddAssociatedWithParentFilter_Call {
+func (_c *MockQueryDataStore_AddAssociatedWithParentFilter_Call) Run(run func(linkFromParent queryModel.TraversalStep, joinParentOnValues []queryModel.Value)) *MockQueryDataStore_AddAssociatedWithParentFilter_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 queryModel.TraversalStep
 		if args[0] != nil {
 			arg0 = args[0].(queryModel.TraversalStep)
 		}
-		var arg1 []queryModel.ValueExpression
+		var arg1 []queryModel.Value
 		if args[1] != nil {
-			arg1 = args[1].([]queryModel.ValueExpression)
+			arg1 = args[1].([]queryModel.Value)
 		}
 		run(
 			arg0,
@@ -460,7 +460,7 @@ func (_c *MockQueryDataStore_AddAssociatedWithParentFilter_Call) Return(err erro
 	return _c
 }
 
-func (_c *MockQueryDataStore_AddAssociatedWithParentFilter_Call) RunAndReturn(run func(linkFromParent queryModel.TraversalStep, joinParentOnValues []queryModel.ValueExpression) error) *MockQueryDataStore_AddAssociatedWithParentFilter_Call {
+func (_c *MockQueryDataStore_AddAssociatedWithParentFilter_Call) RunAndReturn(run func(linkFromParent queryModel.TraversalStep, joinParentOnValues []queryModel.Value) error) *MockQueryDataStore_AddAssociatedWithParentFilter_Call {
 	_c.Call.Return(run)
 	return _c
 }

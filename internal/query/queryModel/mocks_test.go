@@ -353,6 +353,46 @@ func (_c *MockSerialiser_SerialiseFloat_Call) RunAndReturn(run func(f float64)) 
 	return _c
 }
 
+// SerialiseFloatList provides a mock function for the type MockSerialiser
+func (_mock *MockSerialiser) SerialiseFloatList(els []float64) {
+	_mock.Called(els)
+	return
+}
+
+// MockSerialiser_SerialiseFloatList_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SerialiseFloatList'
+type MockSerialiser_SerialiseFloatList_Call struct {
+	*mock.Call
+}
+
+// SerialiseFloatList is a helper method to define mock.On call
+//   - els []float64
+func (_e *MockSerialiser_Expecter) SerialiseFloatList(els any) *MockSerialiser_SerialiseFloatList_Call {
+	return &MockSerialiser_SerialiseFloatList_Call{Call: _e.mock.On("SerialiseFloatList", els)}
+}
+
+func (_c *MockSerialiser_SerialiseFloatList_Call) Run(run func(els []float64)) *MockSerialiser_SerialiseFloatList_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 []float64
+		if args[0] != nil {
+			arg0 = args[0].([]float64)
+		}
+		run(
+			arg0,
+		)
+	})
+	return _c
+}
+
+func (_c *MockSerialiser_SerialiseFloatList_Call) Return() *MockSerialiser_SerialiseFloatList_Call {
+	_c.Call.Return()
+	return _c
+}
+
+func (_c *MockSerialiser_SerialiseFloatList_Call) RunAndReturn(run func(els []float64)) *MockSerialiser_SerialiseFloatList_Call {
+	_c.Run(run)
+	return _c
+}
+
 // SerialiseInt provides a mock function for the type MockSerialiser
 func (_mock *MockSerialiser) SerialiseInt(n int64) {
 	_mock.Called(n)
@@ -393,28 +433,28 @@ func (_c *MockSerialiser_SerialiseInt_Call) RunAndReturn(run func(n int64)) *Moc
 	return _c
 }
 
-// SerialiseList provides a mock function for the type MockSerialiser
-func (_mock *MockSerialiser) SerialiseList(els []ValueExpression) {
+// SerialiseIntList provides a mock function for the type MockSerialiser
+func (_mock *MockSerialiser) SerialiseIntList(els []int64) {
 	_mock.Called(els)
 	return
 }
 
-// MockSerialiser_SerialiseList_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SerialiseList'
-type MockSerialiser_SerialiseList_Call struct {
+// MockSerialiser_SerialiseIntList_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SerialiseIntList'
+type MockSerialiser_SerialiseIntList_Call struct {
 	*mock.Call
 }
 
-// SerialiseList is a helper method to define mock.On call
-//   - els []ValueExpression
-func (_e *MockSerialiser_Expecter) SerialiseList(els any) *MockSerialiser_SerialiseList_Call {
-	return &MockSerialiser_SerialiseList_Call{Call: _e.mock.On("SerialiseList", els)}
+// SerialiseIntList is a helper method to define mock.On call
+//   - els []int64
+func (_e *MockSerialiser_Expecter) SerialiseIntList(els any) *MockSerialiser_SerialiseIntList_Call {
+	return &MockSerialiser_SerialiseIntList_Call{Call: _e.mock.On("SerialiseIntList", els)}
 }
 
-func (_c *MockSerialiser_SerialiseList_Call) Run(run func(els []ValueExpression)) *MockSerialiser_SerialiseList_Call {
+func (_c *MockSerialiser_SerialiseIntList_Call) Run(run func(els []int64)) *MockSerialiser_SerialiseIntList_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		var arg0 []ValueExpression
+		var arg0 []int64
 		if args[0] != nil {
-			arg0 = args[0].([]ValueExpression)
+			arg0 = args[0].([]int64)
 		}
 		run(
 			arg0,
@@ -423,12 +463,45 @@ func (_c *MockSerialiser_SerialiseList_Call) Run(run func(els []ValueExpression)
 	return _c
 }
 
-func (_c *MockSerialiser_SerialiseList_Call) Return() *MockSerialiser_SerialiseList_Call {
+func (_c *MockSerialiser_SerialiseIntList_Call) Return() *MockSerialiser_SerialiseIntList_Call {
 	_c.Call.Return()
 	return _c
 }
 
-func (_c *MockSerialiser_SerialiseList_Call) RunAndReturn(run func(els []ValueExpression)) *MockSerialiser_SerialiseList_Call {
+func (_c *MockSerialiser_SerialiseIntList_Call) RunAndReturn(run func(els []int64)) *MockSerialiser_SerialiseIntList_Call {
+	_c.Run(run)
+	return _c
+}
+
+// SerialiseNull provides a mock function for the type MockSerialiser
+func (_mock *MockSerialiser) SerialiseNull() {
+	_mock.Called()
+	return
+}
+
+// MockSerialiser_SerialiseNull_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SerialiseNull'
+type MockSerialiser_SerialiseNull_Call struct {
+	*mock.Call
+}
+
+// SerialiseNull is a helper method to define mock.On call
+func (_e *MockSerialiser_Expecter) SerialiseNull() *MockSerialiser_SerialiseNull_Call {
+	return &MockSerialiser_SerialiseNull_Call{Call: _e.mock.On("SerialiseNull")}
+}
+
+func (_c *MockSerialiser_SerialiseNull_Call) Run(run func()) *MockSerialiser_SerialiseNull_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *MockSerialiser_SerialiseNull_Call) Return() *MockSerialiser_SerialiseNull_Call {
+	_c.Call.Return()
+	return _c
+}
+
+func (_c *MockSerialiser_SerialiseNull_Call) RunAndReturn(run func()) *MockSerialiser_SerialiseNull_Call {
 	_c.Run(run)
 	return _c
 }
@@ -469,6 +542,46 @@ func (_c *MockSerialiser_SerialiseString_Call) Return() *MockSerialiser_Serialis
 }
 
 func (_c *MockSerialiser_SerialiseString_Call) RunAndReturn(run func(str string)) *MockSerialiser_SerialiseString_Call {
+	_c.Run(run)
+	return _c
+}
+
+// SerialiseStringList provides a mock function for the type MockSerialiser
+func (_mock *MockSerialiser) SerialiseStringList(els []string) {
+	_mock.Called(els)
+	return
+}
+
+// MockSerialiser_SerialiseStringList_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SerialiseStringList'
+type MockSerialiser_SerialiseStringList_Call struct {
+	*mock.Call
+}
+
+// SerialiseStringList is a helper method to define mock.On call
+//   - els []string
+func (_e *MockSerialiser_Expecter) SerialiseStringList(els any) *MockSerialiser_SerialiseStringList_Call {
+	return &MockSerialiser_SerialiseStringList_Call{Call: _e.mock.On("SerialiseStringList", els)}
+}
+
+func (_c *MockSerialiser_SerialiseStringList_Call) Run(run func(els []string)) *MockSerialiser_SerialiseStringList_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 []string
+		if args[0] != nil {
+			arg0 = args[0].([]string)
+		}
+		run(
+			arg0,
+		)
+	})
+	return _c
+}
+
+func (_c *MockSerialiser_SerialiseStringList_Call) Return() *MockSerialiser_SerialiseStringList_Call {
+	_c.Call.Return()
+	return _c
+}
+
+func (_c *MockSerialiser_SerialiseStringList_Call) RunAndReturn(run func(els []string)) *MockSerialiser_SerialiseStringList_Call {
 	_c.Run(run)
 	return _c
 }
@@ -875,56 +988,56 @@ func (_m *MockValueBuilder) EXPECT() *MockValueBuilder_Expecter {
 	return &MockValueBuilder_Expecter{mock: &_m.Mock}
 }
 
-// Deserialise provides a mock function for the type MockValueBuilder
-func (_mock *MockValueBuilder) Deserialise(deserialiser Deserialiser, literalType LiteralType, data []byte) (ValueExpression, error) {
-	ret := _mock.Called(deserialiser, literalType, data)
+// ExecuteDeserialisation provides a mock function for the type MockValueBuilder
+func (_mock *MockValueBuilder) ExecuteDeserialisation(ds Deserialiser, t ValueType, d []byte) (Value, error) {
+	ret := _mock.Called(ds, t, d)
 
 	if len(ret) == 0 {
-		panic("no return value specified for Deserialise")
+		panic("no return value specified for ExecuteDeserialisation")
 	}
 
-	var r0 ValueExpression
+	var r0 Value
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(Deserialiser, LiteralType, []byte) (ValueExpression, error)); ok {
-		return returnFunc(deserialiser, literalType, data)
+	if returnFunc, ok := ret.Get(0).(func(Deserialiser, ValueType, []byte) (Value, error)); ok {
+		return returnFunc(ds, t, d)
 	}
-	if returnFunc, ok := ret.Get(0).(func(Deserialiser, LiteralType, []byte) ValueExpression); ok {
-		r0 = returnFunc(deserialiser, literalType, data)
+	if returnFunc, ok := ret.Get(0).(func(Deserialiser, ValueType, []byte) Value); ok {
+		r0 = returnFunc(ds, t, d)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(ValueExpression)
+			r0 = ret.Get(0).(Value)
 		}
 	}
-	if returnFunc, ok := ret.Get(1).(func(Deserialiser, LiteralType, []byte) error); ok {
-		r1 = returnFunc(deserialiser, literalType, data)
+	if returnFunc, ok := ret.Get(1).(func(Deserialiser, ValueType, []byte) error); ok {
+		r1 = returnFunc(ds, t, d)
 	} else {
 		r1 = ret.Error(1)
 	}
 	return r0, r1
 }
 
-// MockValueBuilder_Deserialise_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Deserialise'
-type MockValueBuilder_Deserialise_Call struct {
+// MockValueBuilder_ExecuteDeserialisation_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ExecuteDeserialisation'
+type MockValueBuilder_ExecuteDeserialisation_Call struct {
 	*mock.Call
 }
 
-// Deserialise is a helper method to define mock.On call
-//   - deserialiser Deserialiser
-//   - literalType LiteralType
-//   - data []byte
-func (_e *MockValueBuilder_Expecter) Deserialise(deserialiser any, literalType any, data any) *MockValueBuilder_Deserialise_Call {
-	return &MockValueBuilder_Deserialise_Call{Call: _e.mock.On("Deserialise", deserialiser, literalType, data)}
+// ExecuteDeserialisation is a helper method to define mock.On call
+//   - ds Deserialiser
+//   - t ValueType
+//   - d []byte
+func (_e *MockValueBuilder_Expecter) ExecuteDeserialisation(ds any, t any, d any) *MockValueBuilder_ExecuteDeserialisation_Call {
+	return &MockValueBuilder_ExecuteDeserialisation_Call{Call: _e.mock.On("ExecuteDeserialisation", ds, t, d)}
 }
 
-func (_c *MockValueBuilder_Deserialise_Call) Run(run func(deserialiser Deserialiser, literalType LiteralType, data []byte)) *MockValueBuilder_Deserialise_Call {
+func (_c *MockValueBuilder_ExecuteDeserialisation_Call) Run(run func(ds Deserialiser, t ValueType, d []byte)) *MockValueBuilder_ExecuteDeserialisation_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 Deserialiser
 		if args[0] != nil {
 			arg0 = args[0].(Deserialiser)
 		}
-		var arg1 LiteralType
+		var arg1 ValueType
 		if args[1] != nil {
-			arg1 = args[1].(LiteralType)
+			arg1 = args[1].(ValueType)
 		}
 		var arg2 []byte
 		if args[2] != nil {
@@ -939,30 +1052,30 @@ func (_c *MockValueBuilder_Deserialise_Call) Run(run func(deserialiser Deseriali
 	return _c
 }
 
-func (_c *MockValueBuilder_Deserialise_Call) Return(valueExpression ValueExpression, err error) *MockValueBuilder_Deserialise_Call {
-	_c.Call.Return(valueExpression, err)
+func (_c *MockValueBuilder_ExecuteDeserialisation_Call) Return(value Value, err error) *MockValueBuilder_ExecuteDeserialisation_Call {
+	_c.Call.Return(value, err)
 	return _c
 }
 
-func (_c *MockValueBuilder_Deserialise_Call) RunAndReturn(run func(deserialiser Deserialiser, literalType LiteralType, data []byte) (ValueExpression, error)) *MockValueBuilder_Deserialise_Call {
+func (_c *MockValueBuilder_ExecuteDeserialisation_Call) RunAndReturn(run func(ds Deserialiser, t ValueType, d []byte) (Value, error)) *MockValueBuilder_ExecuteDeserialisation_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // Float provides a mock function for the type MockValueBuilder
-func (_mock *MockValueBuilder) Float(float float64) ValueExpression {
+func (_mock *MockValueBuilder) Float(float float64) Value {
 	ret := _mock.Called(float)
 
 	if len(ret) == 0 {
 		panic("no return value specified for Float")
 	}
 
-	var r0 ValueExpression
-	if returnFunc, ok := ret.Get(0).(func(float64) ValueExpression); ok {
+	var r0 Value
+	if returnFunc, ok := ret.Get(0).(func(float64) Value); ok {
 		r0 = returnFunc(float)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(ValueExpression)
+			r0 = ret.Get(0).(Value)
 		}
 	}
 	return r0
@@ -992,30 +1105,30 @@ func (_c *MockValueBuilder_Float_Call) Run(run func(float float64)) *MockValueBu
 	return _c
 }
 
-func (_c *MockValueBuilder_Float_Call) Return(valueExpression ValueExpression) *MockValueBuilder_Float_Call {
-	_c.Call.Return(valueExpression)
+func (_c *MockValueBuilder_Float_Call) Return(value Value) *MockValueBuilder_Float_Call {
+	_c.Call.Return(value)
 	return _c
 }
 
-func (_c *MockValueBuilder_Float_Call) RunAndReturn(run func(float float64) ValueExpression) *MockValueBuilder_Float_Call {
+func (_c *MockValueBuilder_Float_Call) RunAndReturn(run func(float float64) Value) *MockValueBuilder_Float_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // Int provides a mock function for the type MockValueBuilder
-func (_mock *MockValueBuilder) Int(n int64) ValueExpression {
+func (_mock *MockValueBuilder) Int(n int64) Value {
 	ret := _mock.Called(n)
 
 	if len(ret) == 0 {
 		panic("no return value specified for Int")
 	}
 
-	var r0 ValueExpression
-	if returnFunc, ok := ret.Get(0).(func(int64) ValueExpression); ok {
+	var r0 Value
+	if returnFunc, ok := ret.Get(0).(func(int64) Value); ok {
 		r0 = returnFunc(n)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(ValueExpression)
+			r0 = ret.Get(0).(Value)
 		}
 	}
 	return r0
@@ -1045,37 +1158,37 @@ func (_c *MockValueBuilder_Int_Call) Run(run func(n int64)) *MockValueBuilder_In
 	return _c
 }
 
-func (_c *MockValueBuilder_Int_Call) Return(valueExpression ValueExpression) *MockValueBuilder_Int_Call {
-	_c.Call.Return(valueExpression)
+func (_c *MockValueBuilder_Int_Call) Return(value Value) *MockValueBuilder_Int_Call {
+	_c.Call.Return(value)
 	return _c
 }
 
-func (_c *MockValueBuilder_Int_Call) RunAndReturn(run func(n int64) ValueExpression) *MockValueBuilder_Int_Call {
+func (_c *MockValueBuilder_Int_Call) RunAndReturn(run func(n int64) Value) *MockValueBuilder_Int_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // List provides a mock function for the type MockValueBuilder
-func (_mock *MockValueBuilder) List(elements []ValueExpression) (ValueExpression, error) {
+func (_mock *MockValueBuilder) List(elements []Value) (Value, error) {
 	ret := _mock.Called(elements)
 
 	if len(ret) == 0 {
 		panic("no return value specified for List")
 	}
 
-	var r0 ValueExpression
+	var r0 Value
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func([]ValueExpression) (ValueExpression, error)); ok {
+	if returnFunc, ok := ret.Get(0).(func([]Value) (Value, error)); ok {
 		return returnFunc(elements)
 	}
-	if returnFunc, ok := ret.Get(0).(func([]ValueExpression) ValueExpression); ok {
+	if returnFunc, ok := ret.Get(0).(func([]Value) Value); ok {
 		r0 = returnFunc(elements)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(ValueExpression)
+			r0 = ret.Get(0).(Value)
 		}
 	}
-	if returnFunc, ok := ret.Get(1).(func([]ValueExpression) error); ok {
+	if returnFunc, ok := ret.Get(1).(func([]Value) error); ok {
 		r1 = returnFunc(elements)
 	} else {
 		r1 = ret.Error(1)
@@ -1089,16 +1202,16 @@ type MockValueBuilder_List_Call struct {
 }
 
 // List is a helper method to define mock.On call
-//   - elements []ValueExpression
+//   - elements []Value
 func (_e *MockValueBuilder_Expecter) List(elements any) *MockValueBuilder_List_Call {
 	return &MockValueBuilder_List_Call{Call: _e.mock.On("List", elements)}
 }
 
-func (_c *MockValueBuilder_List_Call) Run(run func(elements []ValueExpression)) *MockValueBuilder_List_Call {
+func (_c *MockValueBuilder_List_Call) Run(run func(elements []Value)) *MockValueBuilder_List_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		var arg0 []ValueExpression
+		var arg0 []Value
 		if args[0] != nil {
-			arg0 = args[0].([]ValueExpression)
+			arg0 = args[0].([]Value)
 		}
 		run(
 			arg0,
@@ -1107,30 +1220,30 @@ func (_c *MockValueBuilder_List_Call) Run(run func(elements []ValueExpression)) 
 	return _c
 }
 
-func (_c *MockValueBuilder_List_Call) Return(valueExpression ValueExpression, err error) *MockValueBuilder_List_Call {
-	_c.Call.Return(valueExpression, err)
+func (_c *MockValueBuilder_List_Call) Return(value Value, err error) *MockValueBuilder_List_Call {
+	_c.Call.Return(value, err)
 	return _c
 }
 
-func (_c *MockValueBuilder_List_Call) RunAndReturn(run func(elements []ValueExpression) (ValueExpression, error)) *MockValueBuilder_List_Call {
+func (_c *MockValueBuilder_List_Call) RunAndReturn(run func(elements []Value) (Value, error)) *MockValueBuilder_List_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // Null provides a mock function for the type MockValueBuilder
-func (_mock *MockValueBuilder) Null() ValueExpression {
+func (_mock *MockValueBuilder) Null() Value {
 	ret := _mock.Called()
 
 	if len(ret) == 0 {
 		panic("no return value specified for Null")
 	}
 
-	var r0 ValueExpression
-	if returnFunc, ok := ret.Get(0).(func() ValueExpression); ok {
+	var r0 Value
+	if returnFunc, ok := ret.Get(0).(func() Value); ok {
 		r0 = returnFunc()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(ValueExpression)
+			r0 = ret.Get(0).(Value)
 		}
 	}
 	return r0
@@ -1153,30 +1266,30 @@ func (_c *MockValueBuilder_Null_Call) Run(run func()) *MockValueBuilder_Null_Cal
 	return _c
 }
 
-func (_c *MockValueBuilder_Null_Call) Return(valueExpression ValueExpression) *MockValueBuilder_Null_Call {
-	_c.Call.Return(valueExpression)
+func (_c *MockValueBuilder_Null_Call) Return(value Value) *MockValueBuilder_Null_Call {
+	_c.Call.Return(value)
 	return _c
 }
 
-func (_c *MockValueBuilder_Null_Call) RunAndReturn(run func() ValueExpression) *MockValueBuilder_Null_Call {
+func (_c *MockValueBuilder_Null_Call) RunAndReturn(run func() Value) *MockValueBuilder_Null_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // String provides a mock function for the type MockValueBuilder
-func (_mock *MockValueBuilder) String(str string) ValueExpression {
+func (_mock *MockValueBuilder) String(str string) Value {
 	ret := _mock.Called(str)
 
 	if len(ret) == 0 {
 		panic("no return value specified for String")
 	}
 
-	var r0 ValueExpression
-	if returnFunc, ok := ret.Get(0).(func(string) ValueExpression); ok {
+	var r0 Value
+	if returnFunc, ok := ret.Get(0).(func(string) Value); ok {
 		r0 = returnFunc(str)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(ValueExpression)
+			r0 = ret.Get(0).(Value)
 		}
 	}
 	return r0
@@ -1206,12 +1319,12 @@ func (_c *MockValueBuilder_String_Call) Run(run func(str string)) *MockValueBuil
 	return _c
 }
 
-func (_c *MockValueBuilder_String_Call) Return(valueExpression ValueExpression) *MockValueBuilder_String_Call {
-	_c.Call.Return(valueExpression)
+func (_c *MockValueBuilder_String_Call) Return(value Value) *MockValueBuilder_String_Call {
+	_c.Call.Return(value)
 	return _c
 }
 
-func (_c *MockValueBuilder_String_Call) RunAndReturn(run func(str string) ValueExpression) *MockValueBuilder_String_Call {
+func (_c *MockValueBuilder_String_Call) RunAndReturn(run func(str string) Value) *MockValueBuilder_String_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -1289,111 +1402,6 @@ func (_c *MockQueryWriter_Args_Call) RunAndReturn(run func() []any) *MockQueryWr
 	return _c
 }
 
-// Placeholder provides a mock function for the type MockQueryWriter
-func (_mock *MockQueryWriter) Placeholder(v any) string {
-	ret := _mock.Called(v)
-
-	if len(ret) == 0 {
-		panic("no return value specified for Placeholder")
-	}
-
-	var r0 string
-	if returnFunc, ok := ret.Get(0).(func(any) string); ok {
-		r0 = returnFunc(v)
-	} else {
-		r0 = ret.Get(0).(string)
-	}
-	return r0
-}
-
-// MockQueryWriter_Placeholder_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Placeholder'
-type MockQueryWriter_Placeholder_Call struct {
-	*mock.Call
-}
-
-// Placeholder is a helper method to define mock.On call
-//   - v any
-func (_e *MockQueryWriter_Expecter) Placeholder(v any) *MockQueryWriter_Placeholder_Call {
-	return &MockQueryWriter_Placeholder_Call{Call: _e.mock.On("Placeholder", v)}
-}
-
-func (_c *MockQueryWriter_Placeholder_Call) Run(run func(v any)) *MockQueryWriter_Placeholder_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		var arg0 any
-		if args[0] != nil {
-			arg0 = args[0].(any)
-		}
-		run(
-			arg0,
-		)
-	})
-	return _c
-}
-
-func (_c *MockQueryWriter_Placeholder_Call) Return(s string) *MockQueryWriter_Placeholder_Call {
-	_c.Call.Return(s)
-	return _c
-}
-
-func (_c *MockQueryWriter_Placeholder_Call) RunAndReturn(run func(v any) string) *MockQueryWriter_Placeholder_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
-// Write provides a mock function for the type MockQueryWriter
-func (_mock *MockQueryWriter) Write(statement string, args ...any) {
-	if len(args) > 0 {
-		_mock.Called(statement, args)
-	} else {
-		_mock.Called(statement)
-	}
-
-	return
-}
-
-// MockQueryWriter_Write_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Write'
-type MockQueryWriter_Write_Call struct {
-	*mock.Call
-}
-
-// Write is a helper method to define mock.On call
-//   - statement string
-//   - args ...any
-func (_e *MockQueryWriter_Expecter) Write(statement any, args ...any) *MockQueryWriter_Write_Call {
-	return &MockQueryWriter_Write_Call{Call: _e.mock.On("Write",
-		append([]any{statement}, args...)...)}
-}
-
-func (_c *MockQueryWriter_Write_Call) Run(run func(statement string, args ...any)) *MockQueryWriter_Write_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		var arg0 string
-		if args[0] != nil {
-			arg0 = args[0].(string)
-		}
-		var arg1 []any
-		var variadicArgs []any
-		if len(args) > 1 {
-			variadicArgs = args[1].([]any)
-		}
-		arg1 = variadicArgs
-		run(
-			arg0,
-			arg1...,
-		)
-	})
-	return _c
-}
-
-func (_c *MockQueryWriter_Write_Call) Return() *MockQueryWriter_Write_Call {
-	_c.Call.Return()
-	return _c
-}
-
-func (_c *MockQueryWriter_Write_Call) RunAndReturn(run func(statement string, args ...any)) *MockQueryWriter_Write_Call {
-	_c.Run(run)
-	return _c
-}
-
 // WriteCountStatement provides a mock function for the type MockQueryWriter
 func (_mock *MockQueryWriter) WriteCountStatement() string {
 	ret := _mock.Called()
@@ -1434,6 +1442,441 @@ func (_c *MockQueryWriter_WriteCountStatement_Call) Return(s string) *MockQueryW
 }
 
 func (_c *MockQueryWriter_WriteCountStatement_Call) RunAndReturn(run func() string) *MockQueryWriter_WriteCountStatement_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// WriteFilterExpressionFloat provides a mock function for the type MockQueryWriter
+func (_mock *MockQueryWriter) WriteFilterExpressionFloat(field string, op ComparisonOperator, value float64) error {
+	ret := _mock.Called(field, op, value)
+
+	if len(ret) == 0 {
+		panic("no return value specified for WriteFilterExpressionFloat")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(string, ComparisonOperator, float64) error); ok {
+		r0 = returnFunc(field, op, value)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockQueryWriter_WriteFilterExpressionFloat_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'WriteFilterExpressionFloat'
+type MockQueryWriter_WriteFilterExpressionFloat_Call struct {
+	*mock.Call
+}
+
+// WriteFilterExpressionFloat is a helper method to define mock.On call
+//   - field string
+//   - op ComparisonOperator
+//   - value float64
+func (_e *MockQueryWriter_Expecter) WriteFilterExpressionFloat(field any, op any, value any) *MockQueryWriter_WriteFilterExpressionFloat_Call {
+	return &MockQueryWriter_WriteFilterExpressionFloat_Call{Call: _e.mock.On("WriteFilterExpressionFloat", field, op, value)}
+}
+
+func (_c *MockQueryWriter_WriteFilterExpressionFloat_Call) Run(run func(field string, op ComparisonOperator, value float64)) *MockQueryWriter_WriteFilterExpressionFloat_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 string
+		if args[0] != nil {
+			arg0 = args[0].(string)
+		}
+		var arg1 ComparisonOperator
+		if args[1] != nil {
+			arg1 = args[1].(ComparisonOperator)
+		}
+		var arg2 float64
+		if args[2] != nil {
+			arg2 = args[2].(float64)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockQueryWriter_WriteFilterExpressionFloat_Call) Return(err error) *MockQueryWriter_WriteFilterExpressionFloat_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockQueryWriter_WriteFilterExpressionFloat_Call) RunAndReturn(run func(field string, op ComparisonOperator, value float64) error) *MockQueryWriter_WriteFilterExpressionFloat_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// WriteFilterExpressionFloatList provides a mock function for the type MockQueryWriter
+func (_mock *MockQueryWriter) WriteFilterExpressionFloatList(field string, op ComparisonOperator, value []float64) error {
+	ret := _mock.Called(field, op, value)
+
+	if len(ret) == 0 {
+		panic("no return value specified for WriteFilterExpressionFloatList")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(string, ComparisonOperator, []float64) error); ok {
+		r0 = returnFunc(field, op, value)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockQueryWriter_WriteFilterExpressionFloatList_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'WriteFilterExpressionFloatList'
+type MockQueryWriter_WriteFilterExpressionFloatList_Call struct {
+	*mock.Call
+}
+
+// WriteFilterExpressionFloatList is a helper method to define mock.On call
+//   - field string
+//   - op ComparisonOperator
+//   - value []float64
+func (_e *MockQueryWriter_Expecter) WriteFilterExpressionFloatList(field any, op any, value any) *MockQueryWriter_WriteFilterExpressionFloatList_Call {
+	return &MockQueryWriter_WriteFilterExpressionFloatList_Call{Call: _e.mock.On("WriteFilterExpressionFloatList", field, op, value)}
+}
+
+func (_c *MockQueryWriter_WriteFilterExpressionFloatList_Call) Run(run func(field string, op ComparisonOperator, value []float64)) *MockQueryWriter_WriteFilterExpressionFloatList_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 string
+		if args[0] != nil {
+			arg0 = args[0].(string)
+		}
+		var arg1 ComparisonOperator
+		if args[1] != nil {
+			arg1 = args[1].(ComparisonOperator)
+		}
+		var arg2 []float64
+		if args[2] != nil {
+			arg2 = args[2].([]float64)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockQueryWriter_WriteFilterExpressionFloatList_Call) Return(err error) *MockQueryWriter_WriteFilterExpressionFloatList_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockQueryWriter_WriteFilterExpressionFloatList_Call) RunAndReturn(run func(field string, op ComparisonOperator, value []float64) error) *MockQueryWriter_WriteFilterExpressionFloatList_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// WriteFilterExpressionInt provides a mock function for the type MockQueryWriter
+func (_mock *MockQueryWriter) WriteFilterExpressionInt(field string, op ComparisonOperator, value int64) error {
+	ret := _mock.Called(field, op, value)
+
+	if len(ret) == 0 {
+		panic("no return value specified for WriteFilterExpressionInt")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(string, ComparisonOperator, int64) error); ok {
+		r0 = returnFunc(field, op, value)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockQueryWriter_WriteFilterExpressionInt_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'WriteFilterExpressionInt'
+type MockQueryWriter_WriteFilterExpressionInt_Call struct {
+	*mock.Call
+}
+
+// WriteFilterExpressionInt is a helper method to define mock.On call
+//   - field string
+//   - op ComparisonOperator
+//   - value int64
+func (_e *MockQueryWriter_Expecter) WriteFilterExpressionInt(field any, op any, value any) *MockQueryWriter_WriteFilterExpressionInt_Call {
+	return &MockQueryWriter_WriteFilterExpressionInt_Call{Call: _e.mock.On("WriteFilterExpressionInt", field, op, value)}
+}
+
+func (_c *MockQueryWriter_WriteFilterExpressionInt_Call) Run(run func(field string, op ComparisonOperator, value int64)) *MockQueryWriter_WriteFilterExpressionInt_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 string
+		if args[0] != nil {
+			arg0 = args[0].(string)
+		}
+		var arg1 ComparisonOperator
+		if args[1] != nil {
+			arg1 = args[1].(ComparisonOperator)
+		}
+		var arg2 int64
+		if args[2] != nil {
+			arg2 = args[2].(int64)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockQueryWriter_WriteFilterExpressionInt_Call) Return(err error) *MockQueryWriter_WriteFilterExpressionInt_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockQueryWriter_WriteFilterExpressionInt_Call) RunAndReturn(run func(field string, op ComparisonOperator, value int64) error) *MockQueryWriter_WriteFilterExpressionInt_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// WriteFilterExpressionIntList provides a mock function for the type MockQueryWriter
+func (_mock *MockQueryWriter) WriteFilterExpressionIntList(field string, op ComparisonOperator, value []int64) error {
+	ret := _mock.Called(field, op, value)
+
+	if len(ret) == 0 {
+		panic("no return value specified for WriteFilterExpressionIntList")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(string, ComparisonOperator, []int64) error); ok {
+		r0 = returnFunc(field, op, value)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockQueryWriter_WriteFilterExpressionIntList_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'WriteFilterExpressionIntList'
+type MockQueryWriter_WriteFilterExpressionIntList_Call struct {
+	*mock.Call
+}
+
+// WriteFilterExpressionIntList is a helper method to define mock.On call
+//   - field string
+//   - op ComparisonOperator
+//   - value []int64
+func (_e *MockQueryWriter_Expecter) WriteFilterExpressionIntList(field any, op any, value any) *MockQueryWriter_WriteFilterExpressionIntList_Call {
+	return &MockQueryWriter_WriteFilterExpressionIntList_Call{Call: _e.mock.On("WriteFilterExpressionIntList", field, op, value)}
+}
+
+func (_c *MockQueryWriter_WriteFilterExpressionIntList_Call) Run(run func(field string, op ComparisonOperator, value []int64)) *MockQueryWriter_WriteFilterExpressionIntList_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 string
+		if args[0] != nil {
+			arg0 = args[0].(string)
+		}
+		var arg1 ComparisonOperator
+		if args[1] != nil {
+			arg1 = args[1].(ComparisonOperator)
+		}
+		var arg2 []int64
+		if args[2] != nil {
+			arg2 = args[2].([]int64)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockQueryWriter_WriteFilterExpressionIntList_Call) Return(err error) *MockQueryWriter_WriteFilterExpressionIntList_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockQueryWriter_WriteFilterExpressionIntList_Call) RunAndReturn(run func(field string, op ComparisonOperator, value []int64) error) *MockQueryWriter_WriteFilterExpressionIntList_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// WriteFilterExpressionNull provides a mock function for the type MockQueryWriter
+func (_mock *MockQueryWriter) WriteFilterExpressionNull(field string, op ComparisonOperator) error {
+	ret := _mock.Called(field, op)
+
+	if len(ret) == 0 {
+		panic("no return value specified for WriteFilterExpressionNull")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(string, ComparisonOperator) error); ok {
+		r0 = returnFunc(field, op)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockQueryWriter_WriteFilterExpressionNull_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'WriteFilterExpressionNull'
+type MockQueryWriter_WriteFilterExpressionNull_Call struct {
+	*mock.Call
+}
+
+// WriteFilterExpressionNull is a helper method to define mock.On call
+//   - field string
+//   - op ComparisonOperator
+func (_e *MockQueryWriter_Expecter) WriteFilterExpressionNull(field any, op any) *MockQueryWriter_WriteFilterExpressionNull_Call {
+	return &MockQueryWriter_WriteFilterExpressionNull_Call{Call: _e.mock.On("WriteFilterExpressionNull", field, op)}
+}
+
+func (_c *MockQueryWriter_WriteFilterExpressionNull_Call) Run(run func(field string, op ComparisonOperator)) *MockQueryWriter_WriteFilterExpressionNull_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 string
+		if args[0] != nil {
+			arg0 = args[0].(string)
+		}
+		var arg1 ComparisonOperator
+		if args[1] != nil {
+			arg1 = args[1].(ComparisonOperator)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockQueryWriter_WriteFilterExpressionNull_Call) Return(err error) *MockQueryWriter_WriteFilterExpressionNull_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockQueryWriter_WriteFilterExpressionNull_Call) RunAndReturn(run func(field string, op ComparisonOperator) error) *MockQueryWriter_WriteFilterExpressionNull_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// WriteFilterExpressionString provides a mock function for the type MockQueryWriter
+func (_mock *MockQueryWriter) WriteFilterExpressionString(field string, op ComparisonOperator, value string) error {
+	ret := _mock.Called(field, op, value)
+
+	if len(ret) == 0 {
+		panic("no return value specified for WriteFilterExpressionString")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(string, ComparisonOperator, string) error); ok {
+		r0 = returnFunc(field, op, value)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockQueryWriter_WriteFilterExpressionString_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'WriteFilterExpressionString'
+type MockQueryWriter_WriteFilterExpressionString_Call struct {
+	*mock.Call
+}
+
+// WriteFilterExpressionString is a helper method to define mock.On call
+//   - field string
+//   - op ComparisonOperator
+//   - value string
+func (_e *MockQueryWriter_Expecter) WriteFilterExpressionString(field any, op any, value any) *MockQueryWriter_WriteFilterExpressionString_Call {
+	return &MockQueryWriter_WriteFilterExpressionString_Call{Call: _e.mock.On("WriteFilterExpressionString", field, op, value)}
+}
+
+func (_c *MockQueryWriter_WriteFilterExpressionString_Call) Run(run func(field string, op ComparisonOperator, value string)) *MockQueryWriter_WriteFilterExpressionString_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 string
+		if args[0] != nil {
+			arg0 = args[0].(string)
+		}
+		var arg1 ComparisonOperator
+		if args[1] != nil {
+			arg1 = args[1].(ComparisonOperator)
+		}
+		var arg2 string
+		if args[2] != nil {
+			arg2 = args[2].(string)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockQueryWriter_WriteFilterExpressionString_Call) Return(err error) *MockQueryWriter_WriteFilterExpressionString_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockQueryWriter_WriteFilterExpressionString_Call) RunAndReturn(run func(field string, op ComparisonOperator, value string) error) *MockQueryWriter_WriteFilterExpressionString_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// WriteFilterExpressionStringList provides a mock function for the type MockQueryWriter
+func (_mock *MockQueryWriter) WriteFilterExpressionStringList(field string, op ComparisonOperator, value []string) error {
+	ret := _mock.Called(field, op, value)
+
+	if len(ret) == 0 {
+		panic("no return value specified for WriteFilterExpressionStringList")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(string, ComparisonOperator, []string) error); ok {
+		r0 = returnFunc(field, op, value)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockQueryWriter_WriteFilterExpressionStringList_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'WriteFilterExpressionStringList'
+type MockQueryWriter_WriteFilterExpressionStringList_Call struct {
+	*mock.Call
+}
+
+// WriteFilterExpressionStringList is a helper method to define mock.On call
+//   - field string
+//   - op ComparisonOperator
+//   - value []string
+func (_e *MockQueryWriter_Expecter) WriteFilterExpressionStringList(field any, op any, value any) *MockQueryWriter_WriteFilterExpressionStringList_Call {
+	return &MockQueryWriter_WriteFilterExpressionStringList_Call{Call: _e.mock.On("WriteFilterExpressionStringList", field, op, value)}
+}
+
+func (_c *MockQueryWriter_WriteFilterExpressionStringList_Call) Run(run func(field string, op ComparisonOperator, value []string)) *MockQueryWriter_WriteFilterExpressionStringList_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 string
+		if args[0] != nil {
+			arg0 = args[0].(string)
+		}
+		var arg1 ComparisonOperator
+		if args[1] != nil {
+			arg1 = args[1].(ComparisonOperator)
+		}
+		var arg2 []string
+		if args[2] != nil {
+			arg2 = args[2].([]string)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockQueryWriter_WriteFilterExpressionStringList_Call) Return(err error) *MockQueryWriter_WriteFilterExpressionStringList_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockQueryWriter_WriteFilterExpressionStringList_Call) RunAndReturn(run func(field string, op ComparisonOperator, value []string) error) *MockQueryWriter_WriteFilterExpressionStringList_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -1482,13 +1925,13 @@ func (_c *MockQueryWriter_WriteQueryStatement_Call) RunAndReturn(run func() stri
 	return _c
 }
 
-// NewMockValueExpression creates a new instance of MockValueExpression. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
+// NewMockValue creates a new instance of MockValue. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
 // The first argument is typically a *testing.T value.
-func NewMockValueExpression(t interface {
+func NewMockValue(t interface {
 	mock.TestingT
 	Cleanup(func())
-}) *MockValueExpression {
-	mock := &MockValueExpression{}
+}) *MockValue {
+	mock := &MockValue{}
 	mock.Mock.Test(t)
 
 	t.Cleanup(func() { mock.AssertExpectations(t) })
@@ -1496,139 +1939,37 @@ func NewMockValueExpression(t interface {
 	return mock
 }
 
-// MockValueExpression is an autogenerated mock type for the ValueExpression type
-type MockValueExpression struct {
+// MockValue is an autogenerated mock type for the Value type
+type MockValue struct {
 	mock.Mock
 }
 
-type MockValueExpression_Expecter struct {
+type MockValue_Expecter struct {
 	mock *mock.Mock
 }
 
-func (_m *MockValueExpression) EXPECT() *MockValueExpression_Expecter {
-	return &MockValueExpression_Expecter{mock: &_m.Mock}
+func (_m *MockValue) EXPECT() *MockValue_Expecter {
+	return &MockValue_Expecter{mock: &_m.Mock}
 }
 
-// IsCompatibleWithComparisonOperator provides a mock function for the type MockValueExpression
-func (_mock *MockValueExpression) IsCompatibleWithComparisonOperator(op ComparisonOperator) bool {
-	ret := _mock.Called(op)
-
-	if len(ret) == 0 {
-		panic("no return value specified for IsCompatibleWithComparisonOperator")
-	}
-
-	var r0 bool
-	if returnFunc, ok := ret.Get(0).(func(ComparisonOperator) bool); ok {
-		r0 = returnFunc(op)
-	} else {
-		r0 = ret.Get(0).(bool)
-	}
-	return r0
-}
-
-// MockValueExpression_IsCompatibleWithComparisonOperator_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'IsCompatibleWithComparisonOperator'
-type MockValueExpression_IsCompatibleWithComparisonOperator_Call struct {
-	*mock.Call
-}
-
-// IsCompatibleWithComparisonOperator is a helper method to define mock.On call
-//   - op ComparisonOperator
-func (_e *MockValueExpression_Expecter) IsCompatibleWithComparisonOperator(op any) *MockValueExpression_IsCompatibleWithComparisonOperator_Call {
-	return &MockValueExpression_IsCompatibleWithComparisonOperator_Call{Call: _e.mock.On("IsCompatibleWithComparisonOperator", op)}
-}
-
-func (_c *MockValueExpression_IsCompatibleWithComparisonOperator_Call) Run(run func(op ComparisonOperator)) *MockValueExpression_IsCompatibleWithComparisonOperator_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		var arg0 ComparisonOperator
-		if args[0] != nil {
-			arg0 = args[0].(ComparisonOperator)
-		}
-		run(
-			arg0,
-		)
-	})
-	return _c
-}
-
-func (_c *MockValueExpression_IsCompatibleWithComparisonOperator_Call) Return(b bool) *MockValueExpression_IsCompatibleWithComparisonOperator_Call {
-	_c.Call.Return(b)
-	return _c
-}
-
-func (_c *MockValueExpression_IsCompatibleWithComparisonOperator_Call) RunAndReturn(run func(op ComparisonOperator) bool) *MockValueExpression_IsCompatibleWithComparisonOperator_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
-// IsSupportedByDbType provides a mock function for the type MockValueExpression
-func (_mock *MockValueExpression) IsSupportedByDbType(dbType DbDataTypeName) bool {
-	ret := _mock.Called(dbType)
-
-	if len(ret) == 0 {
-		panic("no return value specified for IsSupportedByDbType")
-	}
-
-	var r0 bool
-	if returnFunc, ok := ret.Get(0).(func(DbDataTypeName) bool); ok {
-		r0 = returnFunc(dbType)
-	} else {
-		r0 = ret.Get(0).(bool)
-	}
-	return r0
-}
-
-// MockValueExpression_IsSupportedByDbType_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'IsSupportedByDbType'
-type MockValueExpression_IsSupportedByDbType_Call struct {
-	*mock.Call
-}
-
-// IsSupportedByDbType is a helper method to define mock.On call
-//   - dbType DbDataTypeName
-func (_e *MockValueExpression_Expecter) IsSupportedByDbType(dbType any) *MockValueExpression_IsSupportedByDbType_Call {
-	return &MockValueExpression_IsSupportedByDbType_Call{Call: _e.mock.On("IsSupportedByDbType", dbType)}
-}
-
-func (_c *MockValueExpression_IsSupportedByDbType_Call) Run(run func(dbType DbDataTypeName)) *MockValueExpression_IsSupportedByDbType_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		var arg0 DbDataTypeName
-		if args[0] != nil {
-			arg0 = args[0].(DbDataTypeName)
-		}
-		run(
-			arg0,
-		)
-	})
-	return _c
-}
-
-func (_c *MockValueExpression_IsSupportedByDbType_Call) Return(b bool) *MockValueExpression_IsSupportedByDbType_Call {
-	_c.Call.Return(b)
-	return _c
-}
-
-func (_c *MockValueExpression_IsSupportedByDbType_Call) RunAndReturn(run func(dbType DbDataTypeName) bool) *MockValueExpression_IsSupportedByDbType_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
-// Serialise provides a mock function for the type MockValueExpression
-func (_mock *MockValueExpression) Serialise(s Serialiser) {
+// Serialise provides a mock function for the type MockValue
+func (_mock *MockValue) Serialise(s Serialiser) {
 	_mock.Called(s)
 	return
 }
 
-// MockValueExpression_Serialise_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Serialise'
-type MockValueExpression_Serialise_Call struct {
+// MockValue_Serialise_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Serialise'
+type MockValue_Serialise_Call struct {
 	*mock.Call
 }
 
 // Serialise is a helper method to define mock.On call
 //   - s Serialiser
-func (_e *MockValueExpression_Expecter) Serialise(s any) *MockValueExpression_Serialise_Call {
-	return &MockValueExpression_Serialise_Call{Call: _e.mock.On("Serialise", s)}
+func (_e *MockValue_Expecter) Serialise(s any) *MockValue_Serialise_Call {
+	return &MockValue_Serialise_Call{Call: _e.mock.On("Serialise", s)}
 }
 
-func (_c *MockValueExpression_Serialise_Call) Run(run func(s Serialiser)) *MockValueExpression_Serialise_Call {
+func (_c *MockValue_Serialise_Call) Run(run func(s Serialiser)) *MockValue_Serialise_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 Serialiser
 		if args[0] != nil {
@@ -1641,109 +1982,165 @@ func (_c *MockValueExpression_Serialise_Call) Run(run func(s Serialiser)) *MockV
 	return _c
 }
 
-func (_c *MockValueExpression_Serialise_Call) Return() *MockValueExpression_Serialise_Call {
+func (_c *MockValue_Serialise_Call) Return() *MockValue_Serialise_Call {
 	_c.Call.Return()
 	return _c
 }
 
-func (_c *MockValueExpression_Serialise_Call) RunAndReturn(run func(s Serialiser)) *MockValueExpression_Serialise_Call {
+func (_c *MockValue_Serialise_Call) RunAndReturn(run func(s Serialiser)) *MockValue_Serialise_Call {
 	_c.Run(run)
 	return _c
 }
 
-// Type provides a mock function for the type MockValueExpression
-func (_mock *MockValueExpression) Type() LiteralType {
+// SupportsOperator provides a mock function for the type MockValue
+func (_mock *MockValue) SupportsOperator(op ComparisonOperator) bool {
+	ret := _mock.Called(op)
+
+	if len(ret) == 0 {
+		panic("no return value specified for SupportsOperator")
+	}
+
+	var r0 bool
+	if returnFunc, ok := ret.Get(0).(func(ComparisonOperator) bool); ok {
+		r0 = returnFunc(op)
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+	return r0
+}
+
+// MockValue_SupportsOperator_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SupportsOperator'
+type MockValue_SupportsOperator_Call struct {
+	*mock.Call
+}
+
+// SupportsOperator is a helper method to define mock.On call
+//   - op ComparisonOperator
+func (_e *MockValue_Expecter) SupportsOperator(op any) *MockValue_SupportsOperator_Call {
+	return &MockValue_SupportsOperator_Call{Call: _e.mock.On("SupportsOperator", op)}
+}
+
+func (_c *MockValue_SupportsOperator_Call) Run(run func(op ComparisonOperator)) *MockValue_SupportsOperator_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 ComparisonOperator
+		if args[0] != nil {
+			arg0 = args[0].(ComparisonOperator)
+		}
+		run(
+			arg0,
+		)
+	})
+	return _c
+}
+
+func (_c *MockValue_SupportsOperator_Call) Return(b bool) *MockValue_SupportsOperator_Call {
+	_c.Call.Return(b)
+	return _c
+}
+
+func (_c *MockValue_SupportsOperator_Call) RunAndReturn(run func(op ComparisonOperator) bool) *MockValue_SupportsOperator_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// SupportsType provides a mock function for the type MockValue
+func (_mock *MockValue) SupportsType(dbType DbType) bool {
+	ret := _mock.Called(dbType)
+
+	if len(ret) == 0 {
+		panic("no return value specified for SupportsType")
+	}
+
+	var r0 bool
+	if returnFunc, ok := ret.Get(0).(func(DbType) bool); ok {
+		r0 = returnFunc(dbType)
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+	return r0
+}
+
+// MockValue_SupportsType_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SupportsType'
+type MockValue_SupportsType_Call struct {
+	*mock.Call
+}
+
+// SupportsType is a helper method to define mock.On call
+//   - dbType DbType
+func (_e *MockValue_Expecter) SupportsType(dbType any) *MockValue_SupportsType_Call {
+	return &MockValue_SupportsType_Call{Call: _e.mock.On("SupportsType", dbType)}
+}
+
+func (_c *MockValue_SupportsType_Call) Run(run func(dbType DbType)) *MockValue_SupportsType_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 DbType
+		if args[0] != nil {
+			arg0 = args[0].(DbType)
+		}
+		run(
+			arg0,
+		)
+	})
+	return _c
+}
+
+func (_c *MockValue_SupportsType_Call) Return(b bool) *MockValue_SupportsType_Call {
+	_c.Call.Return(b)
+	return _c
+}
+
+func (_c *MockValue_SupportsType_Call) RunAndReturn(run func(dbType DbType) bool) *MockValue_SupportsType_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// Type provides a mock function for the type MockValue
+func (_mock *MockValue) Type() ValueType {
 	ret := _mock.Called()
 
 	if len(ret) == 0 {
 		panic("no return value specified for Type")
 	}
 
-	var r0 LiteralType
-	if returnFunc, ok := ret.Get(0).(func() LiteralType); ok {
+	var r0 ValueType
+	if returnFunc, ok := ret.Get(0).(func() ValueType); ok {
 		r0 = returnFunc()
 	} else {
-		r0 = ret.Get(0).(LiteralType)
+		r0 = ret.Get(0).(ValueType)
 	}
 	return r0
 }
 
-// MockValueExpression_Type_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Type'
-type MockValueExpression_Type_Call struct {
+// MockValue_Type_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Type'
+type MockValue_Type_Call struct {
 	*mock.Call
 }
 
 // Type is a helper method to define mock.On call
-func (_e *MockValueExpression_Expecter) Type() *MockValueExpression_Type_Call {
-	return &MockValueExpression_Type_Call{Call: _e.mock.On("Type")}
+func (_e *MockValue_Expecter) Type() *MockValue_Type_Call {
+	return &MockValue_Type_Call{Call: _e.mock.On("Type")}
 }
 
-func (_c *MockValueExpression_Type_Call) Run(run func()) *MockValueExpression_Type_Call {
+func (_c *MockValue_Type_Call) Run(run func()) *MockValue_Type_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		run()
 	})
 	return _c
 }
 
-func (_c *MockValueExpression_Type_Call) Return(literalType LiteralType) *MockValueExpression_Type_Call {
-	_c.Call.Return(literalType)
+func (_c *MockValue_Type_Call) Return(valueType ValueType) *MockValue_Type_Call {
+	_c.Call.Return(valueType)
 	return _c
 }
 
-func (_c *MockValueExpression_Type_Call) RunAndReturn(run func() LiteralType) *MockValueExpression_Type_Call {
+func (_c *MockValue_Type_Call) RunAndReturn(run func() ValueType) *MockValue_Type_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
-// Value provides a mock function for the type MockValueExpression
-func (_mock *MockValueExpression) Value() any {
-	ret := _mock.Called()
-
-	if len(ret) == 0 {
-		panic("no return value specified for Value")
-	}
-
-	var r0 any
-	if returnFunc, ok := ret.Get(0).(func() any); ok {
-		r0 = returnFunc()
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(any)
-		}
-	}
-	return r0
-}
-
-// MockValueExpression_Value_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Value'
-type MockValueExpression_Value_Call struct {
-	*mock.Call
-}
-
-// Value is a helper method to define mock.On call
-func (_e *MockValueExpression_Expecter) Value() *MockValueExpression_Value_Call {
-	return &MockValueExpression_Value_Call{Call: _e.mock.On("Value")}
-}
-
-func (_c *MockValueExpression_Value_Call) Run(run func()) *MockValueExpression_Value_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		run()
-	})
-	return _c
-}
-
-func (_c *MockValueExpression_Value_Call) Return(anyMoqParam any) *MockValueExpression_Value_Call {
-	_c.Call.Return(anyMoqParam)
-	return _c
-}
-
-func (_c *MockValueExpression_Value_Call) RunAndReturn(run func() any) *MockValueExpression_Value_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
-// WriteFilterExpression provides a mock function for the type MockValueExpression
-func (_mock *MockValueExpression) WriteFilterExpression(w QueryWriter, fieldName string, op ComparisonOperator) error {
-	ret := _mock.Called(w, fieldName, op)
+// WriteFilterExpression provides a mock function for the type MockValue
+func (_mock *MockValue) WriteFilterExpression(writer QueryWriter, fieldName string, operator ComparisonOperator) error {
+	ret := _mock.Called(writer, fieldName, operator)
 
 	if len(ret) == 0 {
 		panic("no return value specified for WriteFilterExpression")
@@ -1751,27 +2148,27 @@ func (_mock *MockValueExpression) WriteFilterExpression(w QueryWriter, fieldName
 
 	var r0 error
 	if returnFunc, ok := ret.Get(0).(func(QueryWriter, string, ComparisonOperator) error); ok {
-		r0 = returnFunc(w, fieldName, op)
+		r0 = returnFunc(writer, fieldName, operator)
 	} else {
 		r0 = ret.Error(0)
 	}
 	return r0
 }
 
-// MockValueExpression_WriteFilterExpression_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'WriteFilterExpression'
-type MockValueExpression_WriteFilterExpression_Call struct {
+// MockValue_WriteFilterExpression_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'WriteFilterExpression'
+type MockValue_WriteFilterExpression_Call struct {
 	*mock.Call
 }
 
 // WriteFilterExpression is a helper method to define mock.On call
-//   - w QueryWriter
+//   - writer QueryWriter
 //   - fieldName string
-//   - op ComparisonOperator
-func (_e *MockValueExpression_Expecter) WriteFilterExpression(w any, fieldName any, op any) *MockValueExpression_WriteFilterExpression_Call {
-	return &MockValueExpression_WriteFilterExpression_Call{Call: _e.mock.On("WriteFilterExpression", w, fieldName, op)}
+//   - operator ComparisonOperator
+func (_e *MockValue_Expecter) WriteFilterExpression(writer any, fieldName any, operator any) *MockValue_WriteFilterExpression_Call {
+	return &MockValue_WriteFilterExpression_Call{Call: _e.mock.On("WriteFilterExpression", writer, fieldName, operator)}
 }
 
-func (_c *MockValueExpression_WriteFilterExpression_Call) Run(run func(w QueryWriter, fieldName string, op ComparisonOperator)) *MockValueExpression_WriteFilterExpression_Call {
+func (_c *MockValue_WriteFilterExpression_Call) Run(run func(writer QueryWriter, fieldName string, operator ComparisonOperator)) *MockValue_WriteFilterExpression_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 QueryWriter
 		if args[0] != nil {
@@ -1794,12 +2191,12 @@ func (_c *MockValueExpression_WriteFilterExpression_Call) Run(run func(w QueryWr
 	return _c
 }
 
-func (_c *MockValueExpression_WriteFilterExpression_Call) Return(err error) *MockValueExpression_WriteFilterExpression_Call {
+func (_c *MockValue_WriteFilterExpression_Call) Return(err error) *MockValue_WriteFilterExpression_Call {
 	_c.Call.Return(err)
 	return _c
 }
 
-func (_c *MockValueExpression_WriteFilterExpression_Call) RunAndReturn(run func(w QueryWriter, fieldName string, op ComparisonOperator) error) *MockValueExpression_WriteFilterExpression_Call {
+func (_c *MockValue_WriteFilterExpression_Call) RunAndReturn(run func(writer QueryWriter, fieldName string, operator ComparisonOperator) error) *MockValue_WriteFilterExpression_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -2577,24 +2974,24 @@ func (_c *MockTableModel_GetJoinOnValue_Call) RunAndReturn(run func(relationship
 	return _c
 }
 
-// GetValueExpression provides a mock function for the type MockTableModel
-func (_mock *MockTableModel) GetValueExpression(path []*TraversalStep, columnName string, valueBuilder ValueBuilder) (ValueExpression, error) {
+// GetValue provides a mock function for the type MockTableModel
+func (_mock *MockTableModel) GetValue(path []*TraversalStep, columnName string, valueBuilder ValueBuilder) (Value, error) {
 	ret := _mock.Called(path, columnName, valueBuilder)
 
 	if len(ret) == 0 {
-		panic("no return value specified for GetValueExpression")
+		panic("no return value specified for GetValue")
 	}
 
-	var r0 ValueExpression
+	var r0 Value
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func([]*TraversalStep, string, ValueBuilder) (ValueExpression, error)); ok {
+	if returnFunc, ok := ret.Get(0).(func([]*TraversalStep, string, ValueBuilder) (Value, error)); ok {
 		return returnFunc(path, columnName, valueBuilder)
 	}
-	if returnFunc, ok := ret.Get(0).(func([]*TraversalStep, string, ValueBuilder) ValueExpression); ok {
+	if returnFunc, ok := ret.Get(0).(func([]*TraversalStep, string, ValueBuilder) Value); ok {
 		r0 = returnFunc(path, columnName, valueBuilder)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(ValueExpression)
+			r0 = ret.Get(0).(Value)
 		}
 	}
 	if returnFunc, ok := ret.Get(1).(func([]*TraversalStep, string, ValueBuilder) error); ok {
@@ -2605,20 +3002,20 @@ func (_mock *MockTableModel) GetValueExpression(path []*TraversalStep, columnNam
 	return r0, r1
 }
 
-// MockTableModel_GetValueExpression_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetValueExpression'
-type MockTableModel_GetValueExpression_Call struct {
+// MockTableModel_GetValue_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetValue'
+type MockTableModel_GetValue_Call struct {
 	*mock.Call
 }
 
-// GetValueExpression is a helper method to define mock.On call
+// GetValue is a helper method to define mock.On call
 //   - path []*TraversalStep
 //   - columnName string
 //   - valueBuilder ValueBuilder
-func (_e *MockTableModel_Expecter) GetValueExpression(path any, columnName any, valueBuilder any) *MockTableModel_GetValueExpression_Call {
-	return &MockTableModel_GetValueExpression_Call{Call: _e.mock.On("GetValueExpression", path, columnName, valueBuilder)}
+func (_e *MockTableModel_Expecter) GetValue(path any, columnName any, valueBuilder any) *MockTableModel_GetValue_Call {
+	return &MockTableModel_GetValue_Call{Call: _e.mock.On("GetValue", path, columnName, valueBuilder)}
 }
 
-func (_c *MockTableModel_GetValueExpression_Call) Run(run func(path []*TraversalStep, columnName string, valueBuilder ValueBuilder)) *MockTableModel_GetValueExpression_Call {
+func (_c *MockTableModel_GetValue_Call) Run(run func(path []*TraversalStep, columnName string, valueBuilder ValueBuilder)) *MockTableModel_GetValue_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 []*TraversalStep
 		if args[0] != nil {
@@ -2641,12 +3038,12 @@ func (_c *MockTableModel_GetValueExpression_Call) Run(run func(path []*Traversal
 	return _c
 }
 
-func (_c *MockTableModel_GetValueExpression_Call) Return(valueExpression ValueExpression, err error) *MockTableModel_GetValueExpression_Call {
-	_c.Call.Return(valueExpression, err)
+func (_c *MockTableModel_GetValue_Call) Return(value Value, err error) *MockTableModel_GetValue_Call {
+	_c.Call.Return(value, err)
 	return _c
 }
 
-func (_c *MockTableModel_GetValueExpression_Call) RunAndReturn(run func(path []*TraversalStep, columnName string, valueBuilder ValueBuilder) (ValueExpression, error)) *MockTableModel_GetValueExpression_Call {
+func (_c *MockTableModel_GetValue_Call) RunAndReturn(run func(path []*TraversalStep, columnName string, valueBuilder ValueBuilder) (Value, error)) *MockTableModel_GetValue_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -3523,18 +3920,18 @@ func (_c *MockColumnMetadata_Name_Call) RunAndReturn(run func() string) *MockCol
 }
 
 // Type provides a mock function for the type MockColumnMetadata
-func (_mock *MockColumnMetadata) Type() DbDataTypeName {
+func (_mock *MockColumnMetadata) Type() DbType {
 	ret := _mock.Called()
 
 	if len(ret) == 0 {
 		panic("no return value specified for Type")
 	}
 
-	var r0 DbDataTypeName
-	if returnFunc, ok := ret.Get(0).(func() DbDataTypeName); ok {
+	var r0 DbType
+	if returnFunc, ok := ret.Get(0).(func() DbType); ok {
 		r0 = returnFunc()
 	} else {
-		r0 = ret.Get(0).(DbDataTypeName)
+		r0 = ret.Get(0).(DbType)
 	}
 	return r0
 }
@@ -3556,12 +3953,12 @@ func (_c *MockColumnMetadata_Type_Call) Run(run func()) *MockColumnMetadata_Type
 	return _c
 }
 
-func (_c *MockColumnMetadata_Type_Call) Return(dbDataTypeName DbDataTypeName) *MockColumnMetadata_Type_Call {
-	_c.Call.Return(dbDataTypeName)
+func (_c *MockColumnMetadata_Type_Call) Return(dbType DbType) *MockColumnMetadata_Type_Call {
+	_c.Call.Return(dbType)
 	return _c
 }
 
-func (_c *MockColumnMetadata_Type_Call) RunAndReturn(run func() DbDataTypeName) *MockColumnMetadata_Type_Call {
+func (_c *MockColumnMetadata_Type_Call) RunAndReturn(run func() DbType) *MockColumnMetadata_Type_Call {
 	_c.Call.Return(run)
 	return _c
 }

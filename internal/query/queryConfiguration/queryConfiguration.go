@@ -331,7 +331,7 @@ func addCursorFilter(
 		cursorValue := cursorValues[i]
 
 		if rule.Direction == mdl.SortDirectionDesc &&
-			cursorValue.Type() == mdl.LiteralTypeNull {
+			cursorValue.Type() == mdl.ValueTypeNull {
 			continue
 		}
 
@@ -410,11 +410,11 @@ func addCursorFilter(
 
 func getCursorFilterComparisonOperator(
 	rule mdl.SortingRule,
-	value mdl.ValueExpression,
+	value mdl.Value,
 	b qstore.FilterExpressionBuilder,
 ) (mdl.FilterExpression, error) {
 	if rule.Direction == mdl.SortDirectionAsc {
-		if value.Type() == mdl.LiteralTypeNull {
+		if value.Type() == mdl.ValueTypeNull {
 			// Ascending logic for null value
 			return b.NewComparisonExpressionFromResolvedColumn(
 				rule.ResolvedColumn,
@@ -430,7 +430,7 @@ func getCursorFilterComparisonOperator(
 			)
 		}
 	} else {
-		if value.Type() == mdl.LiteralTypeNull {
+		if value.Type() == mdl.ValueTypeNull {
 			// Descending logic for null value, null is already the last value
 			// so do not add a filter
 			return nil, nil

@@ -6,6 +6,7 @@ import (
 	"go/format"
 	"log"
 	"os"
+	"regexp"
 	"strings"
 
 	"github.com/turnerbenjamin/heterogen_portal/cmd/model-builder/builderRepo"
@@ -105,8 +106,6 @@ import (
 	"errors"
 	"fmt"
 	"iter"
-	"strconv"
-	"strings"
 	"time"
 
 	"github.com/turnerbenjamin/heterogen_portal/internal/query/queryModel"
@@ -139,7 +138,7 @@ func (s *schemaMetadata) GetTableMetadata(tableName string) queryModel.TableMeta
 // columnMetadata describes the metadata associated with a database table column.
 type columnMetadata struct {
 	name         string
-	dbType       queryModel.DbDataTypeName
+	dbType       queryModel.DbType
 	maxLength    int
 	isPrimaryKey bool
 	isRequired   bool
@@ -151,7 +150,7 @@ func (c *columnMetadata) Name() string {
 }
 
 // Type returns the column's type
-func (c *columnMetadata) Type() queryModel.DbDataTypeName {
+func (c *columnMetadata) Type() queryModel.DbType {
 	return c.dbType
 }
 
@@ -317,55 +316,6 @@ func (t *tableMetadata) InitProjection() (queryModel.Projection, error) {
 	return initTableProjection(t.name)
 }
 
-// Point represents a geographic point with a GeoJSON-compatible structure.
-type Point struct {
-    Type string `+"`json:\"type\"`"+`
-    Coordinates [2]float64 `+"`json:\"coordinates\"`"+`
-}
-
-// UnmarshalJSON parses a point from WKT point data.
-func (p *Point) UnmarshalJSON(data []byte) error {
-    strData := strings.Trim(string(data), "\"")
-    if strData == "null" || strData == "" {
-        return nil
-    }
-
-    if !strings.HasPrefix(strData, "POINT") {
-        return fmt.Errorf("invalid json for point: %s", strData)
-    }
-
-    start := strings.Index(strData, "(")
-    end := strings.Index(strData, ")")
-    if start == -1 || end == -1 || end <= start {
-        return fmt.Errorf("invalid WKT point format: %s", strData)
-    }
-
-    coordsStr := strings.TrimSpace(strData[start+1:end])
-    parts := strings.Fields(coordsStr)
-    if len(parts) != 2 {
-        return fmt.Errorf("expected 2 coordinates in WKT point, got %d", len(parts))
-    }
-
-    long, err := strconv.ParseFloat(parts[0], 64)
-    if err != nil {
-        return fmt.Errorf("invalid longitude value: %w", err)
-    }
-
-    lat, err := strconv.ParseFloat(parts[1], 64)
-    if err != nil {
-        return fmt.Errorf("invalid latitude value: %w", err)
-    }
-
-    p.Type = "Point"
-    p.Coordinates = [2]float64{long, lat}
-    return nil
-}
-
-// String returns the string representation of a Point
-func (p *Point) String() string {
-	return fmt.Sprintf("POINT (%f %f)", p.Coordinates[0], p.Coordinates[1])
-}
-
 // marshalProperty is a helper method to marshal an attribute and value to a json string buffer
 func marshalProperty(buf *bytes.Buffer, isFirst bool, columnName string, value any) error {
 	if !isFirst {
@@ -485,7 +435,7 @@ func buildColumnMap(tableData *builderRepo.TableMetadata) (string, string) {
 
 	// DB Columns
 	for _, col := range tableData.Columns {
-		colType := getColTypeString(col.Type)
+		colType := getColTypeString(col.Type, col.Checks)
 		if col.PrimaryKey == 1 {
 			primaryKey = col.Name
 		}
@@ -525,16 +475,18 @@ func (w *modelWriter) buildRelationshipMap(tableData *builderRepo.TableMetadata)
 	return sbR.String()
 }
 
-func getColTypeString(typeName builderRepo.MsqlDataTypeName) string {
-	switch typeName {
-	case MsqlTypeNvarchar:
-		return "queryModel.DbTypeNvarchar"
-	case MsqlTypeInt:
+func getColTypeString(typeName builderRepo.MsqlDataTypeName, checks []builderRepo.Check) string {
+	goType := msqlTypeToGoType(typeName, checks)
+
+	switch goType {
+	case "string":
+		return "queryModel.DbTypeString"
+	case "int64":
 		return "queryModel.DbTypeInt"
-	case MsqlTypeDateTimeOffset:
-		return "queryModel.DbTypeDateTimeOffset"
-	case MsqlTypeGeography:
-		return "queryModel.DbTypeGeography"
+	case "*time.Time":
+		return "queryModel.DbTypeDateTime"
+	case "*queryModel.Point":
+		return "queryModel.DbTypePoint"
 	default:
 		return ""
 	}
@@ -555,7 +507,7 @@ func (w *modelWriter) WriteTableModel(tableData *builderRepo.TableMetadata) {
 	for _, col := range tableData.Columns {
 		identifier := snakeToPascal(col.Name)
 
-		goType := msqlTypeToGoType(col.Type)
+		goType := msqlTypeToGoType(col.Type, col.Checks)
 		if goType == "" {
 			log.Fatal(fmt.Errorf("unable to convert type to go type: %s", col.Type))
 		}
@@ -783,9 +735,9 @@ func (w *modelWriter) WriteGetJoinOnValueFunction(modelStructName string, tableD
 }
 
 func (w *modelWriter) WriteGetValueExpressionFunction(modelStructName string, tableData *builderRepo.TableMetadata) {
-	writeToBuilder(w.sb, "// GetValueExpression returns the value from a given path as a ValueExpression\n")
+	writeToBuilder(w.sb, "// GetValue returns the value from a given path\n")
 
-	writeToBuilder(w.sb, fmt.Sprintf("func (m *%s) GetValueExpression(path []*queryModel.TraversalStep, columnName string, v queryModel.ValueBuilder) (queryModel.ValueExpression, error){\n", modelStructName))
+	writeToBuilder(w.sb, fmt.Sprintf("func (m *%s) GetValue(path []*queryModel.TraversalStep, columnName string, v queryModel.ValueBuilder) (queryModel.Value, error){\n", modelStructName))
 	writeToBuilder(w.sb, "if len(path) > 0 {\n")
 	writeToBuilder(w.sb, "nextStep := path[0]\n")
 	writeToBuilder(w.sb, "nextEntity, err := m.getRelatedEntity(nextStep.Relationship)\n")
@@ -798,10 +750,10 @@ func (w *modelWriter) WriteGetValueExpressionFunction(modelStructName string, ta
 	writeToBuilder(w.sb, "return v.Null(), nil\n")
 	writeToBuilder(w.sb, "}\n")
 
-	writeToBuilder(w.sb, "return nextEntity.GetValueExpression(path[1:], columnName, v)\n")
+	writeToBuilder(w.sb, "return nextEntity.GetValue(path[1:], columnName, v)\n")
 	writeToBuilder(w.sb, "}\n")
 
-	writeToBuilder(w.sb, "val, err := m.getValueExpression(columnName, v)\n")
+	writeToBuilder(w.sb, "val, err := m.getValue(columnName, v)\n")
 	writeToBuilder(w.sb, "if err != nil {\n")
 	writeToBuilder(w.sb, "return nil, err\n")
 	writeToBuilder(w.sb, "}\n")
@@ -844,9 +796,9 @@ func (w *modelWriter) WriteModelIsNilFunciton(modelStructName string, tableData 
 }
 
 func (w *modelWriter) WriteGetValueExpressionPrivateFunction(modelStructName string, tableData *builderRepo.TableMetadata) {
-	writeToBuilder(w.sb, "// getValueExpression returns the value from a given column as a value expression\n")
+	writeToBuilder(w.sb, "// getValue returns the value from a given column\n")
 
-	writeToBuilder(w.sb, fmt.Sprintf("func (m *%s) getValueExpression(columnName string, v queryModel.ValueBuilder) (queryModel.ValueExpression, error) {\n", modelStructName))
+	writeToBuilder(w.sb, fmt.Sprintf("func (m *%s) getValue(columnName string, v queryModel.ValueBuilder) (queryModel.Value, error) {\n", modelStructName))
 	writeToBuilder(w.sb, "switch columnName{\n")
 
 	for _, column := range tableData.Columns {
@@ -1211,7 +1163,11 @@ func snakeToCamel(s string) string {
 	return strings.Join(parts, "")
 }
 
-func msqlTypeToGoType(typeName builderRepo.MsqlDataTypeName) string {
+var geometryTypeRegex = regexp.MustCompile(
+	`(?i)STGeometryType\]\(\)\s*=\s*'([^']+)'`,
+)
+
+func msqlTypeToGoType(typeName builderRepo.MsqlDataTypeName, checks []builderRepo.Check) string {
 	switch typeName {
 	case MsqlTypeNvarchar:
 		return "string"
@@ -1220,7 +1176,21 @@ func msqlTypeToGoType(typeName builderRepo.MsqlDataTypeName) string {
 	case MsqlTypeDateTimeOffset:
 		return "*time.Time"
 	case MsqlTypeGeography:
-		return "*Point"
+		geometryType := ""
+		for _, currentCheck := range checks {
+			matches := geometryTypeRegex.FindStringSubmatch(currentCheck.Definition)
+
+			if len(matches) == 2 {
+				geometryType = matches[1]
+			}
+		}
+		switch geometryType {
+		case "Point":
+			return "*queryModel.Point"
+		default:
+			panic("unsupported geometry type: " + geometryType)
+		}
+
 	default:
 		return ""
 	}

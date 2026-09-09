@@ -29,6 +29,14 @@ type ColumnMetadata struct {
 	MaxLength  int16            `json:"maxLength"`
 	PrimaryKey int8             `json:"primaryKey"`
 	IsNullable bool             `json:"isNullable"`
+	Checks     []Check          `json:"checks"`
+}
+
+type Check struct {
+	Name         string `json:"name"`
+	Definition   string `json:"definition"`
+	IsDisabled   bool   `json:"isDisabled"`
+	IsNotTrusted bool   `json:"isNotTrusted"`
 }
 
 type RelationshipMetadata struct {
@@ -81,7 +89,20 @@ SELECT CAST(
                         )
                         THEN 1
                         ELSE 0
-                    END AS [primaryKey]
+                    END AS [primaryKey],
+
+                    JSON_QUERY((
+                        SELECT
+                            cc.name AS [name],
+                            cc.definition AS [definition],
+                            cc.is_disabled AS [isDisabled],
+                            cc.is_not_trusted AS [isNotTrusted]
+                        FROM sys.check_constraints AS cc
+                        WHERE cc.parent_object_id = c.object_id
+                        AND cc.parent_column_id = c.column_id
+                        FOR JSON PATH
+                    )) AS [checks]
+
                     FROM sys.columns AS c
                         INNER JOIN sys.types AS ty
                             ON ty.user_type_id = c.user_type_id

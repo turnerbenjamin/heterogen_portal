@@ -13,6 +13,7 @@ import (
 	"github.com/turnerbenjamin/heterogen_portal/internal/query/queryOrchestrator"
 	"github.com/turnerbenjamin/heterogen_portal/internal/query/queryParser"
 	azSqlWriter "github.com/turnerbenjamin/heterogen_portal/internal/query/queryWriters/azSqlWriter"
+	valuebuilder "github.com/turnerbenjamin/heterogen_portal/internal/query/valueBuilder"
 )
 
 type sqlFlavour string
@@ -20,13 +21,7 @@ type sqlFlavour string
 const SqlFlavorAzureSql sqlFlavour = "azure_sql"
 
 type QueryWriterGetter func(s qstore.QueryDataStore) (w mdl.QueryWriter, err error)
-type ValueBuilderGetter func() mdl.ValueBuilder
 type QueryParserInitialiser func() qcfg.QueryParser
-
-type sqlWriterConfig struct {
-	queryWriterGetter  QueryWriterGetter
-	ValueBuilderGetter ValueBuilderGetter
-}
 
 type queryExecutor struct {
 	repository             mdl.Repository
@@ -34,7 +29,6 @@ type queryExecutor struct {
 	accessPolicy           mdl.AccessPolicy
 	pagingTokenBuilder     qcfg.PagingTokenBuilder
 	queryWriterGetter      QueryWriterGetter
-	valueBuilderGetter     ValueBuilderGetter
 	queryParserInitialiser QueryParserInitialiser
 }
 type QueryOrchestrator interface {
@@ -63,7 +57,8 @@ func NewQueryExecutorFactory(config QueryExecutorConfig) (QueryOrchestrator, err
 		return nil, err
 	}
 
-	sqlWriterConfig, err := getSqlWriterConfig(config.SqlFlavor)
+	sqlWriterGetter, err := getSqlWriter(config.SqlFlavor)
+
 	if err != nil {
 		return nil, err
 	}
@@ -73,8 +68,7 @@ func NewQueryExecutorFactory(config QueryExecutorConfig) (QueryOrchestrator, err
 		schema:                 config.Schema,
 		accessPolicy:           config.AccessPolicy,
 		pagingTokenBuilder:     pagingTokenBuilder,
-		queryWriterGetter:      azSqlWriter.NewQueryWriter,
-		valueBuilderGetter:     sqlWriterConfig.ValueBuilderGetter,
+		queryWriterGetter:      sqlWriterGetter,
 		queryParserInitialiser: queryParser.NewQueryParser,
 	}, err
 }
@@ -95,7 +89,7 @@ func (qf *queryExecutor) Execute(
 	}
 
 	queryParser := qf.queryParserInitialiser()
-	valueBuilder := qf.valueBuilderGetter()
+	valueBuilder := valuebuilder.NewValueBuilder()
 
 	// Configure query
 	queryDataStore, err := qcfg.ConfigureQuery(
@@ -114,20 +108,17 @@ func (qf *queryExecutor) Execute(
 		qf.repository,
 		azSqlWriter.NewQueryWriter,
 		qf.pagingTokenBuilder,
-		azSqlWriter.NewValueBuilder(),
+		valueBuilder,
 	)
 
 	return executor.ExecuteQuery(ctx, queryDataStore)
 }
 
-func getSqlWriterConfig(flavour sqlFlavour) (sqlWriterConfig, error) {
+func getSqlWriter(flavour sqlFlavour) (QueryWriterGetter, error) {
 	switch flavour {
 	case SqlFlavorAzureSql:
-		return sqlWriterConfig{
-			queryWriterGetter:  azSqlWriter.NewQueryWriter,
-			ValueBuilderGetter: azSqlWriter.NewValueBuilder,
-		}, nil
+		return azSqlWriter.NewQueryWriter, nil
 	default:
-		return sqlWriterConfig{}, fmt.Errorf("unsupported sql flavour: %s", flavour)
+		return nil, fmt.Errorf("unsupported sql flavour: %s", flavour)
 	}
 }

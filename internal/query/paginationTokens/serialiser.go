@@ -25,7 +25,7 @@ type deserialiser struct {
 func serialiseToken(
 	str qstore.QueryDataStore,
 	version uint32,
-	cursorValues []mdl.ValueExpression,
+	cursorValues []mdl.Value,
 ) ([]byte, error) {
 	s := &serialiser{
 		buf: new(bytes.Buffer),
@@ -85,7 +85,7 @@ func deserialiseToken(d []byte, v mdl.ValueBuilder) (PagingToken, error) {
 	}
 
 	// read cursor values
-	o.CursorValues = make([]mdl.ValueExpression, cursorValueCount)
+	o.CursorValues = make([]mdl.Value, cursorValueCount)
 	for i := range cursorValueCount {
 		v, err := ds.DeserialiseValueExpression()
 		if err != nil {
@@ -111,7 +111,7 @@ func deserialiseToken(d []byte, v mdl.ValueBuilder) (PagingToken, error) {
 	return o, nil
 }
 
-func (s *serialiser) serialiseValueExpression(v mdl.ValueExpression) error {
+func (s *serialiser) serialiseValueExpression(v mdl.Value) error {
 	// Write type
 	_ = s.buf.WriteByte(uint8(v.Type()))
 
@@ -137,13 +137,13 @@ func (s *serialiser) serialiseValueExpression(v mdl.ValueExpression) error {
 	return nil
 }
 
-func (ds *deserialiser) DeserialiseValueExpression() (mdl.ValueExpression, error) {
+func (ds *deserialiser) DeserialiseValueExpression() (mdl.Value, error) {
 	// Read type
 	typeByte, err := ds.buf.ReadByte()
 	if err != nil {
 		return nil, err
 	}
-	ltype := mdl.LiteralType(typeByte)
+	ltype := mdl.ValueType(typeByte)
 
 	// Read content length
 	b1, err := ds.buf.ReadByte()
@@ -167,13 +167,7 @@ func (ds *deserialiser) DeserialiseValueExpression() (mdl.ValueExpression, error
 	}
 
 	// parse content
-	return ds.valueBuilder.Deserialise(ds, ltype, content)
-}
-
-func (s *serialiser) SerialiseList(els []mdl.ValueExpression) {
-	for _, el := range els {
-		el.Serialise(s)
-	}
+	return ds.valueBuilder.ExecuteDeserialisation(ds, ltype, content)
 }
 
 func (s *serialiser) SerialiseString(str string) {
@@ -284,6 +278,8 @@ func (ds *deserialiser) DeserialiseListInt(d []byte) ([]int64, error) {
 	return o, nil
 }
 
+func (s *serialiser) SerialiseNull() {}
+
 func (s *serialiser) SerialiseFloat(f float64) {
 	var b [8]byte
 	binary.BigEndian.PutUint64(b[:], math.Float64bits(f))
@@ -356,4 +352,22 @@ func (ds *deserialiser) DeserialiseUint16() (uint16, error) {
 		return 0, err
 	}
 	return binary.BigEndian.Uint16(versionBuf[:]), nil
+}
+
+func (s *serialiser) SerialiseStringList(els []string) {
+	for _, el := range els {
+		s.SerialiseString(el)
+	}
+}
+
+func (s *serialiser) SerialiseIntList(els []int64) {
+	for _, el := range els {
+		s.SerialiseInt(el)
+	}
+}
+
+func (s *serialiser) SerialiseFloatList(els []float64) {
+	for _, el := range els {
+		s.SerialiseFloat(el)
+	}
 }

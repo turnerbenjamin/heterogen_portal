@@ -72,6 +72,9 @@ const (
 
 	// TokenSlash represents a forward slash '/'
 	TokenSlash
+
+	// TokenHyphen represents a hyphen '-'
+	TokenHyphen
 )
 
 // singleCharTokenMap is used to identify characters that signal the end of an
@@ -84,6 +87,7 @@ var singleCharTokenMap = map[byte]tokenType{
 	',':    TokenComma,
 	'=':    TokenEquals,
 	'/':    TokenSlash,
+	'-':    TokenHyphen,
 	'\x00': TokenNullByte,
 }
 
@@ -174,7 +178,7 @@ func (t *Tokeniser) Next() token {
 		switch {
 		case b == '\'', b == '"':
 			next = t.readString()
-		case b == '.' || b >= '0' && b <= '9':
+		case b >= '0' && b <= '9':
 			next = t.readNumber()
 		default:
 			next = t.readIdentifier()
@@ -218,7 +222,7 @@ func (t *Tokeniser) readNumber() token {
 			break
 		}
 
-		if t.idx > start && b == '.' {
+		if b == '.' {
 			if dpSeen {
 				break
 			}
@@ -229,9 +233,6 @@ func (t *Tokeniser) readNumber() token {
 	}
 
 	numString := t.input[start:t.idx]
-	if strings.HasPrefix(numString, ".") {
-		numString = "0" + numString
-	}
 
 	if strings.HasSuffix(numString, ".") {
 		numString = numString + "0"

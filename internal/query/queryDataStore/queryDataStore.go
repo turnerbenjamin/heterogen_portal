@@ -22,14 +22,13 @@ type FilterExpressionBuilder interface {
 	NewComparisonExpression(
 		columnPath string,
 		operator mdl.ComparisonOperator,
-		value mdl.ValueExpression,
+		value mdl.Value,
 	) (*mdl.ComparisonExpression, error)
-
 
 	NewComparisonExpressionFromResolvedColumn(
 		column mdl.ResolvedColumn,
 		operator mdl.ComparisonOperator,
-		value mdl.ValueExpression,
+		value mdl.Value,
 	) (*mdl.ComparisonExpression, error)
 
 	NewCollectionExpression(
@@ -70,7 +69,7 @@ type QueryDataStore interface {
 	FilterExpression() mdl.FilterExpression
 	AddAssociatedWithParentFilter(
 		linkFromParent mdl.TraversalStep,
-		joinParentOnValues []mdl.ValueExpression,
+		joinParentOnValues []mdl.Value,
 	) error // FOR NOW
 
 	SetLimit(limit int) error
@@ -365,7 +364,7 @@ func (qd *queryDataStore) FilterExpression() mdl.FilterExpression {
 
 func (qd *queryDataStore) AddAssociatedWithParentFilter(
 	linkFromParent mdl.TraversalStep,
-	joinParentOnValues []mdl.ValueExpression,
+	joinParentOnValues []mdl.Value,
 ) error {
 	values, err := qd.valueBuilder.List(joinParentOnValues)
 	if err != nil {

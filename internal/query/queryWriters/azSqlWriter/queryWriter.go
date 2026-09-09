@@ -3,6 +3,7 @@ package azSqlWriter
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	qstore "github.com/turnerbenjamin/heterogen_portal/internal/query/queryDataStore"
 	qerr "github.com/turnerbenjamin/heterogen_portal/internal/query/queryError"
@@ -17,7 +18,7 @@ type stringCoords struct {
 
 // arg adds a new argument to the args list and returns a unique placeholder for
 // use in the sql statement
-func (w *queryWriter) Placeholder(v any) string {
+func (w *queryWriter) placeholder(v any) string {
 	w.args = append(w.args, v)
 	return fmt.Sprintf("@p%d", len(w.args))
 }
@@ -175,7 +176,7 @@ func (w *queryWriter) writeSelectStatement() error {
 
 func (w *queryWriter) formatSelectValue(columnData mdl.ColumnMetadata) string {
 	switch columnData.Type() {
-	case mdl.DbTypeGeography:
+	case mdl.DbTypePoint:
 		return fmt.Sprintf("%s.STAsText() AS %s", columnData.Name(), columnData.Name())
 	default:
 		return columnData.Name()
@@ -527,4 +528,239 @@ func negateComparisonOperator(operator mdl.ComparisonOperator) (mdl.ComparisonOp
 	default:
 		return operator, fmt.Errorf("no negation defined for comparison operatior %v", operator)
 	}
+}
+
+func (w *queryWriter) WriteFilterExpressionNull(
+	fieldName string,
+	op mdl.ComparisonOperator,
+) error {
+	switch op {
+	case mdl.ComparisonEq:
+		w.Write("%s IS NULL", fieldName)
+	case mdl.ComparisonNe:
+		w.Write("%s IS NOT NULL", fieldName)
+	default:
+		return fmt.Errorf("unsupported operation: %s", string(op))
+	}
+	return nil
+}
+
+func (w *queryWriter) WriteFilterExpressionString(
+	fieldName string,
+	op mdl.ComparisonOperator,
+	value string,
+) error {
+	switch op {
+	case mdl.ComparisonEq:
+		w.Write("%s = %s", fieldName, w.placeholder(value))
+	case mdl.ComparisonNe:
+		w.Write("%s != %s", fieldName, w.placeholder(value))
+	case mdl.ComparisonGt:
+		w.Write("%s > %s", fieldName, w.placeholder(value))
+	case mdl.ComparisonGe:
+		w.Write("%s >= %s", fieldName, w.placeholder(value))
+	case mdl.ComparisonLt:
+		w.Write("%s < %s", fieldName, w.placeholder(value))
+	case mdl.ComparisonLe:
+		w.Write("%s <= %s", fieldName, w.placeholder(value))
+	case mdl.ComparisonContains, mdl.ComparisonNotContains:
+		modifier := ""
+		if op == mdl.ComparisonNotContains {
+			modifier = "NOT "
+		}
+
+		pattern := fmt.Sprintf("%%%s%%", value)
+		w.Write("%s %sLIKE %s", fieldName, modifier, w.placeholder(pattern))
+
+	case mdl.ComparisonStartsWith, mdl.ComparisonNotStartsWith:
+		modifier := ""
+		if op == mdl.ComparisonNotStartsWith {
+			modifier = "NOT "
+		}
+
+		pattern := fmt.Sprintf("%s%%", value)
+		w.Write("%s %sLIKE %s", fieldName, modifier, w.placeholder(pattern))
+	case mdl.ComparisonEndsWith, mdl.ComparisonNotEndsWith:
+		modifier := ""
+		if op == mdl.ComparisonNotEndsWith {
+			modifier = "NOT "
+		}
+
+		pattern := fmt.Sprintf("%%%s", value)
+		w.Write("%s %sLIKE %s", fieldName, modifier, w.placeholder(pattern))
+	default:
+		return fmt.Errorf("unsupported string operation: %s", string(op))
+	}
+	return nil
+}
+
+func (w *queryWriter) WriteFilterExpressionInt(
+	fieldName string,
+	op mdl.ComparisonOperator,
+	value int64,
+) error {
+	switch op {
+	case mdl.ComparisonEq:
+		w.Write("%s = %s", fieldName, w.placeholder(value))
+	case mdl.ComparisonNe:
+		w.Write("%s != %s", fieldName, w.placeholder(value))
+	case mdl.ComparisonGt:
+		w.Write("%s > %s", fieldName, w.placeholder(value))
+	case mdl.ComparisonGe:
+		w.Write("%s >= %s", fieldName, w.placeholder(value))
+	case mdl.ComparisonLt:
+		w.Write("%s < %s", fieldName, w.placeholder(value))
+	case mdl.ComparisonLe:
+		w.Write("%s <= %s", fieldName, w.placeholder(value))
+	default:
+		return fmt.Errorf("unsupported int operation: %s", string(op))
+	}
+	return nil
+}
+
+func (w *queryWriter) WriteFilterExpressionFloat(
+	fieldName string,
+	op mdl.ComparisonOperator,
+	value float64,
+) error {
+	switch op {
+	case mdl.ComparisonEq:
+		w.Write("%s = %s", fieldName, w.placeholder(value))
+	case mdl.ComparisonNe:
+		w.Write("%s != %s", fieldName, w.placeholder(value))
+	case mdl.ComparisonGt:
+		w.Write("%s > %s", fieldName, w.placeholder(value))
+	case mdl.ComparisonGe:
+		w.Write("%s >= %s", fieldName, w.placeholder(value))
+	case mdl.ComparisonLt:
+		w.Write("%s < %s", fieldName, w.placeholder(value))
+	case mdl.ComparisonLe:
+		w.Write("%s <= %s", fieldName, w.placeholder(value))
+	default:
+		return fmt.Errorf("unsupported float operation: %s", string(op))
+	}
+	return nil
+}
+
+func (w *queryWriter) WriteFilterExpressionPoint(
+	fieldName string,
+	op mdl.ComparisonOperator,
+	value mdl.Point,
+) error {
+	//TODO - Add distance function to simplify
+	return fmt.Errorf("no operators currently supported")
+}
+
+func (w *queryWriter) WriteFilterExpressionDateTime(
+	fieldName string,
+	op mdl.ComparisonOperator,
+	value time.Time,
+) error {
+	switch op {
+	case mdl.ComparisonEq:
+		w.Write("%s = %s", fieldName, w.placeholder(value))
+	case mdl.ComparisonNe:
+		w.Write("%s != %s", fieldName, w.placeholder(value))
+	case mdl.ComparisonGt:
+		w.Write("%s > %s", fieldName, w.placeholder(value))
+	case mdl.ComparisonGe:
+		w.Write("%s >= %s", fieldName, w.placeholder(value))
+	case mdl.ComparisonLt:
+		w.Write("%s < %s", fieldName, w.placeholder(value))
+	case mdl.ComparisonLe:
+		w.Write("%s <= %s", fieldName, w.placeholder(value))
+	default:
+		return fmt.Errorf("unsupported date/time operation: %s", string(op))
+	}
+	return nil
+}
+
+func (w *queryWriter) WriteFilterExpressionStringList(
+	fieldName string,
+	op mdl.ComparisonOperator,
+	value []string,
+) error {
+	listLen := len(value)
+
+	return w.writeList(
+		fieldName,
+		listLen,
+		op,
+		func(i int) error {
+			if i < 0 || i > listLen-1 {
+				return qerr.InternalErr("unable to write list value: index out of range")
+			}
+			w.Write("%s", value[i])
+			return nil
+		},
+	)
+}
+
+func (w *queryWriter) WriteFilterExpressionIntList(
+	fieldName string,
+	op mdl.ComparisonOperator,
+	value []int64,
+) error {
+	listLen := len(value)
+
+	return w.writeList(
+		fieldName,
+		listLen,
+		op,
+		func(i int) error {
+			if i < 0 || i > listLen-1 {
+				return qerr.InternalErr("unable to write list value: index out of range")
+			}
+			w.Write("%d", value[i])
+			return nil
+		},
+	)
+}
+
+func (w *queryWriter) WriteFilterExpressionFloatList(
+	fieldName string,
+	op mdl.ComparisonOperator,
+	value []float64,
+) error {
+	listLen := len(value)
+
+	return w.writeList(
+		fieldName,
+		listLen,
+		op,
+		func(i int) error {
+			if i < 0 || i > listLen-1 {
+				return qerr.InternalErr("unable to write list value: index out of range")
+			}
+			w.Write("%f", value[i])
+			return nil
+		},
+	)
+}
+
+func (w *queryWriter) writeList(
+	fieldName string,
+	listLength int,
+	op mdl.ComparisonOperator,
+	writeValue func(i int) error,
+) error {
+	if op != mdl.ComparisonIn && op != mdl.ComparisonNotIn {
+		return fmt.Errorf("unsupported list operation: %s", string(op))
+	}
+
+	negationModifier := ""
+	if op == mdl.ComparisonNotIn {
+		negationModifier = "NOT"
+	}
+
+	w.Write("%s %sIN (", fieldName, negationModifier)
+	for i := range listLength {
+		if i != 0 {
+			w.Write(",")
+		}
+		writeValue(i)
+	}
+	w.Write(")")
+	return nil
+
 }
