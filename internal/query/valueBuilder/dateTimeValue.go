@@ -41,5 +41,5 @@ func (v dateTimeValue) WriteFilterExpression(
 }
 
 func (v dateTimeValue) Serialise(s mdl.Serialiser) {
-	panic("NOT YET IMPLEMENTED")
+	s.SerialiseTime(v.value)
 }

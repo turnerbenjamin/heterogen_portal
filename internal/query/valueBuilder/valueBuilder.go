@@ -73,6 +73,22 @@ func (valueBuilder) ExecuteDeserialisation(
 		}
 		return floatValue{value: v}, nil
 
+	// DESERIALISE - TIME
+	case mdl.ValueTypeDateTime:
+		v, err := ds.DeserialiseTime(d)
+		if err != nil {
+			return nil, err
+		}
+		return dateTimeValue{value: v}, nil
+
+	// DESERIALISE - POINT
+	case mdl.ValueTypePoint:
+		v, err := ds.DeserialiseTime(d)
+		if err != nil {
+			return nil, err
+		}
+		return dateTimeValue{value: v}, nil
+
 	// DESERIALISE - STRING LIST
 	case mdl.ValueTypeStringList:
 		stringValues := ds.DeserialiseListString(d)

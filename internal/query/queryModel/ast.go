@@ -36,6 +36,8 @@ type Serialiser interface {
 	SerialiseString(str string)
 	SerialiseInt(n int64)
 	SerialiseFloat(f float64)
+	SerialiseTime(t time.Time)
+	SerialisePoint(p Point)
 
 	SerialiseStringList(els []string)
 	SerialiseIntList(els []int64)
@@ -51,6 +53,9 @@ type Deserialiser interface {
 
 	DeserialiseFloat(d []byte) (float64, error)
 	DeserialiseListFloat(d []byte) ([]float64, error)
+
+	DeserialiseTime(d []byte) (time.Time, error)
+	DeserialisePoint(d []byte) (Point, error)
 }
 
 type ValueBuilder interface {
@@ -173,6 +178,14 @@ var SupportedComparisonOperators = map[string]ComparisonOperator{
 	"contains":   ComparisonContains,
 	"startswith": ComparisonStartsWith,
 	"endswith":   ComparisonEndsWith,
+}
+
+var ComparableDbTypes = map[DbType]struct{}{
+	DbTypeNull:     {},
+	DbTypeString:   {},
+	DbTypeInt:      {},
+	DbTypeFloat:    {},
+	DbTypeDateTime: {},
 }
 
 type CollectionOperator string

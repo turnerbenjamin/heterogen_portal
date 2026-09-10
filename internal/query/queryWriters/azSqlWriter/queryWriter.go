@@ -647,8 +647,7 @@ func (w *queryWriter) WriteFilterExpressionPoint(
 	op mdl.ComparisonOperator,
 	value mdl.Point,
 ) error {
-	//TODO - Add distance function to simplify
-	return fmt.Errorf("no operators currently supported")
+	return fmt.Errorf("no operators are currently supported for point")
 }
 
 func (w *queryWriter) WriteFilterExpressionDateTime(

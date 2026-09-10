@@ -407,6 +407,14 @@ func (qd *queryDataStore) AddOrderBy(columnPath string, dir mdl.SortDirectionOpe
 		return err
 	}
 
+	// Check Compatibility
+	if _, isComparable := mdl.ComparableDbTypes[c.Metadata.Type()]; !isComparable {
+		return qerr.SyntaxErr(
+			"%s cannot be used in an orderby operation as its type is not comparable",
+			c.Metadata.Name(),
+		)
+	}
+
 	if err := qd.relationshipPlanner.ProcessJoin(c.ResolvedPath); err != nil {
 		return err
 	}

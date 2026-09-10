@@ -823,18 +823,17 @@ func (w *modelWriter) WriteSetProjectionFunction(modelStructName string, tableDa
 
 func (w *modelWriter) buildGetValueExpression(columnData *builderRepo.ColumnMetadata) string {
 	columnIdentifier := snakeToPascal(columnData.Name)
+	goType := msqlTypeToGoType(columnData.Type, columnData.Checks)
 
-	nullCheck := func(columnIdentifier string) string {
-		return fmt.Sprintf("if m.%s == nil {\n return v.Null(), nil }\n", columnIdentifier)
-	}
-
-	switch columnData.Type {
-	case MsqlTypeNvarchar:
+	switch goType {
+	case "string":
 		return fmt.Sprintf("return v.String(m.%s), nil\n", columnIdentifier)
-	case MsqlTypeInt:
+	case "int64":
 		return fmt.Sprintf("return v.Int(m.%s), nil\n", columnIdentifier)
-	case MsqlTypeDateTimeOffset, MsqlTypeGeography:
-		return fmt.Sprintf("%s return v.String(m.%s.String()), nil\n", nullCheck(columnIdentifier), columnIdentifier)
+	case "*time.Time":
+		return fmt.Sprintf("return v.DateTime(*m.%s), nil\n", columnIdentifier)
+	case "*queryModel.Point":
+		return fmt.Sprintf("return v.Point(m.%s.Coordinates[0], m.%s.Coordinates[1]), nil\n", columnIdentifier, columnIdentifier)
 	default:
 		return ""
 	}

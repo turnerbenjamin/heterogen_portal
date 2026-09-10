@@ -32,5 +32,5 @@ func (v pointValue) WriteFilterExpression(
 }
 
 func (v pointValue) Serialise(s mdl.Serialiser) {
-	panic("NOT YET IMPLEMENTED")
+	s.SerialisePoint(v.value)
 }

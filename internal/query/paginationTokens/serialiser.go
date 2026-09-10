@@ -6,6 +6,7 @@ import (
 	"io"
 	"math"
 	"strings"
+	"time"
 
 	qstore "github.com/turnerbenjamin/heterogen_portal/internal/query/queryDataStore"
 	qerr "github.com/turnerbenjamin/heterogen_portal/internal/query/queryError"
@@ -21,6 +22,10 @@ type deserialiser struct {
 	buf          *bytes.Reader
 	valueBuilder mdl.ValueBuilder
 }
+
+// use a specific, fixed-width format to prevent loss of precision which can
+// cause the cursor not to work as expected
+const cursorTimeFormat = "2006-01-02T15:04:05.000000000Z"
 
 func serialiseToken(
 	str qstore.QueryDataStore,
@@ -215,6 +220,16 @@ func (ds *deserialiser) ReadString() (string, error) {
 	return ds.sb.String(), nil
 }
 
+func (s *serialiser) SerialiseTime(t time.Time) {
+	timeString := t.Format(cursorTimeFormat)
+	s.SerialiseString(timeString)
+}
+
+func (ds *deserialiser) DeserialiseTime(d []byte) (time.Time, error) {
+	timeString := ds.DeserialiseString(d)
+	return time.Parse(cursorTimeFormat, timeString)
+}
+
 func (ds *deserialiser) DeserialiseListString(d []byte) []string {
 	dLen := len(d)
 
@@ -294,6 +309,25 @@ func (ds *deserialiser) DeserialiseFloat(d []byte) (float64, error) {
 		)
 	}
 	return math.Float64frombits(binary.BigEndian.Uint64(d)), nil
+}
+
+func (s *serialiser) SerialisePoint(p mdl.Point) {
+	s.SerialiseFloat(p.Coordinates[0])
+	s.SerialiseFloat(p.Coordinates[1])
+}
+
+func (ds *deserialiser) DeserialisePoint(d []byte) (mdl.Point, error) {
+	long, err := ds.DeserialiseFloat(d)
+	if err != nil {
+		return mdl.NewPoint(0, 0), err
+	}
+
+	lat, err := ds.DeserialiseFloat(d)
+	if err != nil {
+		return mdl.NewPoint(0, 0), err
+	}
+
+	return mdl.NewPoint(long, lat), nil
 }
 
 func (ds *deserialiser) DeserialiseListFloat(d []byte) ([]float64, error) {
