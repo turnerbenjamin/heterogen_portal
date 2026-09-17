@@ -3,9 +3,9 @@ package queryParser
 import (
 	"strings"
 
-	qcfg "github.com/turnerbenjamin/heterogen_portal/internal/query/queryConfiguration"
 	qstore "github.com/turnerbenjamin/heterogen_portal/internal/query/queryDataStore"
 	qerr "github.com/turnerbenjamin/heterogen_portal/internal/query/queryError"
+	qplan "github.com/turnerbenjamin/heterogen_portal/internal/query/queryPlanner"
 )
 
 // QueryOperation represents an operations in a query string such as select,
@@ -19,7 +19,7 @@ type QueryOperation interface {
 // QuerySyntaxParser is a utility for parsing query strings
 type QuerySyntaxParser struct{}
 
-func NewQueryParser() qcfg.QueryParser {
+func NewQueryParser() qplan.QueryParser {
 	return &QuerySyntaxParser{}
 }
 
@@ -57,6 +57,8 @@ func parseOperations(
 			return t.TknErr(tkn, "expected an operator but received '%s'", tkn.Value)
 		}
 		operator := strings.ToLower(tkn.Value)
+
+		
 
 		// Expect operator to be followed by equals token
 		tkn = t.Next()

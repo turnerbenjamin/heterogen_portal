@@ -1,3 +1,7 @@
+// Package paginationTokens is responsible for generating pagination tokens to
+// enable cursor pagination
+//
+// This file contains the top-level logic for building and parsing paging tokens
 package paginationTokens
 
 import (
@@ -6,20 +10,39 @@ import (
 	mdl "github.com/turnerbenjamin/heterogen_portal/internal/query/queryModel"
 )
 
-var querySchemaVersion uint32 = 1
+// pagingTokenSchemaVersion represents the schema version of a paging token for
+// the purpose of decoding
+var pagingTokenSchemaVersion uint32 = 1
 
+// PagingToken represents a token using for cursor pagination
 type PagingToken struct {
-	Version      uint32
+
+	// Version is the paging token schema version
+	Version uint32
+
+	// CursorValues contains the values, for each orderby field, on the last
+	// record of the current query - They are used to construct a cursor based
+	// pagination filter
 	CursorValues []mdl.Value
+
+	// ResourceName is the resource the query relates to
 	ResourceName string
-	QueryString  string
+
+	// QueryString is the original query string for the query
+	QueryString string
 }
 
+// pagingTokenBuilder is used to build query paging tokens
 type pagingTokenBuilder struct {
+
+	// payloadSigner is used by pagingTokenBuilder to sign the paging tokens
 	payloadSigner mdl.PayloadSigner
+
+	// payloadSecret is the secret used to sign paging tokens with
 	payloadSecret []byte
 }
 
+// NewPagingTokenBuilder initialises a new pagingTokenBuilder
 func NewPagingTokenBuilder(payloadSigner mdl.PayloadSigner, payloadSecret []byte) (*pagingTokenBuilder, error) {
 	if payloadSigner == nil {
 		return nil, qerr.InternalErr("unable to build next page token. payload signer cannot be nil")
@@ -35,6 +58,8 @@ func NewPagingTokenBuilder(payloadSigner mdl.PayloadSigner, payloadSecret []byte
 	}, nil
 }
 
+// BuildToken builds a new paging token string containing data used to fetch the
+// next page of data with cursor pagination
 func (b *pagingTokenBuilder) BuildToken(
 	queryDataStore qstore.QueryDataStore,
 	lastRecord mdl.TableModel,
@@ -54,7 +79,7 @@ func (b *pagingTokenBuilder) BuildToken(
 
 	payloadBytes, err := serialiseToken(
 		queryDataStore,
-		querySchemaVersion,
+		pagingTokenSchemaVersion,
 		cursorValues,
 	)
 	if err != nil {
@@ -63,30 +88,7 @@ func (b *pagingTokenBuilder) BuildToken(
 	return b.payloadSigner.Sign(b.payloadSecret, payloadBytes), nil
 }
 
-func getCursorValues(
-	s qstore.QueryDataStore,
-	lastRecord mdl.TableModel,
-) ([]mdl.Value, error) {
-	cursorValues := make([]mdl.Value, s.OrderByLen())
-
-	i := 0
-	for rule := range s.OrderBy() {
-		// TODO THIS IS GROSS - CHANGE SIGNATURE OF GetValueExpression !!!!!!!!!!!!!!
-		nextRecordValue, err := lastRecord.GetValue(
-			rule.ResolvedColumn.ResolvedPath.Steps,
-			rule.ResolvedColumn.Metadata.Name(),
-			s.FilterExpressionBuilder().ValueBuilder(),
-		)
-		if err != nil {
-			return nil, err
-		}
-
-		cursorValues[i] = nextRecordValue
-		i++
-	}
-	return cursorValues, nil
-}
-
+// parses a given token string into a PagingToken for use in cursor pagination
 func (b *pagingTokenBuilder) ParseToken(
 	token string,
 	valueBuilder mdl.ValueBuilder,
@@ -105,7 +107,7 @@ func (b *pagingTokenBuilder) ParseToken(
 
 	payloadBytes, ok := b.payloadSigner.Verify(b.payloadSecret, token)
 	if !ok {
-		return nil, qerr.NextPageTokenErr(
+		return nil, qerr.PagingTokenErr(
 			"the next page token is invalid",
 		)
 	}
@@ -118,11 +120,37 @@ func (b *pagingTokenBuilder) ParseToken(
 		return nil, err
 	}
 
-	if tokenPayload.Version != querySchemaVersion {
-		return nil, qerr.NextPageTokenErr(
+	if tokenPayload.Version != pagingTokenSchemaVersion {
+		return nil, qerr.PagingTokenErr(
 			"the next page token has expired",
 		)
 	}
 
 	return &tokenPayload, nil
+}
+
+// getCursorValues iterates through the order by rules of the query and accesses
+// the value for the orderby field from the last record in the current page of
+// results - This allows construction of a cursor filter
+func getCursorValues(
+	s qstore.QueryDataStore,
+	lastRecord mdl.TableModel,
+) ([]mdl.Value, error) {
+	cursorValues := make([]mdl.Value, s.OrderByLen())
+
+	i := 0
+	for rule := range s.OrderBy() {
+		nextRecordValue, err := lastRecord.GetValue(
+			rule.ResolvedColumn.ResolvedPath.Steps,
+			rule.ResolvedColumn.Metadata.Name(),
+			s.FilterExpressionBuilder().ValueBuilder(),
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		cursorValues[i] = nextRecordValue
+		i++
+	}
+	return cursorValues, nil
 }

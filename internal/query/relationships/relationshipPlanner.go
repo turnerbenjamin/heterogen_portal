@@ -138,14 +138,6 @@ func (s *AliasStore) getAliasMapping(t aliasType) map[string]string {
 	}
 }
 
-// func (s *AliasStore) SetAlias(pathId string, alias string) {
-// 	if s.pathIdToAliasMap == nil {
-// 		s.pathIdToAliasMap = map[string]string{}
-// 	}
-
-// 	s.pathIdToAliasMap[pathId] = alias
-// }
-
 type RelationshipPlanner struct {
 	Aliases   AliasStore
 	JoinStore JoinCollection

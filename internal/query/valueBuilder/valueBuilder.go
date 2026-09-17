@@ -1,4 +1,4 @@
-package valuebuilder
+package valueBuilder
 
 import (
 	"time"
@@ -54,7 +54,10 @@ func (valueBuilder) ExecuteDeserialisation(
 
 	// DESERIALISE - STRING
 	case mdl.ValueTypeString:
-		v := ds.DeserialiseString(d)
+		v, err := ds.DeserialiseString(d)
+		if err != nil {
+			return nil, err
+		}
 		return stringValue{value: v}, nil
 
 	// DESERIALISE - INT
@@ -91,8 +94,8 @@ func (valueBuilder) ExecuteDeserialisation(
 
 	// DESERIALISE - STRING LIST
 	case mdl.ValueTypeStringList:
-		stringValues := ds.DeserialiseListString(d)
-		return stringListValue{value: stringValues}, nil
+		stringValues, err := ds.DeserialiseListString(d)
+		return stringListValue{value: stringValues}, err
 
 	// DESERIALISE - INT LIST
 	case mdl.ValueTypeIntList:

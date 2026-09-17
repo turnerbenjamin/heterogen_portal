@@ -1,4 +1,4 @@
-package valuebuilder
+package valueBuilder
 
 import (
 	mdl "github.com/turnerbenjamin/heterogen_portal/internal/query/queryModel"

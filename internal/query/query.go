@@ -5,13 +5,13 @@ import (
 	"fmt"
 
 	"github.com/turnerbenjamin/heterogen_portal/internal/query/paginationTokens"
-	qcfg "github.com/turnerbenjamin/heterogen_portal/internal/query/queryConfiguration"
 	qstore "github.com/turnerbenjamin/heterogen_portal/internal/query/queryDataStore"
 	qerr "github.com/turnerbenjamin/heterogen_portal/internal/query/queryError"
 	"github.com/turnerbenjamin/heterogen_portal/internal/query/queryModel"
 	mdl "github.com/turnerbenjamin/heterogen_portal/internal/query/queryModel"
 	"github.com/turnerbenjamin/heterogen_portal/internal/query/queryOrchestrator"
 	"github.com/turnerbenjamin/heterogen_portal/internal/query/queryParser"
+	qplan "github.com/turnerbenjamin/heterogen_portal/internal/query/queryPlanner"
 	azSqlWriter "github.com/turnerbenjamin/heterogen_portal/internal/query/queryWriters/azSqlWriter"
 	valuebuilder "github.com/turnerbenjamin/heterogen_portal/internal/query/valueBuilder"
 )
@@ -21,17 +21,18 @@ type sqlFlavour string
 const SqlFlavorAzureSql sqlFlavour = "azure_sql"
 
 type QueryWriterGetter func(s qstore.QueryDataStore) (w mdl.QueryWriter, err error)
-type QueryParserInitialiser func() qcfg.QueryParser
+type QueryParserInitialiser func() qplan.QueryParser
 
 type queryExecutor struct {
 	repository             mdl.Repository
+	queryConfig            mdl.QueryConfig
 	schema                 mdl.Schema
 	accessPolicy           mdl.AccessPolicy
-	pagingTokenBuilder     qcfg.PagingTokenBuilder
+	pagingTokenBuilder     qplan.PagingTokenBuilder
 	queryWriterGetter      QueryWriterGetter
 	queryParserInitialiser QueryParserInitialiser
 }
-type QueryOrchestrator interface {
+type QueryExecutor interface {
 	Execute(
 		ctx context.Context,
 		resourceName string,
@@ -46,9 +47,10 @@ type QueryExecutorConfig struct {
 	PaginationTokenSigner mdl.PayloadSigner
 	PaginationTokenSecret []byte
 	SqlFlavor             sqlFlavour
+	queryConfig           mdl.QueryConfig
 }
 
-func NewQueryExecutorFactory(config QueryExecutorConfig) (QueryOrchestrator, error) {
+func NewQueryExecutorFactory(config QueryExecutorConfig) (QueryExecutor, error) {
 	pagingTokenBuilder, err := paginationTokens.NewPagingTokenBuilder(
 		config.PaginationTokenSigner,
 		config.PaginationTokenSecret,
@@ -70,6 +72,7 @@ func NewQueryExecutorFactory(config QueryExecutorConfig) (QueryOrchestrator, err
 		pagingTokenBuilder:     pagingTokenBuilder,
 		queryWriterGetter:      sqlWriterGetter,
 		queryParserInitialiser: queryParser.NewQueryParser,
+		queryConfig:            mdl.QueryConfigWithDefaults(config.queryConfig),
 	}, err
 }
 
@@ -92,7 +95,8 @@ func (qf *queryExecutor) Execute(
 	valueBuilder := valuebuilder.NewValueBuilder()
 
 	// Configure query
-	queryDataStore, err := qcfg.ConfigureQuery(
+	queryDataStore, err := qplan.PlanQuery(
+		qf.queryConfig,
 		queryString,
 		queryParser,
 		qf.pagingTokenBuilder,
@@ -108,7 +112,6 @@ func (qf *queryExecutor) Execute(
 		qf.repository,
 		azSqlWriter.NewQueryWriter,
 		qf.pagingTokenBuilder,
-		valueBuilder,
 	)
 
 	return executor.ExecuteQuery(ctx, queryDataStore)

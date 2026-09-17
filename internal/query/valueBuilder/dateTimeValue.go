@@ -1,4 +1,4 @@
-package valuebuilder
+package valueBuilder
 
 import (
 	"time"

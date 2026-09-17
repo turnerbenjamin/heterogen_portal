@@ -45,8 +45,8 @@ type Serialiser interface {
 }
 
 type Deserialiser interface {
-	DeserialiseString(d []byte) string
-	DeserialiseListString(d []byte) []string
+	DeserialiseString(d []byte) (string, error)
+	DeserialiseListString(d []byte) ([]string, error)
 
 	DeserialiseInt(d []byte) (int64, error)
 	DeserialiseListInt(d []byte) ([]int64, error)

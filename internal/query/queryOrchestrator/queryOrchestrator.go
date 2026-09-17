@@ -4,10 +4,10 @@ import (
 	"context"
 	"sync"
 
-	qcfg "github.com/turnerbenjamin/heterogen_portal/internal/query/queryConfiguration"
 	qstore "github.com/turnerbenjamin/heterogen_portal/internal/query/queryDataStore"
 	qerr "github.com/turnerbenjamin/heterogen_portal/internal/query/queryError"
 	mdl "github.com/turnerbenjamin/heterogen_portal/internal/query/queryModel"
+	qplan "github.com/turnerbenjamin/heterogen_portal/internal/query/queryPlanner"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -21,21 +21,18 @@ var emptyResult = mdl.ExecuteResult{}
 type QueryOrchestrator struct {
 	newWriter          func(s qstore.QueryDataStore) (mdl.QueryWriter, error)
 	repository         mdl.Repository
-	pagingTokenBuilder qcfg.PagingTokenBuilder
-	valueBuilder       mdl.ValueBuilder
+	pagingTokenBuilder qplan.PagingTokenBuilder
 }
 
 func NewQueryExecutor(
 	repository mdl.Repository,
 	newWriter func(s qstore.QueryDataStore) (mdl.QueryWriter, error),
-	pagingTokeBuilder qcfg.PagingTokenBuilder,
-	valueBuilder mdl.ValueBuilder,
+	pagingTokeBuilder qplan.PagingTokenBuilder,
 ) *QueryOrchestrator {
 	return &QueryOrchestrator{
 		newWriter:          newWriter,
 		repository:         repository,
 		pagingTokenBuilder: pagingTokeBuilder,
-		valueBuilder:       valueBuilder,
 	}
 }
 
@@ -177,18 +174,39 @@ func (e *QueryOrchestrator) executeNestedQuery(
 	link := nestedQuery.TraversalStep
 	queryData := nestedQuery.QueryData
 
-	joinOnValues, err := e.getJoinOnValues(link, queryResults)
+	filterExpressionBuilder := queryData.FilterExpressionBuilder()
+	if filterExpressionBuilder == nil {
+		return nil, qerr.InternalErr(
+			"unable to execute nested query: cannot access filter expression builder",
+		)
+	}
+	valueBuilder := filterExpressionBuilder.ValueBuilder()
+	if valueBuilder == nil {
+		return nil, qerr.InternalErr(
+			"unable to execute nested query: cannot access value builder",
+		)
+	}
+
+	joinOnValues, err := e.getJoinOnValues(valueBuilder, link, queryResults)
 	if err != nil {
 		return nil, err
 	}
 
-	err = queryData.AddAssociatedWithParentFilter(
-		link,
-		joinOnValues,
+	values, err := valueBuilder.List(joinOnValues)
+	if err != nil {
+		return nil, err
+	}
+
+	assocationFilter, err := filterExpressionBuilder.NewComparisonExpression(
+		link.Relationship.ToColumn().Name(),
+		mdl.ComparisonIn,
+		values,
 	)
 	if err != nil {
 		return nil, err
 	}
+
+	queryData.SetOrAppendFilter(assocationFilter)
 
 	results, err := e.executeNestedQueries(ctx, queryData)
 	if err != nil {
@@ -244,6 +262,7 @@ func (e *QueryOrchestrator) executeNestedQueries(
 }
 
 func (e *QueryOrchestrator) getJoinOnValues(
+	valueBuilder mdl.ValueBuilder,
 	link mdl.TraversalStep,
 	fromResults []mdl.TableModel,
 ) ([]mdl.Value, error) {
@@ -257,7 +276,7 @@ func (e *QueryOrchestrator) getJoinOnValues(
 		}
 
 		if _, exists := seen[value]; !exists {
-			joinValues = append(joinValues, e.valueBuilder.String(value))
+			joinValues = append(joinValues, valueBuilder.String(value))
 		}
 		seen[value] = struct{}{}
 	}

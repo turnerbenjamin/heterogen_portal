@@ -205,29 +205,49 @@ func parseCollectionOperator(
 }
 
 func parsePath(t *Tokeniser) (string, error) {
+	// Generally, space tokens are skipped, however, paths must be contiguous
 	pathBuilder := strings.Builder{}
+	i := 0
+
+outer:
 	for {
-		tkn := t.Next()
+		// Ignore whitespace at the start of the path only - paths should be
+		// contiguous
+		tkn := t.NextIncSpace()
+		if tkn.Type == TokenSpace && i == 0 {
+			continue
+		}
+		i++
 
 		switch tkn.Type {
-		case TokenIdentifier, TokenLogicalOperator, TokenComparisonOperator, TokenCollectionOperator:
-			if pathBuilder.Len() != 0 {
-				pathBuilder.WriteByte('/')
-			}
+		// Write slashes to the path
+		case TokenSlash:
 			pathBuilder.WriteString(tkn.Value)
+
+		// Write token identifiers to the path
+		case TokenIdentifier, TokenLogicalOperator, TokenComparisonOperator, TokenCollectionOperator:
+			pathBuilder.WriteString(tkn.Value)
+
+		// For all other token types exit
+		default:
+			break outer
 		}
 
-		nxtTkn := t.Peek()
-		if nxtTkn.Type != TokenSlash {
+		nxt := t.Peek()
+		if nxt.Type != TokenIdentifier &&
+			nxt.Type != TokenLogicalOperator &&
+			nxt.Type != TokenComparisonOperator &&
+			nxt.Type != TokenCollectionOperator &&
+			nxt.Type != TokenSlash {
 			break
 		}
 
-		// consume slash token
-		_ = t.Next()
-
-		// If next element is a collection operator break
-		if t.Peek().Type == TokenCollectionOperator &&
-			t.PeekN(2).Type == TokenParenL {
+		// Guard against consuming valid collection operators
+		if nxt.Type == TokenSlash &&
+			t.PeekN(2).Type == TokenCollectionOperator &&
+			t.PeekN(3).Type == TokenParenL {
+			//consume the slash without writing to the path and break
+			_ = t.Next()
 			break
 		}
 	}

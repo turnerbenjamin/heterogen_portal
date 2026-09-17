@@ -1,9 +1,13 @@
+// Package queryModel contains models used throughout the query package and by
+// consuming packages
+//
+// This file contains models
 package queryModel
 
 // AccessPolicy defines the access policy for a database
 type AccessPolicy interface {
-	// GetTableAccessPolicy returns an access policy for a given table for nil
-	// if the table does not exist
+	// GetTableAccessPolicy returns an access policy for a given table or nil if
+	// the table does not exist
 	GetTableAccessPolicy(tableName string) TableAccessPolicy
 }
 

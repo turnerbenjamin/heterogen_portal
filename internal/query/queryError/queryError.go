@@ -1,3 +1,6 @@
+// Package queryError is used to return errors with specific categories from the
+// query package. Messages for all error categories other than
+// queryErrInternalErr and queryErrUnknown are intended for display to users
 package queryError
 
 import (
@@ -5,9 +8,9 @@ import (
 	"fmt"
 )
 
-// queryErrorCategory represents a specific category of error returned from this
-// package
-type queryErrorCategory int8
+// queryErrorCategory represents a specific category of error returned from the
+// query package
+type queryErrorCategory uint8
 
 const (
 	// QueryErrUnknown is used when the query category cannot be determined
@@ -15,30 +18,30 @@ const (
 
 	// QueryErrSyntaxErr is used to represent bad query strings. Error messages
 	// are designed for display to users to help them correct the error
-	QueryErrSyntaxErr queryErrorCategory = iota
+	QueryErrSyntaxErr
 
 	// QueryErrBindingErr is used to represent faiures to bind metadata to the
 	// query, generally due to incorrect identifiers. Error messages are
 	// designed for display to users to help them correct the error
-	QueryErrBindingErr queryErrorCategory = iota
+	QueryErrBindingErr
 
 	// QueryErrAccessErr is used to represent access requests that are
 	// incompatible with the access policy
-	QueryErrAccessErr queryErrorCategory = iota
+	QueryErrAccessErr
 
-	// QueryErrInvalidTokenErr is used to represent errors due to invalid next
-	// page tokens
-	QueryErrInvalidTokenErr queryErrorCategory = iota
+	// QueryErrInvalidPagingTokenErr is used to represent errors due to invalid
+	// paging tokens
+	QueryErrInvalidPagingTokenErr
 
 	// QueryErrInternalErr is used to represent internal failures. Error
 	// messages are designed to help debugging and are not intended for display
 	// to users
-	QueryErrInternalErr queryErrorCategory = iota
+	QueryErrInternalErr
 )
 
-// QueryError is used to return an error with a category. This may be used to
+// queryError is used to return an error with a category. This may be used to
 // determine whether to surface the specifc error to the user or not
-type QueryError struct {
+type queryError struct {
 	category queryErrorCategory
 	err      error
 }
@@ -50,60 +53,55 @@ func GetErrorCategory(err error) queryErrorCategory {
 		return QueryErrUnknown
 	}
 
-	qerr, success := errors.AsType[*QueryError](err)
+	qerr, success := errors.AsType[queryError](err)
 	if success {
-		return qerr.Category()
+		return qerr.category
 	}
 
 	return QueryErrUnknown
 }
 
-// Category returns the error category, this can be used to determine
-// whether to surface the error message to the user or not
-func (e *QueryError) Category() queryErrorCategory {
-	return e.category
-}
-
 // Error returns the error message
-func (e *QueryError) Error() string {
+func (e queryError) Error() string {
 	return e.err.Error()
 }
 
-// syntaxErr builds a queryError with the category QueryErrSyntaxErr
+// SyntaxErr builds a queryError with the category QueryErrSyntaxErr
 func SyntaxErr(m string, a ...any) error {
-	return &QueryError{
+	return queryError{
 		category: QueryErrSyntaxErr,
 		err:      fmt.Errorf(m, a...),
 	}
 }
 
-// bindingErr builds a queryError with the category QueryErrBindingErr
+// BindingErr builds a queryError with the category QueryErrBindingErr
 func BindingErr(m string, a ...any) error {
-	return &QueryError{
+	return queryError{
 		category: QueryErrBindingErr,
 		err:      fmt.Errorf(m, a...),
 	}
 }
 
-// accessErr builds a queryError with the category QueryErrAccessErr
+// AccessErr builds a queryError with the category QueryErrAccessErr
 func AccessErr(m string, a ...any) error {
-	return &QueryError{
+	return queryError{
 		category: QueryErrAccessErr,
 		err:      fmt.Errorf(m, a...),
 	}
 }
 
-// nextPageTokenErr builds a queryError with the category QueryErrInvalidTokenErr
-func NextPageTokenErr(m string, a ...any) error {
-	return &QueryError{
-		category: QueryErrInvalidTokenErr,
+// PagingTokenErr builds a queryError with the category
+// QueryErrInvalidPagingTokenErr
+func PagingTokenErr(m string, a ...any) error {
+	return queryError{
+		category: QueryErrInvalidPagingTokenErr,
 		err:      fmt.Errorf(m, a...),
 	}
 }
 
-// internalErr builds a queryError with the category QueryErrInternalErr
+// InternalErr builds a queryError with the category QueryErrInternalErr
 func InternalErr(m string, a ...any) error {
-	return &QueryError{
+	return queryError{
 		category: QueryErrInternalErr,
 		err:      fmt.Errorf(m, a...),
 	}

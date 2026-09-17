@@ -13,19 +13,20 @@ import (
 func parseLimitOperation(s qstore.QueryDataStore, t *Tokeniser) error {
 	limitValue := t.Next()
 	if limitValue.Type != TokenNumberRaw {
-		return t.TknErr(limitValue, "expected an integer but received '%s'", limitValue.Value)
+		return t.TknErr(limitValue, "expected a positive integer but received '%s'", limitValue.Value)
 	}
 
 	if strings.Contains(limitValue.Value, ".") {
-		return t.TknErr(limitValue, "expected an integer but received '%s'", limitValue.Value)
+		return t.TknErr(limitValue, "expected a positive integer but received '%s'", limitValue.Value)
 	}
 
-	limitInt, err := strconv.Atoi(limitValue.Value)
+	limitInt, err := strconv.ParseUint(limitValue.Value, 10, 32)
 	if err != nil {
 		return qerr.InternalErr("unable to parse string as int: %v", err)
 	}
 
-	return s.SetLimit(limitInt)
+	s.SetLimit(uint32(limitInt))
+	return nil
 }
 
 // parseCountOperation is responsible for parsing count operations. It expects a

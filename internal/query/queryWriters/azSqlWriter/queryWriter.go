@@ -145,11 +145,6 @@ func (w *queryWriter) writeFromStatement() {
 }
 
 func (w *queryWriter) writeSelectStatement() error {
-
-	if w.queryDataStore.SelectsLen() == 0 {
-		return qerr.InternalErr("expected a select operation with at least one column specified")
-	}
-
 	w.selectLocation.left = w.sb.Len()
 	w.sb.WriteString("SELECT ")
 
@@ -166,6 +161,9 @@ func (w *queryWriter) writeSelectStatement() error {
 			w.formatSelectValue(columnValue.Metadata),
 		)
 		i++
+	}
+	if i == 0 {
+		return qerr.InternalErr("expected a select operation with at least one column specified")
 	}
 
 	w.selectLocation.right = w.sb.Len()

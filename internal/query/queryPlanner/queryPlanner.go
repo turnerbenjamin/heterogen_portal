@@ -8,9 +8,6 @@ import (
 	mdl "github.com/turnerbenjamin/heterogen_portal/internal/query/queryModel"
 )
 
-// TODO: SORT OUT SOME CONFIG
-const MAX_LIMIT = 5000
-
 type PagingTokenBuilder interface {
 	BuildToken(
 		queryDataStore qstore.QueryDataStore,
@@ -27,7 +24,8 @@ type QueryParser interface {
 	) error
 }
 
-func ConfigureQuery(
+func PlanQuery(
+	config mdl.QueryConfig,
 	queryString string,
 	queryParser QueryParser,
 	pagingTokenBuilder PagingTokenBuilder,
@@ -58,7 +56,8 @@ func ConfigureQuery(
 			return nil, err
 		}
 
-		// TODO implement token validation logic
+		// TODO implement token validation logic - potentially reset store rather
+		// than reinit
 		s, err = initStore(
 			pagingToken.QueryString,
 			queryParser,
@@ -72,8 +71,17 @@ func ConfigureQuery(
 	}
 
 	// Configure the query
-	if err := configureQuery(s, pagingToken); err != nil {
+	totalRecordCount, err := planQuery(s, config, pagingToken)
+	if err != nil {
 		return nil, err
+	}
+
+	// Validate Query Size
+	if totalRecordCount > config.MaxRecordsPerPage {
+		return nil, qerr.SyntaxErr(
+			"invalid query: queries that could breach the maximum record count of %d are not permitted",
+			config.MaxRecordsPerPage,
+		)
 	}
 
 	return s, err
@@ -104,56 +112,57 @@ func initStore(
 	return s, nil
 }
 
-func configureQuery(
+func planQuery(
 	s qstore.QueryDataStore,
+	config mdl.QueryConfig,
 	pagingToken *paginationTokens.PagingToken,
-) error {
-	// Validate user query as parsed before mutating
-	if err := validateUserQuery(s); err != nil {
-		return err
-	}
+) (uint32, error) {
+	totalRecordCount := uint32(0)
 
 	// Add default operations as required
-	if err := addSystemDefaults(s); err != nil {
-		return err
+	if err := addSystemDefaults(s, config); err != nil {
+		return 0, err
 	}
+	totalRecordCount += s.Limit()
 
 	// Ensure deterministic order
 	if err := ensureDeterministicOrdering(s); err != nil {
-		return err
+		return 0, err
 	}
 
 	// Add any required systems selects/expands required for cursor pagination
 	if err := addRequiredOperationsForCursorPagination(s); err != nil {
-		return err
+		return 0, err
 	}
 
 	// Set system limit for pagination record
-	if err := setSystemLimit(s); err != nil {
-		return err
-	}
+	setSystemLimit(s)
 
 	// Configure expanded queries
 	for _, expansion := range s.Expands() {
-		if err := configureQuery(expansion.QueryData, nil); err != nil {
-			return err
+		if expansion.QueryData.Depth() > config.MaxDepth {
+			return 0, qerr.SyntaxErr(
+				"invalid query: exceeds the maximum expansion depth of %d",
+				config.MaxDepth,
+			)
 		}
+
+		nestedRecordCount, err := planQuery(expansion.QueryData, config, nil)
+		if err != nil {
+			return 0, err
+		}
+		totalRecordCount += nestedRecordCount
 	}
 
 	// Add cursor filter where required
-	addCursorFilter(s, pagingToken)
-
-	return nil
-}
-
-func validateUserQuery(s qstore.QueryDataStore) error {
-	if s.Limit() > MAX_LIMIT {
-		return qerr.SyntaxErr("limit must be between 1 and %d", MAX_LIMIT)
+	if err := addCursorFilter(s, pagingToken); err != nil {
+		return 0, err
 	}
-	return nil
+
+	return totalRecordCount, nil
 }
 
-func addSystemDefaults(s qstore.QueryDataStore) error {
+func addSystemDefaults(s qstore.QueryDataStore, config mdl.QueryConfig) error {
 	p := s.Projection()
 	if p.IsEmpty() {
 		if err := addDefaultSelects(s); err != nil {
@@ -162,7 +171,7 @@ func addSystemDefaults(s qstore.QueryDataStore) error {
 	}
 
 	if s.Limit() == 0 {
-		s.SetLimit(MAX_LIMIT)
+		s.SetLimit(config.DefaultPageSize)
 	}
 
 	if s.OrderByLen() == 0 {
@@ -176,6 +185,8 @@ func addSystemDefaults(s qstore.QueryDataStore) error {
 func addDefaultSelects(s qstore.QueryDataStore) error {
 	// Add all columns the user can access to the table
 	tableAccessPolicy := s.RootResourceAccessPolicy()
+
+	i := 0
 	for col := range s.RootResource().Columns() {
 		colAccessPolicy := tableAccessPolicy.GetColumnAccessPolicy(col.Name())
 		if colAccessPolicy == nil {
@@ -192,9 +203,10 @@ func addDefaultSelects(s qstore.QueryDataStore) error {
 		if err := s.AddSelect(col.Name()); err != nil {
 			return err
 		}
+		i++
 	}
 
-	if s.SelectsLen() == 0 {
+	if i == 0 {
 		return qerr.InternalErr("invalid access policy, the user does not have access to any columns")
 	}
 	return nil
@@ -293,16 +305,17 @@ func addSystemExpand(s qstore.QueryDataStore, resolvedColumn mdl.ResolvedColumn)
 	return nil
 }
 
-func setSystemLimit(s qstore.QueryDataStore) error {
-	l := int(s.Limit())
+func setSystemLimit(s qstore.QueryDataStore) {
+	var userLimit uint32 = s.Limit()
+	systemLimit := uint64(userLimit)
 
 	// Set system limit as limit + 1 for top-level queries so that we can
 	// check if there are additional records
 	if s.IsTopLevelQuery() {
-		l++
+		systemLimit++
 	}
 
-	return s.SetSystemLimit(l)
+	s.SetSystemLimit(systemLimit)
 }
 
 func addCursorFilter(

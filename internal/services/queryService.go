@@ -27,7 +27,7 @@ type QueryRepo interface {
 }
 
 type QueryService struct {
-	queryExecutor query.QueryOrchestrator
+	queryExecutor query.QueryExecutor
 }
 
 var accessPolicy = queryAccessPolicies.GetAnonymousAccessPolicy()

@@ -1,4 +1,4 @@
-package valuebuilder
+package valueBuilder
 
 import (
 	qerr "github.com/turnerbenjamin/heterogen_portal/internal/query/queryError"

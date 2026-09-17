@@ -1,3 +1,8 @@
+// Package metadataStore is responsible for binding column/path/relationship
+// identifiers to schema metadata
+//
+// This file contains metadataBinder which represents the main API for this
+// package
 package metadataStore
 
 import (
@@ -9,77 +14,50 @@ import (
 	mdl "github.com/turnerbenjamin/heterogen_portal/internal/query/queryModel"
 )
 
-type pathCollection struct {
-	store map[string]mdl.ResolvedPath
-	mu    *sync.RWMutex
-}
-
-func (c *pathCollection) readPath(pathId string) (mdl.ResolvedPath, bool) {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-
-	p, ok := c.store[pathId]
-	return p, ok
-}
-
-func (c *pathCollection) writePath(pathId string, path mdl.ResolvedPath) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	c.store[pathId] = path
-}
-
-// Paths are persisted to reduce short lived objects in the query pipeline
+// pathStore is a shared path collection used to reduce the number of
+// short-lived objects in the query pipeline
 var pathStore = pathCollection{
 	store: make(map[string]mdl.ResolvedPath),
 	mu:    &sync.RWMutex{},
 }
 
-type pathIdBuilder struct {
-	root string
-	sb   *strings.Builder
-}
-
-func (b pathIdBuilder) resetToRoot() {
-	b.sb.Reset()
-	b.sb.WriteString(b.root)
-}
-
-func (b pathIdBuilder) appendToPath(relationship mdl.RelationshipMetadata) {
-	b.sb.WriteByte('/')
-	b.sb.WriteString(relationship.ColumnName())
-}
-
-func (b pathIdBuilder) string() string {
-	return b.sb.String()
-}
-
-type MetadataBinder struct { // USE INTERFACE
+// metadataBinder is responsible for binding columns and paths to schema
+// metadata and access policies
+type metadataBinder struct {
 	accessPolicy         mdl.AccessPolicy
 	rootResourceMetadata mdl.TableMetadata
 	rootAccessPolicy     mdl.TableAccessPolicy
 
 	pathIdBuilder pathIdBuilder
+	pathParser    *pathParser
 }
 
+// NewMetadataBinder initialises a new metadata binder
 func NewMetadataBinder(
 	rootMetadata mdl.TableMetadata,
 	accessPolicy mdl.AccessPolicy,
-) (*MetadataBinder, error) {
+) (*metadataBinder, error) {
 	if rootMetadata == nil {
-		return nil, qerr.InternalErr("unable to create new MetadataBinder: rootMetadata cannot be nil")
+		return nil, qerr.InternalErr(
+			"unable to create new MetadataBinder: rootMetadata cannot be nil",
+		)
 	}
 
 	if accessPolicy == nil {
-		return nil, qerr.InternalErr("unable to create new MetadataBinder: accessPolicy cannot be nil")
+		return nil, qerr.InternalErr(
+			"unable to create new MetadataBinder: accessPolicy cannot be nil",
+		)
 	}
 
 	rootAccessPolicy, err := getTableAccessPolicy(accessPolicy, rootMetadata)
 	if err != nil {
-		return nil, qerr.InternalErr("unable to create new MetadataBinder: %w", err)
+		return nil, qerr.InternalErr(
+			"unable to create new MetadataBinder: %w",
+			err,
+		)
 	}
 
-	return &MetadataBinder{
+	return &metadataBinder{
 		accessPolicy:         accessPolicy,
 		rootResourceMetadata: rootMetadata,
 		rootAccessPolicy:     rootAccessPolicy,
@@ -87,11 +65,19 @@ func NewMetadataBinder(
 			root: rootMetadata.Name(),
 			sb:   &strings.Builder{},
 		},
+		pathParser: newPathParser(),
 	}, nil
 }
 
-func (b *MetadataBinder) ResolveColumn(columnPath string) (mdl.ResolvedColumn, error) {
-	pathSegments := strings.Split(columnPath, "/")
+// ResolveColumn returns a resolved column for the given column path - Errors
+// are returned if the column path is invalid or access is not permitted by the
+// access policy
+func (b *metadataBinder) ResolveColumn(columnPath string) (mdl.ResolvedColumn, error) {
+	pathSegments, err := b.pathParser.parsePath(columnPath)
+	if err != nil {
+		return mdl.ResolvedColumn{}, err
+	}
+
 	pathLen := len(pathSegments)
 	if pathLen == 0 {
 		return mdl.ResolvedColumn{}, qerr.SyntaxErr(
@@ -139,8 +125,15 @@ func (b *MetadataBinder) ResolveColumn(columnPath string) (mdl.ResolvedColumn, e
 	}, nil
 }
 
-func (b *MetadataBinder) ResolvePath(pathString string) (mdl.ResolvedPath, error) {
-	pathSegments := strings.Split(pathString, "/")
+// ResolvePath returns a resolved path for a given path string. Errors are
+// returned if the path is invalid or the path traversal is not permitted by the
+// access policy
+func (b *metadataBinder) ResolvePath(pathString string) (mdl.ResolvedPath, error) {
+	pathSegments, err := b.pathParser.parsePath(pathString)
+	if err != nil {
+		return mdl.ResolvedPath{}, err
+	}
+
 	pathLen := len(pathSegments)
 	if pathLen == 0 {
 		return mdl.ResolvedPath{}, qerr.SyntaxErr("unable to resolve path: '%s'", pathString)
@@ -154,7 +147,10 @@ func (b *MetadataBinder) ResolvePath(pathString string) (mdl.ResolvedPath, error
 	return resolvedPath, nil
 }
 
-func (b *MetadataBinder) ResolveRelationship(resource mdl.TableMetadata, relationshipName string) (mdl.TraversalStep, error) {
+// Resolve relationship returns a resolved relationship for a given relationship
+// name - Errors are thrown for invalid relationship names or if access to
+// either the from or to columns is not permitted under the access policy
+func (b *metadataBinder) ResolveRelationship(resource mdl.TableMetadata, relationshipName string) (mdl.TraversalStep, error) {
 	if resource == nil {
 		return mdl.TraversalStep{}, qerr.InternalErr("unable to get table access policy: resource cannot be nil")
 	}
@@ -182,7 +178,10 @@ func (b *MetadataBinder) ResolveRelationship(resource mdl.TableMetadata, relatio
 	return step, nil
 }
 
-func (b *MetadataBinder) resolvePath(
+// resolvePath returns a ResolvedPath for a given set of path segments. Errors
+// are returned if the path is invalid or path traversal is not permitted under
+// the access policy
+func (b *metadataBinder) resolvePath(
 	pathSegments []string,
 	rootResource mdl.TableMetadata,
 ) (mdl.ResolvedPath, error) {
@@ -227,9 +226,9 @@ func (b *MetadataBinder) resolvePath(
 		relationshipData := o.EndResource.GetRelationshipMetadata(relationshipName)
 		if relationshipData == nil {
 			return o, qerr.BindingErr(
-				"%s does not include a relationship definition for '%s'",
-				o.EndResource.FullyQualifiedName(),
+				"%s is not a valid relationship on the '%s' table",
 				relationshipName,
+				o.EndResource.FullyQualifiedName(),
 			)
 		}
 
@@ -278,7 +277,11 @@ func (b *MetadataBinder) resolvePath(
 	return o, nil
 }
 
-func (b *MetadataBinder) validateTraversalPermissions(step mdl.TraversalStep) error {
+// validateTraversalPermissions returns validates that a given traversal is
+// permitted under the access policy - A traversal is permitted if access is
+// granted for both the from and to columns - An error is returned if access is
+// not permitted, else nil
+func (b *metadataBinder) validateTraversalPermissions(step mdl.TraversalStep) error {
 	fromTableAccessPolicy, err := getTableAccessPolicy(b.accessPolicy, step.Relationship.From())
 	if err != nil {
 		return err
@@ -309,6 +312,9 @@ func (b *MetadataBinder) validateTraversalPermissions(step mdl.TraversalStep) er
 	return nil
 }
 
+// validateColumnAccess validates that access is permitted for a give column
+// under the access policy. An error is returned if access is not permitted,
+// else nil
 func validateColumnAccess(
 	tableAccessPolicy mdl.TableAccessPolicy,
 	tableData mdl.TableMetadata,
@@ -333,6 +339,9 @@ func validateColumnAccess(
 	return nil
 }
 
+// getTableAccessPolicy returns an access policy for a given table - An error is
+// returned if the access policy cannot be accessed or if access to the table is
+// not permitted under the access policy
 func getTableAccessPolicy(
 	accessPolicy mdl.AccessPolicy,
 	tableData mdl.TableMetadata,

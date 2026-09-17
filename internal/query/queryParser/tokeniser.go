@@ -18,6 +18,9 @@ const (
 	// TokenEOF represents the end of the input
 	TokenEOF
 
+	// TokenSpace represents a space
+	TokenSpace
+
 	// TokenLogicalOperator is an identifier matching a supported logical
 	// operator
 	TokenLogicalOperator
@@ -141,23 +144,44 @@ func (t *Tokeniser) PeekN(n int) token {
 	return o
 }
 
-// Current returns the current token
-func (t *Tokeniser) Current() token {
-	if t.buffIdx < 0 {
-		return t.newTkn(TokenEmpty, "")
-	}
-	return t.buffer[t.buffIdx]
+// // Current returns the current token
+// func (t *Tokeniser) Current() token {
+// 	if t.buffIdx < 0 {
+// 		return t.newTkn(TokenEmpty, "")
+// 	}
+// 	return t.buffer[t.buffIdx]
+// }
+
+// Next moves the tokeniser one token forward and returns the token - Space
+// tokens are skipped
+func (t *Tokeniser) Next() token {
+	return t.next(true)
 }
 
-// Next moves the tokeniser one token forward and returns the token
-func (t *Tokeniser) Next() token {
-	if (t.buffIdx + 1) < len(t.buffer) {
+// NextIncWhitespace returns the next token, Space tokens are not skipped
+func (t *Tokeniser) NextIncSpace() token {
+	return t.next(false)
+}
+
+func (t *Tokeniser) next(doSkipWhitespace bool) token {
+	for (t.buffIdx + 1) < len(t.buffer) {
 		t.buffIdx++
-		return t.buffer[t.buffIdx]
+		if t.buffer[t.buffIdx].Type != TokenSpace || !doSkipWhitespace {
+			return t.buffer[t.buffIdx]
+		}
 	}
 
-	for t.idx < len(t.input) && isWhiteSpace(t.input[t.idx]) {
-		t.idx++
+	// collapse whitespace into single space character
+	if t.idx < len(t.input) && isWhiteSpace(t.input[t.idx]) {
+		for t.idx < len(t.input) && isWhiteSpace(t.input[t.idx]) {
+			t.idx++
+		}
+		t.buffer = append(t.buffer, t.newTkn(TokenSpace, ""))
+		t.buffIdx++
+
+		if !doSkipWhitespace {
+			return t.buffer[t.buffIdx]
+		}
 	}
 
 	if t.idx >= len(t.input) {

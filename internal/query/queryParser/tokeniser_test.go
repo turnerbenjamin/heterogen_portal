@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/turnerbenjamin/heterogen_portal/internal/query/queryError"
 	qerr "github.com/turnerbenjamin/heterogen_portal/internal/query/queryError"
 )
 
@@ -419,49 +420,6 @@ func TestTokeniser_PeekN(t *testing.T) {
 	})
 }
 
-func TestTokeniser_Current(t *testing.T) {
-	t.Parallel()
-
-	t.Run("current after next returns the current token", func(t *testing.T) {
-		vals := []string{"val1", "val2"}
-		tokeniser := NewTokeniser(strings.Join(vals, " "))
-
-		for _, val := range vals {
-			tkn := tokeniser.Next()
-			currTkn := tokeniser.Current()
-
-			assert.Equal(t, val, currTkn.Value)
-			assert.Equal(t, val, tkn.Value)
-		}
-	})
-
-	t.Run("current after peek remains unchanged", func(t *testing.T) {
-		tokeniser := NewTokeniser("val1 val2")
-		_ = tokeniser.Next()
-
-		nxtTkn := tokeniser.Peek()
-		currTkn := tokeniser.Current()
-
-		assert.Equal(t, "val1", currTkn.Value)
-		assert.Equal(t, "val2", nxtTkn.Value)
-	})
-
-	t.Run("current after EOF returns EOF", func(t *testing.T) {
-		tokeniser := NewTokeniser("")
-		_ = tokeniser.Next()
-
-		currTkn := tokeniser.Current()
-		assert.Equal(t, TokenEOF, currTkn.Type)
-	})
-
-	t.Run("current before next returns an empty token", func(t *testing.T) {
-		tokeniser := NewTokeniser("some string")
-
-		currTkn := tokeniser.Current()
-		assert.Equal(t, TokenEmpty, currTkn.Type)
-	})
-}
-
 func TestTokeniser_TknErr(t *testing.T) {
 	t.Parallel()
 
@@ -502,10 +460,9 @@ func TestTokeniser_TknErr(t *testing.T) {
 				tkn = tokeniser.Next()
 			}
 
-			actualErr, ok := tokeniser.TknErr(tkn, customErrPattern).(*qerr.QueryError)
+			actualErr := tokeniser.TknErr(tkn, customErrPattern)
 
-			assert.True(t, ok)
-			assert.Equal(t, qerr.QueryErrSyntaxErr, actualErr.Category())
+			assert.Equal(t, qerr.QueryErrSyntaxErr, queryError.GetErrorCategory(actualErr))
 			assert.Equal(t, td.expect, actualErr.Error())
 		})
 	}
@@ -514,10 +471,9 @@ func TestTokeniser_TknErr(t *testing.T) {
 		tokeniser := NewTokeniser("")
 		tkn := token{Type: TokenEOF}
 
-		actualErr, ok := tokeniser.TknErr(tkn, customErrPattern).(*qerr.QueryError)
+		actualErr := tokeniser.TknErr(tkn, customErrPattern)
 
-		assert.True(t, ok)
-		assert.Equal(t, qerr.QueryErrSyntaxErr, actualErr.Category())
+		assert.Equal(t, qerr.QueryErrSyntaxErr, queryError.GetErrorCategory(actualErr))
 		assert.Equal(t, customErrPattern, actualErr.Error())
 	})
 
@@ -525,10 +481,9 @@ func TestTokeniser_TknErr(t *testing.T) {
 		tokeniser := NewTokeniser("")
 		tkn := token{Type: TokenEmpty}
 
-		actualErr, ok := tokeniser.TknErr(tkn, customErrPattern).(*qerr.QueryError)
+		actualErr := tokeniser.TknErr(tkn, customErrPattern)
 
-		assert.True(t, ok)
-		assert.Equal(t, qerr.QueryErrSyntaxErr, actualErr.Category())
+		assert.Equal(t, qerr.QueryErrSyntaxErr, queryError.GetErrorCategory(actualErr))
 		assert.Equal(t, customErrPattern, actualErr.Error())
 	})
 }
