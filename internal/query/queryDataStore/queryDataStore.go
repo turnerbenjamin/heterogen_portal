@@ -108,6 +108,16 @@ type QueryDataStore interface {
 	// depth of 0
 	Depth() uint8
 
+	// Alias returns the alias for the query
+	Alias() string
+
+	// Parent alias returns the parent alias or an empty string if no parent
+	Parent() *queryDataStore
+
+	// LinkFromParent returns the traversal step from the parent to the current
+	// store or null if no parent exists
+	LinkFromParent() *mdl.TraversalStep
+
 	// FilterExpressionBuilder returns the filter expression builder for the
 	// QueryDataStore
 	FilterExpressionBuilder() FilterExpressionBuilder
@@ -120,10 +130,7 @@ type QueryDataStore interface {
 	// can be used, for instance, to access planned joins for orderby queries
 	JoinCollection() relationships.JoinCollection
 
-	// Projection returns the column projection for the root resource - The
-	// projection will be applied on serialisation of the tables to ensure that
-	// only user requested data is included in the results
-	Projection() mdl.Projection
+	ProjectionNode() *mdl.ProjectionNode
 
 	// AddSelect adds a named column to the query's select operation. It binds the
 	// column to metadata at the point of addition and will return an error if
@@ -225,10 +232,14 @@ type QueryDataStore interface {
 // in the process, all metadata is set and the relationship plan is current.
 type queryDataStore struct {
 	// overview data
-	queryString  string
-	rootResource mdl.TableMetadata
-	depth        uint8
-	projection   mdl.Projection
+	queryString    string
+	rootResource   mdl.TableMetadata
+	depth          uint8
+	projectionNode *mdl.ProjectionNode
+
+	// parent
+	parent       *queryDataStore
+	linkToParent *mdl.TraversalStep
 
 	// metadata and relationship binding deps
 	metadataBinder          MetadataBinder
@@ -259,7 +270,28 @@ func NewQueryDataStore(
 	valueBuilder mdl.ValueBuilder,
 ) (QueryDataStore, error) {
 	depth := uint8(0)
-	return newQueryDataStore(queryString, rootResource, accessPolicy, valueBuilder, depth)
+
+	var parent *queryDataStore = nil
+	var linkToParent *mdl.TraversalStep = nil
+
+	projection, err := rootResource.InitProjection()
+	if err != nil {
+		return nil, err
+	}
+	projectionNode := &mdl.ProjectionNode{
+		Projection: projection,
+	}
+
+	return newQueryDataStore(
+		queryString,
+		rootResource,
+		accessPolicy,
+		valueBuilder,
+		depth,
+		parent,
+		linkToParent,
+		projectionNode,
+	)
 }
 
 // newQueryDataStore returns a new query data store of the specified depth
@@ -269,11 +301,10 @@ func newQueryDataStore(
 	accessPolicy mdl.AccessPolicy,
 	valueBuilder mdl.ValueBuilder,
 	depth uint8,
+	parent *queryDataStore,
+	linkToParent *mdl.TraversalStep,
+	projectionNode *mdl.ProjectionNode,
 ) (QueryDataStore, error) {
-	projection, err := rootResource.InitProjection()
-	if err != nil {
-		return nil, err
-	}
 
 	metadataBinder, err := metadataStore.NewMetadataBinder(rootResource, accessPolicy)
 	if err != nil {
@@ -294,7 +325,9 @@ func newQueryDataStore(
 
 	return &queryDataStore{
 		depth:               depth,
-		projection:          projection,
+		parent:              parent,
+		linkToParent:        linkToParent,
+		projectionNode:      projectionNode,
 		queryString:         queryString,
 		rootResource:        rootResource,
 		accessPolicy:        accessPolicy,
@@ -339,6 +372,22 @@ func (qd *queryDataStore) Depth() uint8 {
 	return qd.depth
 }
 
+// Alias returns the alias for the query
+func (qd *queryDataStore) Alias() string {
+	return qd.relationshipPlanner.Aliases.GetRootAlias()
+}
+
+// Parent alias returns the parent alias or an empty string if no parent
+func (qd *queryDataStore) Parent() *queryDataStore {
+	return qd.parent
+}
+
+// LinkFromParent returns the traversal step from the parent to the current
+// store or null if no parent exists
+func (qd *queryDataStore) LinkFromParent() *mdl.TraversalStep {
+	return qd.linkToParent
+}
+
 // FilterExpressionBuilder returns the filter expression builder for the
 // QueryDataStore
 func (qd *queryDataStore) FilterExpressionBuilder() FilterExpressionBuilder {
@@ -357,11 +406,8 @@ func (qd *queryDataStore) JoinCollection() relationships.JoinCollection {
 	return qd.relationshipPlanner.JoinStore
 }
 
-// Projection returns the column projection for the root resource - The
-// projection will be applied on serialisation of the tables to ensure that
-// only user requested data is included in the results
-func (qd *queryDataStore) Projection() mdl.Projection {
-	return qd.projection
+func (qd *queryDataStore) ProjectionNode() *mdl.ProjectionNode {
+	return qd.projectionNode
 }
 
 // AddSelect adds a named column to the query's select operation. It binds the
@@ -401,7 +447,7 @@ func (qd *queryDataStore) addSelect(columnName string, doProject bool) error {
 
 	// Set the projection if required
 	if doProject {
-		if err := qd.projection.Add(columnName); err != nil {
+		if err := qd.projectionNode.Projection.Add(columnName); err != nil {
 			return err
 		}
 	}
@@ -469,12 +515,31 @@ func (qd *queryDataStore) addExpand(relationshipId string, doProject bool) (Quer
 		)
 	}
 
+	// Init expanded projection and add to current projection node
+	expandedResource := traversalStep.Relationship.To()
+	expandedProjection, err := expandedResource.InitProjection()
+	if err != nil {
+		return nil, err
+	}
+
+	expandedProjectionNode := &mdl.ProjectionNode{
+		Projection: expandedProjection,
+	}
+	if qd.projectionNode.Children == nil {
+		qd.projectionNode.Children = map[string]*mdl.ProjectionNode{}
+	}
+	qd.projectionNode.Children[traversalStep.Relationship.ExpansionColumnName()] = expandedProjectionNode
+
+	// Build expanded query
 	expandedQuery, err := newQueryDataStore(
 		qd.queryString,
-		traversalStep.Relationship.To(),
+		expandedResource,
 		qd.accessPolicy,
 		qd.valueBuilder,
 		qd.depth+1,
+		qd,
+		&traversalStep,
+		expandedProjectionNode,
 	)
 	if err != nil {
 		return nil, err
@@ -488,7 +553,7 @@ func (qd *queryDataStore) addExpand(relationshipId string, doProject bool) (Quer
 	qd.expands[traversalStep.Relationship.Id()] = expansion
 
 	if doProject {
-		if err := qd.projection.Add(
+		if err := qd.projectionNode.Projection.Add(
 			traversalStep.Relationship.ExpansionColumnName(),
 		); err != nil {
 			return nil, err

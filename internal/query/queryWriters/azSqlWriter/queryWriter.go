@@ -37,14 +37,12 @@ type queryWriter struct {
 	queryDataStore qstore.QueryDataStore
 	aliasStore     relationships.AliasStore
 
-	sb              *strings.Builder
-	args            []any
-	statement       string
-	countStatement  string
-	selectLocation  stringCoords
-	fromLocation    stringCoords
-	filterLocation  stringCoords
-	orderByLocation stringCoords
+	sb             *strings.Builder
+	args           []any
+	statement      string
+	countStatement string
+	fromLocation   stringCoords
+	filterLocation stringCoords
 }
 
 func NewQueryWriter(s qstore.QueryDataStore) (mdl.QueryWriter, error) {
@@ -80,7 +78,7 @@ func (w queryWriter) Args() []any {
 }
 
 func (w *queryWriter) writeQuery() error {
-	err := w.writeSelectStatement()
+	err := w.writeSelectAndExpandStatement()
 	if err != nil {
 		return err
 	}
@@ -99,13 +97,11 @@ func (w *queryWriter) writeQuery() error {
 		return err
 	}
 
-	err = w.writeLimitStatement()
-	if err != nil {
-		return err
-	}
-
 	// request json response
-	w.sb.WriteString("FOR JSON PATH;")
+	w.sb.WriteString("FOR JSON PATH")
+	if w.queryDataStore.IsTopLevelQuery() {
+		w.sb.WriteRune(';')
+	}
 
 	return nil
 }
@@ -144,10 +140,13 @@ func (w *queryWriter) writeFromStatement() {
 	w.sb.WriteRune(' ')
 }
 
-func (w *queryWriter) writeSelectStatement() error {
-	w.selectLocation.left = w.sb.Len()
+func (w *queryWriter) writeSelectAndExpandStatement() error {
 	w.sb.WriteString("SELECT ")
 
+	// Add top statement to implement limit
+	w.writeTopStatement()
+
+	// Write all selected columns
 	i := 0
 	for _, columnValue := range w.queryDataStore.Selects() {
 		if i > 0 {
@@ -166,7 +165,13 @@ func (w *queryWriter) writeSelectStatement() error {
 		return qerr.InternalErr("expected a select operation with at least one column specified")
 	}
 
-	w.selectLocation.right = w.sb.Len()
+	// Write expansions
+	for _, expansion := range w.queryDataStore.Expands() {
+		w.sb.WriteString(",")
+		if err := w.writeExpandColumn(expansion); err != nil {
+			return err
+		}
+	}
 
 	w.sb.WriteRune(' ')
 	return nil
@@ -179,6 +184,24 @@ func (w *queryWriter) formatSelectValue(columnData mdl.ColumnMetadata) string {
 	default:
 		return columnData.Name()
 	}
+}
+
+func (w *queryWriter) writeExpandColumn(expansion qstore.Expansion) error {
+	nestedWriter, err := NewQueryWriter(expansion.QueryData)
+	if err != nil {
+		return err
+	}
+
+	w.sb.WriteString("JSON_QUERY((")
+	w.sb.WriteString(nestedWriter.WriteQueryStatement())
+	if expansion.TraversalStep.Relationship.Type() == mdl.RelationshipManyToOne {
+		w.sb.WriteString(", WITHOUT_ARRAY_WRAPPER")
+	}
+	fmt.Fprintf(w.sb,
+		")) AS %s",
+		expansion.TraversalStep.Relationship.ExpansionColumnName(),
+	)
+	return nil
 }
 
 func (w *queryWriter) writeJoins(joinCollection relationships.JoinCollection) {
@@ -208,7 +231,6 @@ func (w *queryWriter) writeOrderByStatement() error {
 		return qerr.InternalErr("expected an orderby operation with at least the primary column specified")
 	}
 
-	w.orderByLocation.left = w.sb.Len()
 	w.sb.WriteString("ORDER BY ")
 
 	i := 0
@@ -235,66 +257,108 @@ func (w *queryWriter) writeOrderByStatement() error {
 		i++
 	}
 
-	w.orderByLocation.right = w.sb.Len()
 	w.sb.WriteRune(' ')
 
 	return nil
 }
 
-func (w *queryWriter) writeLimitStatement() error {
+func (w *queryWriter) writeTopStatement() error {
 	limit := w.queryDataStore.SystemLimit()
 	if limit == 0 {
 		return qerr.InternalErr("expected either a user or system defined limit operation")
 	}
 
-	fmt.Fprintf(w.sb, "OFFSET 0 ROWS FETCH NEXT %d ROWS ONLY", limit)
+	fmt.Fprintf(w.sb, "TOP (%d)", limit)
 	w.sb.WriteRune(' ')
 	return nil
 }
 
 func (w *queryWriter) writeFilterStatement() error {
 	filterExpression := w.queryDataStore.FilterExpression()
-	if filterExpression == nil {
-		return nil
-	}
-
-	w.filterLocation.left = w.sb.Len()
-
-	w.sb.WriteString("WHERE ")
 
 	rootResource := &aliasedResource{
 		resource: w.queryDataStore.RootResource(),
 		alias:    w.aliasStore.GetRootAlias(),
 	}
 
-	err := w.buildFilterExpression(rootResource, filterExpression)
-	if err != nil {
-		return err
-	}
+	parentQuery := w.queryDataStore.Parent()
+	linkToParent := w.queryDataStore.LinkFromParent()
 
-	w.filterLocation.right = w.sb.Len()
+	if parentQuery != nil && linkToParent != nil {
+		w.filterLocation.left = w.sb.Len()
+		w.sb.WriteString("WHERE ")
+
+		if err := w.writeFilterExpressionWithLink(
+			parentQuery,
+			linkToParent,
+			rootResource,
+			filterExpression,
+		); err != nil {
+			return err
+		}
+		w.filterLocation.right = w.sb.Len()
+	} else {
+		if filterExpression == nil {
+			return nil
+		}
+
+		w.filterLocation.left = w.sb.Len()
+		w.sb.WriteString("WHERE ")
+		err := w.writeFilterExpression(rootResource, filterExpression)
+		if err != nil {
+			return err
+		}
+		w.filterLocation.right = w.sb.Len()
+	}
 
 	w.sb.WriteRune(' ')
 	return nil
 }
 
-func (w *queryWriter) buildFilterExpression(
+func (w *queryWriter) writeFilterExpressionWithLink(
+	parentQuery qstore.QueryDataStore,
+	linkToParent *mdl.TraversalStep,
+	rootResource *aliasedResource,
+	filterExpression mdl.FilterExpression,
+) error {
+	w.sb.WriteString("(")
+
+	fmt.Fprintf(
+		w.sb,
+		"%s.%s = %s.%s",
+		w.queryDataStore.Alias(),
+		linkToParent.Relationship.ToColumn().Name(),
+		parentQuery.Alias(),
+		linkToParent.Relationship.FromColumn().Name(),
+	)
+
+	if filterExpression != nil {
+		w.sb.WriteString(" and ")
+		w.writeFilterExpression(rootResource, filterExpression)
+	}
+
+	w.sb.WriteString(") ")
+
+	return nil
+}
+
+func (w *queryWriter) writeFilterExpression(
 	rootResource *aliasedResource,
 	expression mdl.FilterExpression,
 ) error {
 	switch expression := expression.(type) {
 	case *mdl.LogicalExpression:
-		return w.buildLogicalExpression(rootResource, expression)
+		return w.writeLogicalExpression(rootResource, expression)
 	case *mdl.ComparisonExpression:
-		return w.buildComparisonExpression(expression, rootResource)
+		return w.writeComparisonExpression(expression, rootResource)
 	case *mdl.CollectionExpression:
-		return w.buildCollectionExpression(expression, rootResource)
+		return w.writeCollectionExpression(expression, rootResource)
 	default:
 		return qerr.InternalErr("unexpected filter expression received")
 	}
 }
 
-func (w *queryWriter) buildLogicalExpression(
+func (w *queryWriter) writeLogicalExpression(
 	rootResource *aliasedResource,
 	expression *mdl.LogicalExpression,
 ) error {
@@ -308,13 +372,13 @@ func (w *queryWriter) buildLogicalExpression(
 		return qerr.InternalErr("unexpected logical operator received '%v'", operator)
 	}
 	w.sb.WriteRune('(')
-	if err := w.buildFilterExpression(rootResource, expression.Left); err != nil {
+	if err := w.writeFilterExpression(rootResource, expression.Left); err != nil {
 		return err
 	}
 	w.sb.WriteRune(' ')
 	w.sb.WriteString(operator)
 	w.sb.WriteRune(' ')
-	if err := w.buildFilterExpression(rootResource, expression.Right); err != nil {
+	if err := w.writeFilterExpression(rootResource, expression.Right); err != nil {
 		return err
 	}
 	w.sb.WriteRune(')')
@@ -322,7 +386,7 @@ func (w *queryWriter) buildLogicalExpression(
 	return nil
 }
 
-func (w *queryWriter) buildComparisonExpression(
+func (w *queryWriter) writeComparisonExpression(
 	ex *mdl.ComparisonExpression,
 	rootResource *aliasedResource,
 ) error {
@@ -348,7 +412,7 @@ func (w *queryWriter) buildComparisonExpression(
 	)
 }
 
-func (w *queryWriter) buildCollectionExpression(
+func (w *queryWriter) writeCollectionExpression(
 	ex *mdl.CollectionExpression,
 	rootResource *aliasedResource,
 ) error {
@@ -367,7 +431,7 @@ func (w *queryWriter) buildCollectionExpression(
 		if endResource == nil {
 			endResource = rootResource
 		}
-		return w.buildFilterExpression(
+		return w.writeFilterExpression(
 			endResource,
 			filterExpression,
 		)

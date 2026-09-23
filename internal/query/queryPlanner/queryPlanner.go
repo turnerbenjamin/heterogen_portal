@@ -163,7 +163,7 @@ func planQuery(
 }
 
 func addSystemDefaults(s qstore.QueryDataStore, config mdl.QueryConfig) error {
-	p := s.Projection()
+	p := s.ProjectionNode().Projection
 	if p.IsEmpty() {
 		if err := addDefaultSelects(s); err != nil {
 			return err

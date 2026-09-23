@@ -103,7 +103,6 @@ package model
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"iter"
 	"time"
@@ -292,14 +291,6 @@ func (t *tableMetadata) Columns() iter.Seq[queryModel.ColumnMetadata] {
 			}
 		}
 	}
-}
-
-// ColumnCount returns the total number of columns associated with the table
-func (t *tableMetadata) ColumnCount() int {
-	if t.columnCount == -1 {
-		t.columnCount = len(t.columns)
-	}
-	return t.columnCount
 }
 
 // PrimaryKeyField returns the column metadata for the primary key field
@@ -527,25 +518,24 @@ func (w *modelWriter) WriteTableModel(tableData *builderRepo.TableMetadata) {
 	writeToBuilder(w.sb, fmt.Sprintf("projection %s `json:\"-\"`\n", getModelProjectionName(tableData.Name)))
 
 	writeToBuilder(w.sb, "}\n\n")
+
+	// collection type
+	collectionType := getModelCollectionType(tableData.Name)
+	writeToBuilder(w.sb, fmt.Sprintf("type %s []*%s\n\n", collectionType, structName))
+
 	w.WriteGetSliceGetterFunction(structName, tableData)
 	w.writeNewLine()
+	w.WriteSetProjectionFunction(structName, tableData)
+	w.writeNewLine()
 	w.WriteModelMarshalJSONFunction(structName, tableData)
-	w.writeNewLine()
-	w.WriteRelationshipColumnSetterFunction(structName, tableData)
-	w.writeNewLine()
-	w.WriteInitRelationshipFieldFunction(structName, tableData)
-	w.writeNewLine()
-	w.WriteGetJoinOnValueFunction(structName, tableData)
 	w.writeNewLine()
 	w.WriteGetValueExpressionFunction(structName, tableData)
 	w.writeNewLine()
 	w.WriteGetRelatedEntityFunction(structName, tableData)
 	w.writeNewLine()
-	w.WriteModelIsNilFunciton(structName, tableData)
-	w.writeNewLine()
 	w.WriteGetValueExpressionPrivateFunction(structName, tableData)
 	w.writeNewLine()
-	w.WriteSetProjectionFunction(structName, tableData)
+	w.WriteProjectionFunction(structName, tableData)
 }
 
 func (w *modelWriter) WriteGetSliceGetterFunction(modelStructName string, tableData *builderRepo.TableMetadata) {
@@ -554,19 +544,10 @@ func (w *modelWriter) WriteGetSliceGetterFunction(modelStructName string, tableD
 		tableData.Name,
 	))
 
-	writeToBuilder(w.sb, fmt.Sprintf("func (m *%s) NewSlice(jsonData []byte, projection queryModel.Projection) ([]queryModel.TableModel, error) {\n", modelStructName))
+	writeToBuilder(w.sb, fmt.Sprintf("func (m *%s) NewSlice(jsonData []byte, projectionNode *queryModel.ProjectionNode) ([]queryModel.TableModel, error) {\n", modelStructName))
 
 	writeToBuilder(w.sb, "if len(jsonData) == 0 {\n")
 	writeToBuilder(w.sb, "return []queryModel.TableModel{}, nil\n")
-	writeToBuilder(w.sb, "}\n\n")
-
-	projectionName := getModelProjectionName(tableData.Name)
-	writeToBuilder(w.sb, fmt.Sprintf("var typedProjection *%s\n", projectionName))
-	writeToBuilder(w.sb, "switch p := projection.(type){\n")
-	writeToBuilder(w.sb, fmt.Sprintf("case *%s:\n", projectionName))
-	writeToBuilder(w.sb, "typedProjection = p\n")
-	writeToBuilder(w.sb, "default:\n")
-	writeToBuilder(w.sb, "return nil, fmt.Errorf(\"unable to create new slice: invalid projection type received\")\n")
 	writeToBuilder(w.sb, "}\n\n")
 
 	writeToBuilder(w.sb, fmt.Sprintf("var concreteSlice []*%s\n", modelStructName))
@@ -578,12 +559,104 @@ func (w *modelWriter) WriteGetSliceGetterFunction(modelStructName string, tableD
 	writeToBuilder(w.sb, "result := make([]queryModel.TableModel, len(concreteSlice))\n\n")
 
 	writeToBuilder(w.sb, "for i := range concreteSlice {\n")
-	writeToBuilder(w.sb, "concreteSlice[i].projection = *typedProjection\n")
+	writeToBuilder(w.sb, "concreteSlice[i].SetProjection(projectionNode)\n")
 	writeToBuilder(w.sb, "result[i] = concreteSlice[i]\n")
 	writeToBuilder(w.sb, "}\n")
 
 	writeToBuilder(w.sb, "return result, nil\n")
 	writeToBuilder(w.sb, "}\n")
+}
+
+func (w *modelWriter) WriteSetProjectionFunction(modelStructName string, tableData *builderRepo.TableMetadata) {
+	writeDocComment := func() {
+		writeToBuilder(
+			w.sb,
+			"// SetProjection sets a projection node and sets projection for itself and any \n"+
+				"// child nodes\n",
+		)
+	}
+
+	writeSignature := func(receiverParam string, typeName string) {
+		writeToBuilder(w.sb, fmt.Sprintf("func (%s %s) SetProjection(projectionNode *queryModel.ProjectionNode) error {\n", receiverParam, typeName))
+	}
+
+	writeProjectionCast := func() {
+		writeToBuilder(w.sb, "projection := projectionNode.Projection\n\n")
+
+		projectionName := getModelProjectionName(tableData.Name)
+		writeToBuilder(w.sb, fmt.Sprintf("var typedProjection *%s\n", projectionName))
+		writeToBuilder(w.sb, "switch p := projection.(type){\n")
+		writeToBuilder(w.sb, fmt.Sprintf("case *%s:\n", projectionName))
+		writeToBuilder(w.sb, "typedProjection = p\n")
+		writeToBuilder(w.sb, "default:\n")
+		writeToBuilder(w.sb, "return fmt.Errorf(\"unable to create new slice: invalid projection type received\")\n")
+		writeToBuilder(w.sb, "}\n\n")
+	}
+
+	collectionType := getModelCollectionType(tableData.Name)
+	concreteSetterIdentifier := fmt.Sprintf("set%s", getModelProjectionName(tableData.Name))
+
+	// Write typing function for model
+	receiverParam := "m"
+
+	writeDocComment()
+	writeSignature(receiverParam, "*"+modelStructName)
+	writeProjectionCast()
+	writeToBuilder(w.sb, fmt.Sprintf("return m.%s(*typedProjection, projectionNode.Children)\n", concreteSetterIdentifier))
+	writeToBuilder(w.sb, "}\n")
+
+	// write typing function for model collection
+	receiverParam = "ms"
+
+	writeDocComment()
+	writeSignature(receiverParam, collectionType)
+	writeProjectionCast()
+
+	writeToBuilder(w.sb, "for _, m := range ms{\n")
+	writeToBuilder(w.sb, fmt.Sprintf("if err := m.%s(*typedProjection, projectionNode.Children); err != nil{\n", concreteSetterIdentifier))
+	writeToBuilder(w.sb, "return err\n")
+	writeToBuilder(w.sb, "}\n")
+	writeToBuilder(w.sb, "}\n")
+	writeToBuilder(w.sb, "return nil\n")
+	writeToBuilder(w.sb, "}\n")
+
+	// write concrete setter function
+	writeToBuilder(w.sb, fmt.Sprintf(
+		"// %s sets a projection node and sets projection for itself and any \n"+
+			"// child nodes\n",
+		concreteSetterIdentifier,
+	))
+
+	projectionType := getModelProjectionName(tableData.Name)
+	writeToBuilder(w.sb, fmt.Sprintf(
+		"func (m *%s) %s(projection %s, childNodes map[string]*queryModel.ProjectionNode) error {\n",
+		modelStructName,
+		concreteSetterIdentifier,
+		projectionType,
+	))
+
+	writeToBuilder(w.sb, "m.projection = projection\n")
+	for _, r := range tableData.Relationships {
+		expansionColumn := snakeToPascal(r.ExpansionColumnName)
+
+		writeToBuilder(w.sb, fmt.Sprintf("if node, exists := childNodes[\"%s\"]; exists {\n", r.ExpansionColumnName))
+		writeToBuilder(w.sb, fmt.Sprintf("if m.%s != nil {\n", expansionColumn))
+		writeToBuilder(w.sb, fmt.Sprintf("if err := m.%s.SetProjection(node); err != nil{\n", expansionColumn))
+		writeToBuilder(w.sb, "return err\n")
+		writeToBuilder(w.sb, "}\n")
+		writeToBuilder(w.sb, "}")
+		if r.Type == "queryModel.RelationshipOneToMany" {
+			writeToBuilder(w.sb, "else{\n")
+			writeToBuilder(w.sb, fmt.Sprintf("m.%s = %s{}", expansionColumn, getModelCollectionType(r.RelatedTable)))
+			writeToBuilder(w.sb, "}\n")
+		} else {
+			writeToBuilder(w.sb, "\n")
+		}
+		writeToBuilder(w.sb, "}\n\n")
+	}
+
+	writeToBuilder(w.sb, "return nil\n")
+	writeToBuilder(w.sb, "}\n\n")
 }
 
 func (w *modelWriter) WriteModelMarshalJSONFunction(modelStructName string, tableData *builderRepo.TableMetadata) {
@@ -624,129 +697,19 @@ func (w *modelWriter) WriteModelMarshalJSONFunction(modelStructName string, tabl
 	writeToBuilder(w.sb, "}\n")
 }
 
-func (w *modelWriter) WriteRelationshipColumnSetterFunction(modelStructName string, tableData *builderRepo.TableMetadata) {
-	writeToBuilder(w.sb, fmt.Sprintf(
-		"// SetRelationshipField sets a given relationship field on the %s.%s table\n",
-		tableData.Schema,
-		tableData.Name,
-	))
-
-	writeToBuilder(w.sb, fmt.Sprintf("func (m *%s) SetRelationshipField(relationshipId string, value queryModel.TableModel) error {\n", modelStructName))
-	writeToBuilder(w.sb, "switch relationshipId {\n")
-
-	for _, relationship := range tableData.Relationships {
-		relationshipColumnIdentifier := snakeToPascal(relationship.ExpansionColumnName)
-		writeToBuilder(w.sb, fmt.Sprintf("case \"%s\":\n", relationship.Id))
-		writeToBuilder(w.sb, fmt.Sprintf("v, ok := value.(*%s)\n", getModelStructName(relationship.RelatedTable)))
-		writeToBuilder(w.sb, "if !ok {\n")
-		writeToBuilder(w.sb, "return errors.New(\"unexpected relationship type received\")\n")
-		writeToBuilder(w.sb, "}\n")
-
-		if relationship.Type == "queryModel.RelationshipManyToOne" {
-			writeToBuilder(w.sb, fmt.Sprintf("m.%s = v\n\n", relationshipColumnIdentifier))
-		}
-
-		if relationship.Type == "queryModel.RelationshipOneToMany" {
-			writeToBuilder(w.sb, fmt.Sprintf("m.%s = append(m.%s, v)\n\n", relationshipColumnIdentifier, relationshipColumnIdentifier))
-		}
-	}
-
-	writeToBuilder(w.sb, "default:\n")
-	writeToBuilder(w.sb, "return fmt.Errorf(\"unknown relationship: %s\", relationshipId)\n")
-	writeToBuilder(w.sb, "}\n")
-	writeToBuilder(w.sb, "return nil\n")
-	writeToBuilder(w.sb, "}\n")
-}
-
-func (w *modelWriter) WriteInitRelationshipFieldFunction(modelStructName string, tableData *builderRepo.TableMetadata) {
-	writeToBuilder(w.sb, fmt.Sprintf(
-		"// InitRelationshipField initialses 1:N relationship fields to empty arrays on\n// the %s.%s table\n",
-		tableData.Schema,
-		tableData.Name,
-	))
-
-	writeToBuilder(w.sb, fmt.Sprintf("func (m *%s) InitRelationshipField(relationshipId string) error {\n", modelStructName))
-	writeToBuilder(w.sb, "switch relationshipId {\n")
-
-	// Write do nothing code for N:1 relationships
-	countN1 := 0
-	for _, relationship := range tableData.Relationships {
-		if relationship.Type != "queryModel.RelationshipManyToOne" {
-			continue
-		}
-		countN1++
-
-		if countN1 == 1 {
-			writeToBuilder(w.sb, "case ")
-		} else {
-			writeToBuilder(w.sb, ", ")
-		}
-		writeToBuilder(w.sb, fmt.Sprintf("\"%s\"", relationship.Id))
-	}
-	if countN1 > 0 {
-		writeToBuilder(w.sb, ":\n")
-		writeToBuilder(w.sb, "return nil\n")
-	}
-
-	// Write array setters for 1:N relationships
-	for _, relationship := range tableData.Relationships {
-		if relationship.Type != "queryModel.RelationshipOneToMany" {
-			continue
-		}
-
-		relationshipColumnIdentifier := snakeToPascal(relationship.ExpansionColumnName)
-		writeToBuilder(w.sb, fmt.Sprintf("case \"%s\":\n", relationship.Id))
-		writeToBuilder(w.sb, fmt.Sprintf("m.%s = []*%s{}\n", relationshipColumnIdentifier, getModelStructName(relationship.RelatedTable)))
-		writeToBuilder(w.sb, "return nil\n")
-	}
-
-	writeToBuilder(w.sb, "default:\n")
-	writeToBuilder(w.sb, "return fmt.Errorf(\"unknown relationship: %s\", relationshipId)\n")
-	writeToBuilder(w.sb, "}\n")
-	writeToBuilder(w.sb, "}\n")
-}
-
-func (w *modelWriter) WriteGetJoinOnValueFunction(modelStructName string, tableData *builderRepo.TableMetadata) {
-	writeToBuilder(w.sb, "// GetJoinOnValue returns the value of the relevant column for a given relationship\n")
-
-	writeToBuilder(w.sb, fmt.Sprintf("func (m *%s) GetJoinOnValue(relationshipId string) (string, error){\n", modelStructName))
-	writeToBuilder(w.sb, "switch relationshipId {\n")
-
-	for _, relationship := range w.metadata.Relationships {
-		if relationship.ParentTable != tableData.Name && relationship.ReferencedTable != tableData.Name {
-			continue
-		}
-
-		relationshipId := getTableRelationshipIdentifier(relationship)
-
-		joinOnColumn := relationship.ParentColumn
-		if relationship.ReferencedTable == tableData.Name {
-			joinOnColumn = relationship.ReferencedColumn
-		}
-
-		writeToBuilder(w.sb, fmt.Sprintf("case \"%s\":\n", relationshipId))
-		writeToBuilder(w.sb, fmt.Sprintf("return m.%s, nil\n", snakeToPascal(joinOnColumn)))
-	}
-
-	writeToBuilder(w.sb, "default:\n")
-	writeToBuilder(w.sb, "return \"\", fmt.Errorf(\"unknown relationship: %s\", relationshipId)\n")
-	writeToBuilder(w.sb, "}\n")
-	writeToBuilder(w.sb, "}\n")
-}
-
 func (w *modelWriter) WriteGetValueExpressionFunction(modelStructName string, tableData *builderRepo.TableMetadata) {
 	writeToBuilder(w.sb, "// GetValue returns the value from a given path\n")
 
 	writeToBuilder(w.sb, fmt.Sprintf("func (m *%s) GetValue(path []*queryModel.TraversalStep, columnName string, v queryModel.ValueBuilder) (queryModel.Value, error){\n", modelStructName))
 	writeToBuilder(w.sb, "if len(path) > 0 {\n")
 	writeToBuilder(w.sb, "nextStep := path[0]\n")
-	writeToBuilder(w.sb, "nextEntity, err := m.getRelatedEntity(nextStep.Relationship)\n")
+	writeToBuilder(w.sb, "nextEntity, nextEntityIsNil, err := m.getRelatedEntity(nextStep.Relationship)\n")
 
 	writeToBuilder(w.sb, "if err != nil {\n")
 	writeToBuilder(w.sb, "return nil, err\n")
 	writeToBuilder(w.sb, "}\n")
 
-	writeToBuilder(w.sb, "if nextEntity.IsNil(){\n")
+	writeToBuilder(w.sb, "if nextEntityIsNil{\n")
 	writeToBuilder(w.sb, "return v.Null(), nil\n")
 	writeToBuilder(w.sb, "}\n")
 
@@ -767,10 +730,10 @@ func (w *modelWriter) WriteGetValueExpressionFunction(modelStructName string, ta
 }
 
 func (w *modelWriter) WriteGetRelatedEntityFunction(modelStructName string, tableData *builderRepo.TableMetadata) {
-	writeToBuilder(w.sb, "// GetRelatedEntity returns the value from N:1/1:1 relationships as a TableModel\n")
+	writeToBuilder(w.sb, "// getRelatedEntity returns the value from N:1/1:1 relationships as a TableModel\n")
 	writeToBuilder(w.sb, "// It will return an error for invalid relationships and relationship types\n")
 
-	writeToBuilder(w.sb, fmt.Sprintf("func (m *%s) getRelatedEntity(relationship queryModel.RelationshipMetadata) (queryModel.TableModel, error) {\n", modelStructName))
+	writeToBuilder(w.sb, fmt.Sprintf("func (m *%s) getRelatedEntity(relationship queryModel.RelationshipMetadata) (queryModel.TableModel, bool, error) {\n", modelStructName))
 	writeToBuilder(w.sb, "switch relationship.Id() {\n")
 
 	for _, relationship := range tableData.Relationships {
@@ -778,20 +741,13 @@ func (w *modelWriter) WriteGetRelatedEntityFunction(modelStructName string, tabl
 			continue
 		}
 		writeToBuilder(w.sb, fmt.Sprintf("case \"%s\":\n", relationship.Id))
-		writeToBuilder(w.sb, fmt.Sprintf("return m.%s, nil\n", snakeToPascal(relationship.ExpansionColumnName)))
+		writeToBuilder(w.sb, fmt.Sprintf("v := m.%s\n", snakeToPascal(relationship.ExpansionColumnName)))
+		writeToBuilder(w.sb, "return v, v == nil, nil\n")
 	}
 
 	writeToBuilder(w.sb, "default:\n")
-	writeToBuilder(w.sb, "return nil, fmt.Errorf(\"unable to get related entity: unsupported relationship '%s'\", relationship.Id())\n")
+	writeToBuilder(w.sb, "return nil, true, fmt.Errorf(\"unable to get related entity: unsupported relationship '%s'\", relationship.Id())\n")
 	writeToBuilder(w.sb, "}\n")
-	writeToBuilder(w.sb, "}\n")
-}
-
-func (w *modelWriter) WriteModelIsNilFunciton(modelStructName string, tableData *builderRepo.TableMetadata) {
-	writeToBuilder(w.sb, "// IsNil is used to determine if a typed nil pointer contains a nil value\n")
-
-	writeToBuilder(w.sb, fmt.Sprintf("func (m *%s) IsNil() bool {\n", modelStructName))
-	writeToBuilder(w.sb, "return m == nil\n")
 	writeToBuilder(w.sb, "}\n")
 }
 
@@ -813,7 +769,7 @@ func (w *modelWriter) WriteGetValueExpressionPrivateFunction(modelStructName str
 	writeToBuilder(w.sb, "}\n")
 }
 
-func (w *modelWriter) WriteSetProjectionFunction(modelStructName string, tableData *builderRepo.TableMetadata) {
+func (w *modelWriter) WriteProjectionFunction(modelStructName string, tableData *builderRepo.TableMetadata) {
 	writeToBuilder(w.sb, "// Project adds a column to the model's projection set\n")
 
 	writeToBuilder(w.sb, fmt.Sprintf("func (m *%s) Project(columnName string) error { \n", modelStructName))
@@ -1124,6 +1080,11 @@ func getModelStructName(tableName string) string {
 	return fmt.Sprintf("%sModel", snakeToPascal(tableName))
 }
 
+func getModelCollectionType(tableName string) string {
+	modelStructName := getModelStructName(tableName)
+	return fmt.Sprintf("%ss", modelStructName)
+}
+
 func getModelProjectionName(tableName string) string {
 	return fmt.Sprintf("%sProjection", snakeToPascal(tableName))
 }
@@ -1261,7 +1222,7 @@ func getTableRelationship(
 		r.LocalColumn = relationship.ReferencedColumn
 		r.ForeignColumn = relationship.ParentColumn
 
-		r.RelationshipColumnType = fmt.Sprintf("[]*%s", getModelStructName(r.RelatedTable))
+		r.RelationshipColumnType = getModelCollectionType(r.RelatedTable)
 	}
 
 	return r
