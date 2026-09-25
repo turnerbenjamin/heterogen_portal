@@ -1,14 +1,14 @@
 // Package queryModel contains models used throughout the query package and by
 // consuming packages
 //
-// This file contains models
+// This file contains models used to define an Access Policy for the schema
 package queryModel
 
 // AccessPolicy defines the access policy for a database
 type AccessPolicy interface {
-	// GetTableAccessPolicy returns an access policy for a given table or nil if
-	// the table does not exist
-	GetTableAccessPolicy(tableName string) TableAccessPolicy
+	// GetTableAccessPolicy returns the access policy for the specified table
+	// and whether the table has an access policy.
+	GetTableAccessPolicy(tableName string) (TableAccessPolicy, bool)
 }
 
 // TableAccessPolicy defines the query access policy for a given database table
@@ -18,9 +18,9 @@ type TableAccessPolicy interface {
 	// will override a false value returned from this method
 	CanAccess() bool
 
-	// GetColumnAccessPolicy returns an access policy for a specific column or
-	// nill if the column cannot be found
-	GetColumnAccessPolicy(columnName string) ColumnAccessPolicy
+	// GetColumnAccessPolicy returns the access policy for the specified column
+	// and whether the column has an access policy.
+	GetColumnAccessPolicy(columnName string) (ColumnAccessPolicy, bool)
 }
 
 // ColumnAccessPolicy defines the query access policy for a given database

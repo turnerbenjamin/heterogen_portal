@@ -29,7 +29,7 @@ func (w *queryWriter) Write(statement string, args ...any) {
 
 // aliasedResource binds a resourse to a table alias in an sql query
 type aliasedResource struct {
-	resource mdl.TableMetadata
+	resource mdl.TableData
 	alias    string
 }
 
@@ -126,12 +126,12 @@ func (w *queryWriter) buildCountStatement() {
 
 func (w *queryWriter) writeFromStatement() {
 	w.fromLocation.left = w.sb.Len()
+	rootResourceMetadata := w.queryDataStore.RootResourceMetadata()
 
-	rootResource := w.queryDataStore.RootResource()
 	rootAlias := w.aliasStore.GetRootAlias()
 
 	w.sb.WriteString("FROM ")
-	w.sb.WriteString(rootResource.FullyQualifiedName())
+	w.sb.WriteString(rootResourceMetadata.FullyQualifiedName)
 	w.sb.WriteRune(' ')
 	w.sb.WriteString(rootAlias)
 
@@ -177,12 +177,12 @@ func (w *queryWriter) writeSelectAndExpandStatement() error {
 	return nil
 }
 
-func (w *queryWriter) formatSelectValue(columnData mdl.ColumnMetadata) string {
-	switch columnData.Type() {
+func (w *queryWriter) formatSelectValue(columnData mdl.ColumnData) string {
+	switch columnData.Type {
 	case mdl.DbTypePoint:
-		return fmt.Sprintf("%s.STAsText() AS %s", columnData.Name(), columnData.Name())
+		return fmt.Sprintf("%s.STAsText() AS %s", columnData.Name, columnData.Name)
 	default:
-		return columnData.Name()
+		return columnData.Name
 	}
 }
 
@@ -194,12 +194,12 @@ func (w *queryWriter) writeExpandColumn(expansion qstore.Expansion) error {
 
 	w.sb.WriteString("JSON_QUERY((")
 	w.sb.WriteString(nestedWriter.WriteQueryStatement())
-	if expansion.TraversalStep.Relationship.Type() == mdl.RelationshipManyToOne {
+	if expansion.TraversalStep.Relationship.Type == mdl.RelationshipManyToOne {
 		w.sb.WriteString(", WITHOUT_ARRAY_WRAPPER")
 	}
 	fmt.Fprintf(w.sb,
 		")) AS %s",
-		expansion.TraversalStep.Relationship.ExpansionColumnName(),
+		expansion.TraversalStep.Relationship.ExpansionColumnName,
 	)
 	return nil
 }
@@ -207,15 +207,16 @@ func (w *queryWriter) writeExpandColumn(expansion qstore.Expansion) error {
 func (w *queryWriter) writeJoins(joinCollection relationships.JoinCollection) {
 	for _, join := range joinCollection.Joins() {
 		relationship := join.Step.Relationship
+		toResourceMetadata := relationship.To.GetMetadata()
 
 		fmt.Fprintf(w.sb,
 			"LEFT JOIN %s %s on %s.%s = %s.%s",
-			relationship.To().FullyQualifiedName(),
+			toResourceMetadata.FullyQualifiedName,
 			join.Alias,
 			join.ParentAlias,
-			relationship.FromColumn().Name(),
+			relationship.FromColumn.Name,
 			join.Alias,
-			relationship.ToColumn().Name(),
+			relationship.ToColumn.Name,
 		)
 
 		if join.SubJoins.JoinsLen() > 0 {
@@ -251,7 +252,7 @@ func (w *queryWriter) writeOrderByStatement() error {
 			w.sb,
 			"%s.%s %s",
 			tableAlias,
-			r.ResolvedColumn.Metadata.Name(),
+			r.ResolvedColumn.Metadata.Name,
 			string(r.Direction),
 		)
 		i++
@@ -277,7 +278,7 @@ func (w *queryWriter) writeFilterStatement() error {
 	filterExpression := w.queryDataStore.FilterExpression()
 
 	rootResource := &aliasedResource{
-		resource: w.queryDataStore.RootResource(),
+		resource: w.queryDataStore.RootResourceMetadata(),
 		alias:    w.aliasStore.GetRootAlias(),
 	}
 
@@ -327,9 +328,9 @@ func (w *queryWriter) writeFilterExpressionWithLink(
 		w.sb,
 		"%s.%s = %s.%s",
 		w.queryDataStore.Alias(),
-		linkToParent.Relationship.ToColumn().Name(),
+		linkToParent.Relationship.ToColumn.Name,
 		parentQuery.Alias(),
-		linkToParent.Relationship.FromColumn().Name(),
+		linkToParent.Relationship.FromColumn.Name,
 	)
 
 	if filterExpression != nil {
@@ -400,7 +401,7 @@ func (w *queryWriter) writeComparisonExpression(
 		}
 		return ex.Value.WriteFilterExpression(
 			w,
-			fmt.Sprintf("%s.%s", endResource.alias, ex.ResolvedColumn.Metadata.Name()),
+			fmt.Sprintf("%s.%s", endResource.alias, ex.ResolvedColumn.Metadata.Name),
 			ex.Operator,
 		)
 	}
@@ -445,7 +446,7 @@ func (w *queryWriter) writeCollectionExpression(
 }
 
 func (w *queryWriter) writeExpressionWithPath(
-	existsNodes []mdl.ExistsNodeNew,
+	existsNodes []mdl.ExistsNode,
 	writeExpression func(resource *aliasedResource) error,
 	doNegate bool,
 ) error {
@@ -464,26 +465,27 @@ func (w *queryWriter) writeExpressionWithPath(
 	}
 
 	relationship := currentNode.Step.Relationship
+	toResourceMetadata := relationship.To.GetMetadata()
 
 	w.sb.WriteString("EXISTS (SELECT 1 FROM ")
-	w.sb.WriteString(relationship.To().FullyQualifiedName())
+	w.sb.WriteString(toResourceMetadata.FullyQualifiedName)
 	w.sb.WriteRune(' ')
 	w.sb.WriteString(currentNode.Alias)
 	w.sb.WriteString(" WHERE ")
 	w.sb.WriteString(currentNode.Alias)
 	w.sb.WriteRune('.')
-	w.sb.WriteString(relationship.ToColumn().Name())
+	w.sb.WriteString(relationship.ToColumn.Name)
 	w.sb.WriteString(" = ")
 	w.sb.WriteString(currentNode.ParentAlias)
 	w.sb.WriteRune('.')
-	w.sb.WriteString(relationship.FromColumn().Name())
+	w.sb.WriteString(relationship.FromColumn.Name)
 	w.sb.WriteString(" AND ")
 
 	// If last node write expression and return
 	if len(existsNodes) == 1 {
 		if err := writeExpression(&aliasedResource{
 			alias:    currentNode.Alias,
-			resource: relationship.To(),
+			resource: relationship.To.GetMetadata(),
 		}); err != nil {
 			return err
 		}
@@ -531,7 +533,7 @@ func (w *queryWriter) negate(expression mdl.FilterExpression) (mdl.FilterExpress
 			return nil, err
 		}
 
-		return ex.WithValues(negatedOperator, ex.Value), nil
+		return ex.WithValue(negatedOperator, ex.Value), nil
 
 	case *mdl.CollectionExpression:
 		operator := ex.Operator

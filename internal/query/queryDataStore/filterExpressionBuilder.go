@@ -1,5 +1,5 @@
 // Package queryDataStore is responsible for maintaining query data in a central
-// store. In earilier iterations, a pipeline approach was taken where the query
+// store. In earlier iterations, a pipeline approach was taken where the query
 // data was enriched at each stage of the pipeline; this resulted in a clear
 // separation of responsibilities but it created complications when accessing
 // the data which may or may not have been fully enriched.
@@ -27,10 +27,10 @@ import (
 // filterExpressionBuilder is used to build filterExpressions which are enriched
 // with metadata, and processed by the metadata planner as required, on creation
 type filterExpressionBuilder struct {
-	rootResource        mdl.TableMetadata
-	metadataBinder      MetadataBinder
-	relationshipPlanner *relationships.RelationshipPlanner
-	valueBuilder        mdl.ValueBuilder
+	rootResourceMetadata mdl.TableData
+	metadataBinder       MetadataBinder
+	relationshipPlanner  *relationships.RelationshipPlanner
+	valueBuilder         mdl.ValueBuilder
 }
 
 // ValueBuilder returns the Value builder instance for the
@@ -97,10 +97,10 @@ func (eb filterExpressionBuilder) NewComparisonExpressionFromResolvedColumn(
 	}
 
 	// Validate that column and value have compatible types
-	if !value.SupportsType(column.Metadata.Type()) {
+	if !value.SupportsType(column.Metadata.Type) {
 		return nil, qerr.SyntaxErr(
 			"%s is not compatible with %s values",
-			column.Metadata.Name(),
+			column.Metadata.Name,
 			valueBuilder.ValueTypeString(value.Type()),
 		)
 	}

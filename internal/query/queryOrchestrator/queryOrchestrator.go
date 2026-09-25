@@ -34,11 +34,13 @@ func (e *QueryOrchestrator) ExecuteQuery(
 	s qstore.QueryDataStore,
 ) (mdl.ExecuteResult, error) {
 	rootResource := s.RootResource()
-	resourceModel := rootResource.GetModel()
+	resourceModel := rootResource.InitModel()
+	resourceMetadata := rootResource.GetMetadata()
+
 	if resourceModel == nil {
 		return emptyResult, qerr.BindingErr(
 			"unable to access model for %s",
-			rootResource.Name(),
+			resourceMetadata.Name,
 		)
 	}
 

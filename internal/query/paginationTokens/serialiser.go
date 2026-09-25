@@ -68,7 +68,7 @@ func serialiseToken(
 	}
 
 	// Write resource name
-	s.SerialiseString(str.RootResource().Name())
+	s.SerialiseString(str.RootResourceMetadata().Name)
 
 	// Write query string
 	s.SerialiseString(str.QueryString())

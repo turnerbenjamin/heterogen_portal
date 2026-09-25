@@ -1,3 +1,7 @@
+// Package queryModel contains models used throughout the query package and by
+// consuming packages
+//
+// This file contains the database type, Point
 package queryModel
 
 import (
@@ -6,14 +10,16 @@ import (
 	"strings"
 )
 
-// Point represents a geographic point with a GeoJSON-compatible structure.
+// Point represents a geographic point using a GeoJSON-compatible structure.
 type Point struct {
+	// Type identifies the GeoJSON geometry type and must be "Point".
 	Type string `json:"type"`
 
-	//Coordinates [x, y] i.e [long, lat]
+	// Coordinates contains the point coordinates as [longitude, latitude].
 	Coordinates [2]float64 `json:"coordinates"`
 }
 
+// NewPoint returns a new Point with Type set to "Point"
 func NewPoint(longitude float64, latitude float64) Point {
 	return Point{
 		Type:        "Point",

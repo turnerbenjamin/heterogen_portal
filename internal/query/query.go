@@ -81,14 +81,9 @@ func (qf *queryExecutor) Execute(
 	resourceName string,
 	queryString string,
 ) (queryModel.ExecuteResult, error) {
-	resource := qf.schema.GetTableMetadata(resourceName)
-	if resource == nil {
+	resource, exists := qf.schema.GetResource(resourceName)
+	if !exists {
 		return queryModel.ExecuteResult{}, qerr.BindingErr("the table %s does not exist in the schema", resourceName)
-	}
-
-	resourceAccessPolicy := qf.accessPolicy.GetTableAccessPolicy(resourceName)
-	if resourceAccessPolicy == nil {
-		return queryModel.ExecuteResult{}, qerr.InternalErr("unable to find table access policy for table %s", resourceName)
 	}
 
 	queryParser := qf.queryParserInitialiser()

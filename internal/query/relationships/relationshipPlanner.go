@@ -7,35 +7,12 @@ import (
 	mdl "github.com/turnerbenjamin/heterogen_portal/internal/query/queryModel"
 )
 
-type existsNode struct {
-	step        mdl.TraversalStep
-	alias       string
-	parentAlias string
-	next        *existsNode
-}
-
 type aliasType uint8
 
 const (
 	aliasTypeExists aliasType = iota
 	aliasTypeJoin
 )
-
-func (e *existsNode) Step() mdl.TraversalStep {
-	return e.step
-}
-
-func (e *existsNode) Alias() string {
-	return e.alias
-}
-
-func (e *existsNode) ParentAlias() string {
-	return e.parentAlias
-}
-
-func (e *existsNode) Next() mdl.ExistsNode {
-	return e.next
-}
 
 type Join struct {
 	ParentAlias string
@@ -143,23 +120,23 @@ type RelationshipPlanner struct {
 	JoinStore JoinCollection
 }
 
-func NewRelationshipPlanner(rootResource mdl.TableMetadata) (*RelationshipPlanner, error) {
+func NewRelationshipPlanner(rootResource mdl.TableData) (*RelationshipPlanner, error) {
 	planner := &RelationshipPlanner{
-		Aliases:   AliasStore{rootAlias: rootResource.Name()},
+		Aliases:   AliasStore{rootAlias: rootResource.Name},
 		JoinStore: JoinCollection{},
 	}
 
 	return planner, nil
 }
 
-func (p *RelationshipPlanner) ProcessExists(path mdl.ResolvedPath) []mdl.ExistsNodeNew {
-	existsNodes := make([]mdl.ExistsNodeNew, len(path.Steps))
+func (p *RelationshipPlanner) ProcessExists(path mdl.ResolvedPath) []mdl.ExistsNode {
+	existsNodes := make([]mdl.ExistsNode, len(path.Steps))
 
 	parentAlias := p.Aliases.rootAlias
 	for i, step := range path.Steps {
 		nextAlias := p.Aliases.nextAlias(aliasTypeExists, step.SubPathId)
 
-		existsNodes[i] = mdl.ExistsNodeNew{
+		existsNodes[i] = mdl.ExistsNode{
 			Step:        step,
 			Alias:       nextAlias,
 			ParentAlias: parentAlias,

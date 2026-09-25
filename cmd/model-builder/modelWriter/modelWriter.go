@@ -49,8 +49,11 @@ func (w *modelWriter) Write() {
 	w.writePackageAndStaticTypeDefinitions()
 	w.writeNewLine()
 	w.WriteConstants()
+	w.writeSchemaDefinition()
 
 	for _, table := range w.metadata.Tables {
+		w.writeNewLine()
+		w.writeResourceDefinition(table)
 		w.writeNewLine()
 		w.writeTableMetadataDefinition(table)
 		w.writeNewLine()
@@ -58,17 +61,6 @@ func (w *modelWriter) Write() {
 		w.writeNewLine()
 		w.WriteTableModelProjection(table)
 	}
-	w.writeNewLine()
-	w.WriteTableModelGetter()
-
-	w.writeNewLine()
-	w.WriteTableMetadataGetter()
-
-	w.writeNewLine()
-	w.WriteTableProjectionGetter()
-
-	w.writeNewLine()
-	w.WriteTableMetadataBinder()
 	w.writeNewLine()
 	w.writeTableAccessStructs()
 
@@ -104,208 +96,10 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"iter"
 	"time"
 
 	"github.com/turnerbenjamin/heterogen_portal/internal/query/queryModel"
 )
-
-var metadataIsBound = false
-
-type schemaMetadata struct{}
-
-func NewSchemaMetadata() *schemaMetadata {
-	s := &schemaMetadata{}
-	if !metadataIsBound {
-		bindMetadata()
-	}
-	return s
-}
-
-// GetTableModel returns a new instance of a given table or nill if
-// the table name is invalid
-func (s *schemaMetadata) GetTableModel(tableName string) queryModel.TableModel {
-	return getTableModel(tableName)
-}
-
-// GetTableMetadata returns the metadata for a given table or nill if
-// the table name is invalid
-func (s *schemaMetadata) GetTableMetadata(tableName string) queryModel.TableMetadata {
-	return getTableMetadata(tableName)
-}
-
-// columnMetadata describes the metadata associated with a database table column.
-type columnMetadata struct {
-	name         string
-	dbType       queryModel.DbType
-	maxLength    int
-	isPrimaryKey bool
-	isRequired   bool
-}
-
-// Name returns the database name for the column
-func (c *columnMetadata) Name() string {
-	return c.name
-}
-
-// Type returns the column's type
-func (c *columnMetadata) Type() queryModel.DbType {
-	return c.dbType
-}
-
-
-
-// relationship describes a foreign key relationship between two database columns.
-type relationship struct {
-	id               string
-	columnName             string
-	expansionColumnName             string
-	relationshipType queryModel.RelationshipType
-	from             queryModel.TableMetadata
-	to               queryModel.TableMetadata
-	fromColumn       queryModel.ColumnMetadata
-	toColumn         queryModel.ColumnMetadata
-	fromTableName    string
-	toTableName      string
-	fromColumnName   string
-	toColumnName     string
-	isInitialised    bool
-}
-
-// ExpansionColumnName returns the name of the pseudo relationship column on the 
-// table used to store expanded results
-func (r *relationship) ExpansionColumnName() string {
-	return r.expansionColumnName
-}
-
-// ColumnName returns the name of the column, as it should be referenced in a
-// query string
-func (r *relationship) ColumnName() string{
-	return r.columnName
-}
-
-// bindMetadata binds metadata references at runtime to avoid invalid initiation
-// cycle due to circular references
-func (r *relationship) bindMetadata() {
-	r.from = getTableMetadata(r.fromTableName)
-	r.fromColumn = r.from.GetColumnMetadata(r.fromColumnName)
-	r.to = getTableMetadata(r.toTableName)
-	r.toColumn = r.to.GetColumnMetadata(r.toColumnName)
-
-	if r.from == nil || r.fromColumn == nil || r.to == nil || r.toColumn == nil {
-		panic(fmt.Sprintf("unable to bind metadata for relationship %s", r.id))
-	}
-}
-
-// Id returns a unique identifier for a table relationship
-func (r *relationship) Id() string {
-	return r.id
-}
-
-// From returns table metadata for the from table
-func (r *relationship) From() queryModel.TableMetadata {
-	return r.from
-}
-
-// To returns table metadata for the to table
-func (r *relationship) To() queryModel.TableMetadata {
-	return r.to
-}
-
-// From returns table metadata for the from table
-func (r *relationship) FromColumn() queryModel.ColumnMetadata {
-	return r.fromColumn
-}
-
-// To returns table metadata for the to table
-func (r *relationship) ToColumn() queryModel.ColumnMetadata {
-	return r.toColumn
-}
-
-// Type returns the relationship type
-func (r *relationship) Type() queryModel.RelationshipType {
-	return r.relationshipType
-}
-
-// tableMetadata describes the structure and relationships of a database table.
-type tableMetadata struct {
-	name               string
-	schemaName         string
-	fullyQualifiedName string
-	primaryKey         string
-	columns            map[string]*columnMetadata
-	columnCount        int
-	relationships      map[string]*relationship
-}
-
-// bindMetadata binds metadata references at runtime to avoid invalid initiation
-// cycle due to circular references
-func (t *tableMetadata) bindMetadata() {
-	for _, relationship := range t.relationships {
-		relationship.bindMetadata()
-	}
-}
-
-// GetColumnMetadata returns metadata for a given table column; returns nil if
-// the column does not exist on the table
-func (t *tableMetadata) GetColumnMetadata(columnName string) queryModel.ColumnMetadata {
-	c, exists := t.columns[columnName]
-	if !exists {
-		return nil
-	}
-	return c
-}
-
-// GetRelationshipMetadata returns metadata for a given table column; returns
-// nil if the relationship does not exist on the table
-func (t *tableMetadata) GetRelationshipMetadata(relationshipName string) queryModel.RelationshipMetadata {
-	r, exists := t.relationships[relationshipName]
-	if !exists {
-		return nil
-	}
-	return r
-}
-
-// GetTableModel returns a model representing the table
-func (t *tableMetadata) GetModel() queryModel.TableModel {
-	return getTableModel(t.name)
-}
-
-// Name returns the table name as it appears in the database
-func (t *tableMetadata) Name() string {
-	return t.name
-}
-
-// FullyQualifiedName returns the fully-qualified table name including the
-// schema namespace
-func (t *tableMetadata) FullyQualifiedName() string {
-	return t.fullyQualifiedName
-}
-
-// Columns iterates over all columns associated with the table
-func (t *tableMetadata) Columns() iter.Seq[queryModel.ColumnMetadata] {
-	return func(yield func(queryModel.ColumnMetadata) bool) {
-		for _, col := range t.columns {
-			if !yield(col) {
-				return
-			}
-		}
-	}
-}
-
-// PrimaryKeyField returns the column metadata for the primary key field
-func (t *tableMetadata) PrimaryKeyField() queryModel.ColumnMetadata {
-	pk, ok := t.columns[t.primaryKey]
-	if !ok || pk == nil {
-		panic(fmt.Sprintf("unable to access primary key for %s table", t.name))
-	}
-	return pk
-}
-
-// InitProjection initialises a projection object for the table
-func (t *tableMetadata) InitProjection() (queryModel.Projection, error) {
-	return initTableProjection(t.name)
-}
 
 // marshalProperty is a helper method to marshal an attribute and value to a json string buffer
 func marshalProperty(buf *bytes.Buffer, isFirst bool, columnName string, value any) error {
@@ -373,7 +167,77 @@ func (w *modelWriter) WriteConstants() {
 		}
 	}
 
-	writeToBuilder(w.sb, ")")
+	writeToBuilder(w.sb, ")\n")
+}
+
+func (w *modelWriter) writeSchemaDefinition() {
+
+	writeToBuilder(w.sb, "type schema struct{}\n\n")
+
+	writeToBuilder(w.sb, "func NewSchema() schema{\n")
+	writeToBuilder(w.sb, "return schema{}\n")
+	writeToBuilder(w.sb, "}\n\n")
+
+	writeToBuilder(w.sb, "func (s schema) GetResource(resourceName string) (queryModel.Resource, bool){\n")
+	writeToBuilder(w.sb, "switch resourceName{\n")
+	for _, t := range w.metadata.Tables {
+		tableName := t.Name
+		resourceName := getModelResourceStructName(tableName)
+		writeToBuilder(w.sb, fmt.Sprintf("case \"%s\":\n", tableName))
+		writeToBuilder(w.sb, fmt.Sprintf("return &%s{}, true\n", resourceName))
+	}
+	writeToBuilder(w.sb, "default:\n")
+	writeToBuilder(w.sb, "return nil, false\n")
+
+	writeToBuilder(w.sb, "}\n")
+	writeToBuilder(w.sb, "}\n\n")
+}
+
+func (w *modelWriter) writeResourceDefinition(tableData *builderRepo.TableMetadata) {
+	resourceTypeName := getModelResourceStructName(tableData.Name)
+
+	// Write resource type
+	writeToBuilder(w.sb, fmt.Sprintf("type %s struct{}\n\n", resourceTypeName))
+
+	// Write funcs
+	w.writeResourceGetMetadataFunc(resourceTypeName, tableData)
+	w.writeNewLine()
+
+	w.writeResourceInitModelFunc(resourceTypeName, tableData)
+	w.writeNewLine()
+
+	w.writeResourceInitProjectionFunc(resourceTypeName, tableData)
+	w.writeNewLine()
+}
+
+func (w *modelWriter) writeResourceGetMetadataFunc(
+	resourceTypeName string,
+	tableData *builderRepo.TableMetadata,
+) {
+	metadataIdentifier := modelMetadataStoreIdentifier(tableData.Name)
+	writeToBuilder(w.sb, fmt.Sprintf("func (r *%s) GetMetadata() queryModel.TableData {\n", resourceTypeName))
+	writeToBuilder(w.sb, fmt.Sprintf("return %s\n", metadataIdentifier))
+	writeToBuilder(w.sb, "}\n")
+}
+
+func (w *modelWriter) writeResourceInitModelFunc(
+	resourceTypeName string,
+	tableData *builderRepo.TableMetadata,
+) {
+	modelStructIdentifier := getModelStructName(tableData.Name)
+	writeToBuilder(w.sb, fmt.Sprintf("func (r *%s) InitModel() queryModel.TableModel { \n", resourceTypeName))
+	writeToBuilder(w.sb, fmt.Sprintf("return new(%s)", modelStructIdentifier))
+	writeToBuilder(w.sb, "}\n")
+}
+
+func (w *modelWriter) writeResourceInitProjectionFunc(
+	resourceTypeName string,
+	tableData *builderRepo.TableMetadata,
+) {
+	modelProjectionIdentifier := getModelProjectionName(tableData.Name)
+	writeToBuilder(w.sb, fmt.Sprintf("func (r *%s) InitProjection() queryModel.Projection { \n", resourceTypeName))
+	writeToBuilder(w.sb, fmt.Sprintf("return new(%s)", modelProjectionIdentifier))
+	writeToBuilder(w.sb, "}\n")
 }
 
 func (w *modelWriter) writeTableMetadataDefinition(tableData *builderRepo.TableMetadata) {
@@ -391,38 +255,25 @@ func (w *modelWriter) writeTableMetadataDefinition(tableData *builderRepo.TableM
 		tableData.Schema,
 		tableData.Name,
 	))
-	writeToBuilder(w.sb, fmt.Sprintf("var %s = &tableMetadata{\n", modelMetadataStoreIdentifier(tableData.Name)))
-	writeToBuilder(w.sb, fmt.Sprintf("name: \"%s\",\n", tableData.Name))
-	writeToBuilder(w.sb, fmt.Sprintf("schemaName: \"%s\",\n", tableData.Schema))
-	writeToBuilder(w.sb, fmt.Sprintf("fullyQualifiedName: \"%s.%s\",\n", tableData.Schema, tableData.Name))
-	writeToBuilder(w.sb, fmt.Sprintf("primaryKey: \"%s\",\n", primaryKey))
-	writeToBuilder(w.sb, fmt.Sprintf("columns: %s,\n", columnMapValue))
-	writeToBuilder(w.sb, fmt.Sprintf("relationships: %s,\n", relationshipMapValue))
-	writeToBuilder(w.sb, "columnCount: -1,\n")
+	writeToBuilder(w.sb, fmt.Sprintf("var %s = queryModel.TableData{\n", metadataIdentifer))
+	writeToBuilder(w.sb, fmt.Sprintf("Name: \"%s\",\n", tableData.Name))
+	writeToBuilder(w.sb, fmt.Sprintf("FullyQualifiedName: \"%s.%s\",\n", tableData.Schema, tableData.Name))
+
+	writeToBuilder(w.sb, "PrimaryKeyColumn: queryModel.ColumnData{\n")
+	writeToBuilder(w.sb, fmt.Sprintf("Name: \"%s\",\n", primaryKey))
+	writeToBuilder(w.sb, "Type: queryModel.DbTypeString,\n")
+	writeToBuilder(w.sb, "},\n")
+
+	writeToBuilder(w.sb, fmt.Sprintf("Columns: %s,\n", columnMapValue))
+	writeToBuilder(w.sb, fmt.Sprintf("Relationships: %s,\n", relationshipMapValue))
 	writeToBuilder(w.sb, "}\n\n")
-
-	tableNamePascal := snakeToPascal(tableData.Name)
-	writeToBuilder(w.sb, fmt.Sprintf(
-		"// Get%sMetadata returns the database metadata associated with the %s.%s table.\n",
-		tableNamePascal,
-		tableData.Name,
-		tableNamePascal,
-	))
-	writeToBuilder(
-		w.sb,
-		fmt.Sprintf("func Get%sMetadata() *tableMetadata {\n", tableNamePascal),
-	)
-
-	metadataIdentifier := modelMetadataStoreIdentifier(tableData.Name)
-	writeToBuilder(w.sb, fmt.Sprintf("return %s\n", metadataIdentifier))
-	writeToBuilder(w.sb, "}")
 }
 
 func buildColumnMap(tableData *builderRepo.TableMetadata) (string, string) {
 	primaryKey := ""
 	sbColMap := &strings.Builder{}
 
-	writeToBuilder(sbColMap, "map[string]*columnMetadata{\n")
+	writeToBuilder(sbColMap, "map[string]queryModel.ColumnData{\n")
 
 	// DB Columns
 	for _, col := range tableData.Columns {
@@ -432,11 +283,8 @@ func buildColumnMap(tableData *builderRepo.TableMetadata) (string, string) {
 		}
 
 		writeToBuilder(sbColMap, fmt.Sprintf("\"%s\": {\n", col.Name))
-		writeToBuilder(sbColMap, fmt.Sprintf("name: \"%s\",\n", col.Name))
-		writeToBuilder(sbColMap, fmt.Sprintf("dbType: %s,\n", colType))
-		writeToBuilder(sbColMap, fmt.Sprintf("maxLength: %d,\n", col.MaxLength))
-		writeToBuilder(sbColMap, fmt.Sprintf("isRequired: %t,\n", !col.IsNullable))
-		writeToBuilder(sbColMap, fmt.Sprintf("isPrimaryKey: %t,\n", col.PrimaryKey == 1))
+		writeToBuilder(sbColMap, fmt.Sprintf("Name: \"%s\",\n", col.Name))
+		writeToBuilder(sbColMap, fmt.Sprintf("Type: %s,\n", colType))
 		writeToBuilder(sbColMap, "},\n")
 	}
 
@@ -448,17 +296,27 @@ func buildColumnMap(tableData *builderRepo.TableMetadata) (string, string) {
 func (w *modelWriter) buildRelationshipMap(tableData *builderRepo.TableMetadata) string {
 	sbR := &strings.Builder{}
 
-	writeToBuilder(sbR, "map[string]*relationship{\n")
+	writeToBuilder(sbR, "map[string]queryModel.RelationshipData{\n")
 	for key, relationship := range tableData.Relationships {
+		fromResource := getModelResourceStructName(tableData.Name)
+		toResource := getModelResourceStructName(relationship.RelatedTable)
+
 		writeToBuilder(sbR, fmt.Sprintf("\"%s\": {\n", key))
-		writeToBuilder(sbR, fmt.Sprintf("id: \"%s\",\n", relationship.Id))
-		writeToBuilder(sbR, fmt.Sprintf("columnName: \"%s\",\n", relationship.ColumnName))
-		writeToBuilder(sbR, fmt.Sprintf("expansionColumnName: \"%s\",\n", relationship.ExpansionColumnName))
-		writeToBuilder(sbR, fmt.Sprintf("relationshipType: %s,\n", relationship.Type))
-		writeToBuilder(sbR, fmt.Sprintf("fromTableName: \"%s\",\n", tableData.Name))
-		writeToBuilder(sbR, fmt.Sprintf("toTableName: \"%s\",\n", relationship.RelatedTable))
-		writeToBuilder(sbR, fmt.Sprintf("fromColumnName: \"%s\",\n", relationship.LocalColumn))
-		writeToBuilder(sbR, fmt.Sprintf("toColumnName: \"%s\",\n", relationship.ForeignColumn))
+		writeToBuilder(sbR, fmt.Sprintf("Id: \"%s\",\n", relationship.Id))
+		writeToBuilder(sbR, fmt.Sprintf("Type: %s,\n", relationship.Type))
+		writeToBuilder(sbR, fmt.Sprintf("ColumnName: \"%s\",\n", relationship.ColumnName))
+		writeToBuilder(sbR, fmt.Sprintf("ExpansionColumnName: \"%s\",\n", relationship.ExpansionColumnName))
+		writeToBuilder(sbR, fmt.Sprintf("From: &%s{},\n", fromResource))
+		writeToBuilder(sbR, fmt.Sprintf("To: &%s{},\n", toResource))
+
+		writeToBuilder(sbR, "FromColumn: queryModel.ColumnData{\n")
+		writeToBuilder(sbR, fmt.Sprintf("Name: \"%s\",\n", relationship.LocalColumn))
+		writeToBuilder(sbR, "Type: queryModel.DbTypeString,\n")
+		writeToBuilder(sbR, "},\n")
+		writeToBuilder(sbR, "ToColumn: queryModel.ColumnData{\n")
+		writeToBuilder(sbR, fmt.Sprintf("Name: \"%s\",\n", relationship.ForeignColumn))
+		writeToBuilder(sbR, "Type: queryModel.DbTypeString,\n")
+		writeToBuilder(sbR, "},\n")
 		writeToBuilder(sbR, "},\n")
 	}
 
@@ -733,8 +591,8 @@ func (w *modelWriter) WriteGetRelatedEntityFunction(modelStructName string, tabl
 	writeToBuilder(w.sb, "// getRelatedEntity returns the value from N:1/1:1 relationships as a TableModel\n")
 	writeToBuilder(w.sb, "// It will return an error for invalid relationships and relationship types\n")
 
-	writeToBuilder(w.sb, fmt.Sprintf("func (m *%s) getRelatedEntity(relationship queryModel.RelationshipMetadata) (queryModel.TableModel, bool, error) {\n", modelStructName))
-	writeToBuilder(w.sb, "switch relationship.Id() {\n")
+	writeToBuilder(w.sb, fmt.Sprintf("func (m *%s) getRelatedEntity(relationship queryModel.RelationshipData) (queryModel.TableModel, bool, error) {\n", modelStructName))
+	writeToBuilder(w.sb, "switch relationship.Id {\n")
 
 	for _, relationship := range tableData.Relationships {
 		if relationship.Type != "queryModel.RelationshipManyToOne" {
@@ -746,7 +604,7 @@ func (w *modelWriter) WriteGetRelatedEntityFunction(modelStructName string, tabl
 	}
 
 	writeToBuilder(w.sb, "default:\n")
-	writeToBuilder(w.sb, "return nil, true, fmt.Errorf(\"unable to get related entity: unsupported relationship '%s'\", relationship.Id())\n")
+	writeToBuilder(w.sb, "return nil, true, fmt.Errorf(\"unable to get related entity: unsupported relationship '%s'\", relationship.Id)\n")
 	writeToBuilder(w.sb, "}\n")
 	writeToBuilder(w.sb, "}\n")
 }
@@ -904,84 +762,26 @@ func (w *modelWriter) WriteTableModelProjection(tableData *builderRepo.TableMeta
 	w.writeNewLine()
 }
 
-func (w *modelWriter) WriteTableModelGetter() {
-	writeToBuilder(
-		w.sb,
-		"// getTableModel returns a new instance of a given table or nill if \n"+
-			"// the table name is invalid\n",
-	)
-	writeToBuilder(w.sb, "func getTableModel(tableName string) queryModel.TableModel{\n")
-	writeToBuilder(w.sb, "switch tableName {\n")
+// func (w *modelWriter) WriteTableModelGetter() {
+// 	writeToBuilder(
+// 		w.sb,
+// 		"// getTableModel returns a new instance of a given table or nill if \n"+
+// 			"// the table name is invalid\n",
+// 	)
+// 	writeToBuilder(w.sb, "func getTableModel(tableName string) queryModel.TableModel{\n")
+// 	writeToBuilder(w.sb, "switch tableName {\n")
 
-	for _, table := range w.metadata.Tables {
-		metadataStoreId := modelMetadataStoreIdentifier(table.Name)
-		writeToBuilder(w.sb, fmt.Sprintf("case %s.name:\n", metadataStoreId))
-		writeToBuilder(w.sb, fmt.Sprintf("return new(%s)\n", getModelStructName(table.Name)))
-	}
+// 	for _, table := range w.metadata.Tables {
+// 		metadataStoreId := modelMetadataStoreIdentifier(table.Name)
+// 		writeToBuilder(w.sb, fmt.Sprintf("case %s.name:\n", metadataStoreId))
+// 		writeToBuilder(w.sb, fmt.Sprintf("return new(%s)\n", getModelStructName(table.Name)))
+// 	}
 
-	writeToBuilder(w.sb, "default:\n")
-	writeToBuilder(w.sb, "return nil\n")
-	writeToBuilder(w.sb, "}\n")
-	writeToBuilder(w.sb, "}\n")
-}
-
-func (w *modelWriter) WriteTableMetadataGetter() {
-	writeToBuilder(
-		w.sb,
-		"// getTableMetadata returns the metadata for a given table or nill if \n"+
-			"// the table name is invalid\n",
-	)
-	writeToBuilder(w.sb, "func getTableMetadata(tableName string) queryModel.TableMetadata{\n")
-	writeToBuilder(w.sb, "switch tableName {\n")
-
-	for _, table := range w.metadata.Tables {
-		metadataStoreId := modelMetadataStoreIdentifier(table.Name)
-		writeToBuilder(w.sb, fmt.Sprintf("case %s.name:\n", metadataStoreId))
-		writeToBuilder(w.sb, fmt.Sprintf("return %s\n", modelMetadataStoreIdentifier(table.Name)))
-	}
-
-	writeToBuilder(w.sb, "default:\n")
-	writeToBuilder(w.sb, "return nil\n")
-	writeToBuilder(w.sb, "}\n")
-	writeToBuilder(w.sb, "}\n")
-}
-
-func (w *modelWriter) WriteTableProjectionGetter() {
-	writeToBuilder(
-		w.sb,
-		"// func initTableProjection initialises a projection for the table\n",
-	)
-	writeToBuilder(w.sb, "func initTableProjection(tableName string) (queryModel.Projection, error){\n")
-	writeToBuilder(w.sb, "switch tableName {\n")
-
-	for _, table := range w.metadata.Tables {
-		metadataStoreId := modelMetadataStoreIdentifier(table.Name)
-		projectionName := getModelProjectionName(table.Name)
-
-		writeToBuilder(w.sb, fmt.Sprintf("case %s.name:\n", metadataStoreId))
-		writeToBuilder(w.sb, fmt.Sprintf("p := %s(0)\n", projectionName))
-		writeToBuilder(w.sb, "return &p, nil\n")
-	}
-
-	writeToBuilder(w.sb, "default:\n")
-	writeToBuilder(w.sb, "return nil, fmt.Errorf(\"unsupported table: '%s'\", tableName)\n")
-	writeToBuilder(w.sb, "}\n")
-	writeToBuilder(w.sb, "}\n")
-}
-
-func (w *modelWriter) WriteTableMetadataBinder() {
-	writeToBuilder(
-		w.sb,
-		"// bindMetadata binds table references at runtime to avoid invalid initiation\n"+
-			"// cycle due to circular references\n",
-	)
-	writeToBuilder(w.sb, "func bindMetadata() {\n")
-	for _, table := range w.metadata.Tables {
-		metadataStoreId := modelMetadataStoreIdentifier(table.Name)
-		writeToBuilder(w.sb, fmt.Sprintf("%s.bindMetadata()\n", metadataStoreId))
-	}
-	writeToBuilder(w.sb, "}\n")
-}
+// 	writeToBuilder(w.sb, "default:\n")
+// 	writeToBuilder(w.sb, "return nil\n")
+// 	writeToBuilder(w.sb, "}\n")
+// 	writeToBuilder(w.sb, "}\n")
+// }
 
 func (w *modelWriter) writeTableAccessStructs() {
 	// Database Access Policy
@@ -1002,14 +802,14 @@ func (w *modelWriter) writeTableAccessStructs() {
 			"// if the table does not exist\n",
 	)
 
-	writeToBuilder(w.sb, "func (p *DatabaseAccessPolicy) GetTableAccessPolicy(tableName string) queryModel.TableAccessPolicy {\n")
+	writeToBuilder(w.sb, "func (p *DatabaseAccessPolicy) GetTableAccessPolicy(\ntableName string,\n) (queryModel.TableAccessPolicy, bool) {\n")
 	writeToBuilder(w.sb, "switch tableName {\n")
 	for _, t := range w.metadata.Tables {
 		writeToBuilder(w.sb, fmt.Sprintf("case \"%s\":\n", t.Name))
-		writeToBuilder(w.sb, fmt.Sprintf("return p.%s\n", getTableAccessPolicyName(t.Name)))
+		writeToBuilder(w.sb, fmt.Sprintf("return p.%s, true\n", getTableAccessPolicyName(t.Name)))
 	}
 	writeToBuilder(w.sb, "default:\n")
-	writeToBuilder(w.sb, "return nil\n")
+	writeToBuilder(w.sb, "return nil, false\n")
 	writeToBuilder(w.sb, "}\n")
 	writeToBuilder(w.sb, "}\n")
 	w.writeNewLine()
@@ -1058,14 +858,14 @@ func (w *modelWriter) writeTableAccessStruct(t *builderRepo.TableMetadata) {
 			"// the %s table. Returns nil if the column does not exist\n",
 		t.Name,
 	))
-	writeToBuilder(w.sb, fmt.Sprintf("func (p *%s) GetColumnAccessPolicy(columnName string) queryModel.ColumnAccessPolicy {\n", accessPolicyStructName))
+	writeToBuilder(w.sb, fmt.Sprintf("func (p *%s) GetColumnAccessPolicy(\ncolumnName string,\n) (queryModel.ColumnAccessPolicy, bool) {\n", accessPolicyStructName))
 	writeToBuilder(w.sb, "switch columnName {\n")
 	for _, c := range t.Columns {
 		writeToBuilder(w.sb, fmt.Sprintf("case \"%s\":\n", c.Name))
-		writeToBuilder(w.sb, fmt.Sprintf("return p.%s\n", snakeToPascal(c.Name)))
+		writeToBuilder(w.sb, fmt.Sprintf("return p.%s, true\n", snakeToPascal(c.Name)))
 	}
 	writeToBuilder(w.sb, "default:\n")
-	writeToBuilder(w.sb, "return nil\n")
+	writeToBuilder(w.sb, "return nil, false\n")
 	writeToBuilder(w.sb, "}\n")
 	writeToBuilder(w.sb, "}\n")
 	w.writeNewLine()
@@ -1091,6 +891,10 @@ func getModelProjectionName(tableName string) string {
 
 func modelMetadataStoreIdentifier(tableName string) string {
 	return fmt.Sprintf("%sMetadata", snakeToCamel(tableName))
+}
+
+func getModelResourceStructName(tableName string) string {
+	return fmt.Sprintf("%sResource", snakeToPascal(tableName))
 }
 
 func snakeToPascal(s string) string {

@@ -6,7 +6,7 @@
 //
 // This package takes the alternative approach of calling the relevant
 // metadataBinder and relationshipPlanner methods as operations are added to the
-// data. This allows consuming packages to access the data with the assurance
+// store. This allows consuming packages to access the data with the assurance
 // that all metadata and relationship data will always be populated
 //
 // This file contains the QueryDataStore which is the repository for query data
@@ -27,7 +27,7 @@ import (
 type MetadataBinder interface {
 	ResolveColumn(columnPath string) (mdl.ResolvedColumn, error)
 	ResolvePath(pathString string) (mdl.ResolvedPath, error)
-	ResolveRelationship(resource mdl.TableMetadata, relationshipName string) (mdl.TraversalStep, error)
+	ResolveRelationship(resource mdl.TableData, relationshipName string) (mdl.TraversalStep, error)
 }
 
 // FilterExpressionBuilder provides methods to build FilterExpressions and
@@ -92,7 +92,9 @@ type Expansion struct {
 // relationship planner as they are added to the store
 type QueryDataStore interface {
 	// RootResource is the metadata for the root resource
-	RootResource() mdl.TableMetadata
+	RootResource() mdl.Resource
+
+	RootResourceMetadata() mdl.TableData
 
 	// RootResourceAccessPolicy is the table access policy for the root resource
 	RootResourceAccessPolicy() mdl.TableAccessPolicy
@@ -111,11 +113,11 @@ type QueryDataStore interface {
 	// Alias returns the alias for the query
 	Alias() string
 
-	// Parent alias returns the parent alias or an empty string if no parent
+	// Parent returns the parent query data store, or nil if there is no parent
 	Parent() *queryDataStore
 
 	// LinkFromParent returns the traversal step from the parent to the current
-	// store or null if no parent exists
+	// store or nil if no parent exists
 	LinkFromParent() *mdl.TraversalStep
 
 	// FilterExpressionBuilder returns the filter expression builder for the
@@ -130,6 +132,8 @@ type QueryDataStore interface {
 	// can be used, for instance, to access planned joins for orderby queries
 	JoinCollection() relationships.JoinCollection
 
+	// ProjectionNode returns the projection node for the query. This is used to
+	// set the projection on models and any nested models
 	ProjectionNode() *mdl.ProjectionNode
 
 	// AddSelect adds a named column to the query's select operation. It binds the
@@ -232,10 +236,11 @@ type QueryDataStore interface {
 // in the process, all metadata is set and the relationship plan is current.
 type queryDataStore struct {
 	// overview data
-	queryString    string
-	rootResource   mdl.TableMetadata
-	depth          uint8
-	projectionNode *mdl.ProjectionNode
+	queryString          string
+	rootResource         mdl.Resource
+	rootResourceMetadata mdl.TableData
+	depth                uint8
+	projectionNode       *mdl.ProjectionNode
 
 	// parent
 	parent       *queryDataStore
@@ -265,21 +270,18 @@ type queryDataStore struct {
 // NewQueryDataStore returns a new top-level query data store
 func NewQueryDataStore(
 	queryString string,
-	rootResource mdl.TableMetadata,
+	rootResource mdl.Resource,
 	accessPolicy mdl.AccessPolicy,
 	valueBuilder mdl.ValueBuilder,
 ) (QueryDataStore, error) {
+	// init parentage and depth for top-level query
 	depth := uint8(0)
-
 	var parent *queryDataStore = nil
 	var linkToParent *mdl.TraversalStep = nil
 
-	projection, err := rootResource.InitProjection()
-	if err != nil {
-		return nil, err
-	}
+	// init the root projectionNode for the query
 	projectionNode := &mdl.ProjectionNode{
-		Projection: projection,
+		Projection: rootResource.InitProjection(),
 	}
 
 	return newQueryDataStore(
@@ -294,10 +296,10 @@ func NewQueryDataStore(
 	)
 }
 
-// newQueryDataStore returns a new query data store of the specified depth
+// newQueryDataStore returns a new query data store
 func newQueryDataStore(
 	queryString string,
-	rootResource mdl.TableMetadata,
+	rootResource mdl.Resource,
 	accessPolicy mdl.AccessPolicy,
 	valueBuilder mdl.ValueBuilder,
 	depth uint8,
@@ -305,49 +307,65 @@ func newQueryDataStore(
 	linkToParent *mdl.TraversalStep,
 	projectionNode *mdl.ProjectionNode,
 ) (QueryDataStore, error) {
+	rootResourceMetadata := rootResource.GetMetadata()
 
-	metadataBinder, err := metadataStore.NewMetadataBinder(rootResource, accessPolicy)
+	metadataBinder, err := metadataStore.NewMetadataBinder(
+		rootResourceMetadata,
+		accessPolicy,
+	)
 	if err != nil {
 		return nil, err
 	}
 
-	relationshipPlanner, err := relationships.NewRelationshipPlanner(rootResource)
+	relationshipPlanner, err := relationships.NewRelationshipPlanner(
+		rootResourceMetadata,
+	)
 	if err != nil {
 		return nil, err
 	}
 
-	rootResourceAccessPolicy := accessPolicy.GetTableAccessPolicy(rootResource.Name())
-	if rootResourceAccessPolicy == nil {
+	rootResourceAccessPolicy, exists := accessPolicy.GetTableAccessPolicy(
+		rootResourceMetadata.Name,
+	)
+	if !exists {
 		return nil, qerr.InternalErr(
 			"unable to create new data store: root resource access policy is nil",
 		)
 	}
 
 	return &queryDataStore{
-		depth:               depth,
-		parent:              parent,
-		linkToParent:        linkToParent,
-		projectionNode:      projectionNode,
-		queryString:         queryString,
-		rootResource:        rootResource,
-		accessPolicy:        accessPolicy,
+		queryString:          queryString,
+		rootResource:         rootResource,
+		rootResourceMetadata: rootResourceMetadata,
+		depth:                depth,
+		projectionNode:       projectionNode,
+
+		parent:       parent,
+		linkToParent: linkToParent,
+
 		metadataBinder:      metadataBinder,
 		relationshipPlanner: relationshipPlanner,
-
-		rootResourceAccessPolicy: rootResourceAccessPolicy,
 		filterExpressionBuilder: filterExpressionBuilder{
-			rootResource:        rootResource,
-			metadataBinder:      metadataBinder,
-			relationshipPlanner: relationshipPlanner,
-			valueBuilder:        valueBuilder,
+			rootResourceMetadata: rootResourceMetadata,
+			metadataBinder:       metadataBinder,
+			relationshipPlanner:  relationshipPlanner,
+			valueBuilder:         valueBuilder,
 		},
 		valueBuilder: valueBuilder,
+
+		accessPolicy:             accessPolicy,
+		rootResourceAccessPolicy: rootResourceAccessPolicy,
 	}, nil
 }
 
 // RootResource is the metadata for the root resource
-func (qd *queryDataStore) RootResource() mdl.TableMetadata {
+func (qd *queryDataStore) RootResource() mdl.Resource {
 	return qd.rootResource
+}
+
+// RootResource is the metadata for the root resource
+func (qd *queryDataStore) RootResourceMetadata() mdl.TableData {
+	return qd.rootResourceMetadata
 }
 
 // RootResourceAccessPolicy is the table access policy for the root resource
@@ -377,13 +395,13 @@ func (qd *queryDataStore) Alias() string {
 	return qd.relationshipPlanner.Aliases.GetRootAlias()
 }
 
-// Parent alias returns the parent alias or an empty string if no parent
+// Parent returns the parent query data store, or nil if there is no parent
 func (qd *queryDataStore) Parent() *queryDataStore {
 	return qd.parent
 }
 
 // LinkFromParent returns the traversal step from the parent to the current
-// store or null if no parent exists
+// store or nil if no parent exists
 func (qd *queryDataStore) LinkFromParent() *mdl.TraversalStep {
 	return qd.linkToParent
 }
@@ -406,6 +424,8 @@ func (qd *queryDataStore) JoinCollection() relationships.JoinCollection {
 	return qd.relationshipPlanner.JoinStore
 }
 
+// ProjectionNode returns the projection node for the query. This is used to
+// set the projection on models and any nested models
 func (qd *queryDataStore) ProjectionNode() *mdl.ProjectionNode {
 	return qd.projectionNode
 }
@@ -489,6 +509,7 @@ func (qd *queryDataStore) AddSystemExpand(relationshipId string) (QueryDataStore
 // bound to metadata or if the traversal is not permitted under the access
 // policy.
 func (qd *queryDataStore) addExpand(relationshipId string, doProject bool) (QueryDataStore, error) {
+	// Check that the expand is not being duplicated
 	if qd.expands != nil {
 		if _, exists := qd.expands[relationshipId]; exists {
 			msg := "an expand operations has already been declared for %s"
@@ -500,43 +521,49 @@ func (qd *queryDataStore) addExpand(relationshipId string, doProject bool) (Quer
 		}
 	}
 
-	traversalStep, err := qd.metadataBinder.ResolveRelationship(qd.rootResource, relationshipId)
-	if err != nil {
-		return nil, err
-	}
-
+	// Ensure that the expands slice is initialised
 	if qd.expands == nil {
 		qd.expands = make(map[string]Expansion, 4)
 	}
 
+	// Map the relationship to a traversal step
+	traversalStep, err := qd.metadataBinder.ResolveRelationship(
+		qd.rootResourceMetadata,
+		relationshipId,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	// Compute the expansion depth - Max depth is the responsibility of the
+	// query planner so checking range only
 	if qd.depth == math.MaxUint8 {
 		return nil, qerr.InternalErr(
 			"unable to add expand as it will cause depth overflow",
 		)
 	}
+	expansionDepth := qd.depth + 1
 
-	// Init expanded projection and add to current projection node
-	expandedResource := traversalStep.Relationship.To()
-	expandedProjection, err := expandedResource.InitProjection()
-	if err != nil {
-		return nil, err
-	}
-
+	// Init projection node for the expanded resource
+	expandedResourceData := traversalStep.Relationship.To
 	expandedProjectionNode := &mdl.ProjectionNode{
-		Projection: expandedProjection,
+		Projection: expandedResourceData.InitProjection(),
 	}
+
+	// Add expanded resource projection node as a child of the current query's
+	// projection node
 	if qd.projectionNode.Children == nil {
 		qd.projectionNode.Children = map[string]*mdl.ProjectionNode{}
 	}
-	qd.projectionNode.Children[traversalStep.Relationship.ExpansionColumnName()] = expandedProjectionNode
+	qd.projectionNode.Children[traversalStep.Relationship.ExpansionColumnName] = expandedProjectionNode
 
 	// Build expanded query
 	expandedQuery, err := newQueryDataStore(
 		qd.queryString,
-		expandedResource,
+		expandedResourceData,
 		qd.accessPolicy,
 		qd.valueBuilder,
-		qd.depth+1,
+		expansionDepth,
 		qd,
 		&traversalStep,
 		expandedProjectionNode,
@@ -550,18 +577,16 @@ func (qd *queryDataStore) addExpand(relationshipId string, doProject bool) (Quer
 		TraversalStep: traversalStep,
 	}
 
-	qd.expands[traversalStep.Relationship.Id()] = expansion
+	qd.expands[traversalStep.Relationship.Id] = expansion
 
+	// Add expansion column to the current query's projection where required
 	if doProject {
 		if err := qd.projectionNode.Projection.Add(
-			traversalStep.Relationship.ExpansionColumnName(),
+			traversalStep.Relationship.ExpansionColumnName,
 		); err != nil {
 			return nil, err
 		}
 	}
-
-	qd.AddSystemSelect(traversalStep.Relationship.FromColumn().Name())
-	expansion.QueryData.AddSystemSelect(traversalStep.Relationship.ToColumn().Name())
 
 	return expansion.QueryData, nil
 }
@@ -636,10 +661,10 @@ func (qd *queryDataStore) AddOrderBy(columnPath string, dir mdl.SortDirectionOpe
 	}
 
 	// Check Compatibility
-	if _, isComparable := mdl.ComparableDbTypes[c.Metadata.Type()]; !isComparable {
+	if _, isComparable := mdl.ComparableDbTypes[c.Metadata.Type]; !isComparable {
 		return qerr.SyntaxErr(
 			"%s cannot be used in an orderby operation as its type is not comparable",
-			c.Metadata.Name(),
+			c.Metadata.Name,
 		)
 	}
 

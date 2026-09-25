@@ -40,7 +40,7 @@ func NewQueryService(
 ) (*QueryService, error) {
 	queryExecutor, err := query.NewQueryExecutorFactory(query.QueryExecutorConfig{
 		Repo:                  queryRepo,
-		Schema:                model.NewSchemaMetadata(),
+		Schema:                model.NewSchema(),
 		AccessPolicy:          accessPolicy,
 		PaginationTokenSigner: paginationTokenSigner,
 		PaginationTokenSecret: paginationTokenSecret,

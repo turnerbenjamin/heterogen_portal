@@ -25,7 +25,7 @@ var pathStore = pathCollection{
 // metadata and access policies
 type metadataBinder struct {
 	accessPolicy         mdl.AccessPolicy
-	rootResourceMetadata mdl.TableMetadata
+	rootResourceMetadata mdl.TableData
 	rootAccessPolicy     mdl.TableAccessPolicy
 
 	pathIdBuilder pathIdBuilder
@@ -34,15 +34,9 @@ type metadataBinder struct {
 
 // NewMetadataBinder initialises a new metadata binder
 func NewMetadataBinder(
-	rootMetadata mdl.TableMetadata,
+	rootMetadata mdl.TableData,
 	accessPolicy mdl.AccessPolicy,
 ) (*metadataBinder, error) {
-	if rootMetadata == nil {
-		return nil, qerr.InternalErr(
-			"unable to create new MetadataBinder: rootMetadata cannot be nil",
-		)
-	}
-
 	if accessPolicy == nil {
 		return nil, qerr.InternalErr(
 			"unable to create new MetadataBinder: accessPolicy cannot be nil",
@@ -62,7 +56,7 @@ func NewMetadataBinder(
 		rootResourceMetadata: rootMetadata,
 		rootAccessPolicy:     rootAccessPolicy,
 		pathIdBuilder: pathIdBuilder{
-			root: rootMetadata.Name(),
+			root: rootMetadata.Name,
 			sb:   &strings.Builder{},
 		},
 		pathParser: newPathParser(),
@@ -94,11 +88,11 @@ func (b *metadataBinder) ResolveColumn(columnPath string) (mdl.ResolvedColumn, e
 	}
 
 	resource := resolvedPath.EndResource
-	columnMetadata := resource.GetColumnMetadata(columnName)
-	if columnMetadata == nil {
+	columnMetadata, exists := resource.Columns[columnName]
+	if !exists {
 		return mdl.ResolvedColumn{}, qerr.BindingErr(
 			"table %s does not include a column definition for %s",
-			resource.Name(),
+			resource.Name,
 			columnName,
 		)
 	}
@@ -150,16 +144,12 @@ func (b *metadataBinder) ResolvePath(pathString string) (mdl.ResolvedPath, error
 // Resolve relationship returns a resolved relationship for a given relationship
 // name - Errors are thrown for invalid relationship names or if access to
 // either the from or to columns is not permitted under the access policy
-func (b *metadataBinder) ResolveRelationship(resource mdl.TableMetadata, relationshipName string) (mdl.TraversalStep, error) {
-	if resource == nil {
-		return mdl.TraversalStep{}, qerr.InternalErr("unable to get table access policy: resource cannot be nil")
-	}
-
-	relationshipData := resource.GetRelationshipMetadata(relationshipName)
-	if relationshipData == nil {
+func (b *metadataBinder) ResolveRelationship(resource mdl.TableData, relationshipName string) (mdl.TraversalStep, error) {
+	relationshipData, exists := resource.Relationships[relationshipName]
+	if !exists {
 		return mdl.TraversalStep{}, qerr.BindingErr(
 			"table %s does not include a relationship definition for %s",
-			resource.Name(),
+			resource.Name,
 			relationshipName,
 		)
 	}
@@ -183,15 +173,15 @@ func (b *metadataBinder) ResolveRelationship(resource mdl.TableMetadata, relatio
 // the access policy
 func (b *metadataBinder) resolvePath(
 	pathSegments []string,
-	rootResource mdl.TableMetadata,
+	rootResource mdl.TableData,
 ) (mdl.ResolvedPath, error) {
 	// final pathId
 	traversalPathLength := len(pathSegments)
-	finalPathId := rootResource.Name()
+	finalPathId := rootResource.Name
 	if traversalPathLength > 0 {
 		finalPathId = fmt.Sprintf(
 			"%s/%s",
-			rootResource.Name(),
+			rootResource.Name,
 			strings.Join(pathSegments, "/"),
 		)
 	}
@@ -209,7 +199,7 @@ func (b *metadataBinder) resolvePath(
 
 	// if path has no length return early
 	if traversalPathLength == 0 {
-		o.Id = rootResource.Name()
+		o.Id = rootResource.Name
 		pathStore.writePath(finalPathId, o)
 		return o, nil
 	}
@@ -223,23 +213,23 @@ func (b *metadataBinder) resolvePath(
 	for i < traversalPathLength {
 		// Get relationship data
 		relationshipName := pathSegments[i]
-		relationshipData := o.EndResource.GetRelationshipMetadata(relationshipName)
-		if relationshipData == nil {
+		relationshipData, exists := o.EndResource.Relationships[relationshipName]
+		if !exists {
 			return o, qerr.BindingErr(
 				"%s is not a valid relationship on the '%s' table",
 				relationshipName,
-				o.EndResource.FullyQualifiedName(),
+				o.EndResource.FullyQualifiedName,
 			)
 		}
 
 		// validate relationship type
-		relationshipType := relationshipData.Type()
+		relationshipType := relationshipData.Type
 		isIntermediateStep := i < traversalPathLength-1
 		if isIntermediateStep && relationshipType == mdl.RelationshipOneToMany {
 			return o, qerr.BindingErr(
 				"%s is a 1:N relationship and cannot be used as an "+
 					"intermediate path step, please use a collection operator",
-				relationshipData.ColumnName(),
+				relationshipData.ColumnName,
 			)
 		}
 
@@ -259,7 +249,7 @@ func (b *metadataBinder) resolvePath(
 		}
 
 		// update the final end resource and relationship type
-		o.EndResource = relationshipData.To()
+		o.EndResource = relationshipData.To.GetMetadata()
 		o.Type = relationshipType
 		i++
 	}
@@ -282,28 +272,36 @@ func (b *metadataBinder) resolvePath(
 // granted for both the from and to columns - An error is returned if access is
 // not permitted, else nil
 func (b *metadataBinder) validateTraversalPermissions(step mdl.TraversalStep) error {
-	fromTableAccessPolicy, err := getTableAccessPolicy(b.accessPolicy, step.Relationship.From())
+	fromResourceMetadata := step.Relationship.From.GetMetadata()
+	fromTableAccessPolicy, err := getTableAccessPolicy(
+		b.accessPolicy,
+		fromResourceMetadata,
+	)
 	if err != nil {
 		return err
 	}
 
 	err = validateColumnAccess(
 		fromTableAccessPolicy,
-		step.Relationship.From(),
-		step.Relationship.FromColumn(),
+		fromResourceMetadata,
+		step.Relationship.FromColumn,
 	)
 	if err != nil {
 		return err
 	}
 
-	toTableAccessPolicy, err := getTableAccessPolicy(b.accessPolicy, step.Relationship.To())
+	toResourceMetadata := step.Relationship.To.GetMetadata()
+	toTableAccessPolicy, err := getTableAccessPolicy(
+		b.accessPolicy,
+		toResourceMetadata,
+	)
 	if err != nil {
 		return err
 	}
 	err = validateColumnAccess(
 		toTableAccessPolicy,
-		step.Relationship.To(),
-		step.Relationship.ToColumn(),
+		toResourceMetadata,
+		step.Relationship.ToColumn,
 	)
 	if err != nil {
 		return err
@@ -317,23 +315,23 @@ func (b *metadataBinder) validateTraversalPermissions(step mdl.TraversalStep) er
 // else nil
 func validateColumnAccess(
 	tableAccessPolicy mdl.TableAccessPolicy,
-	tableData mdl.TableMetadata,
-	columnData mdl.ColumnMetadata,
+	tableData mdl.TableData,
+	columnData mdl.ColumnData,
 ) error {
-	columnAccessPolicy := tableAccessPolicy.GetColumnAccessPolicy(columnData.Name())
-	if columnAccessPolicy == nil {
+	columnAccessPolicy, exists := tableAccessPolicy.GetColumnAccessPolicy(columnData.Name)
+	if !exists {
 		return qerr.InternalErr(
 			"unable to find access policy for %s.%s",
-			tableData.Name(),
-			columnData.Name(),
+			tableData.Name,
+			columnData.Name,
 		)
 	}
 
 	if !columnAccessPolicy.CanAccess() {
 		return qerr.AccessErr(
 			"you do not have permission to access the %s column on the %s table",
-			columnData.Name(),
-			tableData.Name(),
+			columnData.Name,
+			tableData.Name,
 		)
 	}
 	return nil
@@ -344,19 +342,19 @@ func validateColumnAccess(
 // not permitted under the access policy
 func getTableAccessPolicy(
 	accessPolicy mdl.AccessPolicy,
-	tableData mdl.TableMetadata,
+	tableData mdl.TableData,
 ) (mdl.TableAccessPolicy, error) {
 	if accessPolicy == nil {
 		return nil, qerr.InternalErr("access policy cannot be nil")
 	}
 
-	tablePolicy := accessPolicy.GetTableAccessPolicy(tableData.Name())
-	if tablePolicy == nil {
-		return nil, qerr.InternalErr("unable to find access policy for the %s table", tableData.Name())
+	tablePolicy, exists := accessPolicy.GetTableAccessPolicy(tableData.Name)
+	if !exists {
+		return nil, qerr.InternalErr("unable to find access policy for the %s table", tableData.Name)
 	}
 
 	if !tablePolicy.CanAccess() {
-		return nil, qerr.AccessErr("you do not have permission to access the %s table", tableData.Name())
+		return nil, qerr.AccessErr("you do not have permission to access the %s table", tableData.Name)
 	}
 	return tablePolicy, nil
 }

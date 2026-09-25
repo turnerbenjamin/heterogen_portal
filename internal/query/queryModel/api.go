@@ -15,17 +15,17 @@ type ExecuteResult struct {
 // executor
 type QueryConfig struct {
 	// DefaultPageSize represents the default limit applied when no limit is
-	// specified in the query string - This property defaults to 5,000
+	// specified in the query string - This property defaults to 500
 	DefaultPageSize uint32
 
 	// MaxRecordsPerPage represents the maximum number of records, including
 	// both top-level and nested records, returned in a given query - This
-	// property defaults to 25,000
+	// property defaults to 100_000
 	MaxRecordsPerPage uint32
 
 	// MaxDepth represents the maximum depth of expand statements - A depth of 1
 	// would allow a single expand statement on the top-level query with no
-	// nested expand statements - The default is 5
+	// nested expand statements - The default is 10
 	MaxDepth uint8
 }
 
@@ -33,15 +33,15 @@ type QueryConfig struct {
 // values
 func QueryConfigWithDefaults(config QueryConfig) QueryConfig {
 	if config.DefaultPageSize == 0 {
-		config.DefaultPageSize = 5_000
+		config.DefaultPageSize = 500
 	}
 
 	if config.MaxRecordsPerPage == 0 {
-		config.MaxRecordsPerPage = 25_000
+		config.MaxRecordsPerPage = 100_000
 	}
 
 	if config.MaxDepth == 0 {
-		config.MaxDepth = 5
+		config.MaxDepth = 10
 	}
 	return config
 }

@@ -30,7 +30,7 @@ func PlanQuery(
 	queryParser QueryParser,
 	pagingTokenBuilder PagingTokenBuilder,
 	valueBuilder mdl.ValueBuilder,
-	rootResource mdl.TableMetadata,
+	rootResource mdl.Resource,
 	accessPolicy mdl.AccessPolicy,
 ) (qstore.QueryDataStore, error) {
 	// Initialise query data store
@@ -79,7 +79,8 @@ func PlanQuery(
 	// Validate Query Size
 	if totalRecordCount > config.MaxRecordsPerPage {
 		return nil, qerr.SyntaxErr(
-			"invalid query: queries that could breach the maximum record count of %d are not permitted",
+			"invalid query: this query could return up to %d records; the limit is %d",
+			totalRecordCount,
 			config.MaxRecordsPerPage,
 		)
 	}
@@ -91,7 +92,7 @@ func initStore(
 	queryString string,
 	queryParser QueryParser,
 	valueBuilder mdl.ValueBuilder,
-	rootResource mdl.TableMetadata,
+	rootResource mdl.Resource,
 	accessPolicy mdl.AccessPolicy,
 ) (qstore.QueryDataStore, error) {
 	s, err := qstore.NewQueryDataStore(
@@ -151,7 +152,11 @@ func planQuery(
 		if err != nil {
 			return 0, err
 		}
-		totalRecordCount += nestedRecordCount
+		if expansion.TraversalStep.Relationship.Type == mdl.RelationshipManyToOne {
+			totalRecordCount += 1
+		} else {
+			totalRecordCount *= nestedRecordCount
+		}
 	}
 
 	// Add cursor filter where required
@@ -163,6 +168,8 @@ func planQuery(
 }
 
 func addSystemDefaults(s qstore.QueryDataStore, config mdl.QueryConfig) error {
+	rootResourceMetadata := s.RootResourceMetadata()
+
 	p := s.ProjectionNode().Projection
 	if p.IsEmpty() {
 		if err := addDefaultSelects(s); err != nil {
@@ -175,7 +182,10 @@ func addSystemDefaults(s qstore.QueryDataStore, config mdl.QueryConfig) error {
 	}
 
 	if s.OrderByLen() == 0 {
-		s.AddOrderBy(s.RootResource().PrimaryKeyField().Name(), mdl.SortDirectionAsc)
+		s.AddOrderBy(
+			rootResourceMetadata.PrimaryKeyColumn.Name,
+			mdl.SortDirectionAsc,
+		)
 
 	}
 
@@ -185,14 +195,15 @@ func addSystemDefaults(s qstore.QueryDataStore, config mdl.QueryConfig) error {
 func addDefaultSelects(s qstore.QueryDataStore) error {
 	// Add all columns the user can access to the table
 	tableAccessPolicy := s.RootResourceAccessPolicy()
+	rootResourceMetadata := s.RootResourceMetadata()
 
 	i := 0
-	for col := range s.RootResource().Columns() {
-		colAccessPolicy := tableAccessPolicy.GetColumnAccessPolicy(col.Name())
-		if colAccessPolicy == nil {
+	for _, col := range rootResourceMetadata.Columns {
+		colAccessPolicy, exists := tableAccessPolicy.GetColumnAccessPolicy(col.Name)
+		if !exists {
 			return qerr.InternalErr(
 				"unable to add default select: access policy for %s is nil",
-				col.Name(),
+				col.Name,
 			)
 		}
 
@@ -200,7 +211,7 @@ func addDefaultSelects(s qstore.QueryDataStore) error {
 			continue
 		}
 
-		if err := s.AddSelect(col.Name()); err != nil {
+		if err := s.AddSelect(col.Name); err != nil {
 			return err
 		}
 		i++
@@ -214,12 +225,12 @@ func addDefaultSelects(s qstore.QueryDataStore) error {
 
 func ensureDeterministicOrdering(s qstore.QueryDataStore) error {
 
-	primaryKeyField := s.RootResource().PrimaryKeyField().Name()
+	primaryKeyField := s.RootResourceMetadata().PrimaryKeyColumn.Name
 
 	// exit early if query is already sorted by the primary key field
 	for rule := range s.OrderBy() {
 		if len(rule.ResolvedColumn.ResolvedPath.Steps) == 0 &&
-			rule.ResolvedColumn.Metadata.Name() == primaryKeyField {
+			rule.ResolvedColumn.Metadata.Name == primaryKeyField {
 			return nil
 		}
 	}
@@ -235,7 +246,7 @@ func addRequiredOperationsForCursorPagination(s qstore.QueryDataStore) error {
 		col := rule.ResolvedColumn
 		// If column is on the root resource just add a system select
 		if len(col.ResolvedPath.Steps) == 0 {
-			if err := s.AddSystemSelect(col.Metadata.Name()); err != nil {
+			if err := s.AddSystemSelect(col.Metadata.Name); err != nil {
 				return err
 			}
 		} else {
@@ -254,7 +265,7 @@ func addNestedSystemSelect(s qstore.QueryDataStore, resolvedColumn mdl.ResolvedC
 	nextStep := resolvedColumn.ResolvedPath.Steps[0]
 
 	// Check for existing nested operation
-	nestedOperation, exists := s.GetExpansionByRelationshipId(nextStep.Relationship.Id())
+	nestedOperation, exists := s.GetExpansionByRelationshipId(nextStep.Relationship.ColumnName)
 	if exists {
 		// bring resolved column path forward to root from expanded entity
 		remainingSteps := resolvedColumn.ResolvedPath.Steps[1:]
@@ -263,7 +274,7 @@ func addNestedSystemSelect(s qstore.QueryDataStore, resolvedColumn mdl.ResolvedC
 		// If an existing nested query is found for the orderby column, add a
 		// system select to that query for the column and return
 		if len(remainingSteps) == 0 {
-			return nestedOperation.QueryData.AddSystemSelect(resolvedColumn.Metadata.Name())
+			return nestedOperation.QueryData.AddSystemSelect(resolvedColumn.Metadata.Name)
 		} else {
 			// If a nested query is found, but it is not the final resource, recall
 			// the current function against the nested query with the remaining path
@@ -284,19 +295,19 @@ func addSystemExpand(s qstore.QueryDataStore, resolvedColumn mdl.ResolvedColumn)
 	for i := totalSteps - 1; i >= 0; i-- {
 		step := pathSteps[i]
 
-		nestedOperations, err := currentStore.AddSystemExpand(step.Relationship.FromColumn().Name())
+		nestedOperations, err := currentStore.AddSystemExpand(step.Relationship.FromColumn.Name)
 		if err != nil {
 			return err
 		}
 
-		nestedResource := nestedOperations.RootResource()
+		nestedResource := nestedOperations.RootResourceMetadata()
 
 		if i == totalSteps-1 {
-			if err := nestedOperations.AddSelect(resolvedColumn.Metadata.Name()); err != nil {
+			if err := nestedOperations.AddSelect(resolvedColumn.Metadata.Name); err != nil {
 				return err
 			}
 		} else {
-			if err := nestedOperations.AddSelect(nestedResource.Name()); err != nil {
+			if err := nestedOperations.AddSelect(nestedResource.Name); err != nil {
 				return err
 			}
 		}
