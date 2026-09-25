@@ -4,11 +4,41 @@
 // This file contains models used in the API with consuming packages
 package queryModel
 
+import "context"
+
 // ExecuteResult represents the type returned when Executing a Query
 type ExecuteResult struct {
-	Count         *int64       `json:"count,omitempty"`
+	Count         *uint64      `json:"count,omitempty"`
 	NextPageToken string       `json:"next_page_token,omitempty"`
 	Data          []TableModel `json:"data"`
+}
+
+// QueryStatement represents a query statement and the args for any placeholder
+// values
+type QueryStatement struct {
+	// Statement is an sql query statement
+	Statement string
+
+	// Args is the concrete values for any placeholders in the statement
+	Args []any
+}
+
+// Repository executes requests against the underlying data source.
+type Repository interface {
+	// ExecuteJsonRequest executes a query with the supplied arguments and returns
+	// the response body.
+	ExecuteJsonRequest(
+		ctx context.Context,
+		query QueryStatement,
+	) ([]byte, error)
+
+	// ExecuteJsonRequestWithCount executes a query and a count query using the
+	// supplied shared arguments, returning the response body and total count.
+	ExecuteJsonRequestWithCount(
+		ctx context.Context,
+		mainQuery QueryStatement,
+		countQuery QueryStatement,
+	) ([]byte, *uint64, error)
 }
 
 // QueryConfig is used to set configuration options on the query

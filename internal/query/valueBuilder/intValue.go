@@ -1,6 +1,9 @@
 package valueBuilder
 
-import mdl "github.com/turnerbenjamin/heterogen_portal/internal/query/queryModel"
+import (
+	querybuilder "github.com/turnerbenjamin/heterogen_portal/internal/query/queryBuilder"
+	mdl "github.com/turnerbenjamin/heterogen_portal/internal/query/queryModel"
+)
 
 type intValue struct {
 	value int64
@@ -29,11 +32,12 @@ func (v intValue) SupportsOperator(op mdl.ComparisonOperator) bool {
 }
 
 func (v intValue) WriteFilterExpression(
+	b *querybuilder.Builder,
 	w mdl.QueryWriter,
 	fieldName string,
 	op mdl.ComparisonOperator,
 ) error {
-	return w.WriteFilterExpressionInt(fieldName, op, v.value)
+	return w.WriteFilterExpressionInt(b, fieldName, op, v.value)
 }
 
 func (v intValue) Serialise(s mdl.Serialiser) {

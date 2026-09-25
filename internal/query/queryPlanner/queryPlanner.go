@@ -21,7 +21,7 @@ type QueryParser interface {
 	Parse(
 		queryString string,
 		queryDataStore qstore.QueryDataStore,
-	) error
+	) (uint8, error)
 }
 
 func PlanQuery(
@@ -34,7 +34,7 @@ func PlanQuery(
 	accessPolicy mdl.AccessPolicy,
 ) (qstore.QueryDataStore, error) {
 	// Initialise query data store
-	s, err := initStore(
+	s, operationCount, err := initStore(
 		queryString,
 		queryParser,
 		valueBuilder,
@@ -56,9 +56,20 @@ func PlanQuery(
 			return nil, err
 		}
 
-		// TODO implement token validation logic - potentially reset store rather
-		// than reinit
-		s, err = initStore(
+		if operationCount > 1 {
+			return nil, qerr.SyntaxErr(
+				"pagingToken must not be used alongside other operations",
+			)
+		}
+
+		if rootResource.GetMetadata().Name != pagingToken.ResourceName {
+			return nil, qerr.SyntaxErr(
+				"invalid paging token: this token can only be used with %s",
+				pagingToken.ResourceName,
+			)
+		}
+
+		s, _, err = initStore(
 			pagingToken.QueryString,
 			queryParser,
 			valueBuilder,
@@ -94,7 +105,7 @@ func initStore(
 	valueBuilder mdl.ValueBuilder,
 	rootResource mdl.Resource,
 	accessPolicy mdl.AccessPolicy,
-) (qstore.QueryDataStore, error) {
+) (qstore.QueryDataStore, uint8, error) {
 	s, err := qstore.NewQueryDataStore(
 		queryString,
 		rootResource,
@@ -102,15 +113,16 @@ func initStore(
 		valueBuilder,
 	)
 	if err != nil {
-		return nil, err
+		return nil, uint8(0), err
 	}
 
 	// Parse query string into data store
-	if err := queryParser.Parse(queryString, s); err != nil {
-		return nil, err
+	operationCount, err := queryParser.Parse(queryString, s)
+	if err != nil {
+		return nil, uint8(0), err
 	}
 
-	return s, nil
+	return s, operationCount, nil
 }
 
 func planQuery(

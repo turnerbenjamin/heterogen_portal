@@ -11,21 +11,6 @@ import (
 	"github.com/turnerbenjamin/heterogen_portal/internal/queryAccessPolicies"
 )
 
-type QueryRepo interface {
-	ExecuteJsonRequest(
-		ctx context.Context,
-		queryStatementStr string,
-		args []any,
-	) ([]byte, error)
-
-	ExecuteJsonRequestWithCount(
-		ctx context.Context,
-		queryStatementStr string,
-		countStatementStr string,
-		sharedArgs []any,
-	) ([]byte, *int64, error)
-}
-
 type QueryService struct {
 	queryExecutor query.QueryExecutor
 }
@@ -33,7 +18,7 @@ type QueryService struct {
 var accessPolicy = queryAccessPolicies.GetAnonymousAccessPolicy()
 
 func NewQueryService(
-	queryRepo QueryRepo,
+	queryRepo queryModel.Repository,
 	paginationTokenSigner queryModel.PayloadSigner,
 	paginationTokenSecret []byte,
 
@@ -70,5 +55,5 @@ func (s *QueryService) Execute(ctx context.Context, resource string, queryString
 			ResponseType: etc.ResponseTypeJson,
 		}
 	}
-	return &results, nil
+	return results, nil
 }

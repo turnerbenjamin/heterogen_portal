@@ -141,9 +141,9 @@ func getCursorValues(
 	i := 0
 	for rule := range s.OrderBy() {
 		nextRecordValue, err := lastRecord.GetValue(
+			s.FilterExpressionBuilder().ValueBuilder(),
 			rule.ResolvedColumn.ResolvedPath.Steps,
 			rule.ResolvedColumn.Metadata.Name,
-			s.FilterExpressionBuilder().ValueBuilder(),
 		)
 		if err != nil {
 			return nil, err

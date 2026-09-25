@@ -6,8 +6,9 @@
 package queryModel
 
 import (
-	"context"
 	"time"
+
+	querybuilder "github.com/turnerbenjamin/heterogen_portal/internal/query/queryBuilder"
 )
 
 // DbType represents the normalized database type
@@ -127,50 +128,46 @@ type Deserialiser interface {
 type QueryWriter interface {
 
 	// WriteQueryStatement builds a query statement
-	WriteQueryStatement() string
+	WriteQueryStatement() (QueryStatement, error)
 
-	// WriteCountStatement builds an additional statement which will get the
-	// total record count for a given query
-	WriteCountStatement() string
-
-	// Args is a slice of values for each placeholder in the query and count
-	// statements
-	Args() []any
+	// WriteCountStatement builds a statement which returns the count of records
+	// that match the main query
+	WriteCountStatement() (QueryStatement, error)
 
 	// WriteFilterExpressionNull writes a comparison expression for a null value
-	WriteFilterExpressionNull(field string, op ComparisonOperator) error
+	WriteFilterExpressionNull(sb *querybuilder.Builder, field string, op ComparisonOperator) error
 
 	// WriteFilterExpressionString writes a comparison expression for a string
 	// value
-	WriteFilterExpressionString(field string, op ComparisonOperator, value string) error
+	WriteFilterExpressionString(sb *querybuilder.Builder, field string, op ComparisonOperator, value string) error
 
 	// WriteFilterExpressionInt writes a comparison expression for an integer
 	// value
-	WriteFilterExpressionInt(field string, op ComparisonOperator, value int64) error
+	WriteFilterExpressionInt(sb *querybuilder.Builder, field string, op ComparisonOperator, value int64) error
 
 	// WriteFilterExpressionFloat writes a comparison expression for a
 	// floating-point value
-	WriteFilterExpressionFloat(field string, op ComparisonOperator, value float64) error
+	WriteFilterExpressionFloat(sb *querybuilder.Builder, field string, op ComparisonOperator, value float64) error
 
 	// WriteFilterExpressionPoint writes a comparison expression for a
 	// geographic point value
-	WriteFilterExpressionPoint(field string, op ComparisonOperator, value Point) error
+	WriteFilterExpressionPoint(sb *querybuilder.Builder, field string, op ComparisonOperator, value Point) error
 
 	// WriteFilterExpressionDateTime writes a comparison expression for a time
 	// value
-	WriteFilterExpressionDateTime(field string, op ComparisonOperator, value time.Time) error
+	WriteFilterExpressionDateTime(sb *querybuilder.Builder, field string, op ComparisonOperator, value time.Time) error
 
 	// WriteFilterExpressionStringList writes a comparison expression where the
 	// value is list of string values
-	WriteFilterExpressionStringList(field string, op ComparisonOperator, value []string) error
+	WriteFilterExpressionStringList(sb *querybuilder.Builder, field string, op ComparisonOperator, value []string) error
 
 	// WriteFilterExpressionIntList writes a comparison expression where the
 	// value is list of integer values
-	WriteFilterExpressionIntList(field string, op ComparisonOperator, value []int64) error
+	WriteFilterExpressionIntList(sb *querybuilder.Builder, field string, op ComparisonOperator, value []int64) error
 
 	// WriteFilterExpressionFloatList writes a comparison expression where the
 	// value is list of floating-point values
-	WriteFilterExpressionFloatList(field string, op ComparisonOperator, value []float64) error
+	WriteFilterExpressionFloatList(sb *querybuilder.Builder, field string, op ComparisonOperator, value []float64) error
 }
 
 // Value represents a concrete value type within a query. Value abstracts the
@@ -199,6 +196,7 @@ type Value interface {
 	// write comparison expressions for all types - The implementation should
 	// just pass the underlying value to the appropriate QueryWriter method
 	WriteFilterExpression(
+		b *querybuilder.Builder,
 		writer QueryWriter,
 		fieldName string,
 		operator ComparisonOperator,
@@ -529,24 +527,4 @@ type PayloadSigner interface {
 
 	// Verify verifies a signed value and returns the original data when valid.
 	Verify(secret []byte, value string) (data []byte, ok bool)
-}
-
-// Repository executes requests against the underlying data source.
-type Repository interface {
-	// ExecuteJsonRequest executes a query with the supplied arguments and returns
-	// the response body.
-	ExecuteJsonRequest(
-		ctx context.Context,
-		queryStatementStr string,
-		args []any,
-	) ([]byte, error)
-
-	// ExecuteJsonRequestWithCount executes a query and a count query using the
-	// supplied shared arguments, returning the response body and total count.
-	ExecuteJsonRequestWithCount(
-		ctx context.Context,
-		queryStatementStr string,
-		countStatementStr string,
-		sharedArgs []any,
-	) ([]byte, *int64, error)
 }

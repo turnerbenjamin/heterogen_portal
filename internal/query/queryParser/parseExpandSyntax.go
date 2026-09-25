@@ -28,7 +28,12 @@ func parseExpandOperation(
 			_ = t.Next()
 
 			// parse operations returns operations and consumes closing parenthesis
-			err := parseOperations(expandOperations, t, TokenSemiColon, TokenParenR)
+			_, err := parseOperations(
+				expandOperations,
+				t,
+				TokenSemiColon,
+				TokenParenR,
+			)
 			if err != nil {
 				return err
 			}

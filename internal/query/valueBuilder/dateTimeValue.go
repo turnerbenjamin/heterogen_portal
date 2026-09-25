@@ -3,6 +3,7 @@ package valueBuilder
 import (
 	"time"
 
+	querybuilder "github.com/turnerbenjamin/heterogen_portal/internal/query/queryBuilder"
 	mdl "github.com/turnerbenjamin/heterogen_portal/internal/query/queryModel"
 )
 
@@ -33,11 +34,12 @@ func (v dateTimeValue) SupportsOperator(op mdl.ComparisonOperator) bool {
 }
 
 func (v dateTimeValue) WriteFilterExpression(
+	b *querybuilder.Builder,
 	w mdl.QueryWriter,
 	fieldName string,
 	op mdl.ComparisonOperator,
 ) error {
-	return w.WriteFilterExpressionDateTime(fieldName, op, v.value)
+	return w.WriteFilterExpressionDateTime(b, fieldName, op, v.value)
 }
 
 func (v dateTimeValue) Serialise(s mdl.Serialiser) {

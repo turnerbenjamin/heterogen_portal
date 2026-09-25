@@ -190,10 +190,10 @@ func (w *modelWriter) writeResourceDefinition(tableData *builderRepo.TableMetada
 	w.writeResourceGetMetadataFunc(resourceTypeName, tableData)
 	w.writeNewLine()
 
-	w.writeResourceInitModelFunc(resourceTypeName, tableData)
+	w.writeResourceInitProjectionFunc(resourceTypeName, tableData)
 	w.writeNewLine()
 
-	w.writeResourceInitProjectionFunc(resourceTypeName, tableData)
+	w.WriteResourceSliceFromJSONFunction(resourceTypeName, tableData)
 	w.writeNewLine()
 }
 
@@ -207,16 +207,6 @@ func (w *modelWriter) writeResourceGetMetadataFunc(
 	writeToBuilder(w.sb, "}\n")
 }
 
-func (w *modelWriter) writeResourceInitModelFunc(
-	resourceTypeName string,
-	tableData *builderRepo.TableMetadata,
-) {
-	modelStructIdentifier := getModelStructName(tableData.Name)
-	writeToBuilder(w.sb, fmt.Sprintf("func (r %s) InitModel() queryModel.TableModel { \n", resourceTypeName))
-	writeToBuilder(w.sb, fmt.Sprintf("return new(%s)", modelStructIdentifier))
-	writeToBuilder(w.sb, "}\n")
-}
-
 func (w *modelWriter) writeResourceInitProjectionFunc(
 	resourceTypeName string,
 	tableData *builderRepo.TableMetadata,
@@ -224,6 +214,36 @@ func (w *modelWriter) writeResourceInitProjectionFunc(
 	modelProjectionIdentifier := getModelProjectionName(tableData.Name)
 	writeToBuilder(w.sb, fmt.Sprintf("func (r %s) InitProjection() queryModel.Projection { \n", resourceTypeName))
 	writeToBuilder(w.sb, fmt.Sprintf("return new(%s)", modelProjectionIdentifier))
+	writeToBuilder(w.sb, "}\n")
+}
+
+func (w *modelWriter) WriteResourceSliceFromJSONFunction(resourceTypeName string, tableData *builderRepo.TableMetadata) {
+	writeToBuilder(w.sb, fmt.Sprintf(
+		"// SliceFromJSON unmarshals a json array of %s and returns it as a slice\n",
+		tableData.Name,
+	))
+
+	writeToBuilder(w.sb, fmt.Sprintf("func (m %s) SliceFromJSON(jsonData []byte, projectionNode *queryModel.ProjectionNode) ([]queryModel.TableModel, error) {\n", resourceTypeName))
+
+	writeToBuilder(w.sb, "if len(jsonData) == 0 {\n")
+	writeToBuilder(w.sb, "return []queryModel.TableModel{}, nil\n")
+	writeToBuilder(w.sb, "}\n\n")
+
+	modelStructName := getModelStructName(tableData.Name)
+	writeToBuilder(w.sb, fmt.Sprintf("var concreteSlice []*%s\n", modelStructName))
+
+	writeToBuilder(w.sb, "if err := json.Unmarshal(jsonData, &concreteSlice); err != nil {\n")
+	writeToBuilder(w.sb, "return nil, err\n")
+	writeToBuilder(w.sb, "}\n")
+
+	writeToBuilder(w.sb, "result := make([]queryModel.TableModel, len(concreteSlice))\n\n")
+
+	writeToBuilder(w.sb, "for i := range concreteSlice {\n")
+	writeToBuilder(w.sb, "concreteSlice[i].SetProjection(projectionNode)\n")
+	writeToBuilder(w.sb, "result[i] = concreteSlice[i]\n")
+	writeToBuilder(w.sb, "}\n")
+
+	writeToBuilder(w.sb, "return result, nil\n")
 	writeToBuilder(w.sb, "}\n")
 }
 
@@ -368,7 +388,7 @@ func (w *modelWriter) WriteTableModel(tableData *builderRepo.TableMetadata) {
 	collectionType := getModelCollectionType(tableData.Name)
 	writeToBuilder(w.sb, fmt.Sprintf("type %s []*%s\n\n", collectionType, structName))
 
-	w.WriteGetSliceGetterFunction(structName, tableData)
+	w.WriteResourceSliceFromJSONFunction(structName, tableData)
 	w.writeNewLine()
 	w.WriteSetProjectionFunction(structName, tableData)
 	w.writeNewLine()
@@ -381,35 +401,6 @@ func (w *modelWriter) WriteTableModel(tableData *builderRepo.TableMetadata) {
 	w.WriteGetValueExpressionPrivateFunction(structName, tableData)
 	w.writeNewLine()
 	w.WriteProjectionFunction(structName, tableData)
-}
-
-func (w *modelWriter) WriteGetSliceGetterFunction(modelStructName string, tableData *builderRepo.TableMetadata) {
-	writeToBuilder(w.sb, fmt.Sprintf(
-		"// NewSlice unmarshals a json array of %s and returns it as a slice\n",
-		tableData.Name,
-	))
-
-	writeToBuilder(w.sb, fmt.Sprintf("func (m *%s) NewSlice(jsonData []byte, projectionNode *queryModel.ProjectionNode) ([]queryModel.TableModel, error) {\n", modelStructName))
-
-	writeToBuilder(w.sb, "if len(jsonData) == 0 {\n")
-	writeToBuilder(w.sb, "return []queryModel.TableModel{}, nil\n")
-	writeToBuilder(w.sb, "}\n\n")
-
-	writeToBuilder(w.sb, fmt.Sprintf("var concreteSlice []*%s\n", modelStructName))
-
-	writeToBuilder(w.sb, "if err := json.Unmarshal(jsonData, &concreteSlice); err != nil {\n")
-	writeToBuilder(w.sb, "return nil, err\n")
-	writeToBuilder(w.sb, "}\n")
-
-	writeToBuilder(w.sb, "result := make([]queryModel.TableModel, len(concreteSlice))\n\n")
-
-	writeToBuilder(w.sb, "for i := range concreteSlice {\n")
-	writeToBuilder(w.sb, "concreteSlice[i].SetProjection(projectionNode)\n")
-	writeToBuilder(w.sb, "result[i] = concreteSlice[i]\n")
-	writeToBuilder(w.sb, "}\n")
-
-	writeToBuilder(w.sb, "return result, nil\n")
-	writeToBuilder(w.sb, "}\n")
 }
 
 func (w *modelWriter) WriteSetProjectionFunction(modelStructName string, tableData *builderRepo.TableMetadata) {
@@ -545,7 +536,7 @@ func (w *modelWriter) WriteModelMarshalJSONFunction(modelStructName string, tabl
 func (w *modelWriter) WriteGetValueExpressionFunction(modelStructName string, tableData *builderRepo.TableMetadata) {
 	writeToBuilder(w.sb, "// GetValue returns the value from a given path\n")
 
-	writeToBuilder(w.sb, fmt.Sprintf("func (m *%s) GetValue(path []*queryModel.TraversalStep, columnName string, v queryModel.ValueBuilder) (queryModel.Value, error){\n", modelStructName))
+	writeToBuilder(w.sb, fmt.Sprintf("func (m *%s) GetValue(v queryModel.ValueBuilder, path []*queryModel.TraversalStep, columnName string) (queryModel.Value, error){\n", modelStructName))
 	writeToBuilder(w.sb, "if len(path) > 0 {\n")
 	writeToBuilder(w.sb, "nextStep := path[0]\n")
 	writeToBuilder(w.sb, "nextEntity, nextEntityIsNil, err := m.getRelatedEntity(nextStep.Relationship)\n")
@@ -558,7 +549,7 @@ func (w *modelWriter) WriteGetValueExpressionFunction(modelStructName string, ta
 	writeToBuilder(w.sb, "return v.Null(), nil\n")
 	writeToBuilder(w.sb, "}\n")
 
-	writeToBuilder(w.sb, "return nextEntity.GetValue(path[1:], columnName, v)\n")
+	writeToBuilder(w.sb, "return nextEntity.GetValue(v, path[1:], columnName)\n")
 	writeToBuilder(w.sb, "}\n")
 
 	writeToBuilder(w.sb, "val, err := m.getValue(columnName, v)\n")

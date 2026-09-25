@@ -27,9 +27,9 @@ func NewQueryParser() qplan.QueryParser {
 func (p *QuerySyntaxParser) Parse(
 	queryString string,
 	s qstore.QueryDataStore,
-) error {
+) (uint8, error) {
 	if strings.TrimSpace(queryString) == "" {
-		return nil
+		return uint8(0), nil
 	}
 
 	tokeniser := NewTokeniser(queryString)
@@ -49,21 +49,20 @@ func parseOperations(
 	t *Tokeniser,
 	operationSeparator tokenType,
 	operationTerminator tokenType,
-) error {
+) (uint8, error) {
+	var operationCount uint8 = 0
 	for {
 		// Parse next token
 		tkn := t.Next()
 		if tkn.Type != TokenIdentifier {
-			return t.TknErr(tkn, "expected an operator but received '%s'", tkn.Value)
+			return 0, t.TknErr(tkn, "expected an operator but received '%s'", tkn.Value)
 		}
 		operator := strings.ToLower(tkn.Value)
-
-		
 
 		// Expect operator to be followed by equals token
 		tkn = t.Next()
 		if tkn.Type != TokenEquals {
-			return t.TknErr(tkn, "expected '=' but received '%s'", tkn.Value)
+			return 0, t.TknErr(tkn, "expected '=' but received '%s'", tkn.Value)
 		}
 
 		switch operator {
@@ -74,7 +73,7 @@ func parseOperations(
 				operationSeparator,
 				operationTerminator,
 			); err != nil {
-				return err
+				return 0, err
 			}
 
 		case "expand":
@@ -84,7 +83,7 @@ func parseOperations(
 				operationSeparator,
 				operationTerminator,
 			); err != nil {
-				return err
+				return 0, err
 			}
 
 		case "filter":
@@ -94,7 +93,7 @@ func parseOperations(
 				operationSeparator,
 				operationTerminator,
 			); err != nil {
-				return err
+				return 0, err
 			}
 
 		case "orderby":
@@ -104,17 +103,17 @@ func parseOperations(
 				operationSeparator,
 				operationTerminator,
 			); err != nil {
-				return err
+				return 0, err
 			}
 
 		case "limit":
 			if err := parseLimitOperation(s, t); err != nil {
-				return err
+				return 0, err
 			}
 
 		case "count":
 			if err := parseCountOperation(s, t); err != nil {
-				return err
+				return 0, err
 			}
 
 		case "pagingtoken":
@@ -124,22 +123,22 @@ func parseOperations(
 				operationSeparator,
 				operationTerminator,
 			); err != nil {
-				return err
+				return 0, err
 			}
 
 		default:
-			return qerr.SyntaxErr("unsupported operator: %s", operator)
+			return 0, qerr.SyntaxErr("unsupported operator: %s", operator)
 		}
-
+		operationCount++
 		tkn = t.Next()
 
 		switch tkn.Type {
 		case operationTerminator:
-			return nil
+			return operationCount, nil
 		case operationSeparator:
 			continue
 		default:
-			return t.TknErr(tkn, "unexpected token received '%s'", tkn.Value)
+			return 0, t.TknErr(tkn, "unexpected token received '%s'", tkn.Value)
 		}
 	}
 }

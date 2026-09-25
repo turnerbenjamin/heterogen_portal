@@ -1,6 +1,7 @@
 package valueBuilder
 
 import (
+	querybuilder "github.com/turnerbenjamin/heterogen_portal/internal/query/queryBuilder"
 	qerr "github.com/turnerbenjamin/heterogen_portal/internal/query/queryError"
 	mdl "github.com/turnerbenjamin/heterogen_portal/internal/query/queryModel"
 )
@@ -28,11 +29,12 @@ func (v intListValue) SupportsOperator(op mdl.ComparisonOperator) bool {
 }
 
 func (v intListValue) WriteFilterExpression(
+	b *querybuilder.Builder,
 	w mdl.QueryWriter,
 	fieldName string,
 	op mdl.ComparisonOperator,
 ) error {
-	return w.WriteFilterExpressionIntList(fieldName, op, v.value)
+	return w.WriteFilterExpressionIntList(b, fieldName, op, v.value)
 }
 
 func (v intListValue) Serialise(s mdl.Serialiser) {

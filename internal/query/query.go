@@ -9,7 +9,6 @@ import (
 	qerr "github.com/turnerbenjamin/heterogen_portal/internal/query/queryError"
 	"github.com/turnerbenjamin/heterogen_portal/internal/query/queryModel"
 	mdl "github.com/turnerbenjamin/heterogen_portal/internal/query/queryModel"
-	"github.com/turnerbenjamin/heterogen_portal/internal/query/queryOrchestrator"
 	"github.com/turnerbenjamin/heterogen_portal/internal/query/queryParser"
 	qplan "github.com/turnerbenjamin/heterogen_portal/internal/query/queryPlanner"
 	azSqlWriter "github.com/turnerbenjamin/heterogen_portal/internal/query/queryWriters/azSqlWriter"
@@ -20,7 +19,7 @@ type sqlFlavour string
 
 const SqlFlavorAzureSql sqlFlavour = "azure_sql"
 
-type QueryWriterGetter func(s qstore.QueryDataStore) (w mdl.QueryWriter, err error)
+type QueryWriterGetter func(s qstore.QueryDataStore) mdl.QueryWriter
 type QueryParserInitialiser func() qplan.QueryParser
 
 type queryExecutor struct {
@@ -37,7 +36,7 @@ type QueryExecutor interface {
 		ctx context.Context,
 		resourceName string,
 		queryString string,
-	) (queryModel.ExecuteResult, error)
+	) (*queryModel.ExecuteResult, error)
 }
 
 type QueryExecutorConfig struct {
@@ -80,36 +79,54 @@ func (qf *queryExecutor) Execute(
 	ctx context.Context,
 	resourceName string,
 	queryString string,
-) (queryModel.ExecuteResult, error) {
-	resource, exists := qf.schema.GetResource(resourceName)
+) (*queryModel.ExecuteResult, error) {
+	rootResource, exists := qf.schema.GetResource(resourceName)
 	if !exists {
-		return queryModel.ExecuteResult{}, qerr.BindingErr("the table %s does not exist in the schema", resourceName)
+		return nil, qerr.BindingErr("the table %s does not exist in the schema", resourceName)
 	}
 
 	queryParser := qf.queryParserInitialiser()
 	valueBuilder := valuebuilder.NewValueBuilder()
 
-	// Configure query
-	queryDataStore, err := qplan.PlanQuery(
+	// Plan query
+	s, err := qplan.PlanQuery(
 		qf.queryConfig,
 		queryString,
 		queryParser,
 		qf.pagingTokenBuilder,
 		valueBuilder,
-		resource,
+		rootResource,
 		qf.accessPolicy,
 	)
 	if err != nil {
-		return queryModel.ExecuteResult{}, err
+		return nil, err
 	}
 
-	executor := queryOrchestrator.NewQueryExecutor(
-		qf.repository,
-		azSqlWriter.NewQueryWriter,
-		qf.pagingTokenBuilder,
-	)
+	// Write and execute the query
+	w := qf.queryWriterGetter(s)
+	json, count, err := qf.executeQueryStatement(ctx, s, w)
 
-	return executor.ExecuteQuery(ctx, queryDataStore)
+	// Parse the query into a table model
+	queryResults, stdErr := rootResource.SliceFromJSON(
+		json,
+		s.ProjectionNode(),
+	)
+	if stdErr != nil {
+		return nil, qerr.InternalErr("unable to create model slice: %v", stdErr)
+	}
+
+	// Build the next page token
+	nextPageToken, err := qf.getNextPageToken(s, &queryResults)
+	if err != nil {
+		return nil, err
+	}
+
+	// return the results
+	return &mdl.ExecuteResult{
+		Count:         count,
+		NextPageToken: nextPageToken,
+		Data:          queryResults,
+	}, nil
 }
 
 func getSqlWriter(flavour sqlFlavour) (QueryWriterGetter, error) {
@@ -119,4 +136,56 @@ func getSqlWriter(flavour sqlFlavour) (QueryWriterGetter, error) {
 	default:
 		return nil, fmt.Errorf("unsupported sql flavour: %s", flavour)
 	}
+}
+
+func (e *queryExecutor) getNextPageToken(
+	s qstore.QueryDataStore,
+	queryResults *[]mdl.TableModel,
+) (string, error) {
+	results := *queryResults
+	limit := s.Limit()
+	isNextRecord := len(results) > int(limit)
+
+	if !isNextRecord {
+		return "", nil
+	}
+	lastRecord := results[limit-1]
+	*queryResults = results[0:limit]
+
+	return e.pagingTokenBuilder.BuildToken(
+		s,
+		lastRecord,
+	)
+}
+
+func (e *queryExecutor) executeQueryStatement(
+	ctx context.Context,
+	s qstore.QueryDataStore,
+	w mdl.QueryWriter,
+) ([]byte, *uint64, error) {
+	queryStatement, err := w.WriteQueryStatement()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	var json []byte = nil
+	var count *uint64 = nil
+	if s.DoCount() {
+		countStatement, err := w.WriteCountStatement()
+		if err != nil {
+			return nil, nil, err
+		}
+
+		json, count, err = e.repository.ExecuteJsonRequestWithCount(
+			ctx,
+			queryStatement,
+			countStatement,
+		)
+	} else {
+		json, err = e.repository.ExecuteJsonRequest(ctx, queryStatement)
+	}
+	if err != nil {
+		return nil, nil, qerr.InternalErr("query executor failed: %v", err)
+	}
+	return json, count, nil
 }
