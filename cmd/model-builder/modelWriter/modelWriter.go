@@ -119,19 +119,6 @@ func marshalProperty(buf *bytes.Buffer, isFirst bool, columnName string, value a
 	buf.Write(v)
 	return nil
 }
-
-// ColumnAccessPolicy defines the query access policy for a given database
-// column
-type ColumnAccessPolicy struct {
-	UserCanAccess bool
-}
-
-// CanAccess defines, at the column level, if a user can perform any
-// operations on that column
-func (p ColumnAccessPolicy) CanAccess() bool {
-	return p.UserCanAccess
-}
-
 `)
 }
 
@@ -184,7 +171,7 @@ func (w *modelWriter) writeSchemaDefinition() {
 		tableName := t.Name
 		resourceName := getModelResourceStructName(tableName)
 		writeToBuilder(w.sb, fmt.Sprintf("case \"%s\":\n", tableName))
-		writeToBuilder(w.sb, fmt.Sprintf("return &%s{}, true\n", resourceName))
+		writeToBuilder(w.sb, fmt.Sprintf("return %s{}, true\n", resourceName))
 	}
 	writeToBuilder(w.sb, "default:\n")
 	writeToBuilder(w.sb, "return nil, false\n")
@@ -215,7 +202,7 @@ func (w *modelWriter) writeResourceGetMetadataFunc(
 	tableData *builderRepo.TableMetadata,
 ) {
 	metadataIdentifier := modelMetadataStoreIdentifier(tableData.Name)
-	writeToBuilder(w.sb, fmt.Sprintf("func (r *%s) GetMetadata() queryModel.TableData {\n", resourceTypeName))
+	writeToBuilder(w.sb, fmt.Sprintf("func (r %s) GetMetadata() queryModel.TableMetadata {\n", resourceTypeName))
 	writeToBuilder(w.sb, fmt.Sprintf("return %s\n", metadataIdentifier))
 	writeToBuilder(w.sb, "}\n")
 }
@@ -225,7 +212,7 @@ func (w *modelWriter) writeResourceInitModelFunc(
 	tableData *builderRepo.TableMetadata,
 ) {
 	modelStructIdentifier := getModelStructName(tableData.Name)
-	writeToBuilder(w.sb, fmt.Sprintf("func (r *%s) InitModel() queryModel.TableModel { \n", resourceTypeName))
+	writeToBuilder(w.sb, fmt.Sprintf("func (r %s) InitModel() queryModel.TableModel { \n", resourceTypeName))
 	writeToBuilder(w.sb, fmt.Sprintf("return new(%s)", modelStructIdentifier))
 	writeToBuilder(w.sb, "}\n")
 }
@@ -235,7 +222,7 @@ func (w *modelWriter) writeResourceInitProjectionFunc(
 	tableData *builderRepo.TableMetadata,
 ) {
 	modelProjectionIdentifier := getModelProjectionName(tableData.Name)
-	writeToBuilder(w.sb, fmt.Sprintf("func (r *%s) InitProjection() queryModel.Projection { \n", resourceTypeName))
+	writeToBuilder(w.sb, fmt.Sprintf("func (r %s) InitProjection() queryModel.Projection { \n", resourceTypeName))
 	writeToBuilder(w.sb, fmt.Sprintf("return new(%s)", modelProjectionIdentifier))
 	writeToBuilder(w.sb, "}\n")
 }
@@ -255,11 +242,11 @@ func (w *modelWriter) writeTableMetadataDefinition(tableData *builderRepo.TableM
 		tableData.Schema,
 		tableData.Name,
 	))
-	writeToBuilder(w.sb, fmt.Sprintf("var %s = queryModel.TableData{\n", metadataIdentifer))
+	writeToBuilder(w.sb, fmt.Sprintf("var %s = queryModel.TableMetadata{\n", metadataIdentifer))
 	writeToBuilder(w.sb, fmt.Sprintf("Name: \"%s\",\n", tableData.Name))
 	writeToBuilder(w.sb, fmt.Sprintf("FullyQualifiedName: \"%s.%s\",\n", tableData.Schema, tableData.Name))
 
-	writeToBuilder(w.sb, "PrimaryKeyColumn: queryModel.ColumnData{\n")
+	writeToBuilder(w.sb, "PrimaryKeyColumn: queryModel.ColumnMetadata{\n")
 	writeToBuilder(w.sb, fmt.Sprintf("Name: \"%s\",\n", primaryKey))
 	writeToBuilder(w.sb, "Type: queryModel.DbTypeString,\n")
 	writeToBuilder(w.sb, "},\n")
@@ -273,7 +260,7 @@ func buildColumnMap(tableData *builderRepo.TableMetadata) (string, string) {
 	primaryKey := ""
 	sbColMap := &strings.Builder{}
 
-	writeToBuilder(sbColMap, "map[string]queryModel.ColumnData{\n")
+	writeToBuilder(sbColMap, "map[string]queryModel.ColumnMetadata{\n")
 
 	// DB Columns
 	for _, col := range tableData.Columns {
@@ -296,7 +283,7 @@ func buildColumnMap(tableData *builderRepo.TableMetadata) (string, string) {
 func (w *modelWriter) buildRelationshipMap(tableData *builderRepo.TableMetadata) string {
 	sbR := &strings.Builder{}
 
-	writeToBuilder(sbR, "map[string]queryModel.RelationshipData{\n")
+	writeToBuilder(sbR, "map[string]queryModel.RelationshipMetadata{\n")
 	for key, relationship := range tableData.Relationships {
 		fromResource := getModelResourceStructName(tableData.Name)
 		toResource := getModelResourceStructName(relationship.RelatedTable)
@@ -306,14 +293,14 @@ func (w *modelWriter) buildRelationshipMap(tableData *builderRepo.TableMetadata)
 		writeToBuilder(sbR, fmt.Sprintf("Type: %s,\n", relationship.Type))
 		writeToBuilder(sbR, fmt.Sprintf("ColumnName: \"%s\",\n", relationship.ColumnName))
 		writeToBuilder(sbR, fmt.Sprintf("ExpansionColumnName: \"%s\",\n", relationship.ExpansionColumnName))
-		writeToBuilder(sbR, fmt.Sprintf("From: &%s{},\n", fromResource))
-		writeToBuilder(sbR, fmt.Sprintf("To: &%s{},\n", toResource))
+		writeToBuilder(sbR, fmt.Sprintf("From: %s{},\n", fromResource))
+		writeToBuilder(sbR, fmt.Sprintf("To: %s{},\n", toResource))
 
-		writeToBuilder(sbR, "FromColumn: queryModel.ColumnData{\n")
+		writeToBuilder(sbR, "FromColumn: queryModel.ColumnMetadata{\n")
 		writeToBuilder(sbR, fmt.Sprintf("Name: \"%s\",\n", relationship.LocalColumn))
 		writeToBuilder(sbR, "Type: queryModel.DbTypeString,\n")
 		writeToBuilder(sbR, "},\n")
-		writeToBuilder(sbR, "ToColumn: queryModel.ColumnData{\n")
+		writeToBuilder(sbR, "ToColumn: queryModel.ColumnMetadata{\n")
 		writeToBuilder(sbR, fmt.Sprintf("Name: \"%s\",\n", relationship.ForeignColumn))
 		writeToBuilder(sbR, "Type: queryModel.DbTypeString,\n")
 		writeToBuilder(sbR, "},\n")
@@ -591,7 +578,7 @@ func (w *modelWriter) WriteGetRelatedEntityFunction(modelStructName string, tabl
 	writeToBuilder(w.sb, "// getRelatedEntity returns the value from N:1/1:1 relationships as a TableModel\n")
 	writeToBuilder(w.sb, "// It will return an error for invalid relationships and relationship types\n")
 
-	writeToBuilder(w.sb, fmt.Sprintf("func (m *%s) getRelatedEntity(relationship queryModel.RelationshipData) (queryModel.TableModel, bool, error) {\n", modelStructName))
+	writeToBuilder(w.sb, fmt.Sprintf("func (m *%s) getRelatedEntity(relationship queryModel.RelationshipMetadata) (queryModel.TableModel, bool, error) {\n", modelStructName))
 	writeToBuilder(w.sb, "switch relationship.Id {\n")
 
 	for _, relationship := range tableData.Relationships {
@@ -835,7 +822,7 @@ func (w *modelWriter) writeTableAccessStruct(t *builderRepo.TableMetadata) {
 	writeToBuilder(w.sb, fmt.Sprintf("type %s struct {\n", accessPolicyStructName))
 	writeToBuilder(w.sb, "UserCanAccess bool\n")
 	for _, c := range t.Columns {
-		writeToBuilder(w.sb, fmt.Sprintf("%s ColumnAccessPolicy\n", snakeToPascal(c.Name)))
+		writeToBuilder(w.sb, fmt.Sprintf("%s bool\n", snakeToPascal(c.Name)))
 	}
 	writeToBuilder(w.sb, "}\n")
 	w.writeNewLine()
@@ -854,18 +841,17 @@ func (w *modelWriter) writeTableAccessStruct(t *builderRepo.TableMetadata) {
 
 	// GetColumn
 	writeToBuilder(w.sb, fmt.Sprintf(
-		"// GetColumnAccessPolicy returns an access policy for a specific column on\n"+
-			"// the %s table. Returns nil if the column does not exist\n",
-		t.Name,
+		"// CanAccessColumn returns true if a column can be accessed else false. An error\n"+
+			"// is returned if the column does not exist on the table\n",
 	))
-	writeToBuilder(w.sb, fmt.Sprintf("func (p *%s) GetColumnAccessPolicy(\ncolumnName string,\n) (queryModel.ColumnAccessPolicy, bool) {\n", accessPolicyStructName))
+	writeToBuilder(w.sb, fmt.Sprintf("func (p *%s) CanAccessColumn(\ncolumnName string,\n) (bool, error) {\n", accessPolicyStructName))
 	writeToBuilder(w.sb, "switch columnName {\n")
 	for _, c := range t.Columns {
 		writeToBuilder(w.sb, fmt.Sprintf("case \"%s\":\n", c.Name))
-		writeToBuilder(w.sb, fmt.Sprintf("return p.%s, true\n", snakeToPascal(c.Name)))
+		writeToBuilder(w.sb, fmt.Sprintf("return p.%s, nil\n", snakeToPascal(c.Name)))
 	}
 	writeToBuilder(w.sb, "default:\n")
-	writeToBuilder(w.sb, "return nil, false\n")
+	writeToBuilder(w.sb, fmt.Sprintf("return false, fmt.Errorf(\"column %%s does not exists on the %s table\", columnName)\n", t.Name))
 	writeToBuilder(w.sb, "}\n")
 	writeToBuilder(w.sb, "}\n")
 	w.writeNewLine()

@@ -5,9 +5,6 @@ import (
 	"github.com/turnerbenjamin/heterogen_portal/internal/query/queryModel"
 )
 
-var allowAccess = model.ColumnAccessPolicy{UserCanAccess: true}
-var denyAccess = model.ColumnAccessPolicy{UserCanAccess: false}
-
 // Query access policy for anonymous access
 var anonymousAccessPolicy = &model.DatabaseAccessPolicy{
 
@@ -16,16 +13,16 @@ var anonymousAccessPolicy = &model.DatabaseAccessPolicy{
 		UserCanAccess: true,
 
 		// Users: Allow
-		Id:       allowAccess,
-		UserName: allowAccess,
+		Id:       true,
+		UserName: true,
 
 		// Users: Deny
-		Oid:          denyAccess,
-		GivenName:    denyAccess,
-		FamilyName:   denyAccess,
-		EmailAddress: denyAccess,
-		CreatedAt:    denyAccess,
-		ModifiedAt:   denyAccess,
+		Oid:          false,
+		GivenName:    false,
+		FamilyName:   false,
+		EmailAddress: false,
+		CreatedAt:    false,
+		ModifiedAt:   false,
 	},
 
 	// Businesses table permissions
@@ -33,29 +30,29 @@ var anonymousAccessPolicy = &model.DatabaseAccessPolicy{
 		UserCanAccess: true,
 
 		// Businesses: Allow
-		Id:           allowAccess,
-		Reference:    allowAccess,
-		TradingName:  allowAccess,
-		LogoUrl:      allowAccess,
-		Description:  allowAccess,
-		BusinessType: allowAccess,
-		CphNumber:    allowAccess,
-		WebsiteUrl:   allowAccess,
-		CreatedAt:    allowAccess,
-		CreatedById:  allowAccess,
-		ModifiedAt:   allowAccess,
-		ModifiedById: allowAccess,
-		Location:     allowAccess,
+		Id:           true,
+		Reference:    true,
+		TradingName:  true,
+		LogoUrl:      true,
+		Description:  true,
+		BusinessType: true,
+		CphNumber:    true,
+		WebsiteUrl:   true,
+		CreatedAt:    true,
+		CreatedById:  true,
+		ModifiedAt:   true,
+		ModifiedById: true,
+		Location:     true,
 
 		// Businesses: Deny
-		EmailAddress:  denyAccess,
-		ContactNumber: denyAccess,
-		AddressLine1:  denyAccess,
-		AddressLine2:  denyAccess,
-		Town:          denyAccess,
-		County:        denyAccess,
-		Country:       denyAccess,
-		Postcode:      denyAccess,
+		EmailAddress:  false,
+		ContactNumber: false,
+		AddressLine1:  false,
+		AddressLine2:  false,
+		Town:          false,
+		County:        false,
+		Country:       false,
+		Postcode:      false,
 	},
 
 	// Farm Fields table permissions
@@ -63,14 +60,14 @@ var anonymousAccessPolicy = &model.DatabaseAccessPolicy{
 		UserCanAccess: true,
 
 		// Farm Fields: Allow
-		Id:           allowAccess,
-		Reference:    allowAccess,
-		BusinessId:   allowAccess,
-		CreatedAt:    allowAccess,
-		CreatedById:  allowAccess,
-		ModifiedAt:   allowAccess,
-		ModifiedById: allowAccess,
-		Location:     allowAccess,
+		Id:           true,
+		Reference:    true,
+		BusinessId:   true,
+		CreatedAt:    true,
+		CreatedById:  true,
+		ModifiedAt:   true,
+		ModifiedById: true,
+		Location:     true,
 
 		// Farm Fields: Deny
 	},

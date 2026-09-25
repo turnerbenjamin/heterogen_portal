@@ -199,15 +199,12 @@ func addDefaultSelects(s qstore.QueryDataStore) error {
 
 	i := 0
 	for _, col := range rootResourceMetadata.Columns {
-		colAccessPolicy, exists := tableAccessPolicy.GetColumnAccessPolicy(col.Name)
-		if !exists {
-			return qerr.InternalErr(
-				"unable to add default select: access policy for %s is nil",
-				col.Name,
-			)
+		canAccessColumn, err := tableAccessPolicy.CanAccessColumn(col.Name)
+		if err != nil {
+			return qerr.InternalErr("unable to validate column access: %w", err)
 		}
 
-		if !colAccessPolicy.CanAccess() {
+		if !canAccessColumn {
 			continue
 		}
 

@@ -249,14 +249,14 @@ type ResolvedPath struct {
 	Id string
 
 	// StartResource is metadata for the root resource in the path
-	StartResource TableData
+	StartResource TableMetadata
 
 	// Steps is a collection of Traversal steps from the start resource to the
 	// end resource
 	Steps []*TraversalStep
 
 	// EndResource is metadata for the end resource in the path
-	EndResource TableData
+	EndResource TableMetadata
 
 	// Type is the relationship type of the final step, this can be used to
 	// determine if the end resource will point to a single record or a
@@ -273,7 +273,7 @@ type TraversalStep struct {
 	SubPathId string
 
 	// Relationship is the relationship metadata for the traversal
-	Relationship RelationshipData
+	Relationship RelationshipMetadata
 }
 
 // ResolvedColumn represents a database column
@@ -284,7 +284,7 @@ type ResolvedColumn struct {
 	ResolvedPath ResolvedPath
 
 	// Metadata is metadata for the column
-	Metadata ColumnData
+	Metadata ColumnMetadata
 }
 
 // LogicalOperator represents a logical operatior, e.g. and/or

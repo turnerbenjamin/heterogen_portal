@@ -27,7 +27,7 @@ import (
 type MetadataBinder interface {
 	ResolveColumn(columnPath string) (mdl.ResolvedColumn, error)
 	ResolvePath(pathString string) (mdl.ResolvedPath, error)
-	ResolveRelationship(resource mdl.TableData, relationshipName string) (mdl.TraversalStep, error)
+	ResolveRelationship(resource mdl.TableMetadata, relationshipName string) (mdl.TraversalStep, error)
 }
 
 // FilterExpressionBuilder provides methods to build FilterExpressions and
@@ -91,10 +91,11 @@ type Expansion struct {
 // central controller, ensuring that operations are bound and processed by the
 // relationship planner as they are added to the store
 type QueryDataStore interface {
-	// RootResource is the metadata for the root resource
+	// RootResource is the root resource for the query store
 	RootResource() mdl.Resource
 
-	RootResourceMetadata() mdl.TableData
+	// RootResourceMetadata is the metadata for the root resource
+	RootResourceMetadata() mdl.TableMetadata
 
 	// RootResourceAccessPolicy is the table access policy for the root resource
 	RootResourceAccessPolicy() mdl.TableAccessPolicy
@@ -238,7 +239,7 @@ type queryDataStore struct {
 	// overview data
 	queryString          string
 	rootResource         mdl.Resource
-	rootResourceMetadata mdl.TableData
+	rootResourceMetadata mdl.TableMetadata
 	depth                uint8
 	projectionNode       *mdl.ProjectionNode
 
@@ -358,13 +359,13 @@ func newQueryDataStore(
 	}, nil
 }
 
-// RootResource is the metadata for the root resource
+// RootResource is the root resource for the query store
 func (qd *queryDataStore) RootResource() mdl.Resource {
 	return qd.rootResource
 }
 
-// RootResource is the metadata for the root resource
-func (qd *queryDataStore) RootResourceMetadata() mdl.TableData {
+// RootResourceMetadata is the metadata for the root resource
+func (qd *queryDataStore) RootResourceMetadata() mdl.TableMetadata {
 	return qd.rootResourceMetadata
 }
 

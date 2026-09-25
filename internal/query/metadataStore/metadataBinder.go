@@ -25,7 +25,7 @@ var pathStore = pathCollection{
 // metadata and access policies
 type metadataBinder struct {
 	accessPolicy         mdl.AccessPolicy
-	rootResourceMetadata mdl.TableData
+	rootResourceMetadata mdl.TableMetadata
 	rootAccessPolicy     mdl.TableAccessPolicy
 
 	pathIdBuilder pathIdBuilder
@@ -34,7 +34,7 @@ type metadataBinder struct {
 
 // NewMetadataBinder initialises a new metadata binder
 func NewMetadataBinder(
-	rootMetadata mdl.TableData,
+	rootMetadata mdl.TableMetadata,
 	accessPolicy mdl.AccessPolicy,
 ) (*metadataBinder, error) {
 	if accessPolicy == nil {
@@ -144,7 +144,7 @@ func (b *metadataBinder) ResolvePath(pathString string) (mdl.ResolvedPath, error
 // Resolve relationship returns a resolved relationship for a given relationship
 // name - Errors are thrown for invalid relationship names or if access to
 // either the from or to columns is not permitted under the access policy
-func (b *metadataBinder) ResolveRelationship(resource mdl.TableData, relationshipName string) (mdl.TraversalStep, error) {
+func (b *metadataBinder) ResolveRelationship(resource mdl.TableMetadata, relationshipName string) (mdl.TraversalStep, error) {
 	relationshipData, exists := resource.Relationships[relationshipName]
 	if !exists {
 		return mdl.TraversalStep{}, qerr.BindingErr(
@@ -173,7 +173,7 @@ func (b *metadataBinder) ResolveRelationship(resource mdl.TableData, relationshi
 // the access policy
 func (b *metadataBinder) resolvePath(
 	pathSegments []string,
-	rootResource mdl.TableData,
+	rootResource mdl.TableMetadata,
 ) (mdl.ResolvedPath, error) {
 	// final pathId
 	traversalPathLength := len(pathSegments)
@@ -315,19 +315,15 @@ func (b *metadataBinder) validateTraversalPermissions(step mdl.TraversalStep) er
 // else nil
 func validateColumnAccess(
 	tableAccessPolicy mdl.TableAccessPolicy,
-	tableData mdl.TableData,
-	columnData mdl.ColumnData,
+	tableData mdl.TableMetadata,
+	columnData mdl.ColumnMetadata,
 ) error {
-	columnAccessPolicy, exists := tableAccessPolicy.GetColumnAccessPolicy(columnData.Name)
-	if !exists {
-		return qerr.InternalErr(
-			"unable to find access policy for %s.%s",
-			tableData.Name,
-			columnData.Name,
-		)
+	canAccessColumn, err := tableAccessPolicy.CanAccessColumn(columnData.Name)
+	if err != nil {
+		return qerr.InternalErr("unable to validate column access: %w", err)
 	}
 
-	if !columnAccessPolicy.CanAccess() {
+	if !canAccessColumn {
 		return qerr.AccessErr(
 			"you do not have permission to access the %s column on the %s table",
 			columnData.Name,
@@ -342,7 +338,7 @@ func validateColumnAccess(
 // not permitted under the access policy
 func getTableAccessPolicy(
 	accessPolicy mdl.AccessPolicy,
-	tableData mdl.TableData,
+	tableData mdl.TableMetadata,
 ) (mdl.TableAccessPolicy, error) {
 	if accessPolicy == nil {
 		return nil, qerr.InternalErr("access policy cannot be nil")

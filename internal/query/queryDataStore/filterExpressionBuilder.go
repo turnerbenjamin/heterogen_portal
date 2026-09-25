@@ -27,7 +27,7 @@ import (
 // filterExpressionBuilder is used to build filterExpressions which are enriched
 // with metadata, and processed by the metadata planner as required, on creation
 type filterExpressionBuilder struct {
-	rootResourceMetadata mdl.TableData
+	rootResourceMetadata mdl.TableMetadata
 	metadataBinder       MetadataBinder
 	relationshipPlanner  *relationships.RelationshipPlanner
 	valueBuilder         mdl.ValueBuilder

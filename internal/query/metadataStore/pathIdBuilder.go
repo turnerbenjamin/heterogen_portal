@@ -27,7 +27,7 @@ func (b pathIdBuilder) resetToRoot() {
 }
 
 // appendToPath appends a relationship column to the path
-func (b pathIdBuilder) appendToPath(relationship mdl.RelationshipData) {
+func (b pathIdBuilder) appendToPath(relationship mdl.RelationshipMetadata) {
 	b.sb.WriteByte('/')
 	b.sb.WriteString(relationship.ColumnName)
 }

@@ -120,7 +120,7 @@ type RelationshipPlanner struct {
 	JoinStore JoinCollection
 }
 
-func NewRelationshipPlanner(rootResource mdl.TableData) (*RelationshipPlanner, error) {
+func NewRelationshipPlanner(rootResource mdl.TableMetadata) (*RelationshipPlanner, error) {
 	planner := &RelationshipPlanner{
 		Aliases:   AliasStore{rootAlias: rootResource.Name},
 		JoinStore: JoinCollection{},

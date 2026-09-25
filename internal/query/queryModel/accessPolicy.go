@@ -18,15 +18,7 @@ type TableAccessPolicy interface {
 	// will override a false value returned from this method
 	CanAccess() bool
 
-	// GetColumnAccessPolicy returns the access policy for the specified column
-	// and whether the column has an access policy.
-	GetColumnAccessPolicy(columnName string) (ColumnAccessPolicy, bool)
-}
-
-// ColumnAccessPolicy defines the query access policy for a given database
-// column
-type ColumnAccessPolicy interface {
-	// CanAccess defines, at the column level, if a user can perform any
-	// operations on that column
-	CanAccess() bool
+	// GetColumnAccessPolicy returns whether a given column can be accessed, it
+	// returns an error if the column cannot be found
+	CanAccessColumn(columnName string) (bool, error)
 }

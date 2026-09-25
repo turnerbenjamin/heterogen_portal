@@ -29,7 +29,7 @@ func (w *queryWriter) Write(statement string, args ...any) {
 
 // aliasedResource binds a resourse to a table alias in an sql query
 type aliasedResource struct {
-	resource mdl.TableData
+	resource mdl.TableMetadata
 	alias    string
 }
 
@@ -177,7 +177,7 @@ func (w *queryWriter) writeSelectAndExpandStatement() error {
 	return nil
 }
 
-func (w *queryWriter) formatSelectValue(columnData mdl.ColumnData) string {
+func (w *queryWriter) formatSelectValue(columnData mdl.ColumnMetadata) string {
 	switch columnData.Type {
 	case mdl.DbTypePoint:
 		return fmt.Sprintf("%s.STAsText() AS %s", columnData.Name, columnData.Name)

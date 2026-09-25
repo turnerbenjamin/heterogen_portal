@@ -35,32 +35,32 @@ type TableModel interface {
 	GetValue(path []*TraversalStep, columnName string, valueBuilder ValueBuilder) (Value, error)
 }
 
-type ColumnData struct {
+type ColumnMetadata struct {
 	Name string
 	Type DbType
 }
 
-type RelationshipData struct {
+type RelationshipMetadata struct {
 	Id                  string
 	Type                RelationshipType
 	ColumnName          string
 	ExpansionColumnName string
 	From                Resource
 	To                  Resource
-	FromColumn          ColumnData
-	ToColumn            ColumnData
+	FromColumn          ColumnMetadata
+	ToColumn            ColumnMetadata
 }
 
-type TableData struct {
+type TableMetadata struct {
 	Name               string
 	FullyQualifiedName string
-	PrimaryKeyColumn   ColumnData
-	Columns            map[string]ColumnData
-	Relationships      map[string]RelationshipData
+	PrimaryKeyColumn   ColumnMetadata
+	Columns            map[string]ColumnMetadata
+	Relationships      map[string]RelationshipMetadata
 }
 
 type Resource interface {
-	GetMetadata() TableData
+	GetMetadata() TableMetadata
 	InitModel() TableModel
 	InitProjection() Projection
 }
