@@ -8,7 +8,7 @@ import (
 	"net/http"
 
 	"github.com/turnerbenjamin/heterogen_portal/internal/constants"
-	"github.com/turnerbenjamin/heterogen_portal/internal/db"
+	"github.com/turnerbenjamin/heterogen_portal/internal/model"
 )
 
 // ParseJwtMiddleware parses app jwt cookies, retrieves the user and adds it
@@ -22,7 +22,7 @@ func ParseJwtMiddleware[T UserState](authService AuthService) Middleware[T] {
 				return next(w, r, c)
 			}
 
-			var user *db.User = nil
+			var user *model.UsersModel = nil
 			cookieClaims, err := authService.ParseUserJwtCookie(jwtCookie.Value)
 			if err == nil {
 				user, err = authService.RetrieveUserById(cookieClaims.UserId)

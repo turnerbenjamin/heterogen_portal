@@ -10,14 +10,14 @@ import (
 	"time"
 
 	"github.com/turnerbenjamin/heterogen_portal/internal/constants"
-	"github.com/turnerbenjamin/heterogen_portal/internal/db"
+	"github.com/turnerbenjamin/heterogen_portal/internal/model"
 	"github.com/turnerbenjamin/heterogen_portal/internal/services"
 	"github.com/turnerbenjamin/heterogen_portal/internal/templates"
 )
 
 type AuthService interface {
 	ParseUserJwtCookie(tokenString string) (*services.AppClaims, error)
-	RetrieveUserById(userId string) (*db.User, error)
+	RetrieveUserById(userId string) (*model.UsersModel, error)
 	BuildSignInRedirectRequest(requestedPath string) (*services.SignInRedirectRequest, error)
 	BuildSignOutRedirectRequest() string
 	AuthenticateUser(

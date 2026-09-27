@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/turnerbenjamin/heterogen_portal/internal/constants"
-	"github.com/turnerbenjamin/heterogen_portal/internal/db"
+	"github.com/turnerbenjamin/heterogen_portal/internal/model"
 	"github.com/turnerbenjamin/heterogen_portal/internal/services"
 	"github.com/turnerbenjamin/heterogen_portal/internal/templates"
 )
@@ -34,7 +34,7 @@ func TestGetRootHandler_Returns404WhenPathIsNotRoot(t *testing.T) {
 		r := httptest.NewRequest("GET", td.path, strings.NewReader(""))
 		w := httptest.NewRecorder()
 		c := &PipelineContext[UserState]{state: UserStateInit()}
-		c.state.SetUser(&db.User{})
+		c.state.SetUser(&model.UsersModel{})
 
 		ts := NewMockTemplateStore(t)
 		ts.EXPECT().
@@ -61,7 +61,7 @@ func TestGetRootHandler_ReturnsMainAppTemplate(t *testing.T) {
 	wantPageTitle := "HETEROGEN"
 
 	wantState := UserStateInit()
-	wantState.SetUser(&db.User{})
+	wantState.SetUser(&model.UsersModel{})
 
 	testData := []struct {
 		isHtmxRequest        bool
@@ -117,7 +117,7 @@ func TestGetRootHandler_HandlesExecuteTemplateErrors(t *testing.T) {
 	r := httptest.NewRequest("GET", "/", strings.NewReader(""))
 	w := httptest.NewRecorder()
 	c := &PipelineContext[UserState]{state: UserStateInit()}
-	c.state.SetUser(&db.User{})
+	c.state.SetUser(&model.UsersModel{})
 
 	ts := NewMockTemplateStore(t)
 	ts.EXPECT().Execute(mock.Anything, mock.Anything, mock.Anything).Return(wantInnerError)
