@@ -1,3 +1,6 @@
+// Package queryParser contains query string parsing functionality
+//
+// This file contains functionality for parsing pagination operations
 package queryParser
 
 import (
@@ -8,8 +11,7 @@ import (
 	qerr "github.com/turnerbenjamin/heterogen_portal/internal/query/queryError"
 )
 
-// parseSelectOperation is responsible for parsing limit operations, it expects
-// a single number value will be provided
+// parseSelectOperation is responsible for parsing limit operations
 func parseLimitOperation(s qstore.QueryDataStore, t *Tokeniser) error {
 	limitValue := t.Next()
 	if limitValue.Type != TokenNumberRaw {
@@ -29,8 +31,7 @@ func parseLimitOperation(s qstore.QueryDataStore, t *Tokeniser) error {
 	return nil
 }
 
-// parseCountOperation is responsible for parsing count operations. It expects a
-// single boolean value will be provided
+// parseCountOperation is responsible for parsing count operations
 func parseCountOperation(s qstore.QueryDataStore, t *Tokeniser) error {
 
 	countValue := t.Next()
@@ -42,10 +43,7 @@ func parseCountOperation(s qstore.QueryDataStore, t *Tokeniser) error {
 	return nil
 }
 
-// parsePagingTokenOperation is responsible for parsing paging tokens, it
-// expects a single string value - It will treat all token types, other than
-// operation separator, endOfOperationsSentinal and EOF as part of the token and
-// leave validation for the token parser
+// parsePagingTokenOperation is responsible for parsing paging tokens
 func parsePagingTokenOperation(
 	s qstore.QueryDataStore,
 	t *Tokeniser,

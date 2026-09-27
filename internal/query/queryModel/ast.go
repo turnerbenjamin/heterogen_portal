@@ -135,39 +135,83 @@ type QueryWriter interface {
 	WriteCountStatement() (QueryStatement, error)
 
 	// WriteFilterExpressionNull writes a comparison expression for a null value
-	WriteFilterExpressionNull(sb *querybuilder.Builder, field string, op ComparisonOperator) error
+	WriteFilterExpressionNull(
+		sb *querybuilder.Builder,
+		field string,
+		op ComparisonOperator,
+	) error
 
 	// WriteFilterExpressionString writes a comparison expression for a string
 	// value
-	WriteFilterExpressionString(sb *querybuilder.Builder, field string, op ComparisonOperator, value string) error
+	WriteFilterExpressionString(
+		sb *querybuilder.Builder,
+		field string,
+		op ComparisonOperator,
+		value string,
+	) error
 
 	// WriteFilterExpressionInt writes a comparison expression for an integer
 	// value
-	WriteFilterExpressionInt(sb *querybuilder.Builder, field string, op ComparisonOperator, value int64) error
+	WriteFilterExpressionInt(
+		sb *querybuilder.Builder,
+		field string,
+		op ComparisonOperator,
+		value int64,
+	) error
 
 	// WriteFilterExpressionFloat writes a comparison expression for a
 	// floating-point value
-	WriteFilterExpressionFloat(sb *querybuilder.Builder, field string, op ComparisonOperator, value float64) error
+	WriteFilterExpressionFloat(
+		sb *querybuilder.Builder,
+		field string,
+		op ComparisonOperator,
+		value float64,
+	) error
 
 	// WriteFilterExpressionPoint writes a comparison expression for a
 	// geographic point value
-	WriteFilterExpressionPoint(sb *querybuilder.Builder, field string, op ComparisonOperator, value Point) error
+	WriteFilterExpressionPoint(
+		sb *querybuilder.Builder,
+		field string,
+		op ComparisonOperator,
+		value Point,
+	) error
 
 	// WriteFilterExpressionDateTime writes a comparison expression for a time
 	// value
-	WriteFilterExpressionDateTime(sb *querybuilder.Builder, field string, op ComparisonOperator, value time.Time) error
+	WriteFilterExpressionDateTime(
+		sb *querybuilder.Builder,
+		field string,
+		op ComparisonOperator,
+		value time.Time,
+	) error
 
 	// WriteFilterExpressionStringList writes a comparison expression where the
 	// value is list of string values
-	WriteFilterExpressionStringList(sb *querybuilder.Builder, field string, op ComparisonOperator, value []string) error
+	WriteFilterExpressionStringList(
+		sb *querybuilder.Builder,
+		field string,
+		op ComparisonOperator,
+		value []string,
+	) error
 
 	// WriteFilterExpressionIntList writes a comparison expression where the
 	// value is list of integer values
-	WriteFilterExpressionIntList(sb *querybuilder.Builder, field string, op ComparisonOperator, value []int64) error
+	WriteFilterExpressionIntList(
+		sb *querybuilder.Builder,
+		field string,
+		op ComparisonOperator,
+		value []int64,
+	) error
 
 	// WriteFilterExpressionFloatList writes a comparison expression where the
 	// value is list of floating-point values
-	WriteFilterExpressionFloatList(sb *querybuilder.Builder, field string, op ComparisonOperator, value []float64) error
+	WriteFilterExpressionFloatList(
+		sb *querybuilder.Builder,
+		field string,
+		op ComparisonOperator,
+		value []float64,
+	) error
 }
 
 // Value represents a concrete value type within a query. Value abstracts the

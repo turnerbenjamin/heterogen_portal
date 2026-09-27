@@ -1,10 +1,11 @@
+// Package queryParser contains query string parsing functionality
+//
+// This file contains functionality for parsing select operations
 package queryParser
 
 import qstore "github.com/turnerbenjamin/heterogen_portal/internal/query/queryDataStore"
 
-// parseSelectOperation is responsible for parsing select operations It expects
-// a simple list of comma-separated values containing at least one column
-// identifier
+// parseSelectOperation is responsible for parsing select operations.
 func parseSelectOperation(
 	queryDataStore qstore.QueryDataStore,
 	t *Tokeniser,

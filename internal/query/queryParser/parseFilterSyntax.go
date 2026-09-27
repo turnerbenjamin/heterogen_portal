@@ -1,3 +1,6 @@
+// Package queryParser contains query string parsing functionality
+//
+// This file contains functionality for parsing filter operations
 package queryParser
 
 import (
@@ -7,6 +10,8 @@ import (
 	mdl "github.com/turnerbenjamin/heterogen_portal/internal/query/queryModel"
 )
 
+// parseFilterOperation parses a complete filter operation from the tokeniser
+// and stores the resulting filter expression in the query data store.
 func parseFilterOperation(
 	s qstore.QueryDataStore,
 	t *Tokeniser,
@@ -21,19 +26,31 @@ func parseFilterOperation(
 
 	nxtTkn := t.Peek()
 	if nxtTkn.Type != operationSeparator && nxtTkn.Type != endOfOperationsSentinal {
-		return t.TknErr(nxtTkn, "expected end of filter value but received '%s'", nxtTkn.Value)
+		return t.TknErr(
+			nxtTkn,
+			"expected end of filter value but received '%s'",
+			nxtTkn.Value,
+		)
 	}
 
 	s.SetFilterExpression(expression)
 	return nil
 }
 
-func parseFilterExpression(b qstore.FilterExpressionBuilder, t *Tokeniser) (mdl.FilterExpression, error) {
+// parseFilterExpression parses a filter expression.
+func parseFilterExpression(
+	b qstore.FilterExpressionBuilder,
+	t *Tokeniser,
+) (mdl.FilterExpression, error) {
 	return parseOr(b, t)
 }
 
-func parseOr(b qstore.FilterExpressionBuilder, t *Tokeniser) (mdl.FilterExpression, error) {
-
+// parseOr parses a sequence of filter expressions joined by the logical OR
+// operator and constructs a corresponding logical expression tree.
+func parseOr(
+	b qstore.FilterExpressionBuilder,
+	t *Tokeniser,
+) (mdl.FilterExpression, error) {
 	left, err := parseAnd(b, t)
 	if err != nil {
 		return nil, err
@@ -63,8 +80,12 @@ func parseOr(b qstore.FilterExpressionBuilder, t *Tokeniser) (mdl.FilterExpressi
 	return left, nil
 }
 
-func parseAnd(b qstore.FilterExpressionBuilder, t *Tokeniser) (mdl.FilterExpression, error) {
-
+// parseAnd parses a sequence of filter expressions joined by the logical AND
+// operator and constructs a corresponding logical expression tree.
+func parseAnd(
+	b qstore.FilterExpressionBuilder,
+	t *Tokeniser,
+) (mdl.FilterExpression, error) {
 	left, err := parsePrimary(b, t)
 	if err != nil {
 		return nil, err
@@ -94,8 +115,14 @@ func parseAnd(b qstore.FilterExpressionBuilder, t *Tokeniser) (mdl.FilterExpress
 	return left, nil
 }
 
-func parsePrimary(b qstore.FilterExpressionBuilder, t *Tokeniser) (mdl.FilterExpression, error) {
-
+// parsePrimary parses a primary filter expression.
+//
+// Primary expressions are either parenthesised filter expressions or a path
+// followed by a comparison or collection operator.
+func parsePrimary(
+	b qstore.FilterExpressionBuilder,
+	t *Tokeniser,
+) (mdl.FilterExpression, error) {
 	tkn := t.Peek()
 
 	switch tkn.Type {
@@ -132,6 +159,9 @@ func parsePrimary(b qstore.FilterExpressionBuilder, t *Tokeniser) (mdl.FilterExp
 	}
 }
 
+// parseComparison parses a comparison expression consisting of a resource
+// path, comparison operator, and value, and constructs the corresponding
+// filter expression.
 func parseComparison(
 	b qstore.FilterExpressionBuilder,
 	t *Tokeniser,
@@ -160,7 +190,10 @@ func parseComparison(
 	return b.NewComparisonExpression(columnPath, op, right)
 }
 
-func parseComparisonOperator(t *Tokeniser, tkn token) (mdl.ComparisonOperator, error) {
+// parseComparisonOperator resolves a comparison operator token to its
+// corresponding model comparison operator.
+func parseComparisonOperator(
+	t *Tokeniser, tkn token) (mdl.ComparisonOperator, error) {
 	operator, ok := mdl.SupportedComparisonOperators[tkn.Value]
 	if !ok {
 		return "", t.TknErr(
@@ -172,6 +205,8 @@ func parseComparisonOperator(t *Tokeniser, tkn token) (mdl.ComparisonOperator, e
 	return operator, nil
 }
 
+// parseCollectionOperator parses a collection filter expression consisting of
+// a resource path, collection operator, and nested filter expression.
 func parseCollectionOperator(
 	b qstore.FilterExpressionBuilder,
 	t *Tokeniser,
@@ -181,7 +216,11 @@ func parseCollectionOperator(
 	tkn := t.Next()
 	operator, exists := mdl.SupportedCollectionOperators[tkn.Value]
 	if !exists {
-		return nil, t.TknErr(tkn, "expected collection operator but received '%s'", tkn.Value)
+		return nil, t.TknErr(
+			tkn,
+			"expected collection operator but received '%s'",
+			tkn.Value,
+		)
 	}
 
 	if tkn = t.Next(); tkn.Type != TokenParenL {
@@ -204,6 +243,10 @@ func parseCollectionOperator(
 	)
 }
 
+// parsePath parses a contiguous resource path from the tokeniser.
+//
+// Whitespace immediately before a path is ignored, while whitespace within
+// the path terminates parsing.
 func parsePath(t *Tokeniser) (string, error) {
 	// Generally, space tokens are skipped, however, paths must be contiguous
 	pathBuilder := strings.Builder{}

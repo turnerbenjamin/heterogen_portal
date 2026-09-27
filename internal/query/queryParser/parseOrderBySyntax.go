@@ -1,3 +1,6 @@
+// Package queryParser contains query string parsing functionality
+//
+// This file contains functionality for parsing order by operations
 package queryParser
 
 import (

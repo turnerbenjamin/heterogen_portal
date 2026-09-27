@@ -1,3 +1,8 @@
+// Package azSqlWriter generates Microsoft SQL Server query statements from
+// planned query data stores.
+//
+// It translates query selections, expansions, filters, ordering, and pagination
+// into parameterised SQL statements.
 package azSqlWriter
 
 import (
@@ -11,28 +16,20 @@ import (
 	"github.com/turnerbenjamin/heterogen_portal/internal/query/relationships"
 )
 
-// // arg adds a new argument to the args list and returns a unique placeholder for
-// // use in the sql statement
-// func (w *queryWriter) placeholder(v any) string {
-// 	w.queryArgs = append(w.queryArgs, v)
-// 	return fmt.Sprintf("@p%d", len(w.queryArgs))
-// }
-
-// func (w *queryWriter) Write(sb *strings.Builder, statement string, args ...any) {
-// 	fmt.Fprintf(sb, statement, args...)
-// }
-
-// aliasedResource binds a resourse to a table alias in an sql query
+// aliasedResource associates resource metadata with the SQL table alias used
+// to reference that resource within a query.
 type aliasedResource struct {
 	resource mdl.TableMetadata
 	alias    string
 }
 
+// queryWriter generates SQL statements for a query data store.
 type queryWriter struct {
 	queryDataStore qstore.QueryDataStore
 	aliasStore     relationships.AliasStore
 }
 
+// NewQueryWriter creates a query writer for the supplied query data store.
 func NewQueryWriter(s qstore.QueryDataStore) mdl.QueryWriter {
 	return &queryWriter{
 		queryDataStore: s,
@@ -40,6 +37,10 @@ func NewQueryWriter(s qstore.QueryDataStore) mdl.QueryWriter {
 	}
 }
 
+// newNestedQueryWriter creates a query writer for a nested query data store.
+//
+// The nested writer uses the alias store associated with the nested query so
+// that generated SQL references the correct resource aliases.
 func (w queryWriter) newNestedQueryWriter(s qstore.QueryDataStore) *queryWriter {
 	return &queryWriter{
 		queryDataStore: s,
@@ -47,6 +48,9 @@ func (w queryWriter) newNestedQueryWriter(s qstore.QueryDataStore) *queryWriter 
 	}
 }
 
+// WriteQueryStatement generates the SQL statement used to execute the query,
+// including selected columns, expansions, joins, filters, ordering, and the
+// JSON response clause.
 func (w queryWriter) WriteQueryStatement() (mdl.QueryStatement, error) {
 	b := &querybuilder.Builder{}
 
@@ -61,6 +65,9 @@ func (w queryWriter) WriteQueryStatement() (mdl.QueryStatement, error) {
 	}, nil
 }
 
+// WriteCountStatement generates a SQL statement that counts the total number of
+//
+//	records matching the query's conditions
 func (w queryWriter) WriteCountStatement() (mdl.QueryStatement, error) {
 	b := &querybuilder.Builder{}
 
@@ -75,6 +82,7 @@ func (w queryWriter) WriteCountStatement() (mdl.QueryStatement, error) {
 	}, nil
 }
 
+// writeQuery writes the complete SQL query to the supplied query builder.
 func (w *queryWriter) writeQuery(b *querybuilder.Builder) error {
 	err := w.writeSelectAndExpandStatement(b)
 	if err != nil {
@@ -104,6 +112,8 @@ func (w *queryWriter) writeQuery(b *querybuilder.Builder) error {
 	return nil
 }
 
+// buildCountStatement writes a SQL COUNT statement for the current query to
+// the supplied query builder.
 func (w *queryWriter) buildCountStatement(b *querybuilder.Builder) error {
 	b.Write("SELECT COUNT(*) AS total_count ")
 	w.writeFromStatement(b)
@@ -116,6 +126,8 @@ func (w *queryWriter) buildCountStatement(b *querybuilder.Builder) error {
 	return nil
 }
 
+// writeFromStatement writes the FROM clause for the query's root resource,
+// including its SQL table alias.
 func (w *queryWriter) writeFromStatement(b *querybuilder.Builder) {
 	rootResourceMetadata := w.queryDataStore.RootResourceMetadata()
 
@@ -123,6 +135,8 @@ func (w *queryWriter) writeFromStatement(b *querybuilder.Builder) {
 	b.Write("FROM %s %s ", rootResourceMetadata.FullyQualifiedName, rootAlias)
 }
 
+// writeSelectAndExpandStatement writes the SELECT clause, including the
+// system limit, selected columns, and nested resource expansions.
 func (w *queryWriter) writeSelectAndExpandStatement(b *querybuilder.Builder) error {
 	b.Write("SELECT ")
 
@@ -159,6 +173,7 @@ func (w *queryWriter) writeSelectAndExpandStatement(b *querybuilder.Builder) err
 	return nil
 }
 
+// formatSelectValue returns the SQL expression used to select a column.
 func (w *queryWriter) formatSelectValue(columnData mdl.ColumnMetadata) string {
 	switch columnData.Type {
 	case mdl.DbTypePoint:
@@ -168,6 +183,11 @@ func (w *queryWriter) formatSelectValue(columnData mdl.ColumnMetadata) string {
 	}
 }
 
+// writeExpandColumn writes a nested query as a JSON-valued column in the
+// enclosing SELECT statement.
+//
+// Many-to-one relationships are emitted without a JSON array wrapper, while
+// other relationships retain the default JSON array representation.
 func (w *queryWriter) writeExpandColumn(b *querybuilder.Builder, expansion qstore.Expansion) error {
 	b.Write("JSON_QUERY((")
 
@@ -184,6 +204,8 @@ func (w *queryWriter) writeExpandColumn(b *querybuilder.Builder, expansion qstor
 	return nil
 }
 
+// writeJoins writes the LEFT JOIN clauses represented by the supplied join
+// collection, recursively including any nested joins.
 func (w *queryWriter) writeJoins(
 	b *querybuilder.Builder,
 	joinCollection relationships.JoinCollection,
@@ -210,6 +232,8 @@ func (w *queryWriter) writeJoins(
 	}
 }
 
+// writeOrderByStatement writes the query's ORDER BY clause using the aliases
+// resolved for each ordered column.
 func (w *queryWriter) writeOrderByStatement(b *querybuilder.Builder) error {
 	if w.queryDataStore.OrderByLen() == 0 {
 		return qerr.InternalErr("expected an orderby operation with at least the primary column specified")
@@ -245,6 +269,7 @@ func (w *queryWriter) writeOrderByStatement(b *querybuilder.Builder) error {
 	return nil
 }
 
+// writeTopStatement writes the TOP clause using the query's system limit.
 func (w *queryWriter) writeTopStatement(b *querybuilder.Builder) error {
 	limit := w.queryDataStore.SystemLimit()
 	if limit == 0 {
@@ -256,6 +281,9 @@ func (w *queryWriter) writeTopStatement(b *querybuilder.Builder) error {
 	return nil
 }
 
+// writeFilterStatement writes the query's WHERE clause, including the
+// relationship condition required when the query is nested within another
+// query.
 func (w *queryWriter) writeFilterStatement(b *querybuilder.Builder) error {
 	filterExpression := w.queryDataStore.FilterExpression()
 
@@ -296,6 +324,8 @@ func (w *queryWriter) writeFilterStatement(b *querybuilder.Builder) error {
 	return nil
 }
 
+// writeFilterExpressionWithLink writes a filter expression together with the
+// relationship condition linking a nested query to its parent query.
 func (w *queryWriter) writeFilterExpressionWithLink(
 	b *querybuilder.Builder,
 	parentQuery qstore.QueryDataStore,
@@ -323,6 +353,9 @@ func (w *queryWriter) writeFilterExpressionWithLink(
 	return nil
 }
 
+// writeFilterExpression writes the SQL representation of a filter expression,
+// dispatching to the appropriate writer for logical, comparison, or collection
+// expressions.
 func (w *queryWriter) writeFilterExpression(
 	b *querybuilder.Builder,
 	rootResource *aliasedResource,
@@ -340,6 +373,8 @@ func (w *queryWriter) writeFilterExpression(
 	}
 }
 
+// writeLogicalExpression writes a logical filter expression using SQL AND or
+// OR operators.
 func (w *queryWriter) writeLogicalExpression(
 	b *querybuilder.Builder,
 	rootResource *aliasedResource,
@@ -367,6 +402,8 @@ func (w *queryWriter) writeLogicalExpression(
 	return nil
 }
 
+// writeComparisonExpression writes a comparison filter expression, resolving
+// any related-resource path required to address the compared column.
 func (w *queryWriter) writeComparisonExpression(
 	b *querybuilder.Builder,
 	ex *mdl.ComparisonExpression,
@@ -396,6 +433,12 @@ func (w *queryWriter) writeComparisonExpression(
 	)
 }
 
+// writeCollectionExpression writes a collection filter expression using SQL
+// EXISTS semantics.
+//
+// Collection-all expressions are rewritten as negated conditions before being
+// emitted so that the resulting EXISTS expression represents the required
+// collection semantics.
 func (w *queryWriter) writeCollectionExpression(
 	b *querybuilder.Builder,
 	ex *mdl.CollectionExpression,
@@ -431,6 +474,11 @@ func (w *queryWriter) writeCollectionExpression(
 	)
 }
 
+// writeExpressionWithPath writes an expression while traversing the related
+// resources represented by the supplied EXISTS nodes.
+//
+// Each relationship is emitted as a nested SQL EXISTS clause until the target
+// resource is reached, where writeExpression generates the final condition.
 func (w *queryWriter) writeExpressionWithPath(
 	b *querybuilder.Builder,
 	existsNodes []mdl.ExistsNode,
@@ -487,6 +535,11 @@ func (w *queryWriter) writeExpressionWithPath(
 	return nil
 }
 
+// negate returns the logical negation of a filter expression.
+//
+// Logical operators are transformed using De Morgan's laws, comparison
+// operators are replaced with their opposites, and collection-any/all
+// operators are swapped while recursively negating their conditions.
 func (w *queryWriter) negate(expression mdl.FilterExpression) (mdl.FilterExpression, error) {
 	filterExpressionBuilder := w.queryDataStore.FilterExpressionBuilder()
 
@@ -541,6 +594,8 @@ func (w *queryWriter) negate(expression mdl.FilterExpression) (mdl.FilterExpress
 	}
 }
 
+// negateComparisonOperator returns the logical inverse of a supported
+// comparison operator.
 func negateComparisonOperator(operator mdl.ComparisonOperator) (mdl.ComparisonOperator, error) {
 	switch operator {
 	case mdl.ComparisonEq:
@@ -578,6 +633,10 @@ func negateComparisonOperator(operator mdl.ComparisonOperator) (mdl.ComparisonOp
 	}
 }
 
+// WriteFilterExpressionNull writes a SQL comparison against a NULL value.
+//
+// Equality and inequality are emitted using SQL IS NULL and IS NOT NULL
+// semantics respectively.
 func (w *queryWriter) WriteFilterExpressionNull(
 	b *querybuilder.Builder,
 	fieldName string,
@@ -594,6 +653,11 @@ func (w *queryWriter) WriteFilterExpressionNull(
 	return nil
 }
 
+// WriteFilterExpressionString writes a parameterised SQL comparison for a
+// string value.
+//
+// In addition to standard comparison operators, string containment, prefix, and
+// suffix comparisons are emitted using SQL LIKE expressions.
 func (w *queryWriter) WriteFilterExpressionString(
 	b *querybuilder.Builder,
 	fieldName string,
@@ -644,6 +708,8 @@ func (w *queryWriter) WriteFilterExpressionString(
 	return nil
 }
 
+// WriteFilterExpressionInt writes a parameterised SQL comparison for an
+// integer value.
 func (w *queryWriter) WriteFilterExpressionInt(
 	b *querybuilder.Builder,
 	fieldName string,
@@ -669,6 +735,8 @@ func (w *queryWriter) WriteFilterExpressionInt(
 	return nil
 }
 
+// WriteFilterExpressionFloat writes a parameterised SQL comparison for a
+// floating-point value.
 func (w *queryWriter) WriteFilterExpressionFloat(
 	b *querybuilder.Builder,
 	fieldName string,
@@ -694,6 +762,8 @@ func (w *queryWriter) WriteFilterExpressionFloat(
 	return nil
 }
 
+// WriteFilterExpressionPoint reports that point values do not currently
+// support filter comparison operations.
 func (w *queryWriter) WriteFilterExpressionPoint(
 	b *querybuilder.Builder,
 	fieldName string,
@@ -703,6 +773,8 @@ func (w *queryWriter) WriteFilterExpressionPoint(
 	return fmt.Errorf("no operators are currently supported for point")
 }
 
+// WriteFilterExpressionDateTime writes a parameterised SQL comparison for a
+// time value.
 func (w *queryWriter) WriteFilterExpressionDateTime(
 	b *querybuilder.Builder,
 	fieldName string,
@@ -728,6 +800,8 @@ func (w *queryWriter) WriteFilterExpressionDateTime(
 	return nil
 }
 
+// WriteFilterExpressionStringList writes a parameterised SQL IN or NOT IN
+// expression for a list of string values.
 func (w *queryWriter) WriteFilterExpressionStringList(
 	b *querybuilder.Builder,
 	fieldName string,
@@ -751,6 +825,8 @@ func (w *queryWriter) WriteFilterExpressionStringList(
 	)
 }
 
+// WriteFilterExpressionIntList writes a SQL IN or NOT IN expression for a list
+// of integer values.
 func (w *queryWriter) WriteFilterExpressionIntList(
 	b *querybuilder.Builder,
 	fieldName string,
@@ -766,7 +842,9 @@ func (w *queryWriter) WriteFilterExpressionIntList(
 		op,
 		func(i int) error {
 			if i < 0 || i > listLen-1 {
-				return qerr.InternalErr("unable to write list value: index out of range")
+				return qerr.InternalErr(
+					"unable to write list value: index out of range",
+				)
 			}
 			b.Write("%d", value[i])
 			return nil
@@ -774,6 +852,8 @@ func (w *queryWriter) WriteFilterExpressionIntList(
 	)
 }
 
+// WriteFilterExpressionFloatList writes a SQL IN or NOT IN expression for a
+// list of floating-point values.
 func (w *queryWriter) WriteFilterExpressionFloatList(
 	b *querybuilder.Builder,
 	fieldName string,
@@ -789,7 +869,9 @@ func (w *queryWriter) WriteFilterExpressionFloatList(
 		op,
 		func(i int) error {
 			if i < 0 || i > listLen-1 {
-				return qerr.InternalErr("unable to write list value: index out of range")
+				return qerr.InternalErr(
+					"unable to write list value: index out of range",
+				)
 			}
 			b.Write("%f", value[i])
 			return nil
@@ -797,6 +879,11 @@ func (w *queryWriter) WriteFilterExpressionFloatList(
 	)
 }
 
+// writeList writes the SQL representation of a list comparison using either
+// IN or NOT IN.
+//
+// writeValue is responsible for writing each individual list value to the
+// query builder.
 func (w *queryWriter) writeList(
 	b *querybuilder.Builder,
 	fieldName string,

@@ -12,76 +12,76 @@ import (
 type tokenType uint64
 
 const (
-	// TokenEmpty is an invalid token type returned with errors
+	// TokenEmpty is an invalid  or uninitialised token type.
 	TokenEmpty tokenType = iota
 
-	// TokenEOF represents the end of the input
+	// TokenEOF represents the end of the input.
 	TokenEOF
 
-	// TokenSpace represents a space
+	// TokenSpace represents one or more consecutive whitespace characters.
 	TokenSpace
 
-	// TokenLogicalOperator is an identifier matching a supported logical
-	// operator
+	// TokenLogicalOperator represents a recognised logical operator.
 	TokenLogicalOperator
 
-	// TokenComparisonOperator is an identifier matching a supported comparison
-	// operator
+	// TokenComparisonOperator represents a recognised comparison operator.
 	TokenComparisonOperator
 
-	// TokenCollectionOperator is an identifier matching a supported collection
-	// operator
+	// TokenCollectionOperator represents a recognised collection operator.
 	TokenCollectionOperator
 
-	// TokenSortDirectionOperator is an identifier matching a supported Sort
-	// direction operator
+	// TokenSortDirectionOperator represents a recognised sort direction
+	// operator.
 	TokenSortDirectionOperator
 
-	// TokenNull is an identifier equal to null
+	// TokenNull represents the null literal.
 	TokenNull
 
-	// TokenNullByte is an identifier representing a null byte value
+	// TokenNullByte represents a null byte character.
 	TokenNullByte
 
-	// TokenIdentifier represents a generic identifier
+	// TokenIdentifier represents an identifier that does not match a more
+	// specific token type.
 	TokenIdentifier
 
 	// TokenBool represents a boolean literal
 	TokenBool
 
-	// TokenNumberRaw represents a raw number value before validation
+	// TokenNumberRaw represents a numeric literal that has not yet been
+	// converted to a numeric value.
 	TokenNumberRaw
 
-	// TokenStringRaw represents a raw string value before validation
+	// TokenStringRaw represents a string literal that has not yet been
+	// validated or unquoted.
 	TokenStringRaw
 
-	// TokenParenL represents an opening parenthesis '('
+	// TokenParenL represents an opening parenthesis.
 	TokenParenL
 
-	// TokenParenR represents a closing parenthesis ')'
+	// TokenParenR represents a closing parenthesis.
 	TokenParenR
 
-	// TokenAmpersand represents an ampersand '&'
+	// TokenAmpersand represents an ampersand.
 	TokenAmpersand
 
-	// TokenSemiColon represents a semi-colon ';'
+	// TokenSemiColon represents a semicolon.
 	TokenSemiColon
 
-	// TokenComma represents a comma ','
+	// TokenComma represents a comma.
 	TokenComma
 
-	// TokenEquals represents an equals symbol '='
+	// TokenEquals represents an equals sign.
 	TokenEquals
 
-	// TokenSlash represents a forward slash '/'
+	// TokenSlash represents a forward slash.
 	TokenSlash
 
-	// TokenHyphen represents a hyphen '-'
+	// TokenHyphen represents a hyphen.
 	TokenHyphen
 )
 
-// singleCharTokenMap is used to identify characters that signal the end of an
-// identifier
+// singleCharTokenMap maps characters that terminate identifiers to their
+// corresponding token types.
 var singleCharTokenMap = map[byte]tokenType{
 	'(':    TokenParenL,
 	')':    TokenParenR,
@@ -94,14 +94,15 @@ var singleCharTokenMap = map[byte]tokenType{
 	'\x00': TokenNullByte,
 }
 
-// token represents a single token value
+// token represents a single token produced by the tokeniser.
 type token struct {
 	endIdx int
 	Type   tokenType
 	Value  string
 }
 
-// Tokeniser is used to tokenise a string input
+// Tokeniser tokenises query string input and provides sequential and lookahead
+// access to the resulting tokens.
 type Tokeniser struct {
 	input   string
 	idx     int
@@ -109,7 +110,7 @@ type Tokeniser struct {
 	buffer  []token
 }
 
-// NewTokeniser returns a new tokeniser for a given string input
+// NewTokeniser creates a Tokeniser for the supplied query string.
 func NewTokeniser(input string) *Tokeniser {
 	return &Tokeniser{
 		input:   input,
@@ -118,7 +119,8 @@ func NewTokeniser(input string) *Tokeniser {
 	}
 }
 
-// newTkn is a helper for creating tokens concisely
+// newTkn creates a token using the tokeniser's current input position as the
+// token's end position.
 func (t *Tokeniser) newTkn(tType tokenType, v string) token {
 	return token{
 		endIdx: t.idx,
@@ -127,13 +129,12 @@ func (t *Tokeniser) newTkn(tType tokenType, v string) token {
 	}
 }
 
-// Peek returns the next token without moving the tokeniser forward
+// Peek returns the next token without advancing the tokeniser.
 func (t *Tokeniser) Peek() token {
 	return t.PeekN(1)
 }
 
-// PeekN returns the nth token from the current position without advancing the
-// tokeniser.
+// PeekN returns the nth upcoming token without advancing the tokeniser.
 func (t *Tokeniser) PeekN(n int) token {
 	o := t.newTkn(TokenEmpty, "")
 	savedBuffIdx := t.buffIdx
@@ -144,25 +145,17 @@ func (t *Tokeniser) PeekN(n int) token {
 	return o
 }
 
-// // Current returns the current token
-// func (t *Tokeniser) Current() token {
-// 	if t.buffIdx < 0 {
-// 		return t.newTkn(TokenEmpty, "")
-// 	}
-// 	return t.buffer[t.buffIdx]
-// }
-
-// Next moves the tokeniser one token forward and returns the token - Space
-// tokens are skipped
+// Next returns the next token, skipping whitespace tokens.
 func (t *Tokeniser) Next() token {
 	return t.next(true)
 }
 
-// NextIncWhitespace returns the next token, Space tokens are not skipped
+// NextIncSpace returns the next token without skipping whitespace tokens.
 func (t *Tokeniser) NextIncSpace() token {
 	return t.next(false)
 }
 
+// next returns the next token, optionally skipping whitespace tokens.
 func (t *Tokeniser) next(doSkipWhitespace bool) token {
 	for (t.buffIdx + 1) < len(t.buffer) {
 		t.buffIdx++
@@ -214,9 +207,12 @@ func (t *Tokeniser) next(doSkipWhitespace bool) token {
 	return t.buffer[t.buffIdx]
 }
 
-// readString parses string literals. It does not validate that the string is
-// terminated. The opening, and if present the closing, quotation marks are
-// included to allow validation by the consumer.
+// readString reads a quoted string literal and returns it as a raw string
+// token.
+//
+// The returned token includes the opening and, when present, closing
+// quotation marks. Validation of the quotation marks and string contents is
+// left to the consumer.
 func (t *Tokeniser) readString() token {
 	openingQuotationChar := t.input[t.idx]
 	start := t.idx
@@ -234,8 +230,12 @@ func (t *Tokeniser) readString() token {
 	return t.newTkn(TokenStringRaw, t.input[start:t.idx])
 }
 
-// readNumber reads a number, treating both digits and decimal places to be
-// valid - The tokeniser does not validate the number
+// readNumber reads a numeric literal containing digits and an optional decimal
+// point.
+//
+// The tokeniser performs only basic lexical parsing; validation and numeric
+// conversion are performed by the consumer. A trailing decimal point is
+// normalised by appending a zero.
 func (t *Tokeniser) readNumber() token {
 	start := t.idx
 
@@ -265,8 +265,12 @@ func (t *Tokeniser) readNumber() token {
 	return t.newTkn(TokenNumberRaw, numString)
 }
 
-// readIdentifier parses words separated by whitespace or single character
-// tokens.
+// readIdentifier reads a sequence of characters that forms an identifier,
+// stopping at whitespace, recognised single-character tokens, or quotation
+// marks.
+//
+// The resulting identifier is classified into a more specific token type when
+// it matches a supported operator or literal.
 func (t *Tokeniser) readIdentifier() token {
 	start := t.idx
 
@@ -294,9 +298,12 @@ func (t *Tokeniser) readIdentifier() token {
 	return t.newTkn(tokenType, formattedValue)
 }
 
-// classifyIdentifier tries to match the identifier with a specific identifier
-// type, e.g. TokenLogicalOperator. If a specific match cannot be found it falls
-// back to the generic TokenIdentifier
+// classifyIdentifier determines the token type for an identifier by matching
+// it against the supported operators and recognised literal values.
+//
+// Identifiers are matched case-insensitively for recognised values and
+// operators. Unmatched identifiers retain their original value and are
+// classified as TokenIdentifier.
 func classifyIdentifier(identifier string) (tokenType, string) {
 	lIdentifier := strings.ToLower(identifier)
 
@@ -327,6 +334,8 @@ func classifyIdentifier(identifier string) (tokenType, string) {
 	return TokenIdentifier, identifier
 }
 
+// isWhiteSpace reports whether b is a whitespace character recognised by the
+// query tokeniser.
 func isWhiteSpace(b byte) bool {
 	switch b {
 	case '\t', '\n', '\v', '\f', '\r', ' ':
@@ -336,8 +345,11 @@ func isWhiteSpace(b byte) bool {
 	}
 }
 
-// TknErr builds a syntax err with an input substring which terminates at the
-// end of the offending tkn to provide context
+// TknErr creates a syntax error associated with a token.
+//
+// For ordinary tokens, the error includes a short substring of the input ending
+// at the offending token to provide additional context. Empty and EOF tokens do
+// not have a meaningful input position, so no context is added.
 func (t Tokeniser) TknErr(tkn token, m string, a ...any) error {
 	if tkn.Type == TokenEmpty || tkn.Type == TokenEOF {
 		return qerr.SyntaxErr(m, a...)

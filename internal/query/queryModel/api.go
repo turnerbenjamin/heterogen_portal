@@ -45,7 +45,7 @@ type Repository interface {
 // executor
 type QueryConfig struct {
 	// DefaultPageSize represents the default limit applied when no limit is
-	// specified in the query string - This property defaults to 500
+	// specified in the query string - This property defaults to 100
 	DefaultPageSize uint32
 
 	// MaxRecordsPerPage represents the maximum number of records, including
@@ -63,7 +63,7 @@ type QueryConfig struct {
 // values
 func QueryConfigWithDefaults(config QueryConfig) QueryConfig {
 	if config.DefaultPageSize == 0 {
-		config.DefaultPageSize = 500
+		config.DefaultPageSize = 100
 	}
 
 	if config.MaxRecordsPerPage == 0 {

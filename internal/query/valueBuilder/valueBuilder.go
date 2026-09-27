@@ -1,3 +1,11 @@
+// Package valueBuilder provides type-safe abstractions for query values. Values
+// act as a boundary between the concrete Go types used by parsed queries and
+// the rest of the query system.
+//
+// Values identify their value and value type and control which operations are
+// permitted. Filter generation and serialization are delegated to injected
+// query components. Values act as type switches for these operations and do not
+// implement the underlying business logic.
 package valueBuilder
 
 import (
@@ -7,40 +15,51 @@ import (
 	mdl "github.com/turnerbenjamin/heterogen_portal/internal/query/queryModel"
 )
 
+// valueBuilder constructs query values and converts serialized values back into
+// their corresponding value implementations.
 type valueBuilder struct{}
 
+// NewValueBuilder creates a value builder.
 func NewValueBuilder() mdl.ValueBuilder {
 	return &valueBuilder{}
 }
 
+// Null creates a null query value.
 func (valueBuilder) Null() mdl.Value {
 	return nullValue{}
 }
 
+// String creates a string query value.
 func (valueBuilder) String(s string) mdl.Value {
 	return stringValue{value: s}
 }
 
+// Int creates an integer query value.
 func (valueBuilder) Int(i int64) mdl.Value {
 	return intValue{value: i}
 }
 
+// Float creates a float query value.
 func (valueBuilder) Float(f float64) mdl.Value {
 	return floatValue{value: f}
 }
 
+// Point creates a point query value from longitude and latitude coordinates.
 func (valueBuilder) Point(longitude float64, latitude float64) mdl.Value {
 	return pointValue{value: mdl.NewPoint(longitude, latitude)}
 }
 
+// DateTime creates a date-time query value.
 func (valueBuilder) DateTime(dt time.Time) mdl.Value {
 	return dateTimeValue{value: dt}
 }
 
+// List creates a typed query list from the supplied values.
 func (valueBuilder) List(els []mdl.Value) (mdl.Value, error) {
 	return buildListValue(els)
 }
 
+// ExecuteDeserialisation deserializes data into the value type specified by t.
 func (valueBuilder) ExecuteDeserialisation(
 	ds mdl.Deserialiser,
 	t mdl.ValueType,
@@ -86,11 +105,11 @@ func (valueBuilder) ExecuteDeserialisation(
 
 	// DESERIALISE - POINT
 	case mdl.ValueTypePoint:
-		v, err := ds.DeserialiseTime(d)
+		v, err := ds.DeserialisePoint(d)
 		if err != nil {
 			return nil, err
 		}
-		return dateTimeValue{value: v}, nil
+		return pointValue{value: v}, nil
 
 	// DESERIALISE - STRING LIST
 	case mdl.ValueTypeStringList:
@@ -107,9 +126,14 @@ func (valueBuilder) ExecuteDeserialisation(
 		values, err := ds.DeserialiseListFloat(d)
 		return floatListValue{value: values}, err
 	}
-	return nil, nil
+	return nil, qerr.InternalErr(
+		"Unable to deserialise values to type %s",
+		ValueTypeString(t),
+	)
 }
 
+// buildListValue creates a supported typed list from a non-empty collection of
+// values.
 func buildListValue(els []mdl.Value) (mdl.Value, error) {
 	if len(els) == 0 {
 		return nil, qerr.InternalErr("lists must contain at least one element")
@@ -131,6 +155,7 @@ func buildListValue(els []mdl.Value) (mdl.Value, error) {
 	}
 }
 
+// ValueTypeString returns the human-readable name of a query value type.
 func ValueTypeString(t mdl.ValueType) string {
 	switch t {
 	case mdl.ValueTypeNull:

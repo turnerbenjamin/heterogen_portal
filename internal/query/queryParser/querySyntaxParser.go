@@ -1,3 +1,7 @@
+// Package queryParser contains query string parsing functionality
+//
+// This file contains querySyntaxParser which is the entry point for parsing a
+// query string
 package queryParser
 
 import (
@@ -12,19 +16,20 @@ import (
 // expand or filter
 type QueryOperation interface {
 
-	// IsQueryOperation is used to allow types to opt into the interface
+	// IsQueryOperion marks the type as a QueryOperation.
 	IsQueryOperation()
 }
 
-// QuerySyntaxParser is a utility for parsing query strings
-type QuerySyntaxParser struct{}
+// querySyntaxParser is a utility for parsing query strings
+type querySyntaxParser struct{}
 
 func NewQueryParser() qplan.QueryParser {
-	return &QuerySyntaxParser{}
+	return &querySyntaxParser{}
 }
 
-// Parse is used to parse query strings as a collection of query operations
-func (p *QuerySyntaxParser) Parse(
+// Parse is used to parse query strings and add the operations into a query
+// data store
+func (p *querySyntaxParser) Parse(
 	queryString string,
 	s qstore.QueryDataStore,
 ) (uint8, error) {

@@ -1,3 +1,5 @@
+// Package query executes resource queries by coordinating parsing, planning,
+// SQL generation, data access, result materialization, and pagination.
 package query
 
 import (
@@ -15,13 +17,19 @@ import (
 	valuebuilder "github.com/turnerbenjamin/heterogen_portal/internal/query/valueBuilder"
 )
 
+// sqlFlavour identifies the SQL dialect used to execute queries.
 type sqlFlavour string
 
 const SqlFlavorAzureSql sqlFlavour = "azure_sql"
 
+// QueryWriterGetter creates a query writer for a planned query data store.
 type QueryWriterGetter func(s qstore.QueryDataStore) mdl.QueryWriter
+
+// QueryParserInitialiser creates a new query parser.
 type QueryParserInitialiser func() qplan.QueryParser
 
+// queryExecutor coordinates query parsing, planning, execution, and result
+// materialization.
 type queryExecutor struct {
 	repository             mdl.Repository
 	queryConfig            mdl.QueryConfig
@@ -31,6 +39,8 @@ type queryExecutor struct {
 	queryWriterGetter      QueryWriterGetter
 	queryParserInitialiser QueryParserInitialiser
 }
+
+// QueryExecutor executes resource queries and returns their results.
 type QueryExecutor interface {
 	Execute(
 		ctx context.Context,
@@ -39,6 +49,7 @@ type QueryExecutor interface {
 	) (*queryModel.ExecuteResult, error)
 }
 
+// QueryExecutorConfig configures a query executor and its dependencies.
 type QueryExecutorConfig struct {
 	Repo                  mdl.Repository
 	Schema                mdl.Schema
@@ -49,6 +60,8 @@ type QueryExecutorConfig struct {
 	queryConfig           mdl.QueryConfig
 }
 
+// NewQueryExecutorFactory creates a query executor from the supplied
+// configuration.
 func NewQueryExecutorFactory(config QueryExecutorConfig) (QueryExecutor, error) {
 	pagingTokenBuilder, err := paginationTokens.NewPagingTokenBuilder(
 		config.PaginationTokenSigner,
@@ -75,6 +88,8 @@ func NewQueryExecutorFactory(config QueryExecutorConfig) (QueryExecutor, error) 
 	}, err
 }
 
+// Execute parses, plans, executes, and materializes a query for the named
+// resource.
 func (qf *queryExecutor) Execute(
 	ctx context.Context,
 	resourceName string,
@@ -129,6 +144,7 @@ func (qf *queryExecutor) Execute(
 	}, nil
 }
 
+// getSqlWriter returns a query writer factory for the requested SQL dialect.
 func getSqlWriter(flavour sqlFlavour) (QueryWriterGetter, error) {
 	switch flavour {
 	case SqlFlavorAzureSql:
@@ -138,6 +154,8 @@ func getSqlWriter(flavour sqlFlavour) (QueryWriterGetter, error) {
 	}
 }
 
+// getNextPageToken builds a pagination token when the query returned more
+// records than the configured page limit, and trims the results to that limit.
 func (e *queryExecutor) getNextPageToken(
 	s qstore.QueryDataStore,
 	queryResults *[]mdl.TableModel,
@@ -158,6 +176,8 @@ func (e *queryExecutor) getNextPageToken(
 	)
 }
 
+// executeQueryStatement generates and executes the query SQL, optionally
+// executing a count query when requested.
 func (e *queryExecutor) executeQueryStatement(
 	ctx context.Context,
 	s qstore.QueryDataStore,

@@ -1,9 +1,14 @@
+// Package queryParser contains query string parsing functionality
+//
+// This file contains functionality for parsing expand operations
 package queryParser
 
 import (
 	qstore "github.com/turnerbenjamin/heterogen_portal/internal/query/queryDataStore"
 )
 
+// parseExpandOperation parses expand syntax and adds the operations into the
+// query data store
 func parseExpandOperation(
 	s qstore.QueryDataStore,
 	t *Tokeniser,

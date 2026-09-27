@@ -1,29 +1,44 @@
+// Package queryPlanner validates and plans parsed queries before execution.
+//
+// It applies query defaults and limits, ensures deterministic ordering,
+// configures expanded queries, and prepares the query for cursor-based
+// pagination.
 package queryPlanner
 
 import (
-	"github.com/turnerbenjamin/heterogen_portal/internal/query/paginationTokens"
 	tkns "github.com/turnerbenjamin/heterogen_portal/internal/query/paginationTokens"
 	qstore "github.com/turnerbenjamin/heterogen_portal/internal/query/queryDataStore"
 	qerr "github.com/turnerbenjamin/heterogen_portal/internal/query/queryError"
 	mdl "github.com/turnerbenjamin/heterogen_portal/internal/query/queryModel"
 )
 
+// PagingTokenBuilder builds and parses paging tokens used for cursor-based
+// pagination.
 type PagingTokenBuilder interface {
+	// BuildToken generates a new pagination token
 	BuildToken(
 		queryDataStore qstore.QueryDataStore,
 		lastRecord mdl.TableModel,
 	) (string, error)
 
+	// ParseToken parses a pagination token
 	ParseToken(token string, valueBuilder mdl.ValueBuilder) (*tkns.PagingToken, error)
 }
 
+// QueryParser parses a query string into a QueryDataStore.
 type QueryParser interface {
+	// Parse is used to parse a query string and add its operations to a query
+	// data store
 	Parse(
 		queryString string,
 		queryDataStore qstore.QueryDataStore,
 	) (uint8, error)
 }
 
+// PlanQuery parses and plans a query according to the supplied configuration.
+// It initialises the query data store, processes any paging token, applies
+// query planning rules, and validates the resulting query against configured
+// record limits.
 func PlanQuery(
 	config mdl.QueryConfig,
 	queryString string,
@@ -99,6 +114,11 @@ func PlanQuery(
 	return s, err
 }
 
+// initStore creates a query data store for the supplied query and parses the
+// query string into it.
+//
+// The returned operation count represents the number of operations parsed
+// from the query.
 func initStore(
 	queryString string,
 	queryParser QueryParser,
@@ -125,10 +145,18 @@ func initStore(
 	return s, operationCount, nil
 }
 
+// planQuery applies planning rules to a query data store and its nested
+// expansions.
+//
+// It adds default operations, ensures deterministic ordering, configures
+// operations required for cursor pagination, applies system limits, plans
+// nested expansions, and adds a cursor filter when required. The returned
+// record count represents the maximum number of records the query may
+// produce.
 func planQuery(
 	s qstore.QueryDataStore,
 	config mdl.QueryConfig,
-	pagingToken *paginationTokens.PagingToken,
+	pagingToken *tkns.PagingToken,
 ) (uint32, error) {
 	totalRecordCount := uint32(0)
 
@@ -179,6 +207,11 @@ func planQuery(
 	return totalRecordCount, nil
 }
 
+// addSystemDefaults applies default query operations where they have not been
+// explicitly supplied by the caller.
+//
+// This includes selecting accessible columns, applying the default page size,
+// and ordering by the root resource's primary key.
 func addSystemDefaults(s qstore.QueryDataStore, config mdl.QueryConfig) error {
 	rootResourceMetadata := s.RootResourceMetadata()
 
@@ -204,6 +237,11 @@ func addSystemDefaults(s qstore.QueryDataStore, config mdl.QueryConfig) error {
 	return nil
 }
 
+// addDefaultSelects selects all columns that the query's access policy permits
+// the caller to access.
+//
+// An error is returned if the access policy prevents access to every column on
+// the root resource.
 func addDefaultSelects(s qstore.QueryDataStore) error {
 	// Add all columns the user can access to the table
 	tableAccessPolicy := s.RootResourceAccessPolicy()
@@ -232,8 +270,12 @@ func addDefaultSelects(s qstore.QueryDataStore) error {
 	return nil
 }
 
+// ensureDeterministicOrdering ensures that the query ordering includes the root
+// resource's primary key.
+//
+// The primary key is appended as an ascending ordering rule when it is not
+// already present, providing a deterministic ordering for pagination.
 func ensureDeterministicOrdering(s qstore.QueryDataStore) error {
-
 	primaryKeyField := s.RootResourceMetadata().PrimaryKeyColumn.Name
 
 	// exit early if query is already sorted by the primary key field
@@ -246,6 +288,12 @@ func ensureDeterministicOrdering(s qstore.QueryDataStore) error {
 	return s.AddOrderBy(primaryKeyField, mdl.SortDirectionAsc)
 }
 
+// addRequiredOperationsForCursorPagination adds system selects required to
+// support cursor-based pagination.
+//
+// Root-level ordering columns are added as system selects, while ordering
+// columns on related resources cause the required nested selects or expansions
+// to be added.
 func addRequiredOperationsForCursorPagination(s qstore.QueryDataStore) error {
 	if !s.IsTopLevelQuery() {
 		return nil
@@ -269,6 +317,11 @@ func addRequiredOperationsForCursorPagination(s qstore.QueryDataStore) error {
 	return nil
 }
 
+// addNestedSystemSelect adds a system select for a resolved column on a
+// related resource.
+//
+// Existing expansions are reused where possible; otherwise, the required
+// system expansion and nested selects are created.
 func addNestedSystemSelect(s qstore.QueryDataStore, resolvedColumn mdl.ResolvedColumn) error {
 	// Shift first step from the array
 	nextStep := resolvedColumn.ResolvedPath.Steps[0]
@@ -296,7 +349,15 @@ func addNestedSystemSelect(s qstore.QueryDataStore, resolvedColumn mdl.ResolvedC
 	}
 }
 
-func addSystemExpand(s qstore.QueryDataStore, resolvedColumn mdl.ResolvedColumn) error {
+// addSystemExpand creates the nested system expansions and selects required
+// to access a resolved column on a related resource.
+//
+// Expansions are created from the deepest relationship back towards the
+// current query so that each required intermediate resource is available.
+func addSystemExpand(
+	s qstore.QueryDataStore,
+	resolvedColumn mdl.ResolvedColumn,
+) error {
 	pathSteps := resolvedColumn.ResolvedPath.Steps
 	totalSteps := len(pathSteps)
 
@@ -325,6 +386,10 @@ func addSystemExpand(s qstore.QueryDataStore, resolvedColumn mdl.ResolvedColumn)
 	return nil
 }
 
+// setSystemLimit sets the internal record limit used when executing the query.
+//
+// Top-level queries receive one additional record beyond the user-requested
+// limit so that the planner can determine whether another page exists.
 func setSystemLimit(s qstore.QueryDataStore) {
 	var userLimit uint32 = s.Limit()
 	systemLimit := uint64(userLimit)
@@ -338,9 +403,14 @@ func setSystemLimit(s qstore.QueryDataStore) {
 	s.SetSystemLimit(systemLimit)
 }
 
+// addCursorFilter adds a filter that restricts results to records occurring
+// after the position represented by a paging token.
+//
+// The generated filter follows the query's ordering rules and is combined
+// with any existing filter using a logical AND.
 func addCursorFilter(
 	s qstore.QueryDataStore,
-	paginationToken *paginationTokens.PagingToken,
+	paginationToken *tkns.PagingToken,
 ) error {
 	if paginationToken == nil {
 		return nil
@@ -441,6 +511,11 @@ func addCursorFilter(
 	return nil
 }
 
+// getCursorFilterComparisonOperator creates the comparison expression used
+// to advance a cursor according to its ordering direction and cursor value.
+//
+// The comparison accounts for the ordering direction and the position of
+// null values within the ordering.
 func getCursorFilterComparisonOperator(
 	rule mdl.SortingRule,
 	value mdl.Value,

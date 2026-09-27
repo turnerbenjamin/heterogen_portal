@@ -1,3 +1,6 @@
+// Package queryParser contains query string parsing functionality
+//
+// This file contains functionality for parsing literal values
 package queryParser
 
 import (
@@ -9,6 +12,9 @@ import (
 	mdl "github.com/turnerbenjamin/heterogen_portal/internal/query/queryModel"
 )
 
+// parseValue parses the next token as a literal value, supporting null,
+// strings, numbers, lists, and recognised reference types such as points
+// and datetimes.
 func parseValue(t *Tokeniser, v mdl.ValueBuilder) (mdl.Value, error) {
 	tkn := t.Next()
 
@@ -44,6 +50,8 @@ func parseValue(t *Tokeniser, v mdl.ValueBuilder) (mdl.Value, error) {
 	return nil, t.TknErr(tkn, "unexpected value %s", tkn.Value)
 }
 
+// parseStringValue validates and parses a raw quoted string token into a string
+// value. Both single and double-quoted strings are supported
 func parseStringValue(t *Tokeniser, raw token, v mdl.ValueBuilder) (mdl.Value, error) {
 	if raw.Type != TokenStringRaw {
 		return nil, t.TknErr(raw, "unexpected token type received: '%s'", raw.Value)
@@ -68,6 +76,9 @@ func parseStringValue(t *Tokeniser, raw token, v mdl.ValueBuilder) (mdl.Value, e
 	return v.String(strValue), nil
 }
 
+// parseList parses a list literal beginning at the current token position.
+// List literals must contain at least one element and all elements must have
+// the same value type.
 func parseList(t *Tokeniser, v mdl.ValueBuilder) (mdl.Value, error) {
 	first, err := parseValue(t, v)
 	if err != nil {
@@ -86,6 +97,9 @@ func parseList(t *Tokeniser, v mdl.ValueBuilder) (mdl.Value, error) {
 	return v.List(els)
 }
 
+// parseListElements parses the remaining elements of a list after its first
+// element has been parsed. Elements must have the same type as the first
+// element, and the closing parenthesis terminates the list.
 func parseListElements(
 	t *Tokeniser,
 	v mdl.ValueBuilder,
@@ -116,7 +130,14 @@ func parseListElements(
 	}
 }
 
-func parseNumberValue(tkn token, v mdl.ValueBuilder, doNegate bool) (mdl.Value, error) {
+// parseNumberValue parses a raw numeric token as either an integer or a
+// floating-point value. When doNegate is true, the resulting value is
+// negated.
+func parseNumberValue(
+	tkn token,
+	v mdl.ValueBuilder,
+	doNegate bool,
+) (mdl.Value, error) {
 	dpCount := 0
 	for _, c := range tkn.Value {
 		if c == '.' {
@@ -151,7 +172,14 @@ func parseNumberValue(tkn token, v mdl.ValueBuilder, doNegate bool) (mdl.Value, 
 	}
 }
 
-func tryParseReferenceType(t *Tokeniser, tkn token, v mdl.ValueBuilder) (mdl.Value, error) {
+// tryParseReferenceType identifies and parses a supported reference-type
+// literal following an identifier. Supported types include point and
+// datetime.
+func tryParseReferenceType(
+	t *Tokeniser,
+	tkn token,
+	v mdl.ValueBuilder,
+) (mdl.Value, error) {
 	nxtTkn := t.Peek()
 	if nxtTkn.Type != TokenParenL {
 		return nil, t.TknErr(tkn, "unexpected value %s", tkn.Value)
@@ -170,6 +198,8 @@ func tryParseReferenceType(t *Tokeniser, tkn token, v mdl.ValueBuilder) (mdl.Val
 	}
 }
 
+// tryParsePoint parses a point literal containing longitude and latitude
+// coordinates and constructs the corresponding point value.
 func tryParsePoint(t *Tokeniser, tkn token, v mdl.ValueBuilder) (mdl.Value, error) {
 	// Expect first token to be an opening parenthesis
 	if tkn.Type != TokenParenL {
@@ -213,6 +243,8 @@ func tryParsePoint(t *Tokeniser, tkn token, v mdl.ValueBuilder) (mdl.Value, erro
 	return v.Point(longitude, latitude), nil
 }
 
+// tryParseDateTime parses a datetime literal and converts its contents from
+// RFC 3339 format into a datetime value.
 func tryParseDateTime(t *Tokeniser, tkn token, v mdl.ValueBuilder) (mdl.Value, error) {
 	// Expect first token to be an opening parenthesis
 	if tkn.Type != TokenParenL {
