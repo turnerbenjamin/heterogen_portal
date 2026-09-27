@@ -239,7 +239,9 @@ func (w *modelWriter) WriteResourceSliceFromJSONFunction(resourceTypeName string
 	writeToBuilder(w.sb, "result := make([]querymodel.TableModel, len(concreteSlice))\n\n")
 
 	writeToBuilder(w.sb, "for i := range concreteSlice {\n")
-	writeToBuilder(w.sb, "concreteSlice[i].SetProjection(projectionNode)\n")
+	writeToBuilder(w.sb, "if err := concreteSlice[i].SetProjection(projectionNode); err != nil{\n")
+	writeToBuilder(w.sb, "return nil, err\n")
+	writeToBuilder(w.sb, "}\n")
 	writeToBuilder(w.sb, "result[i] = concreteSlice[i]\n")
 	writeToBuilder(w.sb, "}\n")
 
@@ -504,7 +506,7 @@ func (w *modelWriter) WriteModelMarshalJSONFunction(modelStructName string, tabl
 
 	writeToBuilder(w.sb, "isFirst := true\n")
 
-	writeColumn := func(columnName string) {
+	writeColumn := func(isLastItem bool, columnName string) {
 		projectionIdentifier := getColProjectionId(tableData.Name, columnName)
 		writeToBuilder(w.sb, fmt.Sprintf("if m.projection.Has(%s) {\n", projectionIdentifier))
 		writeToBuilder(w.sb, fmt.Sprintf(
@@ -515,17 +517,27 @@ func (w *modelWriter) WriteModelMarshalJSONFunction(modelStructName string, tabl
 		writeToBuilder(w.sb, "if err != nil {\n")
 		writeToBuilder(w.sb, "return nil, err\n")
 		writeToBuilder(w.sb, "}\n")
-		writeToBuilder(w.sb, "isFirst = false\n")
+
+		if !isLastItem {
+			writeToBuilder(w.sb, "isFirst = false\n")
+		}
 
 		writeToBuilder(w.sb, "}\n\n")
 	}
 
-	for _, column := range tableData.Columns {
-		writeColumn(column.Name)
+	colCount := len(tableData.Columns)
+	relCount := len(tableData.Relationships)
+
+	for i, column := range tableData.Columns {
+		isLastItem := (i == colCount-1) && relCount == 0
+		writeColumn(isLastItem, column.Name)
 	}
 
+	i := 0
 	for _, relationship := range tableData.Relationships {
-		writeColumn(relationship.ExpansionColumnName)
+		isLastItem := (i == relCount-1)
+		writeColumn(isLastItem, relationship.ExpansionColumnName)
+		i++
 	}
 
 	writeToBuilder(w.sb, "buf.WriteByte('}')\n")
@@ -538,18 +550,24 @@ func (w *modelWriter) WriteGetValueExpressionFunction(modelStructName string, ta
 
 	writeToBuilder(w.sb, fmt.Sprintf("func (m *%s) GetValue(v querymodel.ValueBuilder, path []*querymodel.TraversalStep, columnName string) (querymodel.Value, error){\n", modelStructName))
 	writeToBuilder(w.sb, "if len(path) > 0 {\n")
-	writeToBuilder(w.sb, "nextStep := path[0]\n")
-	writeToBuilder(w.sb, "nextEntity, nextEntityIsNil, err := m.getRelatedEntity(nextStep.Relationship)\n")
 
-	writeToBuilder(w.sb, "if err != nil {\n")
-	writeToBuilder(w.sb, "return nil, err\n")
-	writeToBuilder(w.sb, "}\n")
+	if hasManyToOneRelationships(tableData) {
+		writeToBuilder(w.sb, "nextStep := path[0]\n")
+		writeToBuilder(w.sb, "nextEntity, nextEntityIsNil, err := m.getRelatedEntity(nextStep.Relationship)\n")
 
-	writeToBuilder(w.sb, "if nextEntityIsNil{\n")
-	writeToBuilder(w.sb, "return v.Null(), nil\n")
-	writeToBuilder(w.sb, "}\n")
+		writeToBuilder(w.sb, "if err != nil {\n")
+		writeToBuilder(w.sb, "return nil, err\n")
+		writeToBuilder(w.sb, "}\n")
 
-	writeToBuilder(w.sb, "return nextEntity.GetValue(v, path[1:], columnName)\n")
+		writeToBuilder(w.sb, "if nextEntityIsNil{\n")
+		writeToBuilder(w.sb, "return v.Null(), nil\n")
+		writeToBuilder(w.sb, "}\n")
+
+		writeToBuilder(w.sb, "return nextEntity.GetValue(v, path[1:], columnName)\n")
+	} else {
+		writeToBuilder(w.sb, "return nil, fmt.Errorf(\"unable to get value: invalid path\")\n")
+	}
+
 	writeToBuilder(w.sb, "}\n")
 
 	writeToBuilder(w.sb, "val, err := m.getValue(columnName, v)\n")
@@ -566,6 +584,10 @@ func (w *modelWriter) WriteGetValueExpressionFunction(modelStructName string, ta
 }
 
 func (w *modelWriter) WriteGetRelatedEntityFunction(modelStructName string, tableData *builderrepo.TableMetadata) {
+	if !hasManyToOneRelationships(tableData) {
+		return
+	}
+
 	writeToBuilder(w.sb, "// getRelatedEntity returns the value from N:1/1:1 relationships as a TableModel\n")
 	writeToBuilder(w.sb, "// It will return an error for invalid relationships and relationship types\n")
 
@@ -1021,4 +1043,13 @@ func getTableRelationshipIdentifier(relationship *builderrepo.RelationshipMetada
 
 func getColProjectionId(tableName, columnName string) string {
 	return fmt.Sprintf("%sProjection%s", snakeToCamel(tableName), snakeToPascal(columnName))
+}
+
+func hasManyToOneRelationships(tableData *builderrepo.TableMetadata) bool {
+	for _, r := range tableData.Relationships {
+		if r.Type == "querymodel.RelationshipManyToOne" {
+			return true
+		}
+	}
+	return false
 }

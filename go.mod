@@ -8,7 +8,7 @@ require (
 	github.com/microsoft/go-mssqldb v1.11.2
 	github.com/pressly/goose/v3 v3.28.0
 	github.com/stretchr/testify v1.12.1
-	github.com/turnerbenjamin/querystack v0.0.1
+	github.com/turnerbenjamin/querystack v0.0.2
 	golang.org/x/oauth2 v0.37.0
 )
 

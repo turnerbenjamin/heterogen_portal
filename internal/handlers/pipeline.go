@@ -17,6 +17,17 @@ import (
 	"github.com/turnerbenjamin/heterogen_portal/internal/constants"
 )
 
+type contentType string
+
+const (
+	ContentTypeJson contentType = "application/json"
+	ContentTypeHtml contentType = "text/html"
+)
+
+func (t contentType) String() string {
+	return string(t)
+}
+
 // PipelineContext holds per-request logger and state for the pipeline.
 type PipelineContext[T any] struct {
 	logger *slog.Logger
@@ -68,6 +79,7 @@ func NewPipelineBuilder[T any](
 // It initializes request context, recovers from panics, records timing, and
 // delegates error responses to the configured ErrorWriter.
 func (p *PipelineBuilder[T]) New(
+	responseType contentType,
 	middlewares []Middleware[T],
 	handler AppHandler[T],
 ) http.HandlerFunc {
@@ -80,6 +92,8 @@ func (p *PipelineBuilder[T]) New(
 	}
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", string(responseType))
+
 		sw := &statusSpyWriter{ResponseWriter: w}
 
 		startTime := time.Now()

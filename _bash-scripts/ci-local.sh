@@ -31,36 +31,12 @@ build_go_binaries() {
 
 run_golangci_lint() {
   echo "==> Running golangci-lint"
-  # Prefer local binary
-  if command -v golangci-lint >/dev/null 2>&1; then
-    golangci-lint run --config .golangci.yml ./...
-    return
+  if ! command -v golangci-lint >/dev/null 2>&1; then
+    fail "golangci-lint not found on PATH. Install it with pacman or go install and ensure it is available."
   fi
 
-  # Try to install via `go install`
-  if command -v go >/dev/null 2>&1; then
-    echo "golangci-lint not found; attempting 'go install'..."
-    GOBIN="$(go env GOPATH 2>/dev/null)/bin"
-    mkdir -p "$GOBIN"
-    GOPATH_BIN="$GOBIN"
-    export PATH="$GOPATH_BIN:$PATH"
-    if go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.59.0; then
-      echo "installed golangci-lint to $GOPATH_BIN"
-      golangci-lint run --config .golangci.yml ./...
-      return
-    else
-      echo "go install failed; will try Docker fallback"
-    fi
-  fi
-
-  # Docker fallback
-  if command -v docker >/dev/null 2>&1; then
-    echo "Running golangci-lint in Docker (fallback)"
-    docker run --rm -v "$PWD":/app -w /app golangci/golangci-lint:v1.59.0 golangci-lint run --config .golangci.yml ./...
-    return
-  fi
-
-  fail "golangci-lint not available (install locally or install Docker)"
+  golangci-lint version
+  golangci-lint run --config .golangci.yml ./...
 }
 
 run_tests() {

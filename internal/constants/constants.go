@@ -29,6 +29,11 @@ const (
 	ErrMsgPrefixMissingTemplateData = "template data not found: "
 )
 
+// Error messae patterns
+const (
+	ErrMsgPatternUnsupportedContentType = "unexpected content-type received: %s"
+)
+
 // Slog keys
 const (
 	SlogKeyRequestMethod          = "request_method"

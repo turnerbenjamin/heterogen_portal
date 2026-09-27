@@ -16,6 +16,7 @@ var (
 	ErrUnableToReadAppUrlBase             = errors.New("unable to read app url base")
 	ErrUnableToReadAppJwtSecret           = errors.New("unable to read app jwt secret")
 	ErrUnableToReadOidcStateSecret        = errors.New("unable to read oidc state secret")
+	ErrUnableToReadQueryTokenSecret       = errors.New("unable to read query token secret")
 	ErrUnableToReadDbConnectionString     = errors.New("unable to read db connection string")
 	ErrUnableToReadUserPortalClientId     = errors.New("unable to read user portal client id")
 	ErrUnableToReadUserPortalClientSecret = errors.New("unable to read user portal client secret")
@@ -27,6 +28,7 @@ type AppSettings struct {
 	AppUrlBase             string
 	AppJwtSecret           []byte
 	OidcStateSecret        []byte
+	QueryTokenSecret       []byte
 	SqlServerDsn           string
 	UserPortalClientId     string
 	UserPortalClientSecret string
@@ -65,6 +67,12 @@ func GetAppSettings(
 		return nil, ErrUnableToReadOidcStateSecret
 	}
 	settings.OidcStateSecret = []byte(oidcStateSecret)
+
+	queryTokenSecret := ""
+	if queryTokenSecret, ok = os.LookupEnv("QUERY_TOKEN_SECRET"); !ok {
+		return nil, ErrUnableToReadQueryTokenSecret
+	}
+	settings.QueryTokenSecret = []byte(queryTokenSecret)
 
 	if settings.SqlServerDsn, ok = os.LookupEnv("SQL_SERVER_DSN"); !ok {
 		return nil, ErrUnableToReadDbConnectionString

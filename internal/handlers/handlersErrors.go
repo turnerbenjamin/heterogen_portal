@@ -4,6 +4,9 @@
 package handlers
 
 import (
+	"encoding/json"
+	"fmt"
+	"mime"
 	"net/http"
 
 	"github.com/turnerbenjamin/heterogen_portal/internal/constants"
@@ -30,6 +33,30 @@ func (h *ErrorHandler) Write(
 	r *http.Request,
 	appErr *AppError,
 ) error {
+	// access content type
+	rawContentTypeValue := w.Header().Get("Content-Type")
+	contentType, _, err := mime.ParseMediaType(rawContentTypeValue)
+	if err != nil {
+		return err
+	}
+
+	// validate content type is either json or html
+	if contentType != ContentTypeJson.String() &&
+		contentType != ContentTypeHtml.String() {
+		return fmt.Errorf(constants.ErrMsgPatternUnsupportedContentType, contentType)
+	}
+
+	// If content type is json, marshal the error and return
+	if contentType == ContentTypeJson.String() {
+		w.WriteHeader(appErr.Code)
+		d, err := json.Marshal(appErr)
+		if err != nil {
+			return err
+		}
+		_, err = w.Write(d)
+		return err
+	}
+
 	// Default to handling errors with a the component error template returned
 	// to a htmx app
 	t := templates.TmplComponentErrors
@@ -44,7 +71,12 @@ func (h *ErrorHandler) Write(
 		pageConfig.ContentOnly = false
 	}
 
-	w.WriteHeader(appErr.Code)
+	if appErr.Code == 0 {
+		w.WriteHeader(500)
+	} else {
+		w.WriteHeader(appErr.Code)
+	}
+
 	return h.templateStore.Execute(
 		t,
 		w,

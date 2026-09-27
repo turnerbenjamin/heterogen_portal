@@ -34,6 +34,7 @@ func (app *application) addRoutes() {
 	app.addRoute(
 		"GET /",
 		pipelineWithUserState.New(
+			h.ContentTypeHtml,
 			[]h.Middleware[h.UserState]{
 				h.ParseJwtMiddleware[h.UserState](app.services.authService),
 				h.RequireSignInMiddleware[h.UserState](app.services.authService),
@@ -45,6 +46,7 @@ func (app *application) addRoutes() {
 	app.addRoute(
 		"GET /sign-in-redirect",
 		pipeline.New(
+			h.ContentTypeHtml,
 			[]h.Middleware[h.NoState]{},
 			app.handlers.authHandler.GetSignInRedirect,
 		),
@@ -53,6 +55,7 @@ func (app *application) addRoutes() {
 	app.addRoute(
 		"GET /sign-out",
 		pipeline.New(
+			h.ContentTypeHtml,
 			[]h.Middleware[h.NoState]{},
 			app.handlers.authHandler.GetSignOut,
 		),
@@ -61,8 +64,18 @@ func (app *application) addRoutes() {
 	app.addRoute(
 		"GET /signed-out",
 		pipeline.New(
+			h.ContentTypeHtml,
 			[]h.Middleware[h.NoState]{},
 			app.handlers.authHandler.GetSignedOut,
+		),
+	)
+
+	app.addRoute(
+		"GET /api/{resource}",
+		pipeline.New(
+			h.ContentTypeJson,
+			[]h.Middleware[h.NoState]{},
+			app.handlers.queryApiHandler.ProcessQuery,
 		),
 	)
 }
