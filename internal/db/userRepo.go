@@ -6,8 +6,9 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"uuid"
 
-	"github.com/google/uuid"
+	"github.com/turnerbenjamin/heterogen_portal/internal/model"
 )
 
 type Crypt interface {
@@ -42,19 +43,19 @@ var (
 	ErrEmailEmpty       = errors.New("email cannot be empty")
 	ErrGivenNameTooLong = fmt.Errorf(
 		"given cannot exceed %d chars",
-		DB_CONSTRAINT_GIVEN_NAME_MAX,
+		model.MaxLenUsersGivenName,
 	)
 	ErrFamilyNameTooLong = fmt.Errorf(
 		"family name cannot exceed %d chars",
-		DB_CONSTRAINT_GIVEN_NAME_MAX,
+		model.MaxLenUsersFamilyName,
 	)
 	ErrUserNameTooLong = fmt.Errorf(
 		"user name cannot exceed %d chars",
-		DB_CONSTRAINT_USER_NAME_MAX,
+		model.MaxLenUsersUserName,
 	)
 	ErrEmailTooLong = fmt.Errorf(
 		"email cannot exceed %d chars",
-		DB_CONSTRAINT_GIVEN_NAME_MAX,
+		model.MaxLenUsersEmailAddress,
 	)
 )
 
@@ -78,7 +79,7 @@ func (r *UserRepo) Close() {
 func (r *UserRepo) UpsertUser(oid, givenName, familyName, userName, emailAddress string) (*User, error) {
 
 	var err error
-	id := uuid.New().String()
+	id := uuid.NewV4().String()
 
 	query, ok := r.statements[STMT_KEY_UPSERT_USER]
 	if !ok {
