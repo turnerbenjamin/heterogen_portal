@@ -1,5 +1,4 @@
 -- +goose Up
--- *********
 
 -- +goose StatementBegin
 IF NOT EXISTS (SELECT 1 FROM sys.schemas WHERE name = 'hg')
@@ -14,22 +13,27 @@ IF NOT EXISTS (
 )
 BEGIN
     CREATE TABLE hg.users (
-        id NVARCHAR(36) NOT NULL PRIMARY KEY,
-        oid NVARCHAR(36) NOT NULL UNIQUE,
+        id NVARCHAR(36) NOT NULL PRIMARY KEY DEFAULT (NEWID()),
+        oid NVARCHAR(36) NOT NULL UNIQUE DEFAULT (NEWID()),
         given_name NVARCHAR(64) NOT NULL CHECK (LEN(given_name) > 0 AND LEN(given_name) <= 64),
         family_name NVARCHAR(64) NOT NULL CHECK (LEN(family_name) > 0 AND LEN(family_name) <= 64),
-        user_name NVARCHAR(128) NOT NULL CHECK (LEN(user_name) > 0 AND LEN(user_name) <= 128),
+        user_name NVARCHAR(128) NOT NULL UNIQUE CHECK (LEN(user_name) > 0 AND LEN(user_name) <= 128),
         email_address NVARCHAR(320) NOT NULL CHECK (LEN(email_address) > 0 AND LEN(email_address) <= 320),
-        created_at DATETIME2 NOT NULL CONSTRAINT DF_hg_users_created_at DEFAULT SYSUTCDATETIME(),
-        updated_at DATETIME2 NOT NULL CONSTRAINT DF_hg_users_updated_at DEFAULT SYSUTCDATETIME()
+        created_at DATETIMEOFFSET(7) NOT NULL CONSTRAINT DF_hg_users_created_at DEFAULT SYSUTCDATETIME(),
+        modified_at DATETIMEOFFSET(7) NOT NULL CONSTRAINT DF_hg_users_modified_at DEFAULT SYSUTCDATETIME()
     );
 END;
+
+CREATE INDEX IX_user_oid
+    ON hg.users(oid);
+
+CREATE INDEX IX_user_user_name
+    ON hg.users(user_name);
 -- +goose StatementEnd
 
 
 
 -- +goose Down
--- ***********
 
 -- +goose StatementBegin
 IF OBJECT_ID('hg.users', 'U') IS NOT NULL
