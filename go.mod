@@ -1,6 +1,6 @@
 module github.com/turnerbenjamin/heterogen_portal
 
-go 1.25.7
+go 1.27.0
 
 require (
 	github.com/coreos/go-oidc/v3 v3.19.0
@@ -9,6 +9,7 @@ require (
 	github.com/microsoft/go-mssqldb v1.10.0
 	github.com/pressly/goose/v3 v3.27.2
 	github.com/stretchr/testify v1.11.1
+	github.com/turnerbenjamin/querystack v0.0.1
 	golang.org/x/oauth2 v0.36.0
 )
 
