@@ -17,16 +17,19 @@ import (
 )
 
 type appRepos struct {
-	userRepo *db.UserRepo
+	userRepo  *db.UserRepo
+	queryRepo *db.QueryRepo
 }
 
 type appServices struct {
-	authService *services.AuthService
+	authService     *services.AuthService
+	queryApiService *services.QueryApiService
 }
 
 type appHandlers struct {
-	authHandler  *handlers.AuthHandler
-	errorHandler *handlers.ErrorHandler
+	authHandler     *handlers.AuthHandler
+	errorHandler    *handlers.ErrorHandler
+	queryApiHandler *handlers.QueryApiHandler
 }
 
 type application struct {
@@ -95,6 +98,7 @@ func Init(
 	}
 
 	app.handlers = initHandlers(
+		dependencies,
 		app.templateStore,
 		app.services,
 	)
@@ -111,7 +115,8 @@ func Init(
 
 func initRepos(ctx context.Context, dbConnection *sql.DB) *appRepos {
 	return &appRepos{
-		userRepo: db.BuildUserRepo(ctx, dbConnection),
+		userRepo:  db.BuildUserRepo(ctx, dbConnection),
+		queryRepo: db.BuildQueryRepo(ctx, dbConnection),
 	}
 }
 
@@ -136,12 +141,24 @@ func initServices(
 		return nil, err
 	}
 
+	queryApiService, err := services.NewQueryApiService(
+		repos.queryRepo,
+		dependencies.queryExecutorFactory,
+		dependencies.payloadSigner,
+		appSettings.QueryTokenSecret,
+	)
+	if err != nil {
+		return nil, err
+	}
+
 	return &appServices{
-		authService: authService,
+		authService:     authService,
+		queryApiService: queryApiService,
 	}, nil
 }
 
 func initHandlers(
+	dependencies *appDependencies,
 	templateStore *templates.Store,
 	services *appServices,
 ) *appHandlers {
@@ -150,7 +167,15 @@ func initHandlers(
 			templateStore,
 			services.authService,
 		),
-		errorHandler: handlers.NewErrorHandler(templateStore),
+		errorHandler: handlers.NewErrorHandler(
+			templateStore,
+			dependencies.jsonSerialiser,
+		),
+		queryApiHandler: handlers.NewQueryApiHandler(
+			services.queryApiService,
+			dependencies.decodeUrl,
+			dependencies.jsonSerialiser,
+		),
 	}
 }
 

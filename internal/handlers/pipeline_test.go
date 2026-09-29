@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"mime"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -12,8 +13,47 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 	"github.com/turnerbenjamin/heterogen_portal/internal/constants"
 )
+
+func TestPipelineBuilder_New_SetsResponseTypeCorrectly(t *testing.T) {
+	t.Parallel()
+
+	testResponseTypes := []contentType{
+		ContentTypeHtml,
+		ContentTypeJson,
+	}
+
+	for _, responseType := range testResponseTypes {
+		middlewareStack := newTestMiddlewareStack(t, []testMiddleware[NoState]{{}})
+		testHandler := &testAppHandler[NoState]{
+			t: t,
+			fn: func(
+				r *http.Request,
+				c *PipelineContext[NoState],
+			) (request *http.Request, statusCode *int, response []byte, err *AppError) {
+				return r, nil, []byte("test-query"), nil
+			},
+		}
+
+		eh := NewMockErrorWriter(t)
+		b := NewPipelineBuilder(eh, &bytes.Buffer{}, NoStateInit)
+		p := b.New(responseType, middlewareStack.stack, testHandler.handle)
+
+		r := httptest.NewRequest("POST", "/test", strings.NewReader(""))
+		w := httptest.NewRecorder()
+
+		p.ServeHTTP(w, r)
+
+		rawContentType := w.Header().Get("Content-Type")
+		gotContentType, _, err := mime.ParseMediaType(rawContentType)
+
+		require.NoError(t, err)
+
+		assert.Equal(t, responseType.String(), gotContentType)
+	}
+}
 
 func TestPipelineBuilder_New_invokesHandler(t *testing.T) {
 	t.Parallel()
@@ -34,7 +74,7 @@ func TestPipelineBuilder_New_invokesHandler(t *testing.T) {
 
 	eh := NewMockErrorWriter(t)
 	b := NewPipelineBuilder(eh, &bytes.Buffer{}, NoStateInit)
-	p := b.New(middlewareStack.stack, testHandler.handle)
+	p := b.New(ContentTypeJson, middlewareStack.stack, testHandler.handle)
 
 	r := httptest.NewRequest("POST", "/test", strings.NewReader(""))
 	w := httptest.NewRecorder()
@@ -59,7 +99,7 @@ func TestPipelineBuilder_New_defaultsStatusTo200_whenWriteWithoutHeader(t *testi
 	}
 	eh := NewMockErrorWriter(t)
 	b := NewPipelineBuilder(eh, &bytes.Buffer{}, NoStateInit)
-	p := b.New(middlewareStack.stack, testHandler.handle)
+	p := b.New(ContentTypeJson, middlewareStack.stack, testHandler.handle)
 
 	r := httptest.NewRequest("POST", "/test", strings.NewReader(""))
 	w := httptest.NewRecorder()
@@ -105,7 +145,7 @@ func TestPipelineBuilder_New_appliesMiddlewaresCorrectly(t *testing.T) {
 	}
 
 	b := NewPipelineBuilder(NewMockErrorWriter(t), &bytes.Buffer{}, NoStateInit)
-	p := b.New(middlewareStack.stack, testHandler.handle)
+	p := b.New(ContentTypeJson, middlewareStack.stack, testHandler.handle)
 
 	r := httptest.NewRequest("POST", "/test", strings.NewReader(""))
 	w := httptest.NewRecorder()
@@ -155,7 +195,7 @@ func TestPipelineBuilder_New_middlewareCanModifyRequest_andHandlerSeesChange(t *
 	}
 
 	b := NewPipelineBuilder(NewMockErrorWriter(t), &bytes.Buffer{}, NoStateInit)
-	p := b.New(middlewareStack.stack, testHandler.handle)
+	p := b.New(ContentTypeJson, middlewareStack.stack, testHandler.handle)
 
 	r := httptest.NewRequest("POST", "/test", strings.NewReader(""))
 	w := httptest.NewRecorder()
@@ -195,7 +235,7 @@ func TestPipelineBuilder_New_middlewareCanModifyResponseBeforeHandler(t *testing
 	}
 
 	b := NewPipelineBuilder(NewMockErrorWriter(t), &bytes.Buffer{}, NoStateInit)
-	p := b.New(middlewareStack.stack, testHandler.handle)
+	p := b.New(ContentTypeJson, middlewareStack.stack, testHandler.handle)
 
 	r := httptest.NewRequest("POST", "/test", strings.NewReader(""))
 
@@ -227,7 +267,7 @@ func TestPipelineBuilder_New_invokesHandlerDirectly_WhenNoMiddlewares(t *testing
 	}
 
 	b := NewPipelineBuilder(NewMockErrorWriter(t), &bytes.Buffer{}, NoStateInit)
-	p := b.New(middlewareStack.stack, testHandler.handle)
+	p := b.New(ContentTypeJson, middlewareStack.stack, testHandler.handle)
 
 	r := httptest.NewRequest("POST", "/test", strings.NewReader(""))
 	w := httptest.NewRecorder()
@@ -254,7 +294,7 @@ func TestPipelineBuilder_New_invokesHandlerDirectly_WhenMiddlewaresIsNil(t *test
 	}
 
 	b := NewPipelineBuilder(NewMockErrorWriter(t), &bytes.Buffer{}, NoStateInit)
-	p := b.New(nil, testHandler.handle)
+	p := b.New(ContentTypeJson, nil, testHandler.handle)
 
 	r := httptest.NewRequest("POST", "/test", strings.NewReader(""))
 	w := httptest.NewRecorder()
@@ -283,7 +323,7 @@ func TestPipelineBuilder_New_initializesPipelineContext_withCorrectState(t *test
 	}
 
 	b := NewPipelineBuilder(NewMockErrorWriter(t), &bytes.Buffer{}, newTestPipelineState)
-	p := b.New(middlewareStack.stack, testHandler.handle)
+	p := b.New(ContentTypeJson, middlewareStack.stack, testHandler.handle)
 
 	r := httptest.NewRequest("POST", "/test", strings.NewReader(""))
 	w := httptest.NewRecorder()
@@ -326,7 +366,7 @@ func TestPipelineBuilder_New_carriesPipelineContextState_throughMiddlewareChain(
 	}
 
 	b := NewPipelineBuilder(NewMockErrorWriter(t), &bytes.Buffer{}, newTestPipelineState)
-	p := b.New(middlewareStack.stack, testHandler.handle)
+	p := b.New(ContentTypeJson, middlewareStack.stack, testHandler.handle)
 
 	r := httptest.NewRequest("POST", "/test", strings.NewReader(""))
 	w := httptest.NewRecorder()
@@ -358,7 +398,7 @@ func TestPipelineBuilder_New_invokesErrorHandler_whenHandlerReturnsError(t *test
 	errorHandler := NewMockErrorWriter(t)
 
 	b := NewPipelineBuilder(errorHandler, &bytes.Buffer{}, NoStateInit)
-	p := b.New(middlewareStack.stack, testHandler.handle)
+	p := b.New(ContentTypeJson, middlewareStack.stack, testHandler.handle)
 
 	r := httptest.NewRequest("POST", "/test", strings.NewReader(""))
 	w := httptest.NewRecorder()
@@ -411,7 +451,7 @@ func TestPipelineBuilder_New_invokesErrorHandler_whenMiddlewareReturnsError(t *t
 	errorHandler := NewMockErrorWriter(t)
 
 	b := NewPipelineBuilder(errorHandler, &bytes.Buffer{}, NoStateInit)
-	p := b.New(middlewareStack.stack, testHandler.handle)
+	p := b.New(ContentTypeJson, middlewareStack.stack, testHandler.handle)
 
 	r := httptest.NewRequest("POST", "/test", strings.NewReader(""))
 	w := httptest.NewRecorder()
@@ -449,7 +489,7 @@ func TestPipelineBuilder_New_handlesErrorWriterReturningError(t *testing.T) {
 	logSink := &bytes.Buffer{}
 
 	b := NewPipelineBuilder(errorHandler, logSink, NoStateInit)
-	p := b.New(middlewareStack.stack, testHandler.handle)
+	p := b.New(ContentTypeJson, middlewareStack.stack, testHandler.handle)
 
 	r := httptest.NewRequest("POST", "/test", strings.NewReader(""))
 	w := httptest.NewRecorder()
@@ -492,7 +532,7 @@ func TestPipelineBuilder_New_logsResponseErrorWhenErrorWriterSucceeds(t *testing
 	eh := NewMockErrorWriter(t)
 
 	b := NewPipelineBuilder(eh, logSink, NoStateInit)
-	p := b.New(middlewareStack.stack, testHandler.handle)
+	p := b.New(ContentTypeJson, middlewareStack.stack, testHandler.handle)
 
 	r := httptest.NewRequest("POST", "/test", strings.NewReader(""))
 	w := httptest.NewRecorder()
@@ -527,7 +567,7 @@ func TestPipelineBuilder_New_includesRequestDataInLogs(t *testing.T) {
 
 	logSink := &bytes.Buffer{}
 	b := NewPipelineBuilder(NewMockErrorWriter(t), logSink, NoStateInit)
-	p := b.New(middlewareStack.stack, testHandler.handle)
+	p := b.New(ContentTypeJson, middlewareStack.stack, testHandler.handle)
 
 	r := httptest.NewRequest("POST", "/test", strings.NewReader(""))
 	w := httptest.NewRecorder()
@@ -562,7 +602,7 @@ func TestPipelineBuilder_New_RecoversFromHandlerPanic(t *testing.T) {
 	}
 
 	b := NewPipelineBuilder(NewMockErrorWriter(t), &bytes.Buffer{}, NoStateInit)
-	p := b.New(middlewareStack.stack, testHandler.handle)
+	p := b.New(ContentTypeJson, middlewareStack.stack, testHandler.handle)
 
 	r := httptest.NewRequest("POST", "/test", strings.NewReader(""))
 	w := httptest.NewRecorder()
@@ -597,7 +637,7 @@ func TestPipelineBuilder_New_RecoversFromMiddlewarePanic(t *testing.T) {
 	}
 
 	b := NewPipelineBuilder(NewMockErrorWriter(t), &bytes.Buffer{}, NoStateInit)
-	p := b.New(middlewareStack.stack, testHandler.handle)
+	p := b.New(ContentTypeJson, middlewareStack.stack, testHandler.handle)
 
 	r := httptest.NewRequest("POST", "/test", strings.NewReader(""))
 	w := httptest.NewRecorder()

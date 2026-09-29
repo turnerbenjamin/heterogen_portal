@@ -5,31 +5,37 @@ import (
 	"crypto/rand"
 	"encoding/json"
 	"net/http"
+	"net/url"
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/turnerbenjamin/heterogen_portal/internal/services"
 	"github.com/turnerbenjamin/heterogen_portal/internal/utils"
+	"github.com/turnerbenjamin/querystack"
 	"golang.org/x/oauth2"
 )
 
 type appDependencies struct {
-	jsonSerialiser  *stdJsonSerialiser
-	tokenSigner     *jwtTokenSigner
-	payloadSigner   *utils.PayloadSigner
-	httpClient      *http.Client
-	newOidcProvider func(ctx context.Context, issuer string) (services.OidcProvider, error)
-	randReader      services.RandReader
+	jsonSerialiser       *stdJsonSerialiser
+	tokenSigner          *jwtTokenSigner
+	payloadSigner        *utils.PayloadSigner
+	httpClient           *http.Client
+	newOidcProvider      func(ctx context.Context, issuer string) (services.OidcProvider, error)
+	randReader           services.RandReader
+	decodeUrl            func(s string) (string, error)
+	queryExecutorFactory services.NewQueryExecutorFactory
 }
 
 func initAppDependencies() *appDependencies {
 	return &appDependencies{
-		jsonSerialiser:  &stdJsonSerialiser{},
-		tokenSigner:     &jwtTokenSigner{},
-		payloadSigner:   &utils.PayloadSigner{},
-		httpClient:      &http.Client{},
-		newOidcProvider: oidcNewProvider,
-		randReader:      rand.Read,
+		jsonSerialiser:       &stdJsonSerialiser{},
+		tokenSigner:          &jwtTokenSigner{},
+		payloadSigner:        &utils.PayloadSigner{},
+		httpClient:           &http.Client{},
+		newOidcProvider:      oidcNewProvider,
+		randReader:           rand.Read,
+		decodeUrl:            url.QueryUnescape,
+		queryExecutorFactory: querystack.NewQueryExecutorFactory,
 	}
 }
 

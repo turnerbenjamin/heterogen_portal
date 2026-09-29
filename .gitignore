@@ -42,3 +42,5 @@ heterogen
 _notes
 /bash-scripts
 *.out
+**/_*
+_*/

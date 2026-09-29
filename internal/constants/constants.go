@@ -29,6 +29,11 @@ const (
 	ErrMsgPrefixMissingTemplateData = "template data not found: "
 )
 
+// Error messae patterns
+const (
+	ErrMsgPatternUnsupportedContentType = "unexpected content-type received: %s"
+)
+
 // Slog keys
 const (
 	SlogKeyRequestMethod          = "request_method"
@@ -53,5 +58,6 @@ const (
 const (
 	IdentifierJwtCookie       = "hg_login_jwt"
 	IdentifierOidcStateCookie = "hg_oidc_state"
+	UrlParamResource          = "resource"
 	EmptyAppErrorString       = "empty"
 )

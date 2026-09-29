@@ -1,10 +1,12 @@
 package app
 
 import (
+	"fmt"
 	"io/fs"
 	"net/http"
 	"os"
 
+	"github.com/turnerbenjamin/heterogen_portal/internal/constants"
 	h "github.com/turnerbenjamin/heterogen_portal/internal/handlers"
 )
 
@@ -34,6 +36,7 @@ func (app *application) addRoutes() {
 	app.addRoute(
 		"GET /",
 		pipelineWithUserState.New(
+			h.ContentTypeHtml,
 			[]h.Middleware[h.UserState]{
 				h.ParseJwtMiddleware[h.UserState](app.services.authService),
 				h.RequireSignInMiddleware[h.UserState](app.services.authService),
@@ -45,6 +48,7 @@ func (app *application) addRoutes() {
 	app.addRoute(
 		"GET /sign-in-redirect",
 		pipeline.New(
+			h.ContentTypeHtml,
 			[]h.Middleware[h.NoState]{},
 			app.handlers.authHandler.GetSignInRedirect,
 		),
@@ -53,6 +57,7 @@ func (app *application) addRoutes() {
 	app.addRoute(
 		"GET /sign-out",
 		pipeline.New(
+			h.ContentTypeHtml,
 			[]h.Middleware[h.NoState]{},
 			app.handlers.authHandler.GetSignOut,
 		),
@@ -61,8 +66,18 @@ func (app *application) addRoutes() {
 	app.addRoute(
 		"GET /signed-out",
 		pipeline.New(
+			h.ContentTypeHtml,
 			[]h.Middleware[h.NoState]{},
 			app.handlers.authHandler.GetSignedOut,
+		),
+	)
+
+	app.addRoute(
+		fmt.Sprintf("GET /api/{%s}", constants.UrlParamResource),
+		pipeline.New(
+			h.ContentTypeJson,
+			[]h.Middleware[h.NoState]{},
+			app.handlers.queryApiHandler.ProcessQuery,
 		),
 	)
 }

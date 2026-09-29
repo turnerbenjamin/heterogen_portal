@@ -15,8 +15,8 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"github.com/turnerbenjamin/heterogen_portal/internal/constants"
-	"github.com/turnerbenjamin/heterogen_portal/internal/db"
 	"github.com/turnerbenjamin/heterogen_portal/internal/etc"
+	"github.com/turnerbenjamin/heterogen_portal/internal/model"
 
 	"golang.org/x/oauth2"
 )
@@ -883,7 +883,7 @@ func TestAuthenticateUser(t *testing.T) {
 			UserName:     "want username",
 			EmailAddress: "want email address",
 		}
-		upsertedUser := &db.User{Id: "upserted-user-id"}
+		upsertedUser := &model.UsersModel{Id: "upserted-user-id"}
 
 		appSettings := &etc.AppSettings{
 			OidcStateSecret: []byte("super-secret-secret"),
@@ -994,7 +994,7 @@ func TestAuthenticateUser(t *testing.T) {
 			UserName:     "want username",
 			EmailAddress: "want email address",
 		}
-		upsertedUser := &db.User{
+		upsertedUser := &model.UsersModel{
 			Id:           "upserted-user-id",
 			Oid:          "upserted-user-oid",
 			EmailAddress: "upserted-user-email-address",
@@ -1296,12 +1296,12 @@ func TestRetrieveUserById(t *testing.T) {
 	t.Run("is a thin wrapper around user repo method", func(t *testing.T) {
 		testData := []struct {
 			userId string
-			user   *db.User
+			user   *model.UsersModel
 			err    error
 		}{
 			{
 				userId: "test-id-1",
-				user:   &db.User{},
+				user:   &model.UsersModel{},
 				err:    nil,
 			},
 			{

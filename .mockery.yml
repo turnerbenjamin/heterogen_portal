@@ -25,3 +25,18 @@ packages:
   github.com/turnerbenjamin/heterogen_portal:
     config:
       all: true
+  github.com/turnerbenjamin/querystack:
+    config:
+      dir: internal/services
+      filename: querystack_mocks_test.go
+      pkgname: services
+    interfaces:
+      QueryExecutor: {}
+  github.com/turnerbenjamin/querystack/querymodel:
+    config:
+      dir: internal/services
+      filename: querymodel_mocks_test.go
+      pkgname: services
+    interfaces:
+      AccessPolicy: {}
+      Repository: {}

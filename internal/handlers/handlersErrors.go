@@ -4,22 +4,35 @@
 package handlers
 
 import (
+	"fmt"
+	"mime"
 	"net/http"
 
 	"github.com/turnerbenjamin/heterogen_portal/internal/constants"
 	"github.com/turnerbenjamin/heterogen_portal/internal/templates"
 )
 
+// Jsonserialiser can marshall and unmarshal json payloads
+type JsonSerialiser interface {
+	Marshal(v any) ([]byte, error)
+	Unmarshal(data []byte, v any) error
+}
+
 // ErrorHandler uses a template store to write AppErrors to a response
 type ErrorHandler struct {
-	templateStore TemplateStore
+	templateStore  TemplateStore
+	jsonSerialiser JsonSerialiser
 }
 
 // NewErrorHandler is an arguably pointless factory function for creating a new
 // error handler
-func NewErrorHandler(templateStore TemplateStore) *ErrorHandler {
+func NewErrorHandler(
+	templateStore TemplateStore,
+	jsonSerialiser JsonSerialiser,
+) *ErrorHandler {
 	return &ErrorHandler{
-		templateStore: templateStore,
+		templateStore:  templateStore,
+		jsonSerialiser: jsonSerialiser,
 	}
 }
 
@@ -30,6 +43,36 @@ func (h *ErrorHandler) Write(
 	r *http.Request,
 	appErr *AppError,
 ) error {
+	// Write response code
+	if appErr.Code == 0 {
+		w.WriteHeader(500)
+	} else {
+		w.WriteHeader(appErr.Code)
+	}
+
+	// access content type
+	rawContentTypeValue := w.Header().Get("Content-Type")
+	contentType, _, err := mime.ParseMediaType(rawContentTypeValue)
+	if err != nil {
+		return err
+	}
+
+	// validate content type is either json or html
+	if contentType != ContentTypeJson.String() &&
+		contentType != ContentTypeHtml.String() {
+		return fmt.Errorf(constants.ErrMsgPatternUnsupportedContentType, contentType)
+	}
+
+	// If content type is json, marshal the error and return
+	if contentType == ContentTypeJson.String() {
+		d, err := h.jsonSerialiser.Marshal(appErr)
+		if err != nil {
+			return err
+		}
+		_, err = w.Write(d)
+		return err
+	}
+
 	// Default to handling errors with a the component error template returned
 	// to a htmx app
 	t := templates.TmplComponentErrors
@@ -44,7 +87,6 @@ func (h *ErrorHandler) Write(
 		pageConfig.ContentOnly = false
 	}
 
-	w.WriteHeader(appErr.Code)
 	return h.templateStore.Execute(
 		t,
 		w,
