@@ -47,6 +47,19 @@ func TestStatusSpyWriter_Write_DefaultsStatusCodeTo200(t *testing.T) {
 	assert.Equal(t, wantStatusCode, gotStatusCode)
 }
 
+func TestStatusSpyWriter_Flush_WritesHeaderWithoutBody(t *testing.T) {
+	t.Parallel()
+
+	w := httptest.NewRecorder()
+	ssw := statusSpyWriter{ResponseWriter: w}
+
+	ssw.WriteHeader(303)
+	ssw.flush()
+
+	assert.Equal(t, 303, w.Result().StatusCode)
+	assert.Empty(t, w.Body.String())
+}
+
 func TestStatusSpyWriter_WriteHeader_TracksFinalStatusCode(t *testing.T) {
 	t.Parallel()
 

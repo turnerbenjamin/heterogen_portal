@@ -95,6 +95,7 @@ func (p *PipelineBuilder[T]) New(
 		w.Header().Set("Content-Type", string(responseType))
 
 		sw := &statusSpyWriter{ResponseWriter: w}
+		defer sw.flush()
 
 		startTime := time.Now()
 		slogger := p.rootLogger.With(

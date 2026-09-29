@@ -16,14 +16,21 @@ type statusSpyWriter struct {
 
 // WriteHeader records the status code but does not write headers to the
 // underlying writer. Actual header write is performed on the first call to
-// Write.
+// Write or an explicit flush.
 func (w *statusSpyWriter) WriteHeader(code int) {
 	w.statusCode = code
 }
 
-// Write ensures a default 200 status is set, writes headers once, and then
-// writes the response body to the underlying writer.
+// Write writes the captured headers once and then writes the response body to
+// the underlying writer.
 func (w *statusSpyWriter) Write(b []byte) (int, error) {
+	w.flush()
+	return w.ResponseWriter.Write(b)
+}
+
+// flush writes the captured status to the underlying writer if it has not
+// already been committed.
+func (w *statusSpyWriter) flush() {
 	if w.statusCode == 0 {
 		w.statusCode = http.StatusOK
 	}
@@ -31,5 +38,4 @@ func (w *statusSpyWriter) Write(b []byte) (int, error) {
 		w.ResponseWriter.WriteHeader(w.statusCode)
 		w.headerWritten = true
 	}
-	return w.ResponseWriter.Write(b)
 }

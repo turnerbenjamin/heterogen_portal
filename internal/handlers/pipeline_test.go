@@ -111,6 +111,30 @@ func TestPipelineBuilder_New_defaultsStatusTo200_whenWriteWithoutHeader(t *testi
 	assert.Equal(t, wantStatusCode, gotStatusCode)
 }
 
+func TestPipelineBuilder_New_flushesHeaderOnlyResponse(t *testing.T) {
+	t.Parallel()
+
+	wantLocation := "/target"
+	middlewareStack := newTestMiddlewareStack(t, []testMiddleware[NoState]{{}})
+	handler := func(w http.ResponseWriter, r *http.Request, c *PipelineContext[NoState]) *AppError {
+		w.Header().Set("Location", wantLocation)
+		w.WriteHeader(http.StatusSeeOther)
+		return nil
+	}
+
+	b := NewPipelineBuilder(NewMockErrorWriter(t), &bytes.Buffer{}, NoStateInit)
+	p := b.New(ContentTypeHtml, middlewareStack.stack, handler)
+
+	r := httptest.NewRequest("GET", "/source", nil)
+	w := httptest.NewRecorder()
+
+	p.ServeHTTP(w, r)
+
+	assert.Equal(t, http.StatusSeeOther, w.Result().StatusCode)
+	assert.Equal(t, wantLocation, w.Result().Header.Get("Location"))
+	assert.Empty(t, w.Body.String())
+}
+
 func TestPipelineBuilder_New_appliesMiddlewaresCorrectly(t *testing.T) {
 	t.Parallel()
 
