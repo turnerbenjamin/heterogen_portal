@@ -24,11 +24,33 @@ BEGIN
     );
 END;
 
-CREATE INDEX IX_user_oid
-    ON hg.users(oid);
+IF NOT EXISTS (
+    SELECT 1
+    FROM sys.indexes i
+    JOIN sys.tables t ON i.object_id = t.object_id
+    JOIN sys.schemas s ON t.schema_id = s.schema_id
+    WHERE i.name = 'IX_user_oid'
+      AND t.name = 'users'
+      AND s.name = 'hg'
+)
+BEGIN
+    CREATE INDEX IX_user_oid
+        ON hg.users(oid);
+END;
 
-CREATE INDEX IX_user_user_name
-    ON hg.users(user_name);
+IF NOT EXISTS (
+    SELECT 1
+    FROM sys.indexes i
+    JOIN sys.tables t ON i.object_id = t.object_id
+    JOIN sys.schemas s ON t.schema_id = s.schema_id
+    WHERE i.name = 'IX_user_user_name'
+      AND t.name = 'users'
+      AND s.name = 'hg'
+)
+BEGIN
+    CREATE INDEX IX_user_user_name
+        ON hg.users(user_name);
+END;
 -- +goose StatementEnd
 
 
