@@ -4,7 +4,6 @@
 package handlers
 
 import (
-	"encoding/json"
 	"fmt"
 	"mime"
 	"net/http"
@@ -13,16 +12,27 @@ import (
 	"github.com/turnerbenjamin/heterogen_portal/internal/templates"
 )
 
+// Jsonserialiser can marshall and unmarshal json payloads
+type JsonSerialiser interface {
+	Marshal(v any) ([]byte, error)
+	Unmarshal(data []byte, v any) error
+}
+
 // ErrorHandler uses a template store to write AppErrors to a response
 type ErrorHandler struct {
-	templateStore TemplateStore
+	templateStore  TemplateStore
+	jsonSerialiser JsonSerialiser
 }
 
 // NewErrorHandler is an arguably pointless factory function for creating a new
 // error handler
-func NewErrorHandler(templateStore TemplateStore) *ErrorHandler {
+func NewErrorHandler(
+	templateStore TemplateStore,
+	jsonSerialiser JsonSerialiser,
+) *ErrorHandler {
 	return &ErrorHandler{
-		templateStore: templateStore,
+		templateStore:  templateStore,
+		jsonSerialiser: jsonSerialiser,
 	}
 }
 
@@ -33,6 +43,13 @@ func (h *ErrorHandler) Write(
 	r *http.Request,
 	appErr *AppError,
 ) error {
+	// Write response code
+	if appErr.Code == 0 {
+		w.WriteHeader(500)
+	} else {
+		w.WriteHeader(appErr.Code)
+	}
+
 	// access content type
 	rawContentTypeValue := w.Header().Get("Content-Type")
 	contentType, _, err := mime.ParseMediaType(rawContentTypeValue)
@@ -48,8 +65,7 @@ func (h *ErrorHandler) Write(
 
 	// If content type is json, marshal the error and return
 	if contentType == ContentTypeJson.String() {
-		w.WriteHeader(appErr.Code)
-		d, err := json.Marshal(appErr)
+		d, err := h.jsonSerialiser.Marshal(appErr)
 		if err != nil {
 			return err
 		}
@@ -69,12 +85,6 @@ func (h *ErrorHandler) Write(
 	if r.Header.Get(constants.HxRequestHeaderRequest) == "" {
 		t = templates.TmplPageOutOfAppErr
 		pageConfig.ContentOnly = false
-	}
-
-	if appErr.Code == 0 {
-		w.WriteHeader(500)
-	} else {
-		w.WriteHeader(appErr.Code)
 	}
 
 	return h.templateStore.Execute(

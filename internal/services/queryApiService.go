@@ -13,20 +13,36 @@ type QueryApiService struct {
 	queryExecutor querystack.QueryExecutor
 }
 
+var schema querymodel.Schema = model.NewSchema()
+
+type NewQueryExecutorFactory func(
+	repository querymodel.Repository,
+	schema querymodel.Schema,
+	paginationTokenSigner querymodel.PayloadSigner,
+	paginationTokenSecret []byte,
+	sqlFlavor querymodel.SqlFlavour,
+	queryConfig querymodel.QueryConfig,
+) (querystack.QueryExecutor, error)
+
 func NewQueryApiService(
 	queryRepo querymodel.Repository,
+	queryExecutorFactory NewQueryExecutorFactory,
 	paginationTokenSigner querymodel.PayloadSigner,
 	paginationTokenSecret []byte,
 
 ) (*QueryApiService, error) {
-	queryExecutor, err := querystack.NewQueryExecutorFactory(querystack.QueryExecutorConfig{
-		Repo:                  queryRepo,
-		Schema:                model.NewSchema(),
-		AccessPolicy:          accesspolicies.AnonymousAccessPolicy,
-		PaginationTokenSigner: paginationTokenSigner,
-		PaginationTokenSecret: paginationTokenSecret,
-		SqlFlavor:             querystack.SqlFlavorAzureSql,
-	})
+	queryExecutor, err := queryExecutorFactory(
+		queryRepo,
+		schema,
+		paginationTokenSigner,
+		paginationTokenSecret,
+		querymodel.SqlFlavorAzureSql,
+		querymodel.QueryConfig{
+			DefaultPageSize:   100,
+			MaxRecordsPerPage: 100_000,
+			MaxDepth:          10,
+		},
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -44,6 +60,7 @@ func (s *QueryApiService) ExecuteQuery(
 	results, err := s.queryExecutor.Execute(
 		ctx,
 		resource,
+		accesspolicies.AnonymousAccessPolicy,
 		queryString,
 	)
 

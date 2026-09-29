@@ -1,10 +1,12 @@
 package app
 
 import (
+	"fmt"
 	"io/fs"
 	"net/http"
 	"os"
 
+	"github.com/turnerbenjamin/heterogen_portal/internal/constants"
 	h "github.com/turnerbenjamin/heterogen_portal/internal/handlers"
 )
 
@@ -71,7 +73,7 @@ func (app *application) addRoutes() {
 	)
 
 	app.addRoute(
-		"GET /api/{resource}",
+		fmt.Sprintf("GET /api/{%s}", constants.UrlParamResource),
 		pipeline.New(
 			h.ContentTypeJson,
 			[]h.Middleware[h.NoState]{},

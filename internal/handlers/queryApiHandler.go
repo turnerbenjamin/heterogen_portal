@@ -2,10 +2,9 @@ package handlers
 
 import (
 	"context"
-	"encoding/json"
 	"net/http"
-	"net/url"
 
+	"github.com/turnerbenjamin/heterogen_portal/internal/constants"
 	"github.com/turnerbenjamin/querystack/queryerror"
 	"github.com/turnerbenjamin/querystack/querymodel"
 )
@@ -18,14 +17,22 @@ type QueryService interface {
 	) (*querymodel.ExecuteResult, error)
 }
 
-func NewQueryApiHandler(service QueryService) *QueryApiHandler {
-	return &QueryApiHandler{
-		service: service,
-	}
+type QueryApiHandler struct {
+	service        QueryService
+	decodeUrl      func(s string) (string, error)
+	jsonSerialiser JsonSerialiser
 }
 
-type QueryApiHandler struct {
-	service QueryService
+func NewQueryApiHandler(
+	service QueryService,
+	decodeUrl func(s string) (string, error),
+	jsonSerialiser JsonSerialiser,
+) *QueryApiHandler {
+	return &QueryApiHandler{
+		service:        service,
+		decodeUrl:      decodeUrl,
+		jsonSerialiser: jsonSerialiser,
+	}
 }
 
 func (h QueryApiHandler) ProcessQuery(
@@ -33,9 +40,9 @@ func (h QueryApiHandler) ProcessQuery(
 	r *http.Request,
 	c *PipelineContext[NoState],
 ) *AppError {
-	resource := r.PathValue("resource")
+	resource := r.PathValue(constants.UrlParamResource)
 
-	decodedQuery, err := url.QueryUnescape(r.URL.RawQuery)
+	decodedQuery, err := h.decodeUrl(r.URL.RawQuery)
 	if err != nil {
 		return NewServerError(err)
 	}
@@ -59,7 +66,7 @@ func (h QueryApiHandler) ProcessQuery(
 		}
 	}
 
-	jsonBody, err := json.Marshal(res)
+	jsonBody, err := h.jsonSerialiser.Marshal(res)
 	if err != nil {
 		return NewServerError(err)
 	}

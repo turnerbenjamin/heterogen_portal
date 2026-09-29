@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -53,22 +52,24 @@ func TestWrite_ReturnsError_ForUnsupportedContentType(t *testing.T) {
 
 	for _, td := range testData {
 		testAppError := &AppError{Code: 500, ToastError: "Test error"}
-		ts := NewMockTemplateStore(t)
 
 		r := httptest.NewRequest("GET", "/", strings.NewReader(""))
 
 		w := httptest.NewRecorder()
 		w.Header().Set("Content-Type", td.responseType)
 
+		ts := NewMockTemplateStore(t)
 		ts.EXPECT().
 			Execute(mock.Anything, mock.Anything, mock.Anything).
 			Maybe().
 			Return(nil)
 
-		h := NewErrorHandler(ts)
+		js := NewMockJsonSerialiser(t)
+		js.EXPECT().Marshal(mock.Anything).Maybe().Return([]byte("test"), nil)
+
+		h := NewErrorHandler(ts, js)
 
 		err := h.Write(w, r, testAppError)
-
 		assert.Equal(t, td.wantError, err)
 	}
 }
@@ -81,6 +82,7 @@ func TestWrite_HandlesErrorResponseWhenContentTypeIsJson(t *testing.T) {
 		ToastError: "Test error",
 		PageErrors: []string{"A page error", "and another"},
 	}
+	expectedResponse := "expected response"
 
 	r := httptest.NewRequest("GET", "/", strings.NewReader(""))
 
@@ -88,17 +90,68 @@ func TestWrite_HandlesErrorResponseWhenContentTypeIsJson(t *testing.T) {
 	w.Header().Set("Content-Type", ContentTypeJson.String())
 
 	ts := NewMockTemplateStore(t)
-	h := NewErrorHandler(ts)
+	js := NewMockJsonSerialiser(t)
+	js.EXPECT().Marshal(mock.Anything).Maybe().Return([]byte(expectedResponse), nil)
+
+	h := NewErrorHandler(ts, js)
 
 	err := h.Write(w, r, testAppError)
 	require.NoError(t, err)
 
 	gotBody := w.Body.String()
-	wantBodyBytes, err := json.Marshal(testAppError)
-	require.NoError(t, err)
 
 	assert.Equal(t, testAppError.Code, w.Code)
-	assert.Equal(t, string(wantBodyBytes), gotBody)
+	assert.Equal(t, string(expectedResponse), gotBody)
+}
+
+func TestWrite_ReturnsErrorsFromJsonMarshal(t *testing.T) {
+	t.Parallel()
+
+	testAppError := &AppError{
+		Code:       500,
+		ToastError: "Test error",
+		PageErrors: []string{"A page error", "and another"},
+	}
+	expectedErr := errors.New("expected error")
+
+	r := httptest.NewRequest("GET", "/", strings.NewReader(""))
+
+	w := httptest.NewRecorder()
+	w.Header().Set("Content-Type", ContentTypeJson.String())
+
+	ts := NewMockTemplateStore(t)
+	js := NewMockJsonSerialiser(t)
+	js.EXPECT().Marshal(mock.Anything).Maybe().Return(nil, expectedErr)
+
+	h := NewErrorHandler(ts, js)
+
+	err := h.Write(w, r, testAppError)
+	assert.EqualError(t, err, expectedErr.Error())
+}
+
+func TestWrite_SetsErrorCodeIfNotSet(t *testing.T) {
+	t.Parallel()
+
+	testAppError := &AppError{
+		Code:       0,
+		ToastError: "Test error",
+		PageErrors: []string{"A page error", "and another"},
+	}
+
+	r := httptest.NewRequest("GET", "/", strings.NewReader(""))
+
+	w := httptest.NewRecorder()
+	w.Header().Set("Content-Type", ContentTypeJson.String())
+
+	ts := NewMockTemplateStore(t)
+	js := NewMockJsonSerialiser(t)
+	js.EXPECT().Marshal(mock.Anything).Maybe().Return([]byte("data"), nil)
+
+	h := NewErrorHandler(ts, js)
+
+	err := h.Write(w, r, testAppError)
+	assert.NoError(t, err)
+	assert.Equal(t, 500, w.Code)
 }
 
 func TestWrite_HandlesErrorResponseWhenContentTypeIsHtml(t *testing.T) {
@@ -153,7 +206,10 @@ func TestWrite_HandlesErrorResponseWhenContentTypeIsHtml(t *testing.T) {
 			Once().
 			Return(nil)
 
-		h := NewErrorHandler(ts)
+		js := NewMockJsonSerialiser(t)
+		js.EXPECT().Marshal(mock.Anything).Maybe().Return([]byte("test"), nil)
+
+		h := NewErrorHandler(ts, js)
 
 		err := h.Write(w, r, testAppError)
 
@@ -178,7 +234,10 @@ func TestWrite_ShouldReturnErrorsReturnedFromExecute(t *testing.T) {
 		Execute(mock.Anything, mock.Anything, mock.Anything).
 		Return(wantError)
 
-	h := NewErrorHandler(ts)
+	js := NewMockJsonSerialiser(t)
+	js.EXPECT().Marshal(mock.Anything).Maybe().Return([]byte("test"), nil)
+
+	h := NewErrorHandler(ts, js)
 
 	r := httptest.NewRequest("GET", "/", strings.NewReader(""))
 	gotErr := h.Write(w, r, &AppError{Code: 200})

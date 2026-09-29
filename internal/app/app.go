@@ -98,6 +98,7 @@ func Init(
 	}
 
 	app.handlers = initHandlers(
+		dependencies,
 		app.templateStore,
 		app.services,
 	)
@@ -142,6 +143,7 @@ func initServices(
 
 	queryApiService, err := services.NewQueryApiService(
 		repos.queryRepo,
+		dependencies.queryExecutorFactory,
 		dependencies.payloadSigner,
 		appSettings.QueryTokenSecret,
 	)
@@ -156,6 +158,7 @@ func initServices(
 }
 
 func initHandlers(
+	dependencies *appDependencies,
 	templateStore *templates.Store,
 	services *appServices,
 ) *appHandlers {
@@ -164,8 +167,15 @@ func initHandlers(
 			templateStore,
 			services.authService,
 		),
-		errorHandler:    handlers.NewErrorHandler(templateStore),
-		queryApiHandler: handlers.NewQueryApiHandler(services.queryApiService),
+		errorHandler: handlers.NewErrorHandler(
+			templateStore,
+			dependencies.jsonSerialiser,
+		),
+		queryApiHandler: handlers.NewQueryApiHandler(
+			services.queryApiService,
+			dependencies.decodeUrl,
+			dependencies.jsonSerialiser,
+		),
 	}
 }
 

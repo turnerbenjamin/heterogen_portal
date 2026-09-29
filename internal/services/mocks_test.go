@@ -93,8 +93,8 @@ func (_c *MockUserRepo_RetrieveUserById_Call) Run(run func(id string)) *MockUser
 	return _c
 }
 
-func (_c *MockUserRepo_RetrieveUserById_Call) Return(user *model.UsersModel, err error) *MockUserRepo_RetrieveUserById_Call {
-	_c.Call.Return(user, err)
+func (_c *MockUserRepo_RetrieveUserById_Call) Return(usersModel *model.UsersModel, err error) *MockUserRepo_RetrieveUserById_Call {
+	_c.Call.Return(usersModel, err)
 	return _c
 }
 
@@ -155,8 +155,8 @@ func (_c *MockUserRepo_RetrieveUserByOid_Call) Run(run func(id string)) *MockUse
 	return _c
 }
 
-func (_c *MockUserRepo_RetrieveUserByOid_Call) Return(user *model.UsersModel, err error) *MockUserRepo_RetrieveUserByOid_Call {
-	_c.Call.Return(user, err)
+func (_c *MockUserRepo_RetrieveUserByOid_Call) Return(usersModel *model.UsersModel, err error) *MockUserRepo_RetrieveUserByOid_Call {
+	_c.Call.Return(usersModel, err)
 	return _c
 }
 
@@ -241,8 +241,8 @@ func (_c *MockUserRepo_UpsertUser_Call) Run(run func(oid string, givenName strin
 	return _c
 }
 
-func (_c *MockUserRepo_UpsertUser_Call) Return(user *model.UsersModel, err error) *MockUserRepo_UpsertUser_Call {
-	_c.Call.Return(user, err)
+func (_c *MockUserRepo_UpsertUser_Call) Return(usersModel *model.UsersModel, err error) *MockUserRepo_UpsertUser_Call {
+	_c.Call.Return(usersModel, err)
 	return _c
 }
 
