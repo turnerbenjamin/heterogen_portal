@@ -1,5 +1,5 @@
 # Stage 1: build web resources
-FROM node:24 AS web-build
+FROM node:25 AS web-build
 WORKDIR /src/webresources
 
 COPY webresources/package.json webresources/package-lock.json* webresources/tsconfig.json webresources/rollup.config.js ./ 
@@ -7,7 +7,7 @@ COPY webresources ./
 RUN npm ci && npm run build
 
 # Stage 2: build Go binary
-FROM golang:1.25 AS builder
+FROM golang:1.27 AS builder
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go env -w GOPROXY=https://proxy.golang.org
