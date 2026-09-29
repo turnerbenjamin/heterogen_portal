@@ -1,5 +1,5 @@
 # Stage 1: build web resources
-FROM node:24 AS web-build
+FROM node:25 AS web-build
 WORKDIR /src/webresources
 
 COPY webresources/package.json webresources/package-lock.json* webresources/tsconfig.json webresources/rollup.config.js ./ 
