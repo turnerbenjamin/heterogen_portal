@@ -95,7 +95,7 @@ func (r *UserRepo) UpsertUser(oid, givenName, familyName, userName, emailAddress
 				user_name NVARCHAR(128),
 				email_address NVARCHAR(320),
 				created_at DATETIME2,
-				updated_at DATETIME2
+				modified_at DATETIME2
 			);
 
 			-- try update
@@ -105,7 +105,7 @@ func (r *UserRepo) UpsertUser(oid, givenName, familyName, userName, emailAddress
 				family_name = @familyName, 
 				user_name = @userName, 
 				email_address = @emailAddress, 
-				updated_at = SYSUTCDATETIME()
+				modified_at = SYSUTCDATETIME()
 			OUTPUT 
 				inserted.id, 
 				inserted.oid, 
@@ -114,7 +114,7 @@ func (r *UserRepo) UpsertUser(oid, givenName, familyName, userName, emailAddress
 				inserted.user_name, 
 				inserted.email_address, 
 				inserted.created_at, 
-				inserted.updated_at INTO @out
+				inserted.modified_at INTO @out
 			WHERE oid = @oid;
 
 			IF @@ROWCOUNT = 0
@@ -128,7 +128,7 @@ func (r *UserRepo) UpsertUser(oid, givenName, familyName, userName, emailAddress
 				user_name, 
 				email_address, 
 				created_at, 
-				updated_at
+				modified_at
 			)
 			OUTPUT 
 				inserted.id, 
@@ -138,7 +138,7 @@ func (r *UserRepo) UpsertUser(oid, givenName, familyName, userName, emailAddress
 				inserted.user_name, 
 				inserted.email_address, 
 				inserted.created_at, 
-				inserted.updated_at INTO @out
+				inserted.modified_at INTO @out
 			VALUES (
 				@id, 
 				@oid, 
@@ -150,7 +150,7 @@ func (r *UserRepo) UpsertUser(oid, givenName, familyName, userName, emailAddress
 				SYSUTCDATETIME());
 			END
 
-			SELECT id, oid, given_name, family_name, user_name, email_address, created_at, updated_at FROM @out;
+			SELECT id, oid, given_name, family_name, user_name, email_address, created_at, modified_at FROM @out;
 
 			COMMIT TRAN;
 			END TRY
@@ -204,7 +204,7 @@ func (r *UserRepo) retrieveUser(
 	_, ok := r.statements[STMT_KEY_RETRIEVE_USER_BY_ID]
 	if !ok {
 		query, err := (*r).db.Prepare(
-			`SELECT id, oid, given_name, family_name, user_name, email_address, created_at, updated_at
+			`SELECT id, oid, given_name, family_name, user_name, email_address, created_at, modified_at
 			 FROM hg.users WHERE id = @identifier`,
 		)
 		if err != nil {
