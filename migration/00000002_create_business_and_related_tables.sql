@@ -9,8 +9,7 @@ CREATE TABLE hg.businesses (
 
     description NVARCHAR(4000) NULL,
 
-    business_type INT NOT NULL,
-
+    business_type Int NOT NULL,
 
     cph_number NVARCHAR(11) NULL,
     email_address NVARCHAR(320) NULL,

@@ -29,6 +29,29 @@
 	</head> 
   <body>
   <div id="toast-container"></div>
+  <aside id="title-bar">Title</aside>
+  <nav id="nav-bar">
+  <ul>
+    <li 
+      class="hx-anchor" 
+      hx-get="/users" 
+      hx-swap="innerHTML" 
+      hx-target="#page-content"
+      hx-push-url="true"
+    >
+        Users
+    </li>
+    <li 
+      class="hx-anchor" 
+      hx-get="/businesses" 
+      hx-swap="innerHTML" 
+      hx-target="#page-content"
+      hx-push-url="true"
+    >
+        Businesses
+    </li>
+  </ul>
+  </nav>
   <div id="page-content">
 {{- end}}
   {{- template "component-toast" . }}

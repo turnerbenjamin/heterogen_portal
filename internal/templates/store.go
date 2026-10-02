@@ -25,8 +25,13 @@ const (
 	TmplPageApp TemplateIdentifier = iota
 	TmplPageUserSignedOut
 	TmplPageOutOfAppErr
+
+	TmplPageUsers
+	TmplPageBusinesses
+
 	TmplComponentErrors
 	TmplComponentToast
+
 	_tmplEnumEnd
 )
 

@@ -101,7 +101,8 @@
     --ws-9: 11.089rem;
     --ws-10: 17.942rem;
 
-    --heading-height: 50px;
+    --title-bar-height: 50px;
+    --nav-bar-collapsed-width: 50px;
 
     --toast-border-width: 10px;
     --toast-progress-bar-height: 5px;
@@ -122,18 +123,51 @@ html {
 
 body {
     min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    overflow-x: hidden;
-
+    display: grid;
+    grid-template-rows: auto 1fr;
     margin: 0;
     font-family: moderustic, sans-serif;
     font-size: var(--fs-md);
     background-color: var(--base-bg);
     color: var(--base-fg);
     font-weight: 400;
+}
+
+#title-bar {
+    display: flexbox;
+    background-color: var(--dark-green);
+    height: var(--title-bar-height);
+}
+
+#nav-bar {
+    padding: var(--ws-3);
+    width: var(--nav-bar-collapsed-width);
+    position: absolute;
+    top: var(--title-bar-height);
+    left: 0;
+    bottom: 0;
+
+    overflow: hidden;
+
+    box-shadow: 2px 2px 2px 1px rgba(0, 0, 0, 0.1);
+}
+
+#nav-bar:hover {
+    width: max-content;
+}
+
+#page-content {
+    margin-left: var(--nav-bar-collapsed-width);
+
+    display: flex;
+    flex-direction: column;
+    align-items: start;
+    justify-content: start;
+    padding: var(--ws-6) var(--ws-8);
+
+    overflow-x: hidden;
+    position: relative;
+    height: 100%;
 }
 
 h1 {
@@ -162,6 +196,10 @@ input {
 
 p {
     max-width: 60ch;
+}
+
+ul {
+    list-style: none;
 }
 
 button {
@@ -199,10 +237,8 @@ a {
     }
 }
 
-#page-content {
-    position: relative;
-    width: 100%;
-    height: 100%;
+.hx-anchor {
+    cursor: pointer;
 }
 
 /** LOADING SPINNERS */

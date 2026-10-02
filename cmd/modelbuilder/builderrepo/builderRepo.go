@@ -61,7 +61,7 @@ type TableRelationship struct {
 	ForeignColumn          string
 }
 
-func (r *MetadataRepo) GetMetadata() (*DatabaseSchema, error) {
+func (r *MetadataRepo) GetMetadata(schemaName string) (*DatabaseSchema, error) {
 	q := `
 SELECT CAST(
 (
@@ -114,7 +114,8 @@ SELECT CAST(
             FROM sys.tables AS t
             INNER JOIN sys.schemas AS s
                 ON s.schema_id = t.schema_id
-            WHERE t.is_ms_shipped = 0
+                        WHERE t.is_ms_shipped = 0
+                            AND s.name = @schemaName
             ORDER BY
                 s.name,
                 t.name
@@ -159,7 +160,7 @@ SELECT CAST(
     `
 
 	var raw string
-	if err := r.Db.QueryRow(q).Scan(&raw); err != nil {
+    if err := r.Db.QueryRow(q, sql.Named("schemaName", schemaName)).Scan(&raw); err != nil {
 		return nil, err
 	}
 

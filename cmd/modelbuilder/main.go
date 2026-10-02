@@ -16,22 +16,34 @@ func main() {
 	defer ctx.Done()
 
 	serverDsn := flag.String("dsn", "", "server dsn")
+	schemaName := flag.String("schema-name", "", "schema name")
 	flag.Parse()
+	if *schemaName == "" {
+		log.Fatal("schema-name flag must be set")
+	}
+
 	dbConnection := initDBConnection(*serverDsn)
 	defer closeDBConnection(dbConnection)
 
 	metadataRepo := builderrepo.MetadataRepo{Db: dbConnection}
-	metadata, err := metadataRepo.GetMetadata()
+	metadata, err := metadataRepo.GetMetadata(*schemaName)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	modelPath, err := filepath.Abs("internal/model/model.go")
+	queryModelPath, err := filepath.Abs("internal/model/queryModel.go")
 	if err != nil {
 		log.Fatal(err)
 	}
-	modelWriter := modelwriter.NewModelWriter(modelPath, metadata)
-	modelWriter.Write()
+	queryModelWriter := modelwriter.NewQueryModelWriter(queryModelPath, metadata)
+	queryModelWriter.Write()
+
+	constantsPath, err := filepath.Abs("internal/model/constants.go")
+	if err != nil {
+		log.Fatal(err)
+	}
+	constantsWriter := modelwriter.NewConstantsWriter(constantsPath, metadata)
+	constantsWriter.Write()
 }
 
 func initDBConnection(serverDsn string) *sql.DB {

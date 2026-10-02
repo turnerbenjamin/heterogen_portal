@@ -27,9 +27,11 @@ type appServices struct {
 }
 
 type appHandlers struct {
-	authHandler     *handlers.AuthHandler
-	errorHandler    *handlers.ErrorHandler
-	queryApiHandler *handlers.QueryApiHandler
+	authHandler       *handlers.AuthHandler
+	errorHandler      *handlers.ErrorHandler
+	queryApiHandler   *handlers.QueryApiHandler
+	usersHandler      *handlers.UsersHandler
+	businessesHandler *handlers.BusinessesHandler
 }
 
 type application struct {
@@ -175,6 +177,12 @@ func initHandlers(
 			services.queryApiService,
 			dependencies.decodeUrl,
 			dependencies.jsonSerialiser,
+		),
+		usersHandler: handlers.NewUsersHandler(
+			templateStore,
+		),
+		businessesHandler: handlers.NewBusinessesHandler(
+			templateStore,
 		),
 	}
 }

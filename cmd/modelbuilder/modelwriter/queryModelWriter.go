@@ -15,6 +15,7 @@ import (
 const (
 	MsqlTypeNvarchar       builderrepo.MsqlDataTypeName = "nvarchar"
 	MsqlTypeInt            builderrepo.MsqlDataTypeName = "int"
+	MsqlTypeBigInt         builderrepo.MsqlDataTypeName = "bigint"
 	MsqlTypeGeography      builderrepo.MsqlDataTypeName = "geography"
 	MsqlTypeDateTimeOffset builderrepo.MsqlDataTypeName = "datetimeoffset"
 )
@@ -26,32 +27,32 @@ const (
 	RelationshipManyToOne relationshipType = "N:1"
 )
 
-type modelWriter struct {
+type queryModelWriter struct {
 	path     string
 	metadata *builderrepo.DatabaseSchema
 	sb       *strings.Builder
 }
 
-func NewModelWriter(
+func NewQueryModelWriter(
 	path string,
 	metadata *builderrepo.DatabaseSchema,
-) *modelWriter {
-	return &modelWriter{
+) *queryModelWriter {
+	return &queryModelWriter{
 		path:     path,
 		metadata: metadata,
 		sb:       &strings.Builder{},
 	}
 }
 
-func (w *modelWriter) Write() {
+func (w *queryModelWriter) Write() {
 	buildTableRelationshipData(w.metadata)
 
 	w.writePackageAndStaticTypeDefinitions()
 	w.writeNewLine()
-	w.WriteConstants()
 	w.writeSchemaDefinition()
 
 	for _, table := range w.metadata.Tables {
+
 		w.writeNewLine()
 		w.writeResourceDefinition(table)
 		w.writeNewLine()
@@ -83,11 +84,11 @@ func writeToBuilder(sb *strings.Builder, s string) {
 	}
 }
 
-func (w *modelWriter) writeNewLine() {
+func (w *queryModelWriter) writeNewLine() {
 	writeToBuilder(w.sb, "\n")
 }
 
-func (w *modelWriter) writePackageAndStaticTypeDefinitions() {
+func (w *queryModelWriter) writePackageAndStaticTypeDefinitions() {
 	writeToBuilder(w.sb, `//GENERATED CODE
 // see cmd/modelbuilder/
 package model
@@ -122,42 +123,7 @@ func marshalProperty(buf *bytes.Buffer, isFirst bool, columnName string, value a
 `)
 }
 
-func (w *modelWriter) WriteConstants() {
-
-	writeToBuilder(w.sb, "// Constants representing field names in the database\n")
-	writeToBuilder(w.sb, "const(\n")
-	for _, table := range w.metadata.Tables {
-		for _, column := range table.Columns {
-			fieldNameConst := fmt.Sprintf(
-				"Col%s%s",
-				snakeToPascal(table.Name),
-				snakeToPascal(column.Name),
-			)
-			writeToBuilder(w.sb, fmt.Sprintf("%s = \"%s\"\n", fieldNameConst, column.Name))
-		}
-	}
-	writeToBuilder(w.sb, ")\n\n")
-
-	writeToBuilder(w.sb, "// Constants representing field names in the database\n")
-	writeToBuilder(w.sb, "const(\n")
-	for _, table := range w.metadata.Tables {
-		for _, column := range table.Columns {
-			if column.Type != MsqlTypeNvarchar {
-				continue
-			}
-			constraintConst := fmt.Sprintf(
-				"MaxLen%s%s",
-				snakeToPascal(table.Name),
-				snakeToPascal(column.Name),
-			)
-			writeToBuilder(w.sb, fmt.Sprintf("%s = %d\n", constraintConst, column.MaxLength))
-		}
-	}
-
-	writeToBuilder(w.sb, ")\n")
-}
-
-func (w *modelWriter) writeSchemaDefinition() {
+func (w *queryModelWriter) writeSchemaDefinition() {
 
 	writeToBuilder(w.sb, "type schema struct{}\n\n")
 
@@ -180,7 +146,7 @@ func (w *modelWriter) writeSchemaDefinition() {
 	writeToBuilder(w.sb, "}\n\n")
 }
 
-func (w *modelWriter) writeResourceDefinition(tableData *builderrepo.TableMetadata) {
+func (w *queryModelWriter) writeResourceDefinition(tableData *builderrepo.TableMetadata) {
 	resourceTypeName := getModelResourceStructName(tableData.Name)
 
 	// Write resource type
@@ -197,7 +163,7 @@ func (w *modelWriter) writeResourceDefinition(tableData *builderrepo.TableMetada
 	w.writeNewLine()
 }
 
-func (w *modelWriter) writeResourceGetMetadataFunc(
+func (w *queryModelWriter) writeResourceGetMetadataFunc(
 	resourceTypeName string,
 	tableData *builderrepo.TableMetadata,
 ) {
@@ -207,7 +173,7 @@ func (w *modelWriter) writeResourceGetMetadataFunc(
 	writeToBuilder(w.sb, "}\n")
 }
 
-func (w *modelWriter) writeResourceInitProjectionFunc(
+func (w *queryModelWriter) writeResourceInitProjectionFunc(
 	resourceTypeName string,
 	tableData *builderrepo.TableMetadata,
 ) {
@@ -217,7 +183,7 @@ func (w *modelWriter) writeResourceInitProjectionFunc(
 	writeToBuilder(w.sb, "}\n")
 }
 
-func (w *modelWriter) WriteResourceSliceFromJSONFunction(resourceTypeName string, tableData *builderrepo.TableMetadata) {
+func (w *queryModelWriter) WriteResourceSliceFromJSONFunction(resourceTypeName string, tableData *builderrepo.TableMetadata) {
 	writeToBuilder(w.sb, fmt.Sprintf(
 		"// SliceFromJSON unmarshals a json array of %s and returns it as a slice\n",
 		tableData.Name,
@@ -249,7 +215,7 @@ func (w *modelWriter) WriteResourceSliceFromJSONFunction(resourceTypeName string
 	writeToBuilder(w.sb, "}\n")
 }
 
-func (w *modelWriter) writeTableMetadataDefinition(tableData *builderrepo.TableMetadata) {
+func (w *queryModelWriter) writeTableMetadataDefinition(tableData *builderrepo.TableMetadata) {
 	primaryKey, columnMapValue := buildColumnMap(tableData)
 	if primaryKey == "" {
 		log.Fatal(fmt.Errorf("unable to access primary key for table %s", tableData.Name))
@@ -302,7 +268,7 @@ func buildColumnMap(tableData *builderrepo.TableMetadata) (string, string) {
 	return primaryKey, sbColMap.String()
 }
 
-func (w *modelWriter) buildRelationshipMap(tableData *builderrepo.TableMetadata) string {
+func (w *queryModelWriter) buildRelationshipMap(tableData *builderrepo.TableMetadata) string {
 	sbR := &strings.Builder{}
 
 	writeToBuilder(sbR, "map[string]querymodel.RelationshipMetadata{\n")
@@ -350,7 +316,7 @@ func getColTypeString(typeName builderrepo.MsqlDataTypeName, checks []builderrep
 	}
 }
 
-func (w *modelWriter) WriteTableModel(tableData *builderrepo.TableMetadata) {
+func (w *queryModelWriter) WriteTableModel(tableData *builderrepo.TableMetadata) {
 	structName := getModelStructName(tableData.Name)
 
 	writeToBuilder(w.sb, fmt.Sprintf(
@@ -367,7 +333,7 @@ func (w *modelWriter) WriteTableModel(tableData *builderrepo.TableMetadata) {
 
 		goType := msqlTypeToGoType(col.Type, col.Checks)
 		if goType == "" {
-			log.Fatal(fmt.Errorf("unable to convert type to go type: %s", col.Type))
+			log.Fatal(fmt.Errorf("unable to convert type to go type: %s(%s)", col.Name, col.Type))
 		}
 
 		tag := fmt.Sprintf("`json:\"%s\"`", col.Name)
@@ -405,7 +371,7 @@ func (w *modelWriter) WriteTableModel(tableData *builderrepo.TableMetadata) {
 	w.WriteProjectionFunction(structName, tableData)
 }
 
-func (w *modelWriter) WriteSetProjectionFunction(modelStructName string, tableData *builderrepo.TableMetadata) {
+func (w *queryModelWriter) WriteSetProjectionFunction(modelStructName string, tableData *builderrepo.TableMetadata) {
 	writeDocComment := func() {
 		writeToBuilder(
 			w.sb,
@@ -497,7 +463,7 @@ func (w *modelWriter) WriteSetProjectionFunction(modelStructName string, tableDa
 	writeToBuilder(w.sb, "}\n\n")
 }
 
-func (w *modelWriter) WriteModelMarshalJSONFunction(modelStructName string, tableData *builderrepo.TableMetadata) {
+func (w *queryModelWriter) WriteModelMarshalJSONFunction(modelStructName string, tableData *builderrepo.TableMetadata) {
 	writeToBuilder(w.sb, "// MarshalJSON marshals the model to a json string based on the projection\n")
 
 	writeToBuilder(w.sb, fmt.Sprintf("func (m *%s) MarshalJSON() ([]byte, error) {\n", modelStructName))
@@ -545,7 +511,7 @@ func (w *modelWriter) WriteModelMarshalJSONFunction(modelStructName string, tabl
 	writeToBuilder(w.sb, "}\n")
 }
 
-func (w *modelWriter) WriteGetValueExpressionFunction(modelStructName string, tableData *builderrepo.TableMetadata) {
+func (w *queryModelWriter) WriteGetValueExpressionFunction(modelStructName string, tableData *builderrepo.TableMetadata) {
 	writeToBuilder(w.sb, "// GetValue returns the value from a given path\n")
 
 	writeToBuilder(w.sb, fmt.Sprintf("func (m *%s) GetValue(v querymodel.ValueBuilder, path []*querymodel.TraversalStep, columnName string) (querymodel.Value, error){\n", modelStructName))
@@ -583,7 +549,7 @@ func (w *modelWriter) WriteGetValueExpressionFunction(modelStructName string, ta
 	writeToBuilder(w.sb, "}\n")
 }
 
-func (w *modelWriter) WriteGetRelatedEntityFunction(modelStructName string, tableData *builderrepo.TableMetadata) {
+func (w *queryModelWriter) WriteGetRelatedEntityFunction(modelStructName string, tableData *builderrepo.TableMetadata) {
 	if !hasManyToOneRelationships(tableData) {
 		return
 	}
@@ -609,7 +575,7 @@ func (w *modelWriter) WriteGetRelatedEntityFunction(modelStructName string, tabl
 	writeToBuilder(w.sb, "}\n")
 }
 
-func (w *modelWriter) WriteGetValueExpressionPrivateFunction(modelStructName string, tableData *builderrepo.TableMetadata) {
+func (w *queryModelWriter) WriteGetValueExpressionPrivateFunction(modelStructName string, tableData *builderrepo.TableMetadata) {
 	writeToBuilder(w.sb, "// getValue returns the value from a given column\n")
 
 	writeToBuilder(w.sb, fmt.Sprintf("func (m *%s) getValue(columnName string, v querymodel.ValueBuilder) (querymodel.Value, error) {\n", modelStructName))
@@ -627,7 +593,7 @@ func (w *modelWriter) WriteGetValueExpressionPrivateFunction(modelStructName str
 	writeToBuilder(w.sb, "}\n")
 }
 
-func (w *modelWriter) WriteProjectionFunction(modelStructName string, tableData *builderrepo.TableMetadata) {
+func (w *queryModelWriter) WriteProjectionFunction(modelStructName string, tableData *builderrepo.TableMetadata) {
 	writeToBuilder(w.sb, "// Project adds a column to the model's projection set\n")
 
 	writeToBuilder(w.sb, fmt.Sprintf("func (m *%s) Project(columnName string) error { \n", modelStructName))
@@ -635,7 +601,7 @@ func (w *modelWriter) WriteProjectionFunction(modelStructName string, tableData 
 	writeToBuilder(w.sb, "}\n")
 }
 
-func (w *modelWriter) buildGetValueExpression(columnData *builderrepo.ColumnMetadata) string {
+func (w *queryModelWriter) buildGetValueExpression(columnData *builderrepo.ColumnMetadata) string {
 	columnIdentifier := snakeToPascal(columnData.Name)
 	goType := msqlTypeToGoType(columnData.Type, columnData.Checks)
 
@@ -688,7 +654,7 @@ func (p BusinessesProjection) Has(columnName string) bool {
 	}
 }
 
-func (w *modelWriter) WriteTableModelProjection(tableData *builderrepo.TableMetadata) {
+func (w *queryModelWriter) WriteTableModelProjection(tableData *builderrepo.TableMetadata) {
 	projectionName := getModelProjectionName(tableData.Name)
 
 	if len(tableData.Columns) > 64 {
@@ -762,28 +728,7 @@ func (w *modelWriter) WriteTableModelProjection(tableData *builderrepo.TableMeta
 	w.writeNewLine()
 }
 
-// func (w *modelWriter) WriteTableModelGetter() {
-// 	writeToBuilder(
-// 		w.sb,
-// 		"// getTableModel returns a new instance of a given table or nill if \n"+
-// 			"// the table name is invalid\n",
-// 	)
-// 	writeToBuilder(w.sb, "func getTableModel(tableName string) querymodel.TableModel{\n")
-// 	writeToBuilder(w.sb, "switch tableName {\n")
-
-// 	for _, table := range w.metadata.Tables {
-// 		metadataStoreId := modelMetadataStoreIdentifier(table.Name)
-// 		writeToBuilder(w.sb, fmt.Sprintf("case %s.name:\n", metadataStoreId))
-// 		writeToBuilder(w.sb, fmt.Sprintf("return new(%s)\n", getModelStructName(table.Name)))
-// 	}
-
-// 	writeToBuilder(w.sb, "default:\n")
-// 	writeToBuilder(w.sb, "return nil\n")
-// 	writeToBuilder(w.sb, "}\n")
-// 	writeToBuilder(w.sb, "}\n")
-// }
-
-func (w *modelWriter) writeTableAccessStructs() {
+func (w *queryModelWriter) writeTableAccessStructs() {
 	// Database Access Policy
 	writeToBuilder(w.sb, "// AccessPolicy defines the access policy for the database\n")
 
@@ -823,7 +768,7 @@ func (w *modelWriter) writeTableAccessStructs() {
 	}
 }
 
-func (w *modelWriter) writeTableAccessStruct(t *builderrepo.TableMetadata) {
+func (w *queryModelWriter) writeTableAccessStruct(t *builderrepo.TableMetadata) {
 	accessPolicyStructName := getTableAccessPolicyName(t.Name)
 	// Access Policy Struct
 	writeToBuilder(w.sb, fmt.Sprintf(
@@ -889,7 +834,7 @@ func getModelProjectionName(tableName string) string {
 }
 
 func modelMetadataStoreIdentifier(tableName string) string {
-	return fmt.Sprintf("%sMetadata", snakeToCamel(tableName))
+	return fmt.Sprintf("%sMetadata", snakeToPascal(tableName))
 }
 
 func getModelResourceStructName(tableName string) string {
@@ -934,7 +879,7 @@ func msqlTypeToGoType(typeName builderrepo.MsqlDataTypeName, checks []builderrep
 	switch typeName {
 	case MsqlTypeNvarchar:
 		return "string"
-	case MsqlTypeInt:
+	case MsqlTypeInt, MsqlTypeBigInt:
 		return "int64"
 	case MsqlTypeDateTimeOffset:
 		return "*time.Time"

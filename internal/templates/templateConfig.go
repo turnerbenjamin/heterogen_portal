@@ -29,6 +29,30 @@ var TemplateDataMap = map[TemplateIdentifier]TemplateData{
 		},
 		WebResources: WebResourceDependencies{},
 	},
+	TmplPageUsers: {
+		Name: "page-users",
+		Dependencies: []string{
+			"layout-top",
+			"layout-bottom",
+			"main-table-content",
+		},
+		WebResources: WebResourceDependencies{
+			HTMX:      true,
+			HG_COMMON: true,
+		},
+	},
+	TmplPageBusinesses: {
+		Name: "page-businesses",
+		Dependencies: []string{
+			"layout-top",
+			"layout-bottom",
+			"main-table-content",
+		},
+		WebResources: WebResourceDependencies{
+			HTMX:      true,
+			HG_COMMON: true,
+		},
+	},
 	TmplComponentErrors: {
 		Name:         "component-errors",
 		Dependencies: []string{},
