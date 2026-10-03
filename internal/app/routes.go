@@ -8,7 +8,6 @@ import (
 
 	"github.com/turnerbenjamin/heterogen_portal/internal/constants"
 	h "github.com/turnerbenjamin/heterogen_portal/internal/handlers"
-	"github.com/turnerbenjamin/heterogen_portal/internal/model"
 )
 
 func (app *application) addRoute(pattern string, handler http.Handler) {
@@ -98,9 +97,9 @@ func (app *application) addRoutes() {
 		"GET /users",
 		pipelineWithUserTableState.New(
 			h.ContentTypeHtml,
-			[]h.Middleware[*h.TableState[*model.UsersModel]]{
-				h.ParseJwtMiddleware[*h.TableState[*model.UsersModel]](app.services.authService),
-				h.RequireSignInMiddleware[*h.TableState[*model.UsersModel]](app.services.authService),
+			[]h.Middleware[*h.UsersTableState]{
+				h.ParseJwtMiddleware[*h.UsersTableState](app.services.authService),
+				h.RequireSignInMiddleware[*h.UsersTableState](app.services.authService),
 			},
 			app.handlers.usersHandler.GetRoot,
 		),
@@ -110,9 +109,9 @@ func (app *application) addRoutes() {
 		"GET /businesses",
 		pipelineWithBusinessesTableState.New(
 			h.ContentTypeHtml,
-			[]h.Middleware[*h.TableState[*model.BusinessesModel]]{
-				h.ParseJwtMiddleware[*h.TableState[*model.BusinessesModel]](app.services.authService),
-				h.RequireSignInMiddleware[*h.TableState[*model.BusinessesModel]](app.services.authService),
+			[]h.Middleware[*h.BusinessesTableState]{
+				h.ParseJwtMiddleware[*h.BusinessesTableState](app.services.authService),
+				h.RequireSignInMiddleware[*h.BusinessesTableState](app.services.authService),
 			},
 			app.handlers.businessesHandler.GetRoot,
 		),

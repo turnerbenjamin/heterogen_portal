@@ -80,7 +80,6 @@ func Init(
 	app.templateStore, err = templates.MakeTemplateStore(
 		staticFileSystem,
 		"templates",
-		templates.TemplateDataMap,
 	)
 	if err != nil {
 		app.CleanUp()

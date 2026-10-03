@@ -22,8 +22,8 @@ type UsersService interface {
 type UsersHandler struct {
 	templateStore        TemplateStore
 	usersService         UsersService
-	tableColumns         []ColumnData[*model.UsersModel]
-	defaultHeaderColumns []HeaderColumn[*model.UsersModel]
+	tableColumns         []templates.ColumnData[*model.UsersModel]
+	defaultHeaderColumns []templates.HeaderColumn[*model.UsersModel]
 }
 
 func NewUsersHandler(
@@ -34,7 +34,7 @@ func NewUsersHandler(
 		templateStore: templateStore,
 		usersService:  usersService,
 		tableColumns:  OrderedColumnData(userTableColumns),
-		defaultHeaderColumns: []HeaderColumn[*model.UsersModel]{
+		defaultHeaderColumns: []templates.HeaderColumn[*model.UsersModel]{
 			{Column: userTableColumns[model.ColUsersDisplayName]},
 			{Column: userTableColumns[model.ColUsersGivenName]},
 			{Column: userTableColumns[model.ColUsersFamilyName]},
@@ -43,16 +43,16 @@ func NewUsersHandler(
 }
 
 // GetRootHandler returns a handler for the application root.
-func (h *UsersHandler) GetRoot(w http.ResponseWriter, r *http.Request, c *PipelineContext[*TableState[*model.UsersModel]]) *AppError {
+func (h *UsersHandler) GetRoot(w http.ResponseWriter, r *http.Request, c *PipelineContext[*UsersTableState]) *AppError {
 	pageConfig := templates.PageConfig{
 		ContentOnly: DoSendContentOnly(r),
 		Title:       "HETEROGEN - USERS",
 	}
 
-	c.state.TableName = "Users"
-	c.state.SchemaVersion = 1
-	c.state.ColumnDefinitions = h.tableColumns
-	c.state.TableHeader = h.defaultHeaderColumns
+	// c.state.TableName = "Users"
+	// c.state.SchemaVersion = 1
+	// c.state.ColumnDefinitions = h.tableColumns
+	// c.state.TableHeader = h.defaultHeaderColumns
 
 	result, err := h.usersService.ExecuteQuery(
 		r.Context(),
@@ -61,12 +61,21 @@ func (h *UsersHandler) GetRoot(w http.ResponseWriter, r *http.Request, c *Pipeli
 	if err != nil {
 		return NewServerError(err)
 	}
-	c.state.Rows = result.Data
 
-	err = h.templateStore.Execute(
-		templates.TmplPageUsers,
+	c.state.TableData = templates.TableData[*model.UsersModel]{
+		TableName:         "Users",
+		SchemaVersion:     1,
+		ColumnDefinitions: h.tableColumns,
+		TableHeader:       h.defaultHeaderColumns,
+		Rows:              result.Data,
+	}
+
+	err = h.templateStore.ExecutePageUsers(
 		w,
-		templates.TemplateArgs{PageConfig: pageConfig, Data: c.state},
+		templates.TemplateConfig[templates.TableData[*model.UsersModel]]{
+			PageConfig: pageConfig,
+			Data:       c.state.TableData,
+		},
 	)
 	if err != nil {
 		return NewServerError(err)

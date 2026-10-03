@@ -54,15 +54,17 @@ func (h AuthHandler) GetRoot(w http.ResponseWriter, r *http.Request, c *Pipeline
 		return nil
 	}
 
-	pageConfig := templates.PageConfig{
-		ContentOnly: DoSendContentOnly(r),
-		Title:       "HETEROGEN",
-	}
-
-	err := h.templateStore.Execute(
-		templates.TmplPageApp,
+	err := h.templateStore.ExecutePageApp(
 		w,
-		templates.TemplateArgs{PageConfig: pageConfig, Data: c.state},
+		templates.TemplateConfig[templates.PageAppData]{
+			PageConfig: templates.PageConfig{
+				ContentOnly: DoSendContentOnly(r),
+				Title:       "HETEROGEN",
+			},
+			Data: templates.PageAppData{
+				User: c.state.GetUser(),
+			},
+		},
 	)
 	if err != nil {
 		return NewServerError(err)
@@ -134,15 +136,15 @@ func (h AuthHandler) GetSignedOut(w http.ResponseWriter, r *http.Request, c *Pip
 		return NewServerError(errors.New(constants.ErrMsgHtmxNotSupported))
 	}
 
-	pageConfig := templates.PageConfig{
-		ContentOnly: false,
-		Title:       "HETEROGEN | SIGNED-OUT",
-	}
-
-	err := h.templateStore.Execute(
-		templates.TmplPageUserSignedOut,
+	err := h.templateStore.ExecutePageUserSignedOut(
 		w,
-		templates.TemplateArgs{PageConfig: pageConfig, Data: nil},
+		templates.TemplateConfig[templates.PageUserSignedOutData]{
+			PageConfig: templates.PageConfig{
+				ContentOnly: false,
+				Title:       "HETEROGEN | SIGNED-OUT",
+			},
+			Data: templates.PageUserSignedOutData{},
+		},
 	)
 	if err != nil {
 		return NewServerError(err)

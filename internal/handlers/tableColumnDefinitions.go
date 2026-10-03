@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/turnerbenjamin/heterogen_portal/internal/model"
+	"github.com/turnerbenjamin/heterogen_portal/internal/templates"
 	"github.com/turnerbenjamin/querystack/querymodel"
 )
 
@@ -19,21 +20,21 @@ func SingleLevelExpand(localColumn, foreignColumn string) string {
 	return fmt.Sprintf("%s(select=%s)", localColumn, foreignColumn)
 }
 
-func OrderedColumnData[T querymodel.TableModel](dataMap map[string]ColumnData[T]) []ColumnData[T] {
+func OrderedColumnData[T querymodel.TableModel](dataMap map[string]templates.ColumnData[T]) []templates.ColumnData[T] {
 	keys := make([]string, 0, len(dataMap))
 	for k := range dataMap {
 		keys = append(keys, k)
 	}
 	sort.Strings(keys)
 
-	values := make([]ColumnData[T], len(keys))
+	values := make([]templates.ColumnData[T], len(keys))
 	for i, key := range keys {
 		values[i] = dataMap[key]
 	}
 	return values
 }
 
-var userTableColumns = map[string]ColumnData[*model.UsersModel]{
+var userTableColumns = map[string]templates.ColumnData[*model.UsersModel]{
 	model.ColUsersId: {
 		ColumnName:  model.ColUsersId,
 		DisplayName: model.ColDisplayNameUsersId,
@@ -85,7 +86,7 @@ var userTableColumns = map[string]ColumnData[*model.UsersModel]{
 	},
 }
 
-var businessTableColumns = map[string]ColumnData[*model.BusinessesModel]{
+var businessTableColumns = map[string]templates.ColumnData[*model.BusinessesModel]{
 	model.ColBusinessesId: {
 		ColumnName:  model.ColBusinessesId,
 		DisplayName: model.ColDisplayNameBusinessesId,

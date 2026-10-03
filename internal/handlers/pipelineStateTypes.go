@@ -2,7 +2,7 @@ package handlers
 
 import (
 	"github.com/turnerbenjamin/heterogen_portal/internal/model"
-	"github.com/turnerbenjamin/querystack/querymodel"
+	"github.com/turnerbenjamin/heterogen_portal/internal/templates"
 )
 
 // NoState is a placeholder type for handlers that do not require
@@ -30,45 +30,40 @@ func (s *userState) SetUser(v *model.UsersModel) {
 	s.user = v
 }
 
+type UsersTableState struct {
+	User      *model.UsersModel
+	TableData templates.TableData[*model.UsersModel]
+}
+
+func (s *UsersTableState) GetUser() *model.UsersModel {
+	return s.User
+}
+
+func (s *UsersTableState) SetUser(v *model.UsersModel) {
+	s.User = v
+}
+
 func UserStateInit() UserState {
 	return &userState{}
 }
 
-type HeaderColumn[T querymodel.TableModel] struct {
-	Column ColumnData[T]
-	Width  string
+func UsersTableStateInit() *UsersTableState {
+	return &UsersTableState{}
 }
 
-type ColumnData[T querymodel.TableModel] struct {
-	ColumnName  string
-	DisplayName string
-	DataType    model.DataType
-	Path        string
-	Expansion   string
-	GetData     func(T) string
+type BusinessesTableState struct {
+	User      *model.UsersModel
+	TableData templates.TableData[*model.BusinessesModel]
 }
 
-type TableState[T querymodel.TableModel] struct {
-	TableName         string
-	User              *model.UsersModel
-	SchemaVersion     uint64
-	ColumnDefinitions []ColumnData[T]
-	TableHeader       []HeaderColumn[T]
-	Rows              []T
+func BusinessesTableStateInit() *BusinessesTableState {
+	return &BusinessesTableState{}
 }
 
-func UsersTableStateInit() *TableState[*model.UsersModel] {
-	return &TableState[*model.UsersModel]{}
-}
-
-func BusinessesTableStateInit() *TableState[*model.BusinessesModel] {
-	return &TableState[*model.BusinessesModel]{}
-}
-
-func (s *TableState[T]) GetUser() *model.UsersModel {
+func (s *BusinessesTableState) GetUser() *model.UsersModel {
 	return s.User
 }
 
-func (s *TableState[T]) SetUser(v *model.UsersModel) {
+func (s *BusinessesTableState) SetUser(v *model.UsersModel) {
 	s.User = v
 }

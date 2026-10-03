@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"html/template"
-	"io"
 	"io/fs"
 	"path/filepath"
 	"sort"
@@ -16,25 +15,44 @@ import (
 
 // Store holds the parsed templates and metadata required to execute them.
 type Store struct {
-	templates    *template.Template
-	templateData map[TemplateIdentifier]TemplateData
+	templates *template.Template
 }
 
-type TemplateIdentifier int
-
 const (
-	TmplPageApp TemplateIdentifier = iota
-	TmplPageUserSignedOut
-	TmplPageOutOfAppErr
+	TmplPageApp           = "page-app"
+	TmplPageUserSignedOut = "page-user-signed-out"
+	TmplPageOutOfAppErr   = "page-out-of-app-err"
 
-	TmplPageUsers
-	TmplPageBusinesses
+	TmplPageUsers      = "page-users"
+	TmplPageBusinesses = "page-businesses"
 
-	TmplComponentErrors
-	TmplComponentToast
+	TmplMainUserDash     = "main-user-dash"
+	TmplMainTableContent = "main-table-content"
 
-	_tmplEnumEnd
+	TmplComponentErrors = "component-errors"
+	TmplComponentToast  = "component-toast"
+
+	TmplDepLayoutTop    = "layout-top"
+	TmplDepLayoutBottom = "layout-bottom"
 )
+
+var requiredTemplates = []string{
+	TmplPageApp,
+	TmplPageUserSignedOut,
+	TmplPageOutOfAppErr,
+
+	TmplPageUsers,
+	TmplPageBusinesses,
+
+	TmplMainUserDash,
+	TmplMainTableContent,
+
+	TmplComponentErrors,
+	TmplComponentToast,
+
+	TmplDepLayoutTop,
+	TmplDepLayoutBottom,
+}
 
 type PageConfig struct {
 	ContentOnly  bool
@@ -42,26 +60,20 @@ type PageConfig struct {
 	ToastSuccess string
 }
 
-type TemplateArgs struct {
-	PageConfig PageConfig
-	Data       any
-}
-
 type WebResourceDependencies struct {
 	HTMX      bool
 	HG_COMMON bool
 }
 
-type TemplateData struct {
-	Name         string
-	Dependencies []string
-	WebResources WebResourceDependencies
+// executeTemplateData holds data to be passed to all templates
+type TemplateConfig[T any] struct {
+	PageConfig PageConfig
+	Data       T
 }
 
-// executeTemplateData holds data to be passed to all templates
-type executeTemplateData struct {
+type templateData[T any] struct {
 	PageConfig   PageConfig
-	Data         any
+	Data         T
 	WebResources WebResourceDependencies
 	Icons        *icons.IconSet
 }
@@ -73,7 +85,7 @@ type executeTemplateData struct {
 //
 // It returns a fully-initialized `Store` on success or an error when the
 // filesystem is nil, required template files are missing, or parsing fails.
-func MakeTemplateStore(fileSystem fs.FS, root string, templateData map[TemplateIdentifier]TemplateData) (*Store, error) {
+func MakeTemplateStore(fileSystem fs.FS, root string) (*Store, error) {
 	if fileSystem == nil {
 		return nil, errors.New(constants.ErrMsgFileSystemIsNil)
 	}
@@ -95,54 +107,16 @@ func MakeTemplateStore(fileSystem fs.FS, root string, templateData map[TemplateI
 		}
 	}
 
-	// Validate for all template constants that:
-	// - Template data exists
-	// - Template files exist
-	// - Template dependencies exist
-	for i := range _tmplEnumEnd {
-		data, ok := templateData[TemplateIdentifier(i)]
-		if !ok {
-			return nil, fmt.Errorf("%s%d", constants.ErrMsgPrefixMissingTemplateData, i)
-		}
-
-		currentT := t.Lookup(data.Name)
-		if currentT == nil {
-			return nil, fmt.Errorf("%s%s", constants.ErrMsgPrefixMissingTemplateFile, data.Name)
-		}
-
-		for _, dependency := range data.Dependencies {
-			tmpl := t.Lookup(dependency)
-			if tmpl == nil {
-				return nil, fmt.Errorf("%s%s", constants.ErrMsgPrefixMissingTemplateFile, dependency)
-			}
+	for _, tName := range requiredTemplates {
+		requiredT := t.Lookup(tName)
+		if requiredT == nil {
+			return nil, fmt.Errorf("missing template: %s", tName)
 		}
 	}
+
 	return &Store{
-		templates:    t,
-		templateData: templateData,
+		templates: t,
 	}, nil
-}
-
-// Execute renders the template associated with `id` to the provided
-// writer.
-func (ts *Store) Execute(
-	id TemplateIdentifier,
-	w io.Writer,
-	data TemplateArgs,
-) error {
-	td, ok := ts.templateData[id]
-	if !ok {
-		return fmt.Errorf("%s%d", constants.ErrMsgPrefixMissingTemplateData, id)
-	}
-
-	d := &executeTemplateData{
-		PageConfig:   data.PageConfig,
-		Data:         data.Data,
-		WebResources: td.WebResources,
-		Icons:        icons.Set,
-	}
-
-	return ts.templates.ExecuteTemplate(w, td.Name, d)
 }
 
 // getTemplatePaths returns the .tmpl file paths under root

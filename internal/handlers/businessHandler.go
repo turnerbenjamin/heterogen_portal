@@ -21,8 +21,8 @@ type BusinessesService interface {
 
 type BusinessesHandler struct {
 	businessesService    BusinessesService
-	tableColumns         []ColumnData[*model.BusinessesModel]
-	defaultHeaderColumns []HeaderColumn[*model.BusinessesModel]
+	tableColumns         []templates.ColumnData[*model.BusinessesModel]
+	defaultHeaderColumns []templates.HeaderColumn[*model.BusinessesModel]
 	templateStore        TemplateStore
 }
 
@@ -35,7 +35,7 @@ func NewBusinessesHandler(
 		templateStore:     templateStore,
 		businessesService: businessesService,
 		tableColumns:      OrderedColumnData(businessTableColumns),
-		defaultHeaderColumns: []HeaderColumn[*model.BusinessesModel]{
+		defaultHeaderColumns: []templates.HeaderColumn[*model.BusinessesModel]{
 			{Column: businessTableColumns[model.ColBusinessesTradingName]},
 			{Column: businessTableColumns[model.ColBusinessesReference]},
 			{Column: businessTableColumns[model.ColBusinessesBusinessType]},
@@ -48,17 +48,12 @@ func NewBusinessesHandler(
 func (h *BusinessesHandler) GetRoot(
 	w http.ResponseWriter,
 	r *http.Request,
-	c *PipelineContext[*TableState[*model.BusinessesModel]],
+	c *PipelineContext[*BusinessesTableState],
 ) *AppError {
 	pageConfig := templates.PageConfig{
 		ContentOnly: DoSendContentOnly(r),
 		Title:       "HETEROGEN - BUSINESSES",
 	}
-
-	c.state.TableName = "Businesses"
-	c.state.SchemaVersion = 1
-	c.state.ColumnDefinitions = h.tableColumns
-	c.state.TableHeader = h.defaultHeaderColumns
 
 	result, err := h.businessesService.ExecuteQuery(
 		r.Context(),
@@ -67,12 +62,21 @@ func (h *BusinessesHandler) GetRoot(
 	if err != nil {
 		return NewServerError(err)
 	}
-	c.state.Rows = result.Data
 
-	err = h.templateStore.Execute(
-		templates.TmplPageUsers,
+	c.state.TableData = templates.TableData[*model.BusinessesModel]{
+		TableName:         "Businesses",
+		SchemaVersion:     1,
+		ColumnDefinitions: h.tableColumns,
+		TableHeader:       h.defaultHeaderColumns,
+		Rows:              result.Data,
+	}
+
+	err = h.templateStore.ExecutePageBusinesses(
 		w,
-		templates.TemplateArgs{PageConfig: pageConfig, Data: c.state},
+		templates.TemplateConfig[templates.TableData[*model.BusinessesModel]]{
+			PageConfig: pageConfig,
+			Data:       c.state.TableData,
+		},
 	)
 	if err != nil {
 		return NewServerError(err)
