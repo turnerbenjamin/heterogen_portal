@@ -73,24 +73,26 @@ func (h *ErrorHandler) Write(
 		return err
 	}
 
-	config := templates.TemplateConfig[templates.ErrorTemplateData]{
-		PageConfig: templates.PageConfig{
-			ContentOnly: true,
-		},
-		Data: templates.ErrorTemplateData{
-			Code:       appErr.Code,
-			Error:      appErr.ToastError,
-			SubErrors:  appErr.PageErrors,
-			InnerError: appErr.innerError,
-		},
+	errorData := templates.ErrorTemplateData{
+		Code:       appErr.Code,
+		Error:      appErr.ToastError,
+		SubErrors:  appErr.PageErrors,
+		InnerError: appErr.innerError,
 	}
 
 	// If the request is not from htmx, return a full page, out of app error
 	// template
 	if r.Header.Get(constants.HxRequestHeaderRequest) == "" {
-		config.PageConfig.ContentOnly = false
-		return h.templateStore.ExecutePageOutOfAppError(w, config)
+		return h.templateStore.ExecutePageOutOfAppError(
+			r.Context(),
+			w,
+			templates.PageConfig{ContentOnly: false},
+		)
 	}
 
-	return h.templateStore.ExecutePageOutOfAppError(w, config)
+	return h.templateStore.ExecuteComponentErrors(
+		r.Context(),
+		w,
+		errorData,
+	)
 }

@@ -1,0 +1,23 @@
+package pages
+
+import (
+    "github.com/turnerbenjamin/heterogen_portal/internal/templates"
+    "github.com/turnerbenjamin/heterogen_portal/internal/templates/layouts"
+    "github.com/turnerbenjamin/heterogen_portal/internal/templates/pagecontent"
+	"github.com/turnerbenjamin/heterogen_portal/internal/model"
+)
+
+
+templ AppDash(
+    pageConfig templates.PageConfig, 
+    user *model.UsersModel,
+) {
+    if pageConfig.ContentOnly {
+        @pagecontent.AppDash(user)
+    }else{
+        @layouts.App(
+            pageConfig,
+            pagecontent.AppDash(user),
+        )
+    }
+}

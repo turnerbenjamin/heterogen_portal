@@ -2,6 +2,7 @@
 package handlers
 
 import (
+	"context"
 	"io"
 
 	"github.com/turnerbenjamin/heterogen_portal/internal/model"
@@ -11,28 +12,42 @@ import (
 // TemplateStore is an interface wrapping a simple Execute method used to
 // write a given template to a writer
 type TemplateStore interface {
-	ExecutePageOutOfAppError(
+	ExecutePageApp(
+		ctx context.Context,
 		w io.Writer,
-		config templates.TemplateConfig[templates.ErrorTemplateData],
+		pageConfig templates.PageConfig,
+		user *model.UsersModel,
 	) error
 
 	ExecutePageUserSignedOut(
+		ctx context.Context,
 		w io.Writer,
-		config templates.TemplateConfig[templates.PageUserSignedOutData],
-	) error
-
-	ExecutePageApp(
-		w io.Writer,
-		config templates.TemplateConfig[templates.PageAppData],
-	) error
-
-	ExecutePageBusinesses(
-		w io.Writer,
-		config templates.TemplateConfig[templates.TableData[*model.BusinessesModel]],
+		pageConfig templates.PageConfig,
 	) error
 
 	ExecutePageUsers(
+		ctx context.Context,
 		w io.Writer,
-		config templates.TemplateConfig[templates.TableData[*model.UsersModel]],
+		pageConfig templates.PageConfig,
+		tableData templates.TableData[*model.UsersModel],
+	) error
+
+	ExecutePageBusinesses(
+		ctx context.Context,
+		w io.Writer,
+		pageConfig templates.PageConfig,
+		tableData templates.TableData[*model.BusinessesModel],
+	) error
+
+	ExecutePageOutOfAppError(
+		ctx context.Context,
+		w io.Writer,
+		pageConfig templates.PageConfig,
+	) error
+
+	ExecuteComponentErrors(
+		ctx context.Context,
+		w io.Writer,
+		errorData templates.ErrorTemplateData,
 	) error
 }

@@ -1,0 +1,19 @@
+package pages
+
+import (
+    "github.com/turnerbenjamin/heterogen_portal/internal/templates"
+    "github.com/turnerbenjamin/heterogen_portal/internal/templates/layouts"
+    "github.com/turnerbenjamin/heterogen_portal/internal/templates/pagecontent"
+)
+
+
+templ UserSignedOut(pageConfig templates.PageConfig) {
+    if pageConfig.ContentOnly {
+        @pagecontent.UserSignedOut(),
+    } else{
+        @layouts.App(
+            pageConfig,
+            pagecontent.UserSignedOut(),
+        )
+    }
+}

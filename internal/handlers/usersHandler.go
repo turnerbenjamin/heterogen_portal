@@ -71,11 +71,10 @@ func (h *UsersHandler) GetRoot(w http.ResponseWriter, r *http.Request, c *Pipeli
 	}
 
 	err = h.templateStore.ExecutePageUsers(
+		r.Context(),
 		w,
-		templates.TemplateConfig[templates.TableData[*model.UsersModel]]{
-			PageConfig: pageConfig,
-			Data:       c.state.TableData,
-		},
+		pageConfig,
+		c.state.TableData,
 	)
 	if err != nil {
 		return NewServerError(err)

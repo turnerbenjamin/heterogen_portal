@@ -1,0 +1,16 @@
+package components
+
+import(
+	"github.com/turnerbenjamin/heterogen_portal/internal/templates"
+)
+
+templ Toast(toastData templates.ToastData) {
+  if toastData.ToastSuccess != ""{
+    <div hx-swap-oob="afterbegin:#toast-container">
+      <div class="toast show success">
+        <p>{toastData.ToastSuccess}</p>
+        <div class="progress-bar"></div>
+      </div>
+    </div>
+  }
+}

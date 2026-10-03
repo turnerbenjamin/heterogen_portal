@@ -1,12 +1,32 @@
 package templates
 
 import (
-	"io"
-
-	"github.com/turnerbenjamin/heterogen_portal/internal/icons"
 	"github.com/turnerbenjamin/heterogen_portal/internal/model"
 	"github.com/turnerbenjamin/querystack/querymodel"
 )
+
+type WebResourceDependencies struct {
+	HTMX      bool
+	HG_COMMON bool
+}
+
+type ToastData struct {
+	ToastSuccess string
+}
+
+type ErrorTemplateData struct {
+	Code       int
+	Error      string
+	SubErrors  []string
+	InnerError error
+}
+
+type PageConfig struct {
+	ContentOnly             bool
+	Title                   string
+	ToastSuccess            string
+	WebResourceDependencies WebResourceDependencies
+}
 
 type HeaderColumn[T querymodel.TableModel] struct {
 	Column ColumnData[T]
@@ -28,20 +48,4 @@ type TableData[T querymodel.TableModel] struct {
 	ColumnDefinitions []ColumnData[T]
 	TableHeader       []HeaderColumn[T]
 	Rows              []T
-}
-
-func (s *Store) ExecutePageBusinesses(
-	w io.Writer,
-	config TemplateConfig[TableData[*model.BusinessesModel]],
-) error {
-	d := templateData[TableData[*model.BusinessesModel]]{
-		PageConfig: config.PageConfig,
-		Data:       config.Data,
-		WebResources: WebResourceDependencies{
-			HTMX:      true,
-			HG_COMMON: true,
-		},
-		Icons: icons.Set,
-	}
-	return s.templates.ExecuteTemplate(w, TmplPageBusinesses, d)
 }

@@ -11,7 +11,6 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	mock "github.com/stretchr/testify/mock"
 	"github.com/turnerbenjamin/heterogen_portal/internal/model"
-	"github.com/turnerbenjamin/querystack"
 	"github.com/turnerbenjamin/querystack/querymodel"
 	"golang.org/x/oauth2"
 )
@@ -1231,92 +1230,6 @@ type MockTypedQueryExecutor_Expecter[T querymodel.TableModel] struct {
 
 func (_m *MockTypedQueryExecutor[T]) EXPECT() *MockTypedQueryExecutor_Expecter[T] {
 	return &MockTypedQueryExecutor_Expecter[T]{mock: &_m.Mock}
-}
-
-// Execute provides a mock function for the type MockTypedQueryExecutor
-func (_mock *MockTypedQueryExecutor[T]) Execute(qf querystack.QueryExecutor, resource querymodel.TypedResource[T], ctx context.Context, accessPolicy querymodel.AccessPolicy, queryString string) (*querymodel.ExecuteResult, error) {
-	ret := _mock.Called(qf, resource, ctx, accessPolicy, queryString)
-
-	if len(ret) == 0 {
-		panic("no return value specified for Execute")
-	}
-
-	var r0 *querymodel.ExecuteResult
-	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(querystack.QueryExecutor, querymodel.TypedResource[T], context.Context, querymodel.AccessPolicy, string) (*querymodel.ExecuteResult, error)); ok {
-		return returnFunc(qf, resource, ctx, accessPolicy, queryString)
-	}
-	if returnFunc, ok := ret.Get(0).(func(querystack.QueryExecutor, querymodel.TypedResource[T], context.Context, querymodel.AccessPolicy, string) *querymodel.ExecuteResult); ok {
-		r0 = returnFunc(qf, resource, ctx, accessPolicy, queryString)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*querymodel.ExecuteResult)
-		}
-	}
-	if returnFunc, ok := ret.Get(1).(func(querystack.QueryExecutor, querymodel.TypedResource[T], context.Context, querymodel.AccessPolicy, string) error); ok {
-		r1 = returnFunc(qf, resource, ctx, accessPolicy, queryString)
-	} else {
-		r1 = ret.Error(1)
-	}
-	return r0, r1
-}
-
-// MockTypedQueryExecutor_Execute_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Execute'
-type MockTypedQueryExecutor_Execute_Call[T querymodel.TableModel] struct {
-	*mock.Call
-}
-
-// Execute is a helper method to define mock.On call
-//   - qf querystack.QueryExecutor
-//   - resource querymodel.TypedResource[T]
-//   - ctx context.Context
-//   - accessPolicy querymodel.AccessPolicy
-//   - queryString string
-func (_e *MockTypedQueryExecutor_Expecter[T]) Execute(qf any, resource any, ctx any, accessPolicy any, queryString any) *MockTypedQueryExecutor_Execute_Call[T] {
-	return &MockTypedQueryExecutor_Execute_Call[T]{Call: _e.mock.On("Execute", qf, resource, ctx, accessPolicy, queryString)}
-}
-
-func (_c *MockTypedQueryExecutor_Execute_Call[T]) Run(run func(qf querystack.QueryExecutor, resource querymodel.TypedResource[T], ctx context.Context, accessPolicy querymodel.AccessPolicy, queryString string)) *MockTypedQueryExecutor_Execute_Call[T] {
-	_c.Call.Run(func(args mock.Arguments) {
-		var arg0 querystack.QueryExecutor
-		if args[0] != nil {
-			arg0 = args[0].(querystack.QueryExecutor)
-		}
-		var arg1 querymodel.TypedResource[T]
-		if args[1] != nil {
-			arg1 = args[1].(querymodel.TypedResource[T])
-		}
-		var arg2 context.Context
-		if args[2] != nil {
-			arg2 = args[2].(context.Context)
-		}
-		var arg3 querymodel.AccessPolicy
-		if args[3] != nil {
-			arg3 = args[3].(querymodel.AccessPolicy)
-		}
-		var arg4 string
-		if args[4] != nil {
-			arg4 = args[4].(string)
-		}
-		run(
-			arg0,
-			arg1,
-			arg2,
-			arg3,
-			arg4,
-		)
-	})
-	return _c
-}
-
-func (_c *MockTypedQueryExecutor_Execute_Call[T]) Return(executeResult *querymodel.ExecuteResult, err error) *MockTypedQueryExecutor_Execute_Call[T] {
-	_c.Call.Return(executeResult, err)
-	return _c
-}
-
-func (_c *MockTypedQueryExecutor_Execute_Call[T]) RunAndReturn(run func(qf querystack.QueryExecutor, resource querymodel.TypedResource[T], ctx context.Context, accessPolicy querymodel.AccessPolicy, queryString string) (*querymodel.ExecuteResult, error)) *MockTypedQueryExecutor_Execute_Call[T] {
-	_c.Call.Return(run)
-	return _c
 }
 
 // NewMockQueryExecutor creates a new instance of MockQueryExecutor. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.

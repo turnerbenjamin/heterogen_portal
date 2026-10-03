@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -60,7 +61,12 @@ func TestWrite_ReturnsError_ForUnsupportedContentType(t *testing.T) {
 
 		ts := NewMockTemplateStore(t)
 		ts.EXPECT().
-			Execute(mock.Anything, mock.Anything, mock.Anything).
+			ExecuteComponentErrors(mock.Anything, mock.Anything, mock.Anything).
+			Maybe().
+			Return(nil)
+
+		ts.EXPECT().
+			ExecutePageOutOfAppError(mock.Anything, mock.Anything, mock.Anything).
 			Maybe().
 			Return(nil)
 
@@ -154,74 +160,91 @@ func TestWrite_SetsErrorCodeIfNotSet(t *testing.T) {
 	assert.Equal(t, 500, w.Code)
 }
 
-func TestWrite_HandlesErrorResponseWhenContentTypeIsHtml(t *testing.T) {
+func TestWrite_HandlesErrorResponseWhenContentTypeIsHtmlForHTMXRequest(t *testing.T) {
 	t.Parallel()
 
-	testData := []struct {
-		isHtmx               bool
-		wantTemplate         templates.TemplateIdentifier
-		wantContentOnlyValue bool
-		wantStatusCode       int
-		wantExecuteCallCount int
-	}{
-		{
-			isHtmx:               true,
-			wantTemplate:         templates.TmplComponentErrors,
-			wantContentOnlyValue: true,
-			wantStatusCode:       500,
-			wantExecuteCallCount: 1,
-		},
-		{
-			isHtmx:               false,
-			wantTemplate:         templates.TmplPageOutOfAppErr,
-			wantContentOnlyValue: false,
-			wantStatusCode:       418,
-			wantExecuteCallCount: 1,
-		},
+	wantStatusCode := 500
+
+	testAppError := &AppError{
+		Code:       wantStatusCode,
+		ToastError: "Some toast error",
+		PageErrors: []string{"A page error", "and another"},
 	}
 
-	for _, td := range testData {
-		testAppError := &AppError{
-			Code:       td.wantStatusCode,
-			ToastError: "Some toast error",
-			PageErrors: []string{"A page error", "and another"},
-		}
+	ts := NewMockTemplateStore(t)
 
-		ts := NewMockTemplateStore(t)
+	r := httptest.NewRequest("GET", "/", strings.NewReader(""))
+	r.Header.Set(constants.HxRequestHeaderRequest, "true")
 
-		r := httptest.NewRequest("GET", "/", strings.NewReader(""))
-		if td.isHtmx {
-			r.Header.Set(constants.HxRequestHeaderRequest, "true")
-		}
+	w := httptest.NewRecorder()
+	w.Header().Set("Content-Type", ContentTypeHtml.String())
 
-		w := httptest.NewRecorder()
-		w.Header().Set("Content-Type", ContentTypeHtml.String())
+	var capturedErrorData templates.ErrorTemplateData
+	ts.EXPECT().
+		ExecuteComponentErrors(r.Context(), w, mock.Anything).
+		Run(func(_ context.Context, _ io.Writer, ed templates.ErrorTemplateData) {
+			capturedErrorData = ed
+		}).
+		Once().
+		Return(nil)
 
-		var capturedTemplateArgs templates.TemplateArgs
-		ts.EXPECT().
-			Execute(td.wantTemplate, w, mock.Anything).
-			Run(func(_ templates.TemplateIdentifier, _ io.Writer, data templates.TemplateArgs) {
-				capturedTemplateArgs = data
-			}).
-			Once().
-			Return(nil)
+	js := NewMockJsonSerialiser(t)
+	js.EXPECT().Marshal(mock.Anything).Maybe().Return([]byte("test"), nil)
 
-		js := NewMockJsonSerialiser(t)
-		js.EXPECT().Marshal(mock.Anything).Maybe().Return([]byte("test"), nil)
+	h := NewErrorHandler(ts, js)
 
-		h := NewErrorHandler(ts, js)
+	err := h.Write(w, r, testAppError)
 
-		err := h.Write(w, r, testAppError)
+	assert.Nil(t, err)
+	assert.Equal(t, wantStatusCode, w.Code)
 
-		assert.Nil(t, err)
-		assert.Equal(t, td.wantStatusCode, w.Code)
-
-		assert.Equal(t, td.wantContentOnlyValue, capturedTemplateArgs.PageConfig.ContentOnly)
-		assert.Equal(t, testAppError, capturedTemplateArgs.Data)
-	}
+	assert.Equal(t, testAppError.Code, capturedErrorData.Code)
+	assert.Equal(t, testAppError.ToastError, capturedErrorData.Error)
+	assert.ElementsMatch(t, testAppError.PageErrors, capturedErrorData.SubErrors)
+	assert.Equal(t, testAppError.innerError, capturedErrorData.InnerError)
 }
 
-func TestWrite_ShouldReturnErrorsReturnedFromExecute(t *testing.T) {
+func TestWrite_HandlesErrorResponseWhenContentTypeIsHtmlForNonHTMXRequest(t *testing.T) {
+	t.Parallel()
+
+	wantStatusCode := 418
+
+	testAppError := &AppError{
+		Code:       wantStatusCode,
+		ToastError: "Some toast error",
+		PageErrors: []string{"A page error", "and another"},
+	}
+
+	ts := NewMockTemplateStore(t)
+
+	r := httptest.NewRequest("GET", "/", strings.NewReader(""))
+
+	w := httptest.NewRecorder()
+	w.Header().Set("Content-Type", ContentTypeHtml.String())
+
+	var capturedPageConfig templates.PageConfig
+	ts.EXPECT().
+		ExecutePageOutOfAppError(r.Context(), w, mock.Anything).
+		Run(func(_ context.Context, _ io.Writer, c templates.PageConfig) {
+			capturedPageConfig = c
+		}).
+		Once().
+		Return(nil)
+
+	js := NewMockJsonSerialiser(t)
+	js.EXPECT().Marshal(mock.Anything).Maybe().Return([]byte("test"), nil)
+
+	h := NewErrorHandler(ts, js)
+
+	err := h.Write(w, r, testAppError)
+
+	assert.Nil(t, err)
+	assert.Equal(t, wantStatusCode, w.Code)
+
+	assert.False(t, capturedPageConfig.ContentOnly)
+}
+
+func TestWrite_ShouldReturnErrorsReturnedFromExecuteForNonHtmxRequests(t *testing.T) {
 	t.Parallel()
 
 	wantError := errors.New("test error")
@@ -231,7 +254,7 @@ func TestWrite_ShouldReturnErrorsReturnedFromExecute(t *testing.T) {
 
 	ts := NewMockTemplateStore(t)
 	ts.EXPECT().
-		Execute(mock.Anything, mock.Anything, mock.Anything).
+		ExecutePageOutOfAppError(mock.Anything, mock.Anything, mock.Anything).
 		Return(wantError)
 
 	js := NewMockJsonSerialiser(t)
@@ -240,6 +263,32 @@ func TestWrite_ShouldReturnErrorsReturnedFromExecute(t *testing.T) {
 	h := NewErrorHandler(ts, js)
 
 	r := httptest.NewRequest("GET", "/", strings.NewReader(""))
+	gotErr := h.Write(w, r, &AppError{Code: 200})
+
+	assert.EqualError(t, gotErr, wantError.Error())
+}
+
+func TestWrite_ShouldReturnErrorsReturnedFromExecuteForHtmxRequests(t *testing.T) {
+	t.Parallel()
+
+	wantError := errors.New("test error")
+
+	w := httptest.NewRecorder()
+	w.Header().Set("Content-Type", ContentTypeHtml.String())
+
+	ts := NewMockTemplateStore(t)
+	ts.EXPECT().
+		ExecuteComponentErrors(mock.Anything, mock.Anything, mock.Anything).
+		Return(wantError)
+
+	js := NewMockJsonSerialiser(t)
+	js.EXPECT().Marshal(mock.Anything).Maybe().Return([]byte("test"), nil)
+
+	h := NewErrorHandler(ts, js)
+
+	r := httptest.NewRequest("GET", "/", strings.NewReader(""))
+	r.Header.Set(constants.HxRequestHeaderRequest, "true")
+
 	gotErr := h.Write(w, r, &AppError{Code: 200})
 
 	assert.EqualError(t, gotErr, wantError.Error())

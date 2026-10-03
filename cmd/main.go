@@ -16,7 +16,7 @@ import (
 	"github.com/turnerbenjamin/heterogen_portal/internal/etc"
 )
 
-//go:embed templates static
+//go:embed static
 var embeddedFiles embed.FS
 
 func run(ctx context.Context) error {

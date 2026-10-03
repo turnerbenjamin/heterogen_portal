@@ -1,0 +1,33 @@
+package components
+
+import(
+	"github.com/turnerbenjamin/heterogen_portal/internal/templates"
+)
+
+templ Errors(errorData templates.ErrorTemplateData) {
+  // Show main error as toast
+  if errorData.Error != ""{
+    // TODO use toast component
+    <div hx-swap-oob="afterbegin:#toast-container">
+      <div class="toast show error">
+        <p>{errorData.Error}</p>
+        <div class="progress-bar"></div>
+      </div>
+    </div>
+  }
+
+  // If there is one sub error display the error in the errors 
+  // component
+  if len(errorData.SubErrors) == 1{
+    <p class="error">{errorData.SubErrors[0]}</p>
+  }
+
+  // If there is more than one error return a collection of errors
+  if len(errorData.SubErrors) > 1{
+    <ul class="errors">
+    for _, err := range errorData.SubErrors{
+        <li>{err}</li>
+    }
+    </ul>
+  }
+}

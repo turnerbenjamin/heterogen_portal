@@ -55,20 +55,18 @@ func (h AuthHandler) GetRoot(w http.ResponseWriter, r *http.Request, c *Pipeline
 	}
 
 	err := h.templateStore.ExecutePageApp(
+		r.Context(),
 		w,
-		templates.TemplateConfig[templates.PageAppData]{
-			PageConfig: templates.PageConfig{
-				ContentOnly: DoSendContentOnly(r),
-				Title:       "HETEROGEN",
-			},
-			Data: templates.PageAppData{
-				User: c.state.GetUser(),
-			},
+		templates.PageConfig{
+			ContentOnly: DoSendContentOnly(r),
+			Title:       "HETEROGEN",
 		},
+		c.state.GetUser(),
 	)
 	if err != nil {
 		return NewServerError(err)
 	}
+
 	return nil
 }
 
@@ -137,13 +135,11 @@ func (h AuthHandler) GetSignedOut(w http.ResponseWriter, r *http.Request, c *Pip
 	}
 
 	err := h.templateStore.ExecutePageUserSignedOut(
+		r.Context(),
 		w,
-		templates.TemplateConfig[templates.PageUserSignedOutData]{
-			PageConfig: templates.PageConfig{
-				ContentOnly: false,
-				Title:       "HETEROGEN | SIGNED-OUT",
-			},
-			Data: templates.PageUserSignedOutData{},
+		templates.PageConfig{
+			ContentOnly: false,
+			Title:       "HETEROGEN | SIGNED-OUT",
 		},
 	)
 	if err != nil {

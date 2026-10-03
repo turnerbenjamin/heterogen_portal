@@ -13,7 +13,7 @@ import (
 	"github.com/turnerbenjamin/heterogen_portal/internal/etc"
 	"github.com/turnerbenjamin/heterogen_portal/internal/handlers"
 	"github.com/turnerbenjamin/heterogen_portal/internal/services"
-	"github.com/turnerbenjamin/heterogen_portal/internal/templates"
+	"github.com/turnerbenjamin/heterogen_portal/internal/templates/templatestore"
 )
 
 type appRepos struct {
@@ -40,7 +40,7 @@ type application struct {
 	appContext       context.Context
 	dbConnection     *sql.DB
 	staticFileSystem fs.FS
-	templateStore    *templates.Store
+	templateStore    handlers.TemplateStore
 	repos            *appRepos
 	services         *appServices
 	handlers         *appHandlers
@@ -77,14 +77,7 @@ func Init(
 		return nil, err
 	}
 
-	app.templateStore, err = templates.MakeTemplateStore(
-		staticFileSystem,
-		"templates",
-	)
-	if err != nil {
-		app.CleanUp()
-		return nil, err
-	}
+	app.templateStore = templatestore.NewStore()
 
 	dependencies := initAppDependencies()
 	repos := initRepos(ctx, app.dbConnection)
@@ -184,7 +177,7 @@ func initServices(
 
 func initHandlers(
 	dependencies *appDependencies,
-	templateStore *templates.Store,
+	templateStore handlers.TemplateStore,
 	services *appServices,
 ) *appHandlers {
 	return &appHandlers{

@@ -72,11 +72,10 @@ func (h *BusinessesHandler) GetRoot(
 	}
 
 	err = h.templateStore.ExecutePageBusinesses(
+		r.Context(),
 		w,
-		templates.TemplateConfig[templates.TableData[*model.BusinessesModel]]{
-			PageConfig: pageConfig,
-			Data:       c.state.TableData,
-		},
+		pageConfig,
+		c.state.TableData,
 	)
 	if err != nil {
 		return NewServerError(err)

@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"errors"
 	"io"
 	"net/http"
@@ -38,7 +39,7 @@ func TestGetRootHandler_Returns404WhenPathIsNotRoot(t *testing.T) {
 
 		ts := NewMockTemplateStore(t)
 		ts.EXPECT().
-			Execute(mock.Anything, mock.Anything, mock.Anything).
+			ExecutePageApp(mock.Anything, mock.Anything, mock.Anything, mock.Anything).
 			Maybe().
 			Return(nil)
 
@@ -57,7 +58,6 @@ func TestGetRootHandler_ReturnsMainAppTemplate(t *testing.T) {
 	t.Parallel()
 
 	wantStatusCode := http.StatusOK
-	wantTemplate := templates.TmplPageApp
 	wantPageTitle := "HETEROGEN"
 
 	wantState := UserStateInit()
@@ -81,11 +81,12 @@ func TestGetRootHandler_ReturnsMainAppTemplate(t *testing.T) {
 		c := &PipelineContext[UserState]{state: wantState}
 
 		ts := NewMockTemplateStore(t)
-		var capturedTemplateArgs templates.TemplateArgs
+
+		var capturedPageConfig templates.PageConfig
 		ts.EXPECT().
-			Execute(wantTemplate, w, mock.Anything).
-			Run(func(_ templates.TemplateIdentifier, _ io.Writer, data templates.TemplateArgs) {
-				capturedTemplateArgs = data
+			ExecutePageApp(r.Context(), w, mock.Anything, wantState.GetUser()).
+			Run(func(_ context.Context, _ io.Writer, pageConfig templates.PageConfig, _ *model.UsersModel) {
+				capturedPageConfig = pageConfig
 			}).
 			Return(nil)
 
@@ -97,9 +98,8 @@ func TestGetRootHandler_ReturnsMainAppTemplate(t *testing.T) {
 
 		assert.Nil(t, err)
 		assert.Equal(t, wantStatusCode, w.Code)
-		assert.Equal(t, td.wantContentOnlyValue, capturedTemplateArgs.PageConfig.ContentOnly)
-		assert.Equal(t, wantState, capturedTemplateArgs.Data)
-		assert.Equal(t, wantPageTitle, capturedTemplateArgs.PageConfig.Title)
+		assert.Equal(t, td.wantContentOnlyValue, capturedPageConfig.ContentOnly)
+		assert.Equal(t, wantPageTitle, capturedPageConfig.Title)
 	}
 }
 
@@ -120,7 +120,9 @@ func TestGetRootHandler_HandlesExecuteTemplateErrors(t *testing.T) {
 	c.state.SetUser(&model.UsersModel{})
 
 	ts := NewMockTemplateStore(t)
-	ts.EXPECT().Execute(mock.Anything, mock.Anything, mock.Anything).Return(wantInnerError)
+	ts.EXPECT().
+		ExecutePageApp(mock.Anything, mock.Anything, mock.Anything, mock.Anything).
+		Return(wantInnerError)
 
 	as := NewMockAuthService(t)
 	h := NewAuthHandler(ts, as)
@@ -390,7 +392,6 @@ func TestSignedOutHandler_ReturnsSignedOutPage(t *testing.T) {
 	t.Parallel()
 
 	wantStatusCode := http.StatusOK
-	wantTemplate := templates.TmplPageUserSignedOut
 	wantPageTitle := "HETEROGEN | SIGNED-OUT"
 	wantContentOnlyValue := false
 
@@ -399,12 +400,12 @@ func TestSignedOutHandler_ReturnsSignedOutPage(t *testing.T) {
 	w := httptest.NewRecorder()
 	c := &PipelineContext[NoState]{}
 
-	var capturedTemplateArgs templates.TemplateArgs
+	var capturedPageConfig templates.PageConfig
 	ts := NewMockTemplateStore(t)
 	ts.
-		EXPECT().Execute(wantTemplate, w, mock.Anything).
-		Run(func(_ templates.TemplateIdentifier, _ io.Writer, data templates.TemplateArgs) {
-			capturedTemplateArgs = data
+		EXPECT().ExecutePageUserSignedOut(r.Context(), w, mock.Anything).
+		Run(func(_ context.Context, _ io.Writer, c templates.PageConfig) {
+			capturedPageConfig = c
 		}).
 		Return(nil)
 
@@ -415,8 +416,8 @@ func TestSignedOutHandler_ReturnsSignedOutPage(t *testing.T) {
 
 	assert.Nil(t, err)
 	assert.Equal(t, wantStatusCode, w.Code)
-	assert.Equal(t, wantContentOnlyValue, capturedTemplateArgs.PageConfig.ContentOnly)
-	assert.Equal(t, wantPageTitle, capturedTemplateArgs.PageConfig.Title)
+	assert.Equal(t, wantContentOnlyValue, capturedPageConfig.ContentOnly)
+	assert.Equal(t, wantPageTitle, capturedPageConfig.Title)
 }
 
 func TestSignedOutHandler_ReturnsErrIfHtmxRequest(t *testing.T) {
@@ -462,7 +463,9 @@ func TestGetSignedOutHandler_HandlesExecuteErr(t *testing.T) {
 	c := &PipelineContext[NoState]{}
 
 	ts := NewMockTemplateStore(t)
-	ts.EXPECT().Execute(mock.Anything, mock.Anything, mock.Anything).Return(wantInnerError)
+	ts.EXPECT().
+		ExecutePageUserSignedOut(mock.Anything, mock.Anything, mock.Anything).
+		Return(wantInnerError)
 	as := NewMockAuthService(t)
 
 	h := NewAuthHandler(ts, as)
