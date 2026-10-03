@@ -51,7 +51,7 @@ var (
 	)
 	ErrUserNameTooLong = fmt.Errorf(
 		"user name cannot exceed %d chars",
-		model.MaxLenUsersUserName,
+		model.MaxLenUsersDisplayName,
 	)
 	ErrEmailTooLong = fmt.Errorf(
 		"email cannot exceed %d chars",
@@ -76,7 +76,7 @@ func (r *UserRepo) Close() {
 	}
 }
 
-func (r *UserRepo) UpsertUser(oid, givenName, familyName, userName, emailAddress string) (*model.UsersModel, error) {
+func (r *UserRepo) UpsertUser(oid, givenName, familyName, displayName, emailAddress string) (*model.UsersModel, error) {
 
 	var err error
 	id := uuid.NewV4().String()
@@ -92,7 +92,7 @@ func (r *UserRepo) UpsertUser(oid, givenName, familyName, userName, emailAddress
 				oid NVARCHAR(36),
 				given_name NVARCHAR(64),
 				family_name NVARCHAR(64),
-				user_name NVARCHAR(128),
+				display_name NVARCHAR(128),
 				email_address NVARCHAR(320),
 				created_at DATETIME2,
 				modified_at DATETIME2
@@ -103,7 +103,7 @@ func (r *UserRepo) UpsertUser(oid, givenName, familyName, userName, emailAddress
 			SET 
 				given_name = @givenName, 
 				family_name = @familyName, 
-				user_name = @userName, 
+				display_name = @displayName, 
 				email_address = @emailAddress, 
 				modified_at = SYSUTCDATETIME()
 			OUTPUT 
@@ -111,7 +111,7 @@ func (r *UserRepo) UpsertUser(oid, givenName, familyName, userName, emailAddress
 				inserted.oid, 
 				inserted.given_name, 
 				inserted.family_name, 
-				inserted.user_name, 
+				inserted.display_name, 
 				inserted.email_address, 
 				inserted.created_at, 
 				inserted.modified_at INTO @out
@@ -125,7 +125,7 @@ func (r *UserRepo) UpsertUser(oid, givenName, familyName, userName, emailAddress
 				oid, 
 				given_name, 
 				family_name, 
-				user_name, 
+				display_name, 
 				email_address, 
 				created_at, 
 				modified_at
@@ -135,7 +135,7 @@ func (r *UserRepo) UpsertUser(oid, givenName, familyName, userName, emailAddress
 				inserted.oid, 
 				inserted.given_name, 
 				inserted.family_name, 
-				inserted.user_name, 
+				inserted.display_name, 
 				inserted.email_address, 
 				inserted.created_at, 
 				inserted.modified_at INTO @out
@@ -144,13 +144,13 @@ func (r *UserRepo) UpsertUser(oid, givenName, familyName, userName, emailAddress
 				@oid, 
 				@givenName, 
 				@familyName, 
-				@userName, 
+				@displayName, 
 				@emailAddress, 
 				SYSUTCDATETIME(), 
 				SYSUTCDATETIME());
 			END
 
-			SELECT id, oid, given_name, family_name, user_name, email_address, created_at, modified_at FROM @out;
+			SELECT id, oid, given_name, family_name, display_name, email_address, created_at, modified_at FROM @out;
 
 			COMMIT TRAN;
 			END TRY
@@ -167,7 +167,7 @@ func (r *UserRepo) UpsertUser(oid, givenName, familyName, userName, emailAddress
 		r.statements[STMT_KEY_UPSERT_USER] = query
 	}
 
-	err = r.preCheckConstraintViolations(givenName, familyName, userName, emailAddress)
+	err = r.preCheckConstraintViolations(givenName, familyName, displayName, emailAddress)
 	if err != nil {
 		return nil, err
 	}
@@ -178,7 +178,7 @@ func (r *UserRepo) UpsertUser(oid, givenName, familyName, userName, emailAddress
 		sql.Named("oid", oid),
 		sql.Named("givenName", givenName),
 		sql.Named("familyName", familyName),
-		sql.Named("userName", userName),
+		sql.Named("displayName", displayName),
 		sql.Named("emailAddress", emailAddress),
 	)
 	return parseUserFromQueryResponse(row)
@@ -204,7 +204,7 @@ func (r *UserRepo) retrieveUser(
 	_, ok := r.statements[STMT_KEY_RETRIEVE_USER_BY_ID]
 	if !ok {
 		query, err := (*r).db.Prepare(
-			`SELECT id, oid, given_name, family_name, user_name, email_address, created_at, modified_at
+			`SELECT id, oid, given_name, family_name, display_name, email_address, created_at, modified_at
 			 FROM hg.users WHERE id = @identifier`,
 		)
 		if err != nil {
@@ -216,7 +216,7 @@ func (r *UserRepo) retrieveUser(
 	_, ok = r.statements[STMT_KEY_RETRIEVE_USER_BY_OID]
 	if !ok {
 		query, err := (*r).db.Prepare(
-			`SELECT id, oid, given_name, family_name, user_name, email_address, created_at, modified_at
+			`SELECT id, oid, given_name, family_name, display_name, email_address, created_at, modified_at
 			 FROM hg.users WHERE oid = @identifier`,
 		)
 		if err != nil {
@@ -238,7 +238,7 @@ func parseUserFromQueryResponse(res *sql.Row) (*model.UsersModel, error) {
 		&u.Oid,
 		&u.GivenName,
 		&u.FamilyName,
-		&u.UserName,
+		&u.DisplayName,
 		&u.EmailAddress,
 		&u.CreatedAt,
 		&u.ModifiedAt,

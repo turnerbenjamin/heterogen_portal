@@ -5,28 +5,37 @@ import (
 
 	"github.com/turnerbenjamin/heterogen_portal/internal/accesspolicies"
 	"github.com/turnerbenjamin/heterogen_portal/internal/model"
-	"github.com/turnerbenjamin/querystack"
 	"github.com/turnerbenjamin/querystack/querymodel"
 )
 
+// QueryExecutor executes resource queries and returns their results.
+type QueryExecutor interface {
+	Execute(
+		ctx context.Context,
+		resourceName string,
+		accessPolicy querymodel.AccessPolicy,
+		queryString string,
+	) (*querymodel.ExecuteResult, error)
+}
+
 type QueryApiService struct {
-	queryExecutor querystack.QueryExecutor
+	queryExecutor QueryExecutor
 }
 
 var schema querymodel.Schema = model.NewSchema()
 
-type NewQueryExecutorFactory func(
-	repository querymodel.Repository,
-	schema querymodel.Schema,
-	paginationTokenSigner querymodel.PayloadSigner,
-	paginationTokenSecret []byte,
-	sqlFlavor querymodel.SqlFlavour,
-	queryConfig querymodel.QueryConfig,
-) (querystack.QueryExecutor, error)
+// type NewServiceQueryExecutor func(
+// 	repository querymodel.Repository,
+// 	schema querymodel.Schema,
+// 	paginationTokenSigner querymodel.PayloadSigner,
+// 	paginationTokenSecret []byte,
+// 	sqlFlavor querymodel.SqlFlavour,
+// 	queryConfig querymodel.QueryConfig,
+// ) (QueryExecutor, error)
 
 func NewQueryApiService(
 	queryRepo querymodel.Repository,
-	queryExecutorFactory NewQueryExecutorFactory,
+	queryExecutorFactory NewQueryStackQueryExecutor,
 	paginationTokenSigner querymodel.PayloadSigner,
 	paginationTokenSecret []byte,
 

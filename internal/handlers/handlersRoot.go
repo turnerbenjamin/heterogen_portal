@@ -55,7 +55,7 @@ func (h AuthHandler) GetRoot(w http.ResponseWriter, r *http.Request, c *Pipeline
 	}
 
 	pageConfig := templates.PageConfig{
-		ContentOnly: r.Header.Get(constants.HxRequestHeaderRequest) != "",
+		ContentOnly: DoSendContentOnly(r),
 		Title:       "HETEROGEN",
 	}
 

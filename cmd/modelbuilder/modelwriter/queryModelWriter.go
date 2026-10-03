@@ -13,9 +13,9 @@ import (
 )
 
 const (
+	MsqlTypeTinyInt        builderrepo.MsqlDataTypeName = "tinyint"
 	MsqlTypeNvarchar       builderrepo.MsqlDataTypeName = "nvarchar"
 	MsqlTypeInt            builderrepo.MsqlDataTypeName = "int"
-	MsqlTypeBigInt         builderrepo.MsqlDataTypeName = "bigint"
 	MsqlTypeGeography      builderrepo.MsqlDataTypeName = "geography"
 	MsqlTypeDateTimeOffset builderrepo.MsqlDataTypeName = "datetimeoffset"
 )
@@ -161,6 +161,9 @@ func (w *queryModelWriter) writeResourceDefinition(tableData *builderrepo.TableM
 
 	w.WriteResourceSliceFromJSONFunction(resourceTypeName, tableData)
 	w.writeNewLine()
+
+	w.WriteResourceTypedSliceFromJSONFunction(resourceTypeName, tableData)
+	w.writeNewLine()
 }
 
 func (w *queryModelWriter) writeResourceGetMetadataFunc(
@@ -215,6 +218,34 @@ func (w *queryModelWriter) WriteResourceSliceFromJSONFunction(resourceTypeName s
 	writeToBuilder(w.sb, "}\n")
 }
 
+func (w *queryModelWriter) WriteResourceTypedSliceFromJSONFunction(resourceTypeName string, tableData *builderrepo.TableMetadata) {
+	writeToBuilder(w.sb, fmt.Sprintf(
+		"// TypedSliceFromJSON unmarshals a json array of %s and returns it as a slice\n",
+		tableData.Name,
+	))
+
+	modelStructName := getModelStructName(tableData.Name)
+	writeToBuilder(w.sb, fmt.Sprintf("func (m %s) TypedSliceFromJSON(jsonData []byte, projectionNode *querymodel.ProjectionNode) ([]*%s, error) {\n", resourceTypeName, modelStructName))
+
+	writeToBuilder(w.sb, "if len(jsonData) == 0 {\n")
+	writeToBuilder(w.sb, fmt.Sprintf("return []*%s{}, nil\n", modelStructName))
+	writeToBuilder(w.sb, "}\n\n")
+
+	writeToBuilder(w.sb, fmt.Sprintf("var results []*%s\n", modelStructName))
+	writeToBuilder(w.sb, "if err := json.Unmarshal(jsonData, &results); err != nil {\n")
+	writeToBuilder(w.sb, "return nil, err\n")
+	writeToBuilder(w.sb, "}\n")
+
+	writeToBuilder(w.sb, "for _, result := range results {\n")
+	writeToBuilder(w.sb, "if err := result.SetProjection(projectionNode); err != nil{\n")
+	writeToBuilder(w.sb, "return nil, err\n")
+	writeToBuilder(w.sb, "}\n")
+	writeToBuilder(w.sb, "}\n")
+
+	writeToBuilder(w.sb, "return results, nil\n")
+	writeToBuilder(w.sb, "}\n")
+}
+
 func (w *queryModelWriter) writeTableMetadataDefinition(tableData *builderrepo.TableMetadata) {
 	primaryKey, columnMapValue := buildColumnMap(tableData)
 	if primaryKey == "" {
@@ -252,7 +283,7 @@ func buildColumnMap(tableData *builderrepo.TableMetadata) (string, string) {
 
 	// DB Columns
 	for _, col := range tableData.Columns {
-		colType := getColTypeString(col.Type, col.Checks)
+		colType := getQueryModelType(col.Type, col)
 		if col.PrimaryKey == 1 {
 			primaryKey = col.Name
 		}
@@ -299,13 +330,17 @@ func (w *queryModelWriter) buildRelationshipMap(tableData *builderrepo.TableMeta
 	return sbR.String()
 }
 
-func getColTypeString(typeName builderrepo.MsqlDataTypeName, checks []builderrepo.Check) string {
-	goType := msqlTypeToGoType(typeName, checks)
+func getQueryModelType(typeName builderrepo.MsqlDataTypeName, columnData *builderrepo.ColumnMetadata) string {
+	goType := msqlTypeToGoType(typeName, columnData)
+
+	if columnData.EnumName != "" {
+		return "querymodel.DbTypeEnum"
+	}
 
 	switch goType {
 	case "string":
 		return "querymodel.DbTypeString"
-	case "int64":
+	case "int64", "uint8":
 		return "querymodel.DbTypeInt"
 	case "*time.Time":
 		return "querymodel.DbTypeDateTime"
@@ -331,7 +366,7 @@ func (w *queryModelWriter) WriteTableModel(tableData *builderrepo.TableMetadata)
 	for _, col := range tableData.Columns {
 		identifier := snakeToPascal(col.Name)
 
-		goType := msqlTypeToGoType(col.Type, col.Checks)
+		goType := msqlTypeToGoType(col.Type, col)
 		if goType == "" {
 			log.Fatal(fmt.Errorf("unable to convert type to go type: %s(%s)", col.Name, col.Type))
 		}
@@ -356,8 +391,6 @@ func (w *queryModelWriter) WriteTableModel(tableData *builderrepo.TableMetadata)
 	collectionType := getModelCollectionType(tableData.Name)
 	writeToBuilder(w.sb, fmt.Sprintf("type %s []*%s\n\n", collectionType, structName))
 
-	w.WriteResourceSliceFromJSONFunction(structName, tableData)
-	w.writeNewLine()
 	w.WriteSetProjectionFunction(structName, tableData)
 	w.writeNewLine()
 	w.WriteModelMarshalJSONFunction(structName, tableData)
@@ -603,7 +636,11 @@ func (w *queryModelWriter) WriteProjectionFunction(modelStructName string, table
 
 func (w *queryModelWriter) buildGetValueExpression(columnData *builderrepo.ColumnMetadata) string {
 	columnIdentifier := snakeToPascal(columnData.Name)
-	goType := msqlTypeToGoType(columnData.Type, columnData.Checks)
+	goType := msqlTypeToGoType(columnData.Type, columnData)
+
+	if columnData.EnumName != "" {
+		return fmt.Sprintf("return v.Int(int64(m.%s)), nil\n", columnIdentifier)
+	}
 
 	switch goType {
 	case "string":
@@ -875,17 +912,23 @@ var geometryTypeRegex = regexp.MustCompile(
 	`(?i)STGeometryType\]\(\)\s*=\s*'([^']+)'`,
 )
 
-func msqlTypeToGoType(typeName builderrepo.MsqlDataTypeName, checks []builderrepo.Check) string {
+func msqlTypeToGoType(typeName builderrepo.MsqlDataTypeName, columnData *builderrepo.ColumnMetadata) string {
 	switch typeName {
 	case MsqlTypeNvarchar:
 		return "string"
-	case MsqlTypeInt, MsqlTypeBigInt:
+	case MsqlTypeInt:
 		return "int64"
+	case MsqlTypeTinyInt:
+		if columnData.EnumName != "" {
+			return enumTypeName(columnData.EnumName)
+		} else {
+			return "uint8"
+		}
 	case MsqlTypeDateTimeOffset:
 		return "*time.Time"
 	case MsqlTypeGeography:
 		geometryType := ""
-		for _, currentCheck := range checks {
+		for _, currentCheck := range columnData.Checks {
 			matches := geometryTypeRegex.FindStringSubmatch(currentCheck.Definition)
 
 			if len(matches) == 2 {

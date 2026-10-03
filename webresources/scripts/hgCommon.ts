@@ -2,6 +2,9 @@ declare const htmx: typeof import("htmx.org").default;
 
 import * as utils from "../common/utils";
 
+// disable history cache
+htmx.config.historyCacheSize = 0;
+
 class HeterogenCommon {
   constructor() {
     this.initialiseErrorHandling();

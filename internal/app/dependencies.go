@@ -23,7 +23,7 @@ type appDependencies struct {
 	newOidcProvider      func(ctx context.Context, issuer string) (services.OidcProvider, error)
 	randReader           services.RandReader
 	decodeUrl            func(s string) (string, error)
-	queryExecutorFactory services.NewQueryExecutorFactory
+	queryExecutorFactory services.NewQueryStackQueryExecutor
 }
 
 func initAppDependencies() *appDependencies {
@@ -35,7 +35,7 @@ func initAppDependencies() *appDependencies {
 		newOidcProvider:      oidcNewProvider,
 		randReader:           rand.Read,
 		decodeUrl:            url.QueryUnescape,
-		queryExecutorFactory: querystack.NewQueryExecutorFactory,
+		queryExecutorFactory: querystack.NewQueryExecutor,
 	}
 }
 

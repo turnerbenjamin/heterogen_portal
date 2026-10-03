@@ -4,24 +4,37 @@
 package handlers
 
 import (
+	"context"
 	"net/http"
 
-	"github.com/turnerbenjamin/heterogen_portal/internal/constants"
 	"github.com/turnerbenjamin/heterogen_portal/internal/model"
 	"github.com/turnerbenjamin/heterogen_portal/internal/templates"
+	"github.com/turnerbenjamin/querystack/querymodel"
 )
 
+type BusinessesService interface {
+	ExecuteQuery(
+		ctx context.Context,
+		queryString string,
+	) (*querymodel.TypedExecuteResult[*model.BusinessesModel], error)
+}
+
 type BusinessesHandler struct {
+	businessesService    BusinessesService
 	tableColumns         []ColumnData[*model.BusinessesModel]
 	defaultHeaderColumns []HeaderColumn[*model.BusinessesModel]
 	templateStore        TemplateStore
 }
 
-func NewBusinessesHandler(templateStore TemplateStore) *BusinessesHandler {
+func NewBusinessesHandler(
+	templateStore TemplateStore,
+	businessesService BusinessesService,
+) *BusinessesHandler {
 
 	return &BusinessesHandler{
-		templateStore: templateStore,
-		tableColumns:  OrderedColumnData(businessTableColumns),
+		templateStore:     templateStore,
+		businessesService: businessesService,
+		tableColumns:      OrderedColumnData(businessTableColumns),
 		defaultHeaderColumns: []HeaderColumn[*model.BusinessesModel]{
 			{Column: businessTableColumns[model.ColBusinessesTradingName]},
 			{Column: businessTableColumns[model.ColBusinessesReference]},
@@ -38,7 +51,7 @@ func (h *BusinessesHandler) GetRoot(
 	c *PipelineContext[*TableState[*model.BusinessesModel]],
 ) *AppError {
 	pageConfig := templates.PageConfig{
-		ContentOnly: r.Header.Get(constants.HxRequestHeaderRequest) != "",
+		ContentOnly: DoSendContentOnly(r),
 		Title:       "HETEROGEN - BUSINESSES",
 	}
 
@@ -47,7 +60,16 @@ func (h *BusinessesHandler) GetRoot(
 	c.state.ColumnDefinitions = h.tableColumns
 	c.state.TableHeader = h.defaultHeaderColumns
 
-	err := h.templateStore.Execute(
+	result, err := h.businessesService.ExecuteQuery(
+		r.Context(),
+		"",
+	)
+	if err != nil {
+		return NewServerError(err)
+	}
+	c.state.Rows = result.Data
+
+	err = h.templateStore.Execute(
 		templates.TmplPageUsers,
 		w,
 		templates.TemplateArgs{PageConfig: pageConfig, Data: c.state},

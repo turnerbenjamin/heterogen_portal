@@ -11,6 +11,7 @@ import (
 	"sort"
 
 	"github.com/turnerbenjamin/heterogen_portal/internal/constants"
+	"github.com/turnerbenjamin/heterogen_portal/internal/icons"
 )
 
 // Store holds the parsed templates and metadata required to execute them.
@@ -62,6 +63,7 @@ type executeTemplateData struct {
 	PageConfig   PageConfig
 	Data         any
 	WebResources WebResourceDependencies
+	Icons        *icons.IconSet
 }
 
 // MakeTemplateStore builds a `Store` by reading and parsing all templates
@@ -137,6 +139,7 @@ func (ts *Store) Execute(
 		PageConfig:   data.PageConfig,
 		Data:         data.Data,
 		WebResources: td.WebResources,
+		Icons:        icons.Set,
 	}
 
 	return ts.templates.ExecuteTemplate(w, td.Name, d)

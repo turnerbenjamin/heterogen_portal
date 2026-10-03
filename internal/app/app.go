@@ -22,8 +22,10 @@ type appRepos struct {
 }
 
 type appServices struct {
-	authService     *services.AuthService
-	queryApiService *services.QueryApiService
+	authService       *services.AuthService
+	queryApiService   *services.QueryApiService
+	businessesService *services.BusinessService
+	usersService      *services.UsersService
 }
 
 type appHandlers struct {
@@ -153,9 +155,31 @@ func initServices(
 		return nil, err
 	}
 
+	businessesService, err := services.NewBusinessesService(
+		repos.queryRepo,
+		dependencies.queryExecutorFactory,
+		dependencies.payloadSigner,
+		appSettings.QueryTokenSecret,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	usersService, err := services.NewUsersService(
+		repos.queryRepo,
+		dependencies.queryExecutorFactory,
+		dependencies.payloadSigner,
+		appSettings.QueryTokenSecret,
+	)
+	if err != nil {
+		return nil, err
+	}
+
 	return &appServices{
-		authService:     authService,
-		queryApiService: queryApiService,
+		authService:       authService,
+		queryApiService:   queryApiService,
+		businessesService: businessesService,
+		usersService:      usersService,
 	}, nil
 }
 
@@ -180,9 +204,11 @@ func initHandlers(
 		),
 		usersHandler: handlers.NewUsersHandler(
 			templateStore,
+			services.usersService,
 		),
 		businessesHandler: handlers.NewBusinessesHandler(
 			templateStore,
+			services.businessesService,
 		),
 	}
 }

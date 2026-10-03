@@ -48,53 +48,10 @@ const (
 	ColUsersOid          = "oid"
 	ColUsersGivenName    = "given_name"
 	ColUsersFamilyName   = "family_name"
-	ColUsersUserName     = "user_name"
+	ColUsersDisplayName  = "display_name"
 	ColUsersEmailAddress = "email_address"
 	ColUsersCreatedAt    = "created_at"
 	ColUsersModifiedAt   = "modified_at"
-)
-
-// Constants representing column data types
-const (
-	ColTypeBusinessesId            = DataTypeString
-	ColTypeBusinessesReference     = DataTypeString
-	ColTypeBusinessesTradingName   = DataTypeString
-	ColTypeBusinessesLogoUrl       = DataTypeString
-	ColTypeBusinessesDescription   = DataTypeString
-	ColTypeBusinessesBusinessType  = DataTypeNumber
-	ColTypeBusinessesCphNumber     = DataTypeString
-	ColTypeBusinessesEmailAddress  = DataTypeString
-	ColTypeBusinessesContactNumber = DataTypeString
-	ColTypeBusinessesWebsiteUrl    = DataTypeString
-	ColTypeBusinessesAddressLine1  = DataTypeString
-	ColTypeBusinessesAddressLine2  = DataTypeString
-	ColTypeBusinessesTown          = DataTypeString
-	ColTypeBusinessesCounty        = DataTypeString
-	ColTypeBusinessesCountry       = DataTypeString
-	ColTypeBusinessesPostcode      = DataTypeString
-	ColTypeBusinessesLocation      = DataTypePoint
-	ColTypeBusinessesCreatedAt     = DataTypeTime
-	ColTypeBusinessesCreatedById   = DataTypeString
-	ColTypeBusinessesModifiedAt    = DataTypeTime
-	ColTypeBusinessesModifiedById  = DataTypeString
-
-	ColTypeFarmFieldsId           = DataTypeString
-	ColTypeFarmFieldsReference    = DataTypeString
-	ColTypeFarmFieldsBusinessId   = DataTypeString
-	ColTypeFarmFieldsLocation     = DataTypePoint
-	ColTypeFarmFieldsCreatedAt    = DataTypeTime
-	ColTypeFarmFieldsCreatedById  = DataTypeString
-	ColTypeFarmFieldsModifiedAt   = DataTypeTime
-	ColTypeFarmFieldsModifiedById = DataTypeString
-
-	ColTypeUsersId           = DataTypeString
-	ColTypeUsersOid          = DataTypeString
-	ColTypeUsersGivenName    = DataTypeString
-	ColTypeUsersFamilyName   = DataTypeString
-	ColTypeUsersUserName     = DataTypeString
-	ColTypeUsersEmailAddress = DataTypeString
-	ColTypeUsersCreatedAt    = DataTypeTime
-	ColTypeUsersModifiedAt   = DataTypeTime
 )
 
 // Constants representing column display names in the database
@@ -134,7 +91,7 @@ const (
 	ColDisplayNameUsersOid          = "Oid"
 	ColDisplayNameUsersGivenName    = "Given Name"
 	ColDisplayNameUsersFamilyName   = "Family Name"
-	ColDisplayNameUsersUserName     = "User Name"
+	ColDisplayNameUsersDisplayName  = "Display Name"
 	ColDisplayNameUsersEmailAddress = "Email Address"
 	ColDisplayNameUsersCreatedAt    = "Created At"
 	ColDisplayNameUsersModifiedAt   = "Modified At"
@@ -145,9 +102,9 @@ const (
 	RelColBusinessesCreatedById  = "created_by_id"
 	RelColBusinessesModifiedById = "modified_by_id"
 
-	RelColFarmFieldsModifiedById = "modified_by_id"
 	RelColFarmFieldsBusinessId   = "business_id"
 	RelColFarmFieldsCreatedById  = "created_by_id"
+	RelColFarmFieldsModifiedById = "modified_by_id"
 )
 
 // Constants representing relationship columns display names
@@ -188,6 +145,6 @@ const (
 	MaxLenUsersOid                = 72
 	MaxLenUsersGivenName          = 128
 	MaxLenUsersFamilyName         = 128
-	MaxLenUsersUserName           = 256
+	MaxLenUsersDisplayName        = 256
 	MaxLenUsersEmailAddress       = 640
 )

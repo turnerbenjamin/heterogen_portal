@@ -44,3 +44,4 @@ _notes
 *.out
 **/_*
 _*/
+cmd/static/icons
