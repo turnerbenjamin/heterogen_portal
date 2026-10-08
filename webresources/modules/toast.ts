@@ -1,25 +1,33 @@
-import * as utils from "./utils";
+import constants from "./constants";
+import { classSelector, parseHtmlElement } from "./utils";
 
 export function InitialiseToast() {
   document.addEventListener("animationend", (e) => {
-    const target = utils.ParseHtmlElement(e.target);
+    const target = parseHtmlElement(e.target);
     if (!target) {
       return;
     }
 
     let toast: Element | undefined = undefined;
     switch (e.animationName) {
-      case "toast-show":
+      case constants.layers.toast.toastItem.animations.showToast:
         toast = target;
-        target.classList.remove("show");
-        target.classList.add("visible");
+        target.classList.remove(
+          constants.layers.toast.toastItem.modifiers.show,
+        );
+        target.classList.add(
+          constants.layers.toast.toastItem.modifiers.visible,
+        );
         target.addEventListener("click", () => triggerHideToast(toast));
         return;
-      case "deplete-toast-progress-bar":
-        toast = target.closest(".toast") ?? undefined;
+      case constants.layers.toast.toastItem.progressBar.animations.depleteBar:
+        toast =
+          target.closest(
+            classSelector(constants.layers.toast.toastItem.className),
+          ) ?? undefined;
         triggerHideToast(toast);
         return;
-      case "toast-hide":
+      case constants.layers.toast.toastItem.animations.closeToast:
         toast = target;
         target.remove();
     }
@@ -35,6 +43,9 @@ export function triggerHideToast(toastEl: Element | undefined) {
     return;
   }
 
-  toastEl.classList.remove("show", "visible");
-  toastEl.classList.add("hide");
+  toastEl.classList.remove(
+    constants.layers.toast.toastItem.modifiers.show,
+    constants.layers.toast.toastItem.modifiers.visible,
+  );
+  toastEl.classList.add(constants.layers.toast.toastItem.modifiers.hide);
 }

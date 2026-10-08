@@ -18,11 +18,12 @@ templ MainTableSidebarContent[T querymodel.TableModel](
             for _, headerColumn := range tableData.HeaderColumns{
                 <div 
                     role="button"
-                    aria-label={fmt.Sprintf("%s - moveable column - Use arrow keys to move the column up or down in the column ordering", headerColumn.DisplayName)}
+                    aria-label={fmt.Sprintf("%s column. Press Space to toggle select and arrow keys to move.", headerColumn.DisplayName)}
                     class="sortable-item" 
                     draggable="true" 
                     data-column-path={headerColumn.Path}
                     tabindex="0"
+                    aria-pressed="false"
                 >
                 <div class="draggable-icon">@templ.Raw(icons.Draggable)</div>
                 <div class="sortable-item-text">{headerColumn.DisplayName}</div>

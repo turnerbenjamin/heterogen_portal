@@ -1,11 +1,10 @@
-import * as err from "./errorHandling";
+import { ErrorHandler } from "./errorHandler";
 import { InitialiseToast } from "./toast";
-import { AppState } from "./state";
-import { InitSortableLists } from "./sortableLists";
 import { MainTable } from "./mainTable";
 import * as htmx from "./htmx";
 import { SidebarManager } from "./sidebarManager";
 import { WindowManager } from "./windowManager";
+import { SortableListManager } from "./sortableLists";
 
 export interface HgNamespace {
   showSidebar: () => void;
@@ -19,33 +18,37 @@ export interface HgNamespace {
 }
 
 export class App {
-  public hgNamespace: HgNamespace;
+  public hgNamespace: HgNamespace | undefined;
 
-  public readonly appState: AppState;
-  public readonly windowManager: WindowManager;
-  public readonly sidebarManager: SidebarManager;
-  public readonly mainTable: MainTable;
+  public readonly errorHandler: ErrorHandler | undefined;
+  public readonly windowManager: WindowManager | undefined;
+  public readonly sidebarManager: SidebarManager | undefined;
+  public readonly sortableListManager: SortableListManager | undefined;
+  public readonly mainTable: MainTable | undefined;
 
   public constructor() {
-    InitialiseToast();
-    err.InitialiseErrorHandling();
-
     htmx.configureCacheSize(0);
 
-    this.appState = new AppState();
-    this.windowManager = new WindowManager();
-    const initWindowMangerErr = this.windowManager.init();
-    if (initWindowMangerErr !== null) {
-      err.handle(initWindowMangerErr);
+    InitialiseToast();
+    this.errorHandler = new ErrorHandler();
+
+    // panic recovery - window manager should not throw unless there is a
+    // fundamental problem with the layout on load
+    try {
+      this.windowManager = new WindowManager(this.errorHandler);
+    } catch (e: unknown) {
+      this.errorHandler.handle(e);
+      return;
     }
 
-    this.mainTable = new MainTable(this.windowManager);
-    this.sidebarManager = new SidebarManager(this.windowManager);
+    this.mainTable = new MainTable(this.errorHandler, this.windowManager);
 
-    InitSortableLists(
-      this.appState.getDraggedItem,
-      this.appState.setDraggedItem,
+    this.sidebarManager = new SidebarManager(
+      this.errorHandler,
+      this.windowManager,
     );
+
+    this.sortableListManager = new SortableListManager(this.errorHandler);
 
     this.hgNamespace = {
       showSidebar: this.windowManager.hgHandlerShowSidebar,

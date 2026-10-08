@@ -49,9 +49,9 @@ func MainTableSidebarContent[T querymodel.TableModel](
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var2 string
-			templ_7745c5c3_Var2, templ_7745c5c3_Err = templ.ResolveAttributeValue(fmt.Sprintf("%s - moveable column - Use arrow keys to move the column up or down in the column ordering", headerColumn.DisplayName))
+			templ_7745c5c3_Var2, templ_7745c5c3_Err = templ.ResolveAttributeValue(fmt.Sprintf("%s column. Press Space to toggle select and arrow keys to move.", headerColumn.DisplayName))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `sidebarcontent/main-table-sidebar-content.templ`, Line: 21, Col: 163}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `sidebarcontent/main-table-sidebar-content.templ`, Line: 21, Col: 136}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var2)
 			if templ_7745c5c3_Err != nil {
@@ -70,7 +70,7 @@ func MainTableSidebarContent[T querymodel.TableModel](
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "\" tabindex=\"0\"><div class=\"draggable-icon\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "\" tabindex=\"0\" aria-pressed=\"false\"><div class=\"draggable-icon\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -85,7 +85,7 @@ func MainTableSidebarContent[T querymodel.TableModel](
 			var templ_7745c5c3_Var4 string
 			templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(headerColumn.DisplayName)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `sidebarcontent/main-table-sidebar-content.templ`, Line: 28, Col: 73}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `sidebarcontent/main-table-sidebar-content.templ`, Line: 29, Col: 73}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 			if templ_7745c5c3_Err != nil {
@@ -98,7 +98,7 @@ func MainTableSidebarContent[T querymodel.TableModel](
 			var templ_7745c5c3_Var5 string
 			templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.ResolveAttributeValue(fmt.Sprintf("Remove %s column from selection", headerColumn.DisplayName))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `sidebarcontent/main-table-sidebar-content.templ`, Line: 32, Col: 103}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `sidebarcontent/main-table-sidebar-content.templ`, Line: 33, Col: 103}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var5)
 			if templ_7745c5c3_Err != nil {

@@ -920,7 +920,7 @@ tbody {
         border: 1px solid var(--dark-green);
         cursor: grab;
 
-        &.dragging {
+        &[aria-pressed="true"] {
             background-color: rgba(var(--light-green-rgb) / 15%);
         }
 

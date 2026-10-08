@@ -1,9 +1,6 @@
-/**
- * Helper method to extract the target element from an event
- * @param e Event
- * @returns Element or null
- */
-export function ParseHtmlElement(
+import constants from "./constants";
+
+export function parseHtmlElement(
   t: EventTarget | Element | undefined | null,
 ): HTMLElement | null {
   if (!(t instanceof HTMLElement)) {
@@ -12,7 +9,7 @@ export function ParseHtmlElement(
   return t as HTMLElement;
 }
 
-export function SwitchSiblingElements(
+export function switchSiblingElements(
   parentElement: HTMLElement,
   childSelector: string,
   a: HTMLElement,
@@ -47,10 +44,6 @@ export function SwitchSiblingElements(
   return null;
 }
 
-export function idSelector(id: string) {
-  return `#${id}`;
-}
-
 export function getAppBase(): string {
   const m = document.querySelector(
     'meta[name="app-base-url"]',
@@ -60,10 +53,33 @@ export function getAppBase(): string {
 
 export function setVisibility(el: Element, isVisible: boolean) {
   if (isVisible) {
-    el.classList.remove("hidden");
+    el.classList.remove(constants.globalModifiers.hidden);
     el.removeAttribute("aria-hidden");
   } else {
-    el.classList.add("hidden");
+    el.classList.add(constants.globalModifiers.hidden);
     el.setAttribute("aria-hidden", "true");
   }
+}
+
+export function classSelector(className: string): string {
+  return `.${className}`;
+}
+
+export function idSelector(className: string): string {
+  return `.${className}`;
+}
+
+export function attributeSelector(
+  attributeName: string,
+  value?: string,
+): string {
+  if (value === undefined) {
+    return `[${attributeName}]`;
+  }
+
+  return `[${attributeName}="${value}"]`;
+}
+
+export function setBoolAttribute(el: HTMLElement, attributeName: string): void {
+  el.setAttribute(attributeName, "");
 }
