@@ -6,6 +6,7 @@ import (
     "github.com/turnerbenjamin/heterogen_portal/internal/templates/pagecontent"
 	"github.com/turnerbenjamin/heterogen_portal/internal/model"
 	"github.com/turnerbenjamin/heterogen_portal/internal/icons"
+	"github.com/turnerbenjamin/heterogen_portal/internal/templates/sidebarcontent"
 )
 
 
@@ -15,11 +16,16 @@ templ Users(
     tableData templates.TableData[*model.UsersModel],
 ) {
     if pageConfig.ContentOnly {
-        @pagecontent.MainTable(icons, tableData),
+        @pagecontent.MainTable(pageConfig, icons, tableData),
     } else {
         @layouts.App(
             pageConfig,
-            pagecontent.MainTable(icons, tableData),
+            icons,
+            layouts.Content{
+                MainContent: pagecontent.MainTable(pageConfig, icons, tableData),
+                SidebarContent: sidebarcontent.MainTableSidebarContent(icons, tableData),
+                NestedSidebarContent: sidebarcontent.MainTableNestedSidebarContent(tableData),
+            },
         )
     }
 }

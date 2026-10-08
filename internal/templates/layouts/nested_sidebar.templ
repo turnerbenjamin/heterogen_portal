@@ -1,0 +1,31 @@
+package layouts
+
+import (
+	"github.com/turnerbenjamin/heterogen_portal/internal/icons"
+)
+
+templ NestedSidebar(
+    icons *icons.IconSet,
+    content templ.Component,
+) {
+        <div id="nested-sidebar-layer">
+            <div id="nested-sidebar" class="hidden" aria-modal="true">
+                <div class="sidebar-title">
+                    <h3>Edit Columns</h3>
+                    <button 
+                        aria-label="Close edit column modal"
+                        class="icon-button icon large interactive" 
+                        onclick="hg.closeNestedSidebar()"
+                        initial-focus
+                    >
+                        @templ.Raw(icons.Xmark)
+                    </button>
+                </div>
+                <div id="nested-sidebar-content">
+                if content != nil{
+                    @content
+                }
+                </div>
+            </div>
+        </div>
+}

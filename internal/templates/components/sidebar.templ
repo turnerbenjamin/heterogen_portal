@@ -1,0 +1,11 @@
+package components
+
+import "github.com/turnerbenjamin/heterogen_portal/internal/templates"
+
+templ Sidebar(pageConfig templates.PageConfig, content templ.Component) {
+    if pageConfig.ContentOnly {
+        <div hx-swap-oob="innerHTML:#sidebar-content">
+            @content
+        </div>
+    }
+}

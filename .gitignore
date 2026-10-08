@@ -4,7 +4,7 @@ webresources/dist/
 webresources/build/
 
 # JavaScript files produced under cmd (e.g. cmd/static/js)
-cmd/**/*.js
+cmd/**/js/*
 
 # Environment files
 .env

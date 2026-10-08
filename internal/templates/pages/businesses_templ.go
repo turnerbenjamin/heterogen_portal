@@ -14,6 +14,7 @@ import (
 	"github.com/turnerbenjamin/heterogen_portal/internal/templates"
 	"github.com/turnerbenjamin/heterogen_portal/internal/templates/layouts"
 	"github.com/turnerbenjamin/heterogen_portal/internal/templates/pagecontent"
+	"github.com/turnerbenjamin/heterogen_portal/internal/templates/sidebarcontent"
 )
 
 func Businesses(
@@ -42,7 +43,7 @@ func Businesses(
 		}
 		ctx = templ.ClearChildren(ctx)
 		if pageConfig.ContentOnly {
-			templ_7745c5c3_Err = pagecontent.MainTable(icons, tableData).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = pagecontent.MainTable(pageConfig, icons, tableData).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -53,7 +54,12 @@ func Businesses(
 		} else {
 			templ_7745c5c3_Err = layouts.App(
 				pageConfig,
-				pagecontent.MainTable(icons, tableData),
+				icons,
+				layouts.Content{
+					MainContent:          pagecontent.MainTable(pageConfig, icons, tableData),
+					SidebarContent:       sidebarcontent.MainTableSidebarContent(icons, tableData),
+					NestedSidebarContent: sidebarcontent.MainTableNestedSidebarContent(tableData),
+				},
 			).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err

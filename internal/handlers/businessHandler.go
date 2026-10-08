@@ -20,28 +20,42 @@ type BusinessesService interface {
 }
 
 type BusinessesHandler struct {
-	businessesService    BusinessesService
-	tableColumns         []templates.ColumnData[*model.BusinessesModel]
-	defaultHeaderColumns []templates.HeaderColumn[*model.BusinessesModel]
-	templateStore        TemplateStore
+	templateStore       TemplateStore
+	businessesService   BusinessesService
+	orderedTableColumns []templates.ColumnData[*model.BusinessesModel]
+	tableColumns        map[string]templates.ColumnData[*model.BusinessesModel]
+
+	defaultHeaderColumns    []templates.ColumnData[*model.BusinessesModel]
+	defaultHeaderColumnsSet map[string]struct{}
 }
 
 func NewBusinessesHandler(
 	templateStore TemplateStore,
 	businessesService BusinessesService,
-) *BusinessesHandler {
+) (*BusinessesHandler, error) {
+	defaultHeaderColumns := []templates.ColumnData[*model.BusinessesModel]{
+		businessTableColumns[model.ColBusinessesTradingName],
+		businessTableColumns[model.ColBusinessesReference],
+		businessTableColumns[model.ColBusinessesBusinessType],
+		businessTableColumns[model.ColBusinessesCounty],
+	}
 
-	return &BusinessesHandler{
+	h := &BusinessesHandler{
 		templateStore:     templateStore,
 		businessesService: businessesService,
-		tableColumns:      OrderedColumnData(businessTableColumns),
-		defaultHeaderColumns: []templates.HeaderColumn[*model.BusinessesModel]{
-			{Column: businessTableColumns[model.ColBusinessesTradingName]},
-			{Column: businessTableColumns[model.ColBusinessesReference]},
-			{Column: businessTableColumns[model.ColBusinessesBusinessType]},
-			{Column: businessTableColumns[model.ColBusinessesCounty]},
-		},
+
+		orderedTableColumns: OrderedColumnData(businessTableColumns),
+		tableColumns:        businessTableColumns,
+
+		defaultHeaderColumns:    defaultHeaderColumns,
+		defaultHeaderColumnsSet: make(map[string]struct{}, len(defaultHeaderColumns)),
 	}
+
+	for _, c := range h.defaultHeaderColumns {
+		h.defaultHeaderColumnsSet[c.Path] = struct{}{}
+	}
+
+	return h, nil
 }
 
 // GetRootHandler returns a handler for the application root.
@@ -64,11 +78,16 @@ func (h *BusinessesHandler) GetRoot(
 	}
 
 	c.state.TableData = templates.TableData[*model.BusinessesModel]{
-		TableName:         "Businesses",
-		SchemaVersion:     1,
-		ColumnDefinitions: h.tableColumns,
-		TableHeader:       h.defaultHeaderColumns,
-		Rows:              result.Data,
+		TableName:     "Businesses",
+		SchemaVersion: 1,
+
+		OrderedColumnDefinitions: h.orderedTableColumns,
+		ColumnDefinitions:        h.tableColumns,
+
+		HeaderColumns:   h.defaultHeaderColumns,
+		HeaderColumnSet: h.defaultHeaderColumnsSet,
+
+		Rows: result.Data,
 	}
 
 	err = h.templateStore.ExecutePageBusinesses(

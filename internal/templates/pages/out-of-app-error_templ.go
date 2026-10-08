@@ -9,12 +9,16 @@ import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
 import (
+	"github.com/turnerbenjamin/heterogen_portal/internal/icons"
 	"github.com/turnerbenjamin/heterogen_portal/internal/templates"
 	"github.com/turnerbenjamin/heterogen_portal/internal/templates/layouts"
 	"github.com/turnerbenjamin/heterogen_portal/internal/templates/pagecontent"
 )
 
-func OutOfAppError(pageConfig templates.PageConfig) templ.Component {
+func OutOfAppError(
+	pageConfig templates.PageConfig,
+	icons *icons.IconSet,
+) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -47,7 +51,8 @@ func OutOfAppError(pageConfig templates.PageConfig) templ.Component {
 		} else {
 			templ_7745c5c3_Err = layouts.App(
 				pageConfig,
-				pagecontent.OutOfAppError(),
+				icons,
+				layouts.Content{MainContent: pagecontent.OutOfAppError()},
 			).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err

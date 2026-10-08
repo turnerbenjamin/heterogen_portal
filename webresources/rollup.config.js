@@ -5,9 +5,11 @@ const require = createRequire(import.meta.url);
 const glob = require("glob");
 import resolve from "@rollup/plugin-node-resolve";
 import commonjs from "@rollup/plugin-commonjs";
+import terser from "@rollup/plugin-terser";
 import typescript from "@rollup/plugin-typescript";
 
 const inputFiles = glob.sync("./scripts/*.ts");
+const isProduction = process.env.BUILD === "production";
 
 const root = path.resolve(import.meta.dirname, "..");
 
@@ -17,12 +19,17 @@ export default inputFiles.map((file) => ({
     file: path.join(root, "cmd/static/js", file.replace(/\.ts$/, ".js")),
     format: "iife",
     name: path.basename(file, ".ts"),
-    sourcemap: false,
+    sourcemap: !isProduction,
     globals: {
       "htmx.org": "htmx",
     },
   },
-  plugins: [resolve(), commonjs(), typescript({ tsconfig: "./tsconfig.json" })],
+  plugins: [
+    resolve(),
+    commonjs(),
+    typescript({ tsconfig: "./tsconfig.json" }),
+    ...(isProduction ? [terser()] : []),
+  ],
   onwarn(warning, warn) {
     const id =
       (warning && (warning.id || (warning.loc && warning.loc.file))) || "";

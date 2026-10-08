@@ -5,11 +5,6 @@ import (
 	"github.com/turnerbenjamin/querystack/querymodel"
 )
 
-type WebResourceDependencies struct {
-	HTMX      bool
-	HG_COMMON bool
-}
-
 type ToastData struct {
 	ToastSuccess string
 }
@@ -22,10 +17,9 @@ type ErrorTemplateData struct {
 }
 
 type PageConfig struct {
-	ContentOnly             bool
-	Title                   string
-	ToastSuccess            string
-	WebResourceDependencies WebResourceDependencies
+	ContentOnly  bool
+	Title        string
+	ToastSuccess string
 }
 
 type HeaderColumn[T querymodel.TableModel] struct {
@@ -34,18 +28,22 @@ type HeaderColumn[T querymodel.TableModel] struct {
 }
 
 type ColumnData[T querymodel.TableModel] struct {
-	ColumnName  string
+	Path        string
 	DisplayName string
 	DataType    model.DataType
-	Path        string
 	Expansion   string
 	GetData     func(T) string
 }
 
 type TableData[T querymodel.TableModel] struct {
-	TableName         string
-	SchemaVersion     uint64
-	ColumnDefinitions []ColumnData[T]
-	TableHeader       []HeaderColumn[T]
-	Rows              []T
+	TableName     string
+	SchemaVersion uint64
+
+	OrderedColumnDefinitions []ColumnData[T]
+	ColumnDefinitions        map[string]ColumnData[T]
+
+	HeaderColumns   []ColumnData[T]
+	HeaderColumnSet map[string]struct{}
+
+	Rows []T
 }

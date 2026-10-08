@@ -34,51 +34,53 @@ func OrderedColumnData[T querymodel.TableModel](dataMap map[string]templates.Col
 	return values
 }
 
+type TableColumnDefinition[T querymodel.TableModel] = map[string]templates.ColumnData[T]
+
 var userTableColumns = map[string]templates.ColumnData[*model.UsersModel]{
 	model.ColUsersId: {
-		ColumnName:  model.ColUsersId,
+		Path:        ColPath(model.ColUsersId),
 		DisplayName: model.ColDisplayNameUsersId,
 		GetData: func(m *model.UsersModel) string {
 			return m.Id
 		},
 	},
 	model.ColUsersGivenName: {
-		ColumnName:  model.ColUsersGivenName,
+		Path:        ColPath(model.ColUsersGivenName),
 		DisplayName: model.ColDisplayNameUsersGivenName,
 		GetData: func(m *model.UsersModel) string {
 			return m.GivenName
 		},
 	},
 	model.ColUsersFamilyName: {
-		ColumnName:  model.ColUsersFamilyName,
+		Path:        ColPath(model.ColUsersFamilyName),
 		DisplayName: model.ColDisplayNameUsersFamilyName,
 		GetData: func(m *model.UsersModel) string {
 			return m.FamilyName
 		},
 	},
 	model.ColUsersDisplayName: {
-		ColumnName:  model.ColUsersDisplayName,
+		Path:        ColPath(model.ColUsersDisplayName),
 		DisplayName: model.ColDisplayNameUsersDisplayName,
 		GetData: func(m *model.UsersModel) string {
 			return m.DisplayName
 		},
 	},
 	model.ColUsersEmailAddress: {
-		ColumnName:  model.ColUsersEmailAddress,
+		Path:        ColPath(model.ColUsersEmailAddress),
 		DisplayName: model.ColDisplayNameUsersEmailAddress,
 		GetData: func(m *model.UsersModel) string {
 			return m.EmailAddress
 		},
 	},
 	model.ColUsersCreatedAt: {
-		ColumnName:  model.ColUsersCreatedAt,
+		Path:        ColPath(model.ColUsersCreatedAt),
 		DisplayName: model.ColDisplayNameUsersCreatedAt,
 		GetData: func(m *model.UsersModel) string {
 			return m.CreatedAt.Format(dateFormat)
 		},
 	},
 	model.ColUsersModifiedAt: {
-		ColumnName:  model.ColUsersModifiedAt,
+		Path:        ColPath(model.ColUsersModifiedAt),
 		DisplayName: model.ColDisplayNameUsersModifiedAt,
 		GetData: func(m *model.UsersModel) string {
 			return m.CreatedAt.Format(dateFormat)
@@ -88,28 +90,28 @@ var userTableColumns = map[string]templates.ColumnData[*model.UsersModel]{
 
 var businessTableColumns = map[string]templates.ColumnData[*model.BusinessesModel]{
 	model.ColBusinessesId: {
-		ColumnName:  model.ColBusinessesId,
+		Path:        ColPath(model.ColBusinessesId),
 		DisplayName: model.ColDisplayNameBusinessesId,
 		GetData: func(m *model.BusinessesModel) string {
 			return m.Id
 		},
 	},
 	model.ColBusinessesReference: {
-		ColumnName:  model.ColBusinessesReference,
+		Path:        ColPath(model.ColBusinessesReference),
 		DisplayName: model.ColDisplayNameBusinessesReference,
 		GetData: func(m *model.BusinessesModel) string {
 			return m.Reference
 		},
 	},
 	model.ColBusinessesTradingName: {
-		ColumnName:  model.ColBusinessesTradingName,
+		Path:        ColPath(model.ColBusinessesTradingName),
 		DisplayName: model.ColDisplayNameBusinessesTradingName,
 		GetData: func(m *model.BusinessesModel) string {
 			return m.TradingName
 		},
 	},
 	model.ColBusinessesBusinessType: {
-		ColumnName:  model.ColBusinessesBusinessType,
+		Path:        ColPath(model.ColBusinessesBusinessType),
 		DisplayName: model.ColDisplayNameBusinessesBusinessType,
 		GetData: func(m *model.BusinessesModel) string {
 			s, exists := m.BusinessType.String()
@@ -120,103 +122,100 @@ var businessTableColumns = map[string]templates.ColumnData[*model.BusinessesMode
 		},
 	},
 	model.ColBusinessesCphNumber: {
-		ColumnName:  model.ColBusinessesCphNumber,
+		Path:        ColPath(model.ColBusinessesCphNumber),
 		DisplayName: model.ColDisplayNameBusinessesCphNumber,
 		GetData: func(m *model.BusinessesModel) string {
 			return m.CphNumber
 		},
 	},
 	model.ColBusinessesEmailAddress: {
-		ColumnName:  model.ColBusinessesEmailAddress,
+		Path:        ColPath(model.ColBusinessesEmailAddress),
 		DisplayName: model.ColDisplayNameBusinessesEmailAddress,
 		GetData: func(m *model.BusinessesModel) string {
 			return m.EmailAddress
 		},
 	},
 	model.ColBusinessesContactNumber: {
-		ColumnName:  model.ColBusinessesContactNumber,
+		Path:        ColPath(model.ColBusinessesContactNumber),
 		DisplayName: model.ColDisplayNameBusinessesContactNumber,
 		GetData: func(m *model.BusinessesModel) string {
 			return m.ContactNumber
 		},
 	},
 	model.ColBusinessesWebsiteUrl: {
-		ColumnName:  model.ColBusinessesWebsiteUrl,
+		Path:        ColPath(model.ColBusinessesWebsiteUrl),
 		DisplayName: model.ColDisplayNameBusinessesWebsiteUrl,
 		GetData: func(m *model.BusinessesModel) string {
 			return m.WebsiteUrl
 		},
 	},
 	model.ColBusinessesAddressLine1: {
-		ColumnName:  model.ColBusinessesAddressLine1,
+		Path:        ColPath(model.ColBusinessesAddressLine1),
 		DisplayName: model.ColDisplayNameBusinessesAddressLine1,
 		GetData: func(m *model.BusinessesModel) string {
 			return m.AddressLine1
 		},
 	},
 	model.ColBusinessesAddressLine2: {
-		ColumnName:  model.ColBusinessesAddressLine2,
+		Path:        ColPath(model.ColBusinessesAddressLine2),
 		DisplayName: model.ColDisplayNameBusinessesAddressLine2,
 		GetData: func(m *model.BusinessesModel) string {
 			return m.AddressLine2
 		},
 	},
 	model.ColBusinessesTown: {
-		ColumnName:  model.ColBusinessesTown,
+		Path:        ColPath(model.ColBusinessesTown),
 		DisplayName: model.ColDisplayNameBusinessesTown,
 		GetData: func(m *model.BusinessesModel) string {
 			return m.Town
 		},
 	},
 	model.ColBusinessesCounty: {
-		ColumnName:  model.ColBusinessesCounty,
+		Path:        ColPath(model.ColBusinessesCounty),
 		DisplayName: model.ColDisplayNameBusinessesCounty,
 		GetData: func(m *model.BusinessesModel) string {
 			return m.County
 		},
 	},
 	model.ColBusinessesCountry: {
-		ColumnName:  model.ColBusinessesCountry,
+		Path:        ColPath(model.ColBusinessesCountry),
 		DisplayName: model.ColDisplayNameBusinessesCountry,
 		GetData: func(m *model.BusinessesModel) string {
 			return m.Country
 		},
 	},
 	model.ColBusinessesPostcode: {
-		ColumnName:  model.ColBusinessesPostcode,
+		Path:        ColPath(model.ColBusinessesPostcode),
 		DisplayName: model.ColDisplayNameBusinessesPostcode,
 		GetData: func(m *model.BusinessesModel) string {
 			return m.Postcode
 		},
 	},
 	model.ColBusinessesCreatedAt: {
-		ColumnName:  model.ColBusinessesCreatedAt,
 		DisplayName: model.ColDisplayNameBusinessesCreatedAt,
 		GetData: func(m *model.BusinessesModel) string {
 			return m.CreatedAt.Format(dateFormat)
 		},
+		Path: ColPath(model.ColBusinessesCreatedAt),
 	},
 	model.RelColBusinessesCreatedById: {
-		ColumnName:  model.ColUsersDisplayName,
+		Path:        ColPath(model.RelColBusinessesCreatedById, model.ColUsersDisplayName),
 		DisplayName: model.RelColDisplayNameBusinessesCreatedById,
-		Path:        ColPath(model.RelColBusinessesCreatedById),
 		Expansion:   SingleLevelExpand(model.RelColBusinessesCreatedById, model.ColUsersDisplayName),
 		GetData: func(m *model.BusinessesModel) string {
 			return m.CreatedBy.DisplayName
 		},
 	},
 	model.ColBusinessesModifiedAt: {
-		ColumnName:  model.ColBusinessesModifiedAt,
-		DisplayName: model.ColDisplayNameBusinessesModifiedAt,
 		Path:        ColPath(model.ColBusinessesModifiedAt),
+		DisplayName: model.ColDisplayNameBusinessesModifiedAt,
 		GetData: func(m *model.BusinessesModel) string {
 			return m.ModifiedAt.Format(dateFormat)
 		},
 	},
 	model.RelColBusinessesModifiedById: {
-		ColumnName:  model.ColUsersDisplayName,
+		Path:        ColPath(model.RelColBusinessesModifiedById, model.ColUsersDisplayName),
 		DisplayName: model.RelColDisplayNameBusinessesModifiedById,
-		Path:        ColPath(model.RelColBusinessesModifiedById),
 		Expansion:   SingleLevelExpand(model.RelColBusinessesModifiedById, model.ColUsersDisplayName),
 		GetData: func(m *model.BusinessesModel) string {
 			return m.ModifiedBy.DisplayName

@@ -4,16 +4,21 @@ import (
     "github.com/turnerbenjamin/heterogen_portal/internal/templates"
     "github.com/turnerbenjamin/heterogen_portal/internal/templates/layouts"
     "github.com/turnerbenjamin/heterogen_portal/internal/templates/pagecontent"
+	"github.com/turnerbenjamin/heterogen_portal/internal/icons"
 )
 
 
-templ UserSignedOut(pageConfig templates.PageConfig) {
+templ UserSignedOut(
+    pageConfig templates.PageConfig,
+    icons *icons.IconSet,
+) {
     if pageConfig.ContentOnly {
         @pagecontent.UserSignedOut(),
     } else{
         @layouts.App(
             pageConfig,
-            pagecontent.UserSignedOut(),
+            icons,
+            layouts.Content{MainContent: pagecontent.UserSignedOut()},
         )
     }
 }

@@ -9,6 +9,7 @@ import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
 import (
+	"github.com/turnerbenjamin/heterogen_portal/internal/icons"
 	"github.com/turnerbenjamin/heterogen_portal/internal/model"
 	"github.com/turnerbenjamin/heterogen_portal/internal/templates"
 	"github.com/turnerbenjamin/heterogen_portal/internal/templates/layouts"
@@ -17,6 +18,7 @@ import (
 
 func AppDash(
 	pageConfig templates.PageConfig,
+	icons *icons.IconSet,
 	user *model.UsersModel,
 ) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
@@ -47,7 +49,8 @@ func AppDash(
 		} else {
 			templ_7745c5c3_Err = layouts.App(
 				pageConfig,
-				pagecontent.AppDash(user),
+				icons,
+				layouts.Content{MainContent: pagecontent.AppDash(user)},
 			).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err

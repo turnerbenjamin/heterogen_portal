@@ -4,39 +4,31 @@ import (
     "github.com/turnerbenjamin/heterogen_portal/internal/templates"
 	  "github.com/turnerbenjamin/querystack/querymodel"
 	  "github.com/turnerbenjamin/heterogen_portal/internal/icons"
+	"github.com/turnerbenjamin/heterogen_portal/internal/templates/components"
+	"github.com/turnerbenjamin/heterogen_portal/internal/templates/sidebarcontent"
 )
 
 
 templ MainTable[T querymodel.TableModel](
+    pageConfig templates.PageConfig,
     icons *icons.IconSet,
     tableData templates.TableData[T],
 ){
-<main>
-    <div class="sidebar expanded" id="column-editor">
-        <div id="sidebar-title">
-            <h3>Edit Columns</h3>
-            <div id="close-sidebar" class="icon large interactive" onclick="closeSidebar(e)">
-                @templ.Raw(icons.XMark)
-            </div>
-        </div>
-        for _, headerDef := range tableData.TableHeader{
-            <div draggable="true">{headerDef.Column.DisplayName}</div>
-        }
-        <button>apply</button>
-    </div>
-    <div class="sidebar" id="column-selector">
-        for _, column := range tableData.ColumnDefinitions{
-          <div class="column-option-group">
-              <input type="checkbox" id="column-selector-{{$column.DisplayName}}" name="{{$column.DisplayName}}" value="{{$column.DisplayName}}"/>
-              <label for="column-selector-{{$column.DisplayName}}">{column.DisplayName}</label>
-          </div>
-        }
-        <button>add</button>
-    </div>
+
+@components.Sidebar(pageConfig, sidebarcontent.MainTableSidebarContent(icons, tableData))
+@components.NestedSidebar(pageConfig, sidebarcontent.MainTableNestedSidebarContent(tableData))
+
+<main id="main-table-content">
     <div class="main-table-head">
         <h3>{tableData.TableName}</h3>
         <div class="main-table-cmd">
-            <div>Edit Columns</div>
+            <button 
+                class="button-link"
+                onclick="hg.showSidebar()"
+                initial-focus
+            >
+                Edit Columns
+            </button>
             <div>Edit Filters</div>
             <input type=text/>
         </div>
@@ -44,16 +36,20 @@ templ MainTable[T querymodel.TableModel](
     <table class="main-table mt-6"> 
         <thead>
             <tr>
-            for _, headerDef := range tableData.TableHeader{
-                <td>{headerDef.Column.DisplayName}</td>
+            for _, headerColumn := range tableData.HeaderColumns{
+                <th 
+                    data-column-path={headerColumn.Path}
+                >
+                    {headerColumn.DisplayName}
+                </th>
             }
             </tr>
         </thead>
         <tbody>
           for _ , row := range tableData.Rows{
             <tr>
-            for _, headerDef := range tableData.TableHeader{
-                <td>{headerDef.Column.GetData(row)}</td>
+            for _, headerColumn := range tableData.HeaderColumns{
+                <td>{headerColumn.GetData(row)}</td>
             }
             </tr>
           }

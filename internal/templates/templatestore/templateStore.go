@@ -23,14 +23,9 @@ func (s *store) ExecutePageApp(
 	pageConfig templates.PageConfig,
 	user *model.UsersModel,
 ) error {
-	webResourceDependencies := templates.WebResourceDependencies{
-		HTMX:      true,
-		HG_COMMON: true,
-	}
-	pageConfig.WebResourceDependencies = webResourceDependencies
-
 	page := pages.AppDash(
 		pageConfig,
+		icons.Set,
 		user,
 	)
 	return page.Render(ctx, w)
@@ -43,6 +38,7 @@ func (s *store) ExecutePageUserSignedOut(
 ) error {
 	page := pages.UserSignedOut(
 		pageConfig,
+		icons.Set,
 	)
 	return page.Render(ctx, w)
 }
@@ -53,12 +49,6 @@ func (s *store) ExecutePageUsers(
 	pageConfig templates.PageConfig,
 	tableData templates.TableData[*model.UsersModel],
 ) error {
-	webResourceDependencies := templates.WebResourceDependencies{
-		HTMX:      true,
-		HG_COMMON: true,
-	}
-	pageConfig.WebResourceDependencies = webResourceDependencies
-
 	page := pages.Users(
 		pageConfig,
 		icons.Set,
@@ -73,12 +63,6 @@ func (s *store) ExecutePageBusinesses(
 	pageConfig templates.PageConfig,
 	tableData templates.TableData[*model.BusinessesModel],
 ) error {
-	webResourceDependencies := templates.WebResourceDependencies{
-		HTMX:      true,
-		HG_COMMON: true,
-	}
-	pageConfig.WebResourceDependencies = webResourceDependencies
-
 	page := pages.Businesses(
 		pageConfig,
 		icons.Set,
@@ -92,7 +76,7 @@ func (s *store) ExecutePageOutOfAppError(
 	w io.Writer,
 	pageConfig templates.PageConfig,
 ) error {
-	page := pages.OutOfAppError(pageConfig)
+	page := pages.OutOfAppError(pageConfig, icons.Set)
 	return page.Render(ctx, w)
 }
 

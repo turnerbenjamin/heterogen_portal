@@ -93,11 +93,14 @@ func Init(
 		return nil, err
 	}
 
-	app.handlers = initHandlers(
+	app.handlers, err = initHandlers(
 		dependencies,
 		app.templateStore,
 		app.services,
 	)
+	if err != nil {
+		return nil, err
+	}
 
 	app.serveMux = http.NewServeMux()
 	app.addRoutes()
@@ -179,7 +182,23 @@ func initHandlers(
 	dependencies *appDependencies,
 	templateStore handlers.TemplateStore,
 	services *appServices,
-) *appHandlers {
+) (*appHandlers, error) {
+	usersHandler, err := handlers.NewUsersHandler(
+		templateStore,
+		services.usersService,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	businessesHandler, err := handlers.NewBusinessesHandler(
+		templateStore,
+		services.businessesService,
+	)
+	if err != nil {
+		return nil, err
+	}
+
 	return &appHandlers{
 		authHandler: handlers.NewAuthHandler(
 			templateStore,
@@ -194,15 +213,9 @@ func initHandlers(
 			dependencies.decodeUrl,
 			dependencies.jsonSerialiser,
 		),
-		usersHandler: handlers.NewUsersHandler(
-			templateStore,
-			services.usersService,
-		),
-		businessesHandler: handlers.NewBusinessesHandler(
-			templateStore,
-			services.businessesService,
-		),
-	}
+		usersHandler:      usersHandler,
+		businessesHandler: businessesHandler,
+	}, nil
 }
 
 func (app *application) CleanUp() {

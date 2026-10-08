@@ -9,13 +9,21 @@ import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
 import (
+	"github.com/turnerbenjamin/heterogen_portal/internal/icons"
 	"github.com/turnerbenjamin/heterogen_portal/internal/templates"
 	"github.com/turnerbenjamin/heterogen_portal/internal/templates/components"
 )
 
+type Content struct {
+	MainContent          templ.Component
+	SidebarContent       templ.Component
+	NestedSidebarContent templ.Component
+}
+
 func App(
 	pageConfig templates.PageConfig,
-	content templ.Component,
+	icons *icons.IconSet,
+	content Content,
 ) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
@@ -49,7 +57,7 @@ func App(
 			var templ_7745c5c3_Var2 string
 			templ_7745c5c3_Var2, templ_7745c5c3_Err = templ.JoinStringErrs(pageConfig.Title)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/templates/layouts/app.templ`, Line: 23, Col: 44}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `layouts/app.templ`, Line: 31, Col: 44}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var2))
 			if templ_7745c5c3_Err != nil {
@@ -65,23 +73,7 @@ func App(
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "<link href=\"/static/css/style.css\" rel=\"stylesheet\"><link rel=\"icon\" type=\"image/x-icon\" href=\"/static/images/favicon.ico\">")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		if pageConfig.WebResourceDependencies.HTMX {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "<script src=\"/static/js/htmx.min.js\" defer></script>")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-		}
-		if pageConfig.WebResourceDependencies.HG_COMMON {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "<script type=\"module\" src=\"/static/js/scripts/hgCommon.js\" defer></script>")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "</head><body><div id=\"toast-container\"></div><aside id=\"title-bar\">Title</aside><nav id=\"nav-bar\"><ul><li class=\"hx-anchor\" hx-get=\"/users\" hx-swap=\"innerHTML\" hx-target=\"#page-content\" hx-push-url=\"true\">Users</li><li class=\"hx-anchor\" hx-get=\"/businesses\" hx-swap=\"innerHTML\" hx-target=\"#page-content\" hx-push-url=\"true\">Businesses</li></ul></nav><div id=\"page-content\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "<link href=\"/static/css/style.css\" rel=\"stylesheet\"><link rel=\"icon\" type=\"image/x-icon\" href=\"/static/images/favicon.ico\"><script src=\"/static/js/htmx.min.js\" defer></script><script type=\"module\" src=\"/static/js/scripts/index.js\" defer></script></head><body><div id=\"modal-overlay\"></div><div id=\"toast-container\"></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -91,11 +83,27 @@ func App(
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = content.Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = Sidebar(icons, content.SidebarContent).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "</div></body></html>")
+		templ_7745c5c3_Err = NestedSidebar(icons, content.NestedSidebarContent).Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = components.Alert().Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "<div id=\"app\"><aside id=\"title-bar\">Title</aside><nav id=\"nav-bar\"><ul><li class=\"hx-anchor\" hx-get=\"/users\" hx-swap=\"innerHTML\" hx-target=\"#page-content\" hx-push-url=\"true\" hx-indicator=\"main\">Users</li><li class=\"hx-anchor\" hx-get=\"/businesses\" hx-swap=\"innerHTML\" hx-target=\"#page-content\" hx-push-url=\"true\" hx-indicator=\"main\">Businesses</li></ul></nav><div id=\"page-content\">")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = content.MainContent.Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "</div></div></body></html>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

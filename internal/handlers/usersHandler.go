@@ -20,26 +20,41 @@ type UsersService interface {
 }
 
 type UsersHandler struct {
-	templateStore        TemplateStore
-	usersService         UsersService
-	tableColumns         []templates.ColumnData[*model.UsersModel]
-	defaultHeaderColumns []templates.HeaderColumn[*model.UsersModel]
+	templateStore       TemplateStore
+	usersService        UsersService
+	orderedTableColumns []templates.ColumnData[*model.UsersModel]
+	tableColumns        map[string]templates.ColumnData[*model.UsersModel]
+
+	defaultHeaderColumns    []templates.ColumnData[*model.UsersModel]
+	defaultHeaderColumnsSet map[string]struct{}
 }
 
 func NewUsersHandler(
 	templateStore TemplateStore,
 	usersService UsersService,
-) *UsersHandler {
-	return &UsersHandler{
+) (*UsersHandler, error) {
+	defaultHeaderColumns := []templates.ColumnData[*model.UsersModel]{
+		userTableColumns[model.ColUsersDisplayName],
+		userTableColumns[model.ColUsersGivenName],
+		userTableColumns[model.ColUsersFamilyName],
+	}
+
+	h := &UsersHandler{
 		templateStore: templateStore,
 		usersService:  usersService,
-		tableColumns:  OrderedColumnData(userTableColumns),
-		defaultHeaderColumns: []templates.HeaderColumn[*model.UsersModel]{
-			{Column: userTableColumns[model.ColUsersDisplayName]},
-			{Column: userTableColumns[model.ColUsersGivenName]},
-			{Column: userTableColumns[model.ColUsersFamilyName]},
-		},
+
+		orderedTableColumns: OrderedColumnData(userTableColumns),
+		tableColumns:        userTableColumns,
+
+		defaultHeaderColumns:    defaultHeaderColumns,
+		defaultHeaderColumnsSet: make(map[string]struct{}, len(defaultHeaderColumns)),
 	}
+
+	for _, c := range h.defaultHeaderColumns {
+		h.defaultHeaderColumnsSet[c.Path] = struct{}{}
+	}
+
+	return h, nil
 }
 
 // GetRootHandler returns a handler for the application root.
@@ -48,11 +63,6 @@ func (h *UsersHandler) GetRoot(w http.ResponseWriter, r *http.Request, c *Pipeli
 		ContentOnly: DoSendContentOnly(r),
 		Title:       "HETEROGEN - USERS",
 	}
-
-	// c.state.TableName = "Users"
-	// c.state.SchemaVersion = 1
-	// c.state.ColumnDefinitions = h.tableColumns
-	// c.state.TableHeader = h.defaultHeaderColumns
 
 	result, err := h.usersService.ExecuteQuery(
 		r.Context(),
@@ -63,11 +73,16 @@ func (h *UsersHandler) GetRoot(w http.ResponseWriter, r *http.Request, c *Pipeli
 	}
 
 	c.state.TableData = templates.TableData[*model.UsersModel]{
-		TableName:         "Users",
-		SchemaVersion:     1,
-		ColumnDefinitions: h.tableColumns,
-		TableHeader:       h.defaultHeaderColumns,
-		Rows:              result.Data,
+		TableName:     "Users",
+		SchemaVersion: 1,
+
+		OrderedColumnDefinitions: h.orderedTableColumns,
+		ColumnDefinitions:        h.tableColumns,
+
+		HeaderColumns:   h.defaultHeaderColumns,
+		HeaderColumnSet: h.defaultHeaderColumnsSet,
+
+		Rows: result.Data,
 	}
 
 	err = h.templateStore.ExecutePageUsers(
