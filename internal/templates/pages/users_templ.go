@@ -42,28 +42,17 @@ func Users(
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		if pageConfig.ContentOnly {
-			templ_7745c5c3_Err = pagecontent.MainTable(pageConfig, icons, tableData).Render(ctx, templ_7745c5c3_Buffer)
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, ",")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-		} else {
-			templ_7745c5c3_Err = layouts.App(
-				pageConfig,
-				icons,
-				layouts.Content{
-					MainContent:          pagecontent.MainTable(pageConfig, icons, tableData),
-					SidebarContent:       sidebarcontent.MainTableSidebarContent(icons, tableData),
-					NestedSidebarContent: sidebarcontent.MainTableNestedSidebarContent(tableData),
-				},
-			).Render(ctx, templ_7745c5c3_Buffer)
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
+		templ_7745c5c3_Err = layouts.App(
+			pageConfig,
+			icons,
+			layouts.Content{
+				MainContent:          pagecontent.MainTable(icons, tableData),
+				SidebarContent:       sidebarcontent.MainTableSidebarContent(icons, tableData),
+				NestedSidebarContent: sidebarcontent.MainTableNestedSidebarContent(tableData),
+			},
+		).Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
 		}
 		return nil
 	})

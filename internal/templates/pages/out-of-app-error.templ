@@ -11,13 +11,9 @@ templ OutOfAppError(
     pageConfig templates.PageConfig,
     icons *icons.IconSet,
 ) {
-    if pageConfig.ContentOnly {
-        @pagecontent.OutOfAppError(),
-    } else {
-        @layouts.App(
-            pageConfig,
-            icons,
-            layouts.Content{MainContent: pagecontent.OutOfAppError()},
-        )
-    }
+    @layouts.App(
+        pageConfig,
+        icons,
+        layouts.Content{MainContent: pagecontent.OutOfAppError()},
+    )
 }

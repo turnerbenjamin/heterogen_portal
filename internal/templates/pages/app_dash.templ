@@ -14,13 +14,9 @@ templ AppDash(
     icons *icons.IconSet,
     user *model.UsersModel,
 ) {
-    if pageConfig.ContentOnly {
-        @pagecontent.AppDash(user)
-    }else{
-        @layouts.App(
-            pageConfig,
-            icons,
-            layouts.Content{MainContent: pagecontent.AppDash(user)},
-        )
-    }
+    @layouts.App(
+        pageConfig,
+        icons,
+        layouts.Content{MainContent: pagecontent.AppDash(user)},
+    )
 }

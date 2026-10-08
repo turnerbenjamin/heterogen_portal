@@ -2,12 +2,21 @@ package layouts
 
 import (
 	"github.com/turnerbenjamin/heterogen_portal/internal/icons"
+	"github.com/turnerbenjamin/heterogen_portal/internal/templates"
 )
 
 templ Sidebar(
+    pageConfig templates.PageConfig,
     icons *icons.IconSet,
     content templ.Component,    
 ) {
+    if pageConfig.ContentOnly {
+        if content != nil{
+            <div hx-swap-oob="innerHTML:#sidebar-content">
+                @content
+            </div>
+        }
+    } else {
         <div id="sidebar-layer">
             <div id="sidebar" class="hidden" aria-modal="true">
                 <div class="sidebar-title">
@@ -28,4 +37,5 @@ templ Sidebar(
                 </div>
             </div>
         </div>
+    }
 }

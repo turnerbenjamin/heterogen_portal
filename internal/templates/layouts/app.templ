@@ -17,6 +17,12 @@ templ App(
     icons *icons.IconSet,
     content Content,
 ) {
+    if pageConfig.ContentOnly {
+        @content.MainContent
+
+        @Sidebar(pageConfig, icons, content.SidebarContent)
+        @NestedSidebar(pageConfig, icons, content.NestedSidebarContent)
+    }else{
     <!DOCTYPE html>
         <html lang="en">
             <head>
@@ -44,8 +50,8 @@ templ App(
                 @components.Toast(templates.ToastData{
                     ToastSuccess: pageConfig.ToastSuccess,
                 })
-                @Sidebar(icons, content.SidebarContent)
-                @NestedSidebar(icons, content.NestedSidebarContent)
+                @Sidebar(pageConfig, icons, content.SidebarContent)
+                @NestedSidebar(pageConfig, icons, content.NestedSidebarContent)
                 @components.Alert()
                 <div id="app">
                     <aside id="title-bar">Title</aside>
@@ -79,4 +85,5 @@ templ App(
                 </div>
         </body>
     </html>
+}
 }

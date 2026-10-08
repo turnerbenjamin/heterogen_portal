@@ -4,56 +4,49 @@ import (
     "github.com/turnerbenjamin/heterogen_portal/internal/templates"
 	  "github.com/turnerbenjamin/querystack/querymodel"
 	  "github.com/turnerbenjamin/heterogen_portal/internal/icons"
-	"github.com/turnerbenjamin/heterogen_portal/internal/templates/components"
-	"github.com/turnerbenjamin/heterogen_portal/internal/templates/sidebarcontent"
 )
 
 
 templ MainTable[T querymodel.TableModel](
-    pageConfig templates.PageConfig,
     icons *icons.IconSet,
     tableData templates.TableData[T],
 ){
-
-@components.Sidebar(pageConfig, sidebarcontent.MainTableSidebarContent(icons, tableData))
-@components.NestedSidebar(pageConfig, sidebarcontent.MainTableNestedSidebarContent(tableData))
-
-<main id="main-table-content">
-    <div class="main-table-head">
-        <h3>{tableData.TableName}</h3>
-        <div class="main-table-cmd">
-            <button 
-                class="button-link"
-                onclick="hg.showSidebar()"
-                initial-focus
-            >
-                Edit Columns
-            </button>
-            <div>Edit Filters</div>
-            <input type=text/>
-        </div>
-    </div>
-    <table class="main-table mt-6"> 
-        <thead>
-            <tr>
-            for _, headerColumn := range tableData.HeaderColumns{
-                <th 
-                    data-column-path={headerColumn.Path}
+    <main id="main-table-content">
+        <div class="main-table-head">
+            <h3>{tableData.TableName}</h3>
+            <div class="main-table-cmd">
+                <button 
+                    class="button-link"
+                    onclick="hg.showSidebar()"
+                    initial-focus
                 >
-                    {headerColumn.DisplayName}
-                </th>
+                    Edit Columns
+                </button>
+                <div>Edit Filters</div>
+                <input type=text/>
+            </div>
+        </div>
+        <table class="main-table mt-6"> 
+            <thead>
+                <tr>
+                for _, headerColumn := range tableData.HeaderColumns{
+                    <th 
+                        data-column-path={headerColumn.Path}
+                    >
+                        {headerColumn.DisplayName}
+                    </th>
+                }
+                </tr>
+            </thead>
+            <tbody>
+            for _ , row := range tableData.Rows{
+                <tr>
+                for _, headerColumn := range tableData.HeaderColumns{
+                    <td>{headerColumn.GetData(row)}</td>
+                }
+                </tr>
             }
-            </tr>
-        </thead>
-        <tbody>
-          for _ , row := range tableData.Rows{
-            <tr>
-            for _, headerColumn := range tableData.HeaderColumns{
-                <td>{headerColumn.GetData(row)}</td>
-            }
-            </tr>
-          }
-        </tbody>
-    </table>
-</main>
+            </tbody>
+        </table>
+    </main>
 }

@@ -14,17 +14,13 @@ templ Businesses(
     icons *icons.IconSet,
     tableData templates.TableData[*model.BusinessesModel],
 ) {
-    if pageConfig.ContentOnly {
-        @pagecontent.MainTable(pageConfig, icons, tableData),
-    } else {
-        @layouts.App(
-            pageConfig,
-            icons,
-            layouts.Content{
-                MainContent: pagecontent.MainTable(pageConfig, icons, tableData),
-                SidebarContent: sidebarcontent.MainTableSidebarContent(icons, tableData),
-                NestedSidebarContent: sidebarcontent.MainTableNestedSidebarContent(tableData),
-            },
-        )
-    }
+    @layouts.App(
+        pageConfig,
+        icons,
+        layouts.Content{
+            MainContent: pagecontent.MainTable(icons, tableData),
+            SidebarContent: sidebarcontent.MainTableSidebarContent(icons, tableData),
+            NestedSidebarContent: sidebarcontent.MainTableNestedSidebarContent(tableData),
+        },
+    )
 }
