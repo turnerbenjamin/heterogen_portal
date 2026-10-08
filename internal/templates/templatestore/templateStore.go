@@ -49,7 +49,7 @@ func (s *store) ExecutePageUsers(
 	pageConfig templates.PageConfig,
 	tableData templates.TableData[*model.UsersModel],
 ) error {
-	page := pages.Users(
+	page := pages.MainTable(
 		pageConfig,
 		icons.Set,
 		tableData,
@@ -63,7 +63,7 @@ func (s *store) ExecutePageBusinesses(
 	pageConfig templates.PageConfig,
 	tableData templates.TableData[*model.BusinessesModel],
 ) error {
-	page := pages.Businesses(
+	page := pages.MainTable(
 		pageConfig,
 		icons.Set,
 		tableData,

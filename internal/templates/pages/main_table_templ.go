@@ -10,17 +10,17 @@ import templruntime "github.com/a-h/templ/runtime"
 
 import (
 	"github.com/turnerbenjamin/heterogen_portal/internal/icons"
-	"github.com/turnerbenjamin/heterogen_portal/internal/model"
 	"github.com/turnerbenjamin/heterogen_portal/internal/templates"
 	"github.com/turnerbenjamin/heterogen_portal/internal/templates/layouts"
 	"github.com/turnerbenjamin/heterogen_portal/internal/templates/pagecontent"
 	"github.com/turnerbenjamin/heterogen_portal/internal/templates/sidebarcontent"
+	"github.com/turnerbenjamin/querystack/querymodel"
 )
 
-func Businesses(
+func MainTable[T querymodel.TableModel](
 	pageConfig templates.PageConfig,
 	icons *icons.IconSet,
-	tableData templates.TableData[*model.BusinessesModel],
+	tableData templates.TableData[T],
 ) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context

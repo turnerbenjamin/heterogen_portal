@@ -51,7 +51,7 @@ func MainTable[T querymodel.TableModel](
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "</h3><div class=\"main-table-cmd\"><button class=\"button-link\" onclick=\"hg.showSidebar()\" initial-focus>Edit Columns</button><div>Edit Filters</div><input type=\"text\"></div></div><table class=\"main-table mt-6\"><thead><tr>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "</h3><div class=\"main-table-cmd\"><button class=\"button-link\" onclick=\"hg.showSidebar()\" initial-focus>Edit Columnss</button><div>Edit Filters</div><input type=\"text\"></div></div><table class=\"main-table mt-6\"><thead><tr>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
