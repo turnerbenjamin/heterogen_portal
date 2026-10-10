@@ -42,10 +42,14 @@ templ MainTableSidebarContent[T querymodel.TableModel](
                 class="button-link mb-4"
                 aria-label="Open add columns modal"
                 onclick="hg.showNestedSidebar()" 
-                tabindex="0"
             >
                 Add Columns
             </button>
-            <button>apply</button>
+            <button
+                aria-label="Apply column edits"
+                onclick="hg.notAFunction()" 
+            >
+                Apply
+            </button>
         </div>
 }

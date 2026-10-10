@@ -12,7 +12,7 @@ templ NestedSidebar(
 ) {
     if pageConfig.ContentOnly {
         if content != nil {
-            <div hx-swap-oob="innerHTML:#sidebar-content">
+            <div hx-swap-oob="innerHTML:#nested-sidebar-content">
                 @content
             </div>
         }

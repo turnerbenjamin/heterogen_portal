@@ -117,7 +117,7 @@ func MainTableSidebarContent[T querymodel.TableModel](
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "</div><button id=\"open-add-column-screen-button\" class=\"button-link mb-4\" aria-label=\"Open add columns modal\" onclick=\"hg.showNestedSidebar()\" tabindex=\"0\">Add Columns</button> <button>apply</button></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "</div><button id=\"open-add-column-screen-button\" class=\"button-link mb-4\" aria-label=\"Open add columns modal\" onclick=\"hg.showNestedSidebar()\">Add Columns</button> <button aria-label=\"Apply column edits\" onclick=\"hg.notAFunction()\">Apply</button></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

@@ -29,7 +29,7 @@ func Alert() templ.Component {
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div id=\"alert\" class=\"hidden\"><div id=\"alert-dialog\"><h2 id=\"alert-title\">Title</h2><div id=\"alert-message\">An unexpected error has occured, please fuck off</div><a id=\"alert-detail-getter\">download details</a> <button>Ok</button></div></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div id=\"alert-layer\" inert><div id=\"alert\" class=\"hidden\"><button onclick=\"hg.closeAlert()\">Close</button><h2 id=\"alert-title\"></h2><p id=\"alert-message\"></p><div id=\"alert-detail\"></div><button id=\"alert-accept\">Ok</button> <button id=\"alert-decline\">Cancel</button></div></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

@@ -1,32 +1,30 @@
 import constants from "./constants";
-import { ErrorHandler, NullTargetErr } from "./errorHandler";
+import { NullTargetErr } from "./errors";
 import * as utils from "./utils";
 import { WindowManager } from "./windowManager";
 
 export class SidebarManager {
-  private readonly _errHandler: ErrorHandler;
-  private readonly _windowManger: WindowManager;
+  private readonly _windowManager: WindowManager;
 
-  public constructor(errorHandler: ErrorHandler, windowManager: WindowManager) {
-    this._errHandler = errorHandler;
-    this._windowManger = windowManager;
+  public constructor(windowManager: WindowManager) {
+    this._windowManager = windowManager;
 
     document.addEventListener(constants.layers.sidebar.events.opened, () =>
-      this.showSidebar(this._windowManger.GetSidebar()),
+      this.showSidebar(this._windowManager.GetSidebar()),
     );
 
     document.addEventListener(constants.layers.sidebar.events.closed, () =>
-      this.hideSidebar(this._windowManger.GetSidebar()),
+      this.hideSidebar(this._windowManager.GetSidebar()),
     );
 
     document.addEventListener(
       constants.layers.nestedSidebar.events.opened,
-      () => this.showSidebar(this._windowManger.GetNestedSidebar()),
+      () => this.showSidebar(this._windowManager.GetNestedSidebar()),
     );
 
     document.addEventListener(
       constants.layers.nestedSidebar.events.closed,
-      () => this.hideSidebar(this._windowManger.GetNestedSidebar()),
+      () => this.hideSidebar(this._windowManager.GetNestedSidebar()),
     );
 
     document.addEventListener("animationend", this.handleSidebarTransitionEnd);
@@ -69,7 +67,7 @@ export class SidebarManager {
 
     const sidebar = utils.parseHtmlElement(e.target);
     if (sidebar === null) {
-      this._errHandler.handle(new NullTargetErr(e));
+      this._windowManager.displayError(new NullTargetErr(e));
       return;
     }
 

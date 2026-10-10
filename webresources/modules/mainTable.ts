@@ -1,23 +1,20 @@
 import constants from "./constants";
 import {
-  ErrorHandler,
   NoElWithIdErr,
   UnexpectedErr,
   QSelectFail,
   NullCurrentTargetErr,
   NullAttributeErr,
   NullParentErr,
-} from "./errorHandler";
+} from "./errors";
 import { Fail, Result, Success } from "./result";
 import { setVisibility, parseHtmlElement, classSelector } from "./utils";
 import { WindowManager } from "./windowManager";
 
 export class MainTable {
   private _windowManager: WindowManager;
-  private _errHandler: ErrorHandler;
 
-  public constructor(errHandler: ErrorHandler, windowManager: WindowManager) {
-    this._errHandler = errHandler;
+  public constructor(windowManager: WindowManager) {
     this._windowManager = windowManager;
 
     document.addEventListener(
@@ -31,7 +28,7 @@ export class MainTable {
       constants.layers.sidebar.content.editColumnsSidebar.editColumnsList.id,
     );
     if (!editColumnsOptionsSet) {
-      this._errHandler.handle(
+      this._windowManager.displayError(
         new NoElWithIdErr(
           constants.layers.sidebar.content.editColumnsSidebar.editColumnsList
             .id,
@@ -44,7 +41,7 @@ export class MainTable {
         constants.classes.sortableList.items.className,
       );
     if (!editColumnOptionSetItems || !editColumnOptionSetItems.length) {
-      this._errHandler.handle(
+      this._windowManager.displayError(
         new UnexpectedErr(
           `expected ${constants.layers.sidebar.content.editColumnsSidebar.editColumnsList.id} ` +
             `to contain at least one child of type ${constants.classes.sortableList.items.className}`,
@@ -55,7 +52,7 @@ export class MainTable {
 
     const getAddColumnSetResult = this.getAddColumnSet();
     if (!getAddColumnSetResult.ok) {
-      this._errHandler.handle(getAddColumnSetResult.error);
+      this._windowManager.displayError(getAddColumnSetResult.error);
       return;
     }
 
@@ -63,7 +60,7 @@ export class MainTable {
     for (const optionSetEl of getAddColumnSetResult.value) {
       const labelEl = optionSetEl.querySelector("label");
       if (!labelEl) {
-        this._errHandler.handle(
+        this._windowManager.displayError(
           new QSelectFail(
             "label",
             constants.classes.optionGroup.items.className,
@@ -74,7 +71,7 @@ export class MainTable {
 
       const checkboxEl = optionSetEl.querySelector("input");
       if (!checkboxEl || checkboxEl.type !== "checkbox") {
-        this._errHandler.handle(
+        this._windowManager.displayError(
           new UnexpectedErr(
             `expected ${constants.classes.optionGroup.items.className} to ` +
               `contain an input element of type checkbox`,
@@ -106,7 +103,7 @@ export class MainTable {
         ),
       );
       if (!newItemTextContainer) {
-        this._errHandler.handle(
+        this._windowManager.displayError(
           new QSelectFail(
             constants.classes.sortableList.items.textContainer.className,
             constants.classes.sortableList.items.className,
@@ -125,7 +122,7 @@ export class MainTable {
         .openAddColumnScreenButton.id,
     );
     if (!openAddColumnScreenBtn) {
-      this._errHandler.handle(
+      this._windowManager.displayError(
         new NoElWithIdErr(
           constants.layers.sidebar.content.editColumnsSidebar
             .openAddColumnScreenButton.id,
@@ -150,7 +147,7 @@ export class MainTable {
       ),
     );
     if (!addColumnOptionEl) {
-      this._errHandler.handle(
+      this._windowManager.displayError(
         new NoElWithIdErr(
           constants.layers.nestedSidebar.content.addColumnsSidebar
             .addColumnsOptions.id,
@@ -168,7 +165,7 @@ export class MainTable {
   public hgHandlerRemoveColumn = (e: MouseEvent) => {
     const target = parseHtmlElement(e.currentTarget);
     if (!target) {
-      this._errHandler.handle(new NullCurrentTargetErr(e));
+      this._windowManager.displayError(new NullCurrentTargetErr(e));
       return;
     }
 
@@ -184,7 +181,7 @@ export class MainTable {
       constants.classes.sortableList.items.attributes.columnPath,
     );
     if (!headerPath) {
-      this._errHandler.handle(
+      this._windowManager.displayError(
         new NullAttributeErr(
           sortableColumn,
           constants.classes.sortableList.items.attributes.columnPath,
@@ -197,7 +194,7 @@ export class MainTable {
       classSelector(constants.classes.sortableList.className),
     );
     if (!sortableList) {
-      this._errHandler.handle(
+      this._windowManager.displayError(
         new NullParentErr(
           sortableColumn,
           constants.classes.sortableList.className,
@@ -208,7 +205,7 @@ export class MainTable {
 
     const addColumnSetResult = this.getAddColumnSet();
     if (!addColumnSetResult.ok) {
-      this._errHandler.handle(addColumnSetResult.error);
+      this._windowManager.displayError(addColumnSetResult.error);
       return;
     }
 
@@ -219,7 +216,7 @@ export class MainTable {
         constants.classes.optionGroup.items.attributes.columnPath,
       );
       if (!addColumnElementPath) {
-        this._errHandler.handle(
+        this._windowManager.displayError(
           new NullAttributeErr(
             currentEl,
             constants.classes.optionGroup.items.attributes.columnPath,
@@ -235,7 +232,7 @@ export class MainTable {
     }
 
     if (!addColumnElement) {
-      this._errHandler.handle(
+      this._windowManager.displayError(
         new UnexpectedErr(
           `A ${constants.classes.optionGroup.items.className} cannot be ` +
             `found for the column ${headerPath}`,

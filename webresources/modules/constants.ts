@@ -42,10 +42,32 @@ export default {
     },
 
     alert: {
-      id: "alert",
+      id: "alert-container",
+      dialog: {
+        id: "alert",
+        title: {
+          id: "alert-title",
+        },
+        message: {
+          id: "alert-message",
+        },
+        detail: {
+          id: "alert-detail",
+        },
+        confirmButton: {
+          id: "alert-accept",
+        },
+        declineButton: {
+          id: "alert-decline",
+        },
+        modifiers: {
+          error: "error",
+        },
+      },
     },
 
     toast: {
+      id: "toast-container",
       toastItem: {
         className: "toast",
         animations: {
@@ -53,6 +75,7 @@ export default {
           closeToast: "toast-hide",
         },
         progressBar: {
+          className: "progress-bar",
           animations: {
             depleteBar: "deplete-toast-progress-bar",
           },
@@ -61,6 +84,10 @@ export default {
           show: "show",
           visible: "visible",
           hide: "hide",
+          notification: "notification",
+          warning: "warning",
+          error: "error",
+          success: "success",
         },
       },
     },

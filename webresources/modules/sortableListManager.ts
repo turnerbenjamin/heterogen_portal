@@ -1,10 +1,11 @@
 import constants from "./constants";
-import { ErrorHandler, NullParentErr } from "./errorHandler";
+import { NullParentErr } from "./errors";
 import {
   classSelector,
   parseHtmlElement,
   switchSiblingElements,
 } from "./utils";
+import { WindowManager } from "./windowManager";
 
 export interface DraggedItem {
   sortableList: HTMLElement;
@@ -12,11 +13,11 @@ export interface DraggedItem {
 }
 
 export class SortableListManager {
-  private readonly _errHandler: ErrorHandler;
+  private readonly _windowManager: WindowManager;
   private _currentDraggedItem: DraggedItem | null = null;
 
-  public constructor(errorHandler: ErrorHandler) {
-    this._errHandler = errorHandler;
+  public constructor(windowManager: WindowManager) {
+    this._windowManager = windowManager;
 
     // Drag controls
     document.addEventListener("dragstart", this.handleDragStart);
@@ -41,7 +42,7 @@ export class SortableListManager {
     );
 
     if (!parentList) {
-      this._errHandler.handle(
+      this._windowManager.displayError(
         new NullParentErr(
           t,
           classSelector(constants.classes.sortableList.className),
@@ -78,7 +79,7 @@ export class SortableListManager {
       dropZone.closest(classSelector(constants.classes.sortableList.className)),
     );
     if (!dropZoneParentList) {
-      this._errHandler.handle(
+      this._windowManager.displayError(
         new NullParentErr(
           dropZone,
           classSelector(constants.classes.sortableList.className),
@@ -94,7 +95,7 @@ export class SortableListManager {
       dropZone,
     );
     if (error !== null) {
-      this._errHandler.handle(error);
+      this._windowManager.displayError(error);
     }
   };
 
@@ -141,7 +142,7 @@ export class SortableListManager {
       nextEl,
     );
     if (error !== null) {
-      this._errHandler.handle(error);
+      this._windowManager.displayError(error);
       return;
     }
 

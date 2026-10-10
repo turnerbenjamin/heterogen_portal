@@ -1,12 +1,19 @@
 import constants from "./constants";
 import {
-  ErrorHandler,
+  AppError,
   NoElWithIdErr,
   NullChildErr,
+  parseAppError,
   WindowManagerErr,
-} from "./errorHandler";
+} from "./errors";
 import { Fail, Result, Success } from "./result";
+import { toastMyError } from "./toasts";
 import { attributeSelector, parseHtmlElement, setBoolAttribute } from "./utils";
+import {
+  renderConfirmationAlert,
+  renderErrorAlert,
+  renderNotificationAlert,
+} from "./alerts";
 
 interface Layer {
   layerId: string;
@@ -15,8 +22,6 @@ interface Layer {
 }
 
 export class WindowManager {
-  private readonly _errorHandler: ErrorHandler;
-
   private readonly _layerIds = {
     App: constants.layers.app.id,
     Sidebar: constants.layers.sidebar.id,
@@ -41,16 +46,10 @@ export class WindowManager {
     constants.layers.nestedSidebar.events.closed,
   );
 
-  public constructor(errorHandler: ErrorHandler) {
-    this._errorHandler = errorHandler;
-
+  public constructor() {
     for (const layerId of Object.values(this._layerIds)) {
       const getLayerResult = this.getLayer(layerId);
       if (!getLayerResult.ok) {
-        // Generally avoiding throw, however, an error is possible and I don't
-        // want to use an init function - This is a panic throw, if it throws
-        // it throws on app load and it should never throw if the HTML layout
-        // is correct
         throw getLayerResult.error;
       }
       const layer = getLayerResult.value;
@@ -71,6 +70,45 @@ export class WindowManager {
     document.addEventListener("keydown", this.handleEsc);
   }
 
+  public displayError(errorObj: unknown) {
+    const err = parseAppError(errorObj);
+    if (err.doBlock) {
+      this.displayErrorAlert(err);
+    } else {
+      toastMyError(err.message);
+    }
+  }
+
+  public displayNoticationAlert = (title: string, msg: string) => {
+    const alertErr = renderNotificationAlert(title, msg);
+    if (alertErr) {
+      lastDitchHandler(alertErr);
+      return;
+    }
+
+    this.pushLayer(this._layerIds.Alert);
+  };
+
+  public displayErrorAlert = (err: AppError) => {
+    const alertErr = renderErrorAlert(err);
+    if (alertErr) {
+      lastDitchHandler(alertErr);
+      return;
+    }
+
+    this.pushLayer(this._layerIds.Alert);
+  };
+
+  public displayConfirmationAlert = (title: string, msg: string) => {
+    const alertErr = renderConfirmationAlert(title, msg);
+    if (alertErr) {
+      lastDitchHandler(alertErr);
+      return;
+    }
+
+    this.pushLayer(this._layerIds.Alert);
+  };
+
   public GetSidebar = (): HTMLElement => {
     return this._layers[this._layerIds.Sidebar].element;
   };
@@ -79,11 +117,19 @@ export class WindowManager {
     return this._layers[this._layerIds.NestedSidebar].element;
   };
 
+  public hgHandlerCloseAlert = () => {
+    const popLayerErr = this.popLayer(this._layerIds.Alert);
+    if (popLayerErr !== null) {
+      this.resetStack();
+      this.displayError(popLayerErr);
+    }
+  };
+
   public hgHandlerShowSidebar = () => {
     const pushLayerErr = this.pushLayer(this._layerIds.Sidebar);
     if (pushLayerErr !== null) {
       this.resetStack();
-      this._errorHandler.handle(pushLayerErr);
+      this.displayError(pushLayerErr);
     }
   };
 
@@ -91,7 +137,7 @@ export class WindowManager {
     const popLayerErr = this.popLayer(this._layerIds.Sidebar);
     if (popLayerErr !== null) {
       this.resetStack();
-      this._errorHandler.handle(popLayerErr);
+      this.displayError(popLayerErr);
     }
   };
 
@@ -99,7 +145,7 @@ export class WindowManager {
     const pushLayerErr = this.pushLayer(this._layerIds.NestedSidebar);
     if (pushLayerErr !== null) {
       this.resetStack();
-      this._errorHandler.handle(pushLayerErr);
+      this.displayError(pushLayerErr);
     }
   };
 
@@ -107,7 +153,7 @@ export class WindowManager {
     const popLayerErr = this.popLayer(this._layerIds.NestedSidebar);
     if (popLayerErr !== null) {
       this.resetStack();
-      this._errorHandler.handle(popLayerErr);
+      this.displayError(popLayerErr);
     }
   };
 
@@ -315,4 +361,30 @@ export class WindowManager {
       layer.element.classList.remove(constants.layers.modifierClasses.close);
     }
   };
+}
+
+export function lastDitchHandler(errObj: unknown) {
+  const err = parseAppError(errObj);
+
+  const lastDitchErrContainerEl = document.createElement("div");
+  lastDitchErrContainerEl.id = "last-ditch-err-container";
+
+  const lastDitchTitleEl = document.createElement("h1");
+  lastDitchErrContainerEl.id = "last-ditch-err-title";
+  lastDitchTitleEl.textContent = "Unable to initialise application";
+
+  const lastDitchMsgEl = document.createElement("p");
+  lastDitchMsgEl.id = "last-ditch-err-message";
+  lastDitchMsgEl.textContent = err.message;
+
+  const lastDitchDetailEl = document.createElement("p");
+  lastDitchDetailEl.id = "last-ditch-err-detail";
+  lastDitchDetailEl.textContent = err.details;
+
+  lastDitchErrContainerEl.appendChild(lastDitchTitleEl);
+  lastDitchErrContainerEl.appendChild(lastDitchMsgEl);
+  lastDitchErrContainerEl.appendChild(lastDitchDetailEl);
+
+  document.body.innerHTML = "";
+  document.body.appendChild(lastDitchErrContainerEl);
 }
