@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"log"
 )
 
 type MsqlDataTypeName string
@@ -218,7 +219,12 @@ func (r *MetadataRepo) getEnumMetadata(
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() {
+		err := rows.Close()
+		if err != nil {
+			log.Fatal(err)
+		}
+	}()
 
 	var enumTables []string
 	for rows.Next() {
@@ -269,7 +275,12 @@ func (r *MetadataRepo) getEnumValues(
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() {
+		err := rows.Close()
+		if err != nil {
+			log.Fatal(err)
+		}
+	}()
 
 	values := make([]*EnumValue, 0)
 
