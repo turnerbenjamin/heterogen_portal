@@ -28,3 +28,11 @@ config can be found in .mockery.yml. To generate mocks install mockery and run:
 ```terminal
 mockery
 ```
+
+### Templ
+
+Templates are built with templ:
+
+```terminal
+templ generate
+```

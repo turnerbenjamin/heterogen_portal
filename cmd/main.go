@@ -4,6 +4,7 @@ import (
 	"context"
 	"embed"
 	"fmt"
+	"io/fs"
 	"net/http"
 	"os"
 	"os/signal"
@@ -15,7 +16,7 @@ import (
 	"github.com/turnerbenjamin/heterogen_portal/internal/etc"
 )
 
-//go:embed templates static
+//go:embed static
 var embeddedFiles embed.FS
 
 func run(ctx context.Context) error {
@@ -35,7 +36,13 @@ func run(ctx context.Context) error {
 		return err
 	}
 
-	application, err := app.Init(ctx, appSettings, embeddedFiles)
+	var fileSystem fs.FS = embeddedFiles
+	// Read from disk in dev mode
+	if appSettings.IsRunningLocally {
+		fileSystem = os.DirFS("cmd")
+	}
+
+	application, err := app.Init(ctx, appSettings, fileSystem)
 	if err != nil {
 		return err
 	}

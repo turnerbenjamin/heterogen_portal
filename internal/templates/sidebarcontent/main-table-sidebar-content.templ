@@ -1,0 +1,55 @@
+package sidebarcontent
+
+import (
+    "github.com/turnerbenjamin/heterogen_portal/internal/templates"
+	  "github.com/turnerbenjamin/querystack/querymodel"
+	  "github.com/turnerbenjamin/heterogen_portal/internal/icons"
+	"fmt"
+)
+
+
+templ MainTableSidebarContent[T querymodel.TableModel](
+    icons *icons.IconSet,
+    tableData templates.TableData[T],
+){
+ <div id="edit-columns-sidebar" id="column-editor">
+
+            <div id="edit-columns-list" class="sortable-list mt-7 mb-6">
+            for _, headerColumn := range tableData.HeaderColumns{
+                <div 
+                    role="button"
+                    aria-label={fmt.Sprintf("%s column. Press Space to toggle select and arrow keys to move.", headerColumn.DisplayName)}
+                    class="sortable-item" 
+                    draggable="true" 
+                    data-column-path={headerColumn.Path}
+                    tabindex="0"
+                    aria-pressed="false"
+                >
+                <div class="draggable-icon">@templ.Raw(icons.Draggable)</div>
+                <div class="sortable-item-text">{headerColumn.DisplayName}</div>
+                <button 
+                    class="icon-button minus-icon"
+                    onclick="hg.editColumns.removeColumn(event)"
+                    arialabel={fmt.Sprintf("Remove %s column from selection", headerColumn.DisplayName)}
+                >
+                    @templ.Raw(icons.Minus)
+                </button>
+                </div>
+            }
+            </div>
+            <button 
+                id="open-add-column-screen-button"
+                class="button-link mb-4"
+                aria-label="Open add columns modal"
+                onclick="hg.showNestedSidebar()" 
+            >
+                Add Columns
+            </button>
+            <button
+                aria-label="Apply column edits"
+                onclick="hg.notAFunction()" 
+            >
+                Apply
+            </button>
+        </div>
+}

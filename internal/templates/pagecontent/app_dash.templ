@@ -1,0 +1,16 @@
+package pagecontent
+
+import (
+	"github.com/turnerbenjamin/heterogen_portal/internal/model"
+)
+
+templ AppDash(user *model.UsersModel) {
+  <main>
+    <h1>Welcome to type safety {user.DisplayName}</h1>
+      <a href="/sign-out">
+        <button>
+          Sign-out
+        </button>
+      </a>
+  </main>
+}

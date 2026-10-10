@@ -3,6 +3,8 @@ package builderrepo
 import (
 	"database/sql"
 	"encoding/json"
+	"fmt"
+	"log"
 )
 
 type MsqlDataTypeName string
@@ -14,6 +16,7 @@ type MetadataRepo struct {
 type DatabaseSchema struct {
 	Tables        []*TableMetadata        `json:"tables"`
 	Relationships []*RelationshipMetadata `json:"relationships"`
+	Enums         []*EnumMetadata         `json:"enums"`
 }
 
 type TableMetadata struct {
@@ -30,6 +33,7 @@ type ColumnMetadata struct {
 	PrimaryKey int8             `json:"primaryKey"`
 	IsNullable bool             `json:"isNullable"`
 	Checks     []Check          `json:"checks"`
+	EnumName   string           `json:"enumName"`
 }
 
 type Check struct {
@@ -61,7 +65,20 @@ type TableRelationship struct {
 	ForeignColumn          string
 }
 
-func (r *MetadataRepo) GetMetadata() (*DatabaseSchema, error) {
+type EnumMetadata struct {
+	Name   string       `json:"name"`
+	Values []*EnumValue `json:"values"`
+}
+
+type EnumValue struct {
+	Value       uint8  `json:"value"`
+	DisplayName string `json:"displayName"`
+}
+
+func (r *MetadataRepo) GetModelMetadata(
+	modelSchemaName string,
+	enumSchemaName string,
+) (*DatabaseSchema, error) {
 	q := `
 SELECT CAST(
 (
@@ -76,6 +93,14 @@ SELECT CAST(
                         ty.name AS [type],
                         c.max_length AS [maxLength],
                         c.is_nullable AS [isNullable],
+                        (
+                            SELECT CONVERT(nvarchar(128), ep.value)
+                            FROM sys.extended_properties AS ep
+                            WHERE ep.class = 1
+                            AND ep.major_id = c.object_id
+                            AND ep.minor_id = c.column_id
+                            AND ep.name = N'Enum'
+                        ) AS [enumName],
                     CASE
                         WHEN EXISTS (
                             SELECT 1
@@ -114,7 +139,8 @@ SELECT CAST(
             FROM sys.tables AS t
             INNER JOIN sys.schemas AS s
                 ON s.schema_id = t.schema_id
-            WHERE t.is_ms_shipped = 0
+                        WHERE t.is_ms_shipped = 0
+                            AND s.name = @schemaName
             ORDER BY
                 s.name,
                 t.name
@@ -147,6 +173,8 @@ SELECT CAST(
             INNER JOIN sys.columns AS rc
                 ON rc.object_id = rt.object_id
                AND rc.column_id = fkc.referenced_column_id
+			WHERE ps.name = @schemaName
+      		AND rs.name = @schemaName
             ORDER BY
                 ps.name,
                 pt.name,
@@ -159,7 +187,7 @@ SELECT CAST(
     `
 
 	var raw string
-	if err := r.Db.QueryRow(q).Scan(&raw); err != nil {
+	if err := r.Db.QueryRow(q, sql.Named("schemaName", modelSchemaName)).Scan(&raw); err != nil {
 		return nil, err
 	}
 
@@ -168,6 +196,110 @@ SELECT CAST(
 		return nil, err
 	}
 
-	return &schema, nil
+	enums, err := r.getEnumMetadata(enumSchemaName)
+	if err != nil {
+		return nil, err
+	}
+	schema.Enums = enums
 
+	return &schema, nil
+}
+
+func (r *MetadataRepo) getEnumMetadata(
+	schemaName string,
+) ([]*EnumMetadata, error) {
+	rows, err := r.Db.Query(`
+        SELECT t.name
+        FROM sys.tables AS t
+        INNER JOIN sys.schemas AS s
+            ON s.schema_id = t.schema_id
+        WHERE s.name = @schemaName
+        ORDER BY t.name
+    `, sql.Named("schemaName", schemaName))
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		err := rows.Close()
+		if err != nil {
+			log.Fatal(err)
+		}
+	}()
+
+	var enumTables []string
+	for rows.Next() {
+		var tableName string
+		if err := rows.Scan(&tableName); err != nil {
+			return nil, err
+		}
+
+		enumTables = append(enumTables, tableName)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	enums := make([]*EnumMetadata, 0, len(enumTables))
+	for _, tableName := range enumTables {
+		values, err := r.getEnumValues(schemaName, tableName)
+		if err != nil {
+			return nil, err
+		}
+
+		enums = append(enums, &EnumMetadata{
+			Name:   tableName,
+			Values: values,
+		})
+	}
+
+	return enums, nil
+}
+
+func (r *MetadataRepo) getEnumValues(
+	schemaName string,
+	tableName string,
+) ([]*EnumValue, error) {
+	query := fmt.Sprintf(`
+        SELECT
+            enum_value,
+            display_name
+        FROM %s.%s
+        ORDER BY enum_value
+    `,
+		schemaName,
+		tableName,
+	)
+
+	rows, err := r.Db.Query(query)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		err := rows.Close()
+		if err != nil {
+			log.Fatal(err)
+		}
+	}()
+
+	values := make([]*EnumValue, 0)
+
+	for rows.Next() {
+		value := &EnumValue{}
+
+		if err := rows.Scan(
+			&value.Value,
+			&value.DisplayName,
+		); err != nil {
+			return nil, err
+		}
+
+		values = append(values, value)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return values, nil
 }

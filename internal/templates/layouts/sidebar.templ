@@ -1,0 +1,41 @@
+package layouts
+
+import (
+	"github.com/turnerbenjamin/heterogen_portal/internal/icons"
+	"github.com/turnerbenjamin/heterogen_portal/internal/templates"
+)
+
+templ Sidebar(
+    pageConfig templates.PageConfig,
+    icons *icons.IconSet,
+    content templ.Component,    
+) {
+    if pageConfig.ContentOnly {
+        if content != nil{
+            <div hx-swap-oob="innerHTML:#sidebar-content">
+                @content
+            </div>
+        }
+    } else {
+        <div id="sidebar-layer">
+            <div id="sidebar" class="hidden" aria-modal="true">
+                <div class="sidebar-title">
+                    <h3>Edit Columns</h3>
+                    <button 
+                        aria-label="Close edit column modal"
+                        class="icon-button icon large interactive" 
+                        onclick="hg.closeSidebar()"
+                        initial-focus
+                    >
+                        @templ.Raw(icons.Xmark)
+                    </button>
+                </div>
+                <div id="sidebar-content">
+                if content != nil{
+                    @content
+                }
+                </div>
+            </div>
+        </div>
+    }
+}

@@ -1,0 +1,31 @@
+package sidebarcontent
+
+import (
+    "github.com/turnerbenjamin/heterogen_portal/internal/templates"
+	  "github.com/turnerbenjamin/querystack/querymodel"
+)
+
+
+templ MainTableNestedSidebarContent[T querymodel.TableModel](
+    tableData templates.TableData[T],
+){
+        <div id="add-columns-sidebar">
+            <div id="add-columns-options" class="option-group mt-7 mb-7">
+            for _, column := range tableData.OrderedColumnDefinitions{
+                {{
+                    hiddenClass := "";
+                    _, doHide := tableData.HeaderColumnSet[column.Path]
+                    if doHide{
+                        hiddenClass = "hidden"
+                    }
+                
+                }}
+                <div data-column-path={column.Path} class={"option-group-item " + hiddenClass}>
+                <input type="checkbox" id={"column-selector-" + column.DisplayName} name={column.DisplayName} value={column.Path}/>
+                <label for={"column-selector-" + column.DisplayName}>{column.DisplayName}</label>
+                </div>
+            }
+            </div>
+            <button onclick="hg.editColumns.addColumns()">add</button>
+        </div>
+}

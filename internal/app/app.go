@@ -13,7 +13,7 @@ import (
 	"github.com/turnerbenjamin/heterogen_portal/internal/etc"
 	"github.com/turnerbenjamin/heterogen_portal/internal/handlers"
 	"github.com/turnerbenjamin/heterogen_portal/internal/services"
-	"github.com/turnerbenjamin/heterogen_portal/internal/templates"
+	"github.com/turnerbenjamin/heterogen_portal/internal/templates/templatestore"
 )
 
 type appRepos struct {
@@ -22,21 +22,25 @@ type appRepos struct {
 }
 
 type appServices struct {
-	authService     *services.AuthService
-	queryApiService *services.QueryApiService
+	authService       *services.AuthService
+	queryApiService   *services.QueryApiService
+	businessesService *services.BusinessService
+	usersService      *services.UsersService
 }
 
 type appHandlers struct {
-	authHandler     *handlers.AuthHandler
-	errorHandler    *handlers.ErrorHandler
-	queryApiHandler *handlers.QueryApiHandler
+	authHandler       *handlers.AuthHandler
+	errorHandler      *handlers.ErrorHandler
+	queryApiHandler   *handlers.QueryApiHandler
+	usersHandler      *handlers.UsersHandler
+	businessesHandler *handlers.BusinessesHandler
 }
 
 type application struct {
 	appContext       context.Context
 	dbConnection     *sql.DB
 	staticFileSystem fs.FS
-	templateStore    *templates.Store
+	templateStore    handlers.TemplateStore
 	repos            *appRepos
 	services         *appServices
 	handlers         *appHandlers
@@ -73,15 +77,7 @@ func Init(
 		return nil, err
 	}
 
-	app.templateStore, err = templates.MakeTemplateStore(
-		staticFileSystem,
-		"templates",
-		templates.TemplateDataMap,
-	)
-	if err != nil {
-		app.CleanUp()
-		return nil, err
-	}
+	app.templateStore = templatestore.NewStore()
 
 	dependencies := initAppDependencies()
 	repos := initRepos(ctx, app.dbConnection)
@@ -97,11 +93,14 @@ func Init(
 		return nil, err
 	}
 
-	app.handlers = initHandlers(
+	app.handlers, err = initHandlers(
 		dependencies,
 		app.templateStore,
 		app.services,
 	)
+	if err != nil {
+		return nil, err
+	}
 
 	app.serveMux = http.NewServeMux()
 	app.addRoutes()
@@ -151,17 +150,55 @@ func initServices(
 		return nil, err
 	}
 
+	businessesService, err := services.NewBusinessesService(
+		repos.queryRepo,
+		dependencies.queryExecutorFactory,
+		dependencies.payloadSigner,
+		appSettings.QueryTokenSecret,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	usersService, err := services.NewUsersService(
+		repos.queryRepo,
+		dependencies.queryExecutorFactory,
+		dependencies.payloadSigner,
+		appSettings.QueryTokenSecret,
+	)
+	if err != nil {
+		return nil, err
+	}
+
 	return &appServices{
-		authService:     authService,
-		queryApiService: queryApiService,
+		authService:       authService,
+		queryApiService:   queryApiService,
+		businessesService: businessesService,
+		usersService:      usersService,
 	}, nil
 }
 
 func initHandlers(
 	dependencies *appDependencies,
-	templateStore *templates.Store,
+	templateStore handlers.TemplateStore,
 	services *appServices,
-) *appHandlers {
+) (*appHandlers, error) {
+	usersHandler, err := handlers.NewUsersHandler(
+		templateStore,
+		services.usersService,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	businessesHandler, err := handlers.NewBusinessesHandler(
+		templateStore,
+		services.businessesService,
+	)
+	if err != nil {
+		return nil, err
+	}
+
 	return &appHandlers{
 		authHandler: handlers.NewAuthHandler(
 			templateStore,
@@ -176,7 +213,9 @@ func initHandlers(
 			dependencies.decodeUrl,
 			dependencies.jsonSerialiser,
 		),
-	}
+		usersHandler:      usersHandler,
+		businessesHandler: businessesHandler,
+	}, nil
 }
 
 func (app *application) CleanUp() {

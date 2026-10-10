@@ -50,8 +50,9 @@ const (
 
 // HX Headers
 const (
-	HxRequestHeaderRequest   = "HX-Request"
-	HxResponseHeaderRedirect = "HX-Redirect"
+	HxRequestHeaderRequest        = "HX-Request"
+	HxRequestHeaderHistoryRestore = "HX-History-Restore-Request"
+	HxResponseHeaderRedirect      = "HX-Redirect"
 )
 
 // Other

@@ -18,7 +18,7 @@ func TestNewQueryApiService_ShouldConfigureTheExecutorFactoryCorrectly(t *testin
 	paginationTokenSecret := []byte("super-secret")
 	f := &mockQueryExecutorFactory{
 		t:             t,
-		queryExecutor: NewMockQueryExecutor(t),
+		queryExecutor: &querystack.QueryExecutor{},
 	}
 
 	_, err := NewQueryApiService(
@@ -49,7 +49,7 @@ func TestNewQueryApiService_ShouldReturnErrorsReturnedFromTheQueryExecutorFactor
 
 	f := &mockQueryExecutorFactory{
 		t:             t,
-		queryExecutor: NewMockQueryExecutor(t),
+		queryExecutor: &querystack.QueryExecutor{},
 		builderErr:    expectedErr,
 	}
 
@@ -64,15 +64,7 @@ func TestNewQueryApiService_ShouldReturnErrorsReturnedFromTheQueryExecutorFactor
 }
 
 func TestExecuteQuery_ShouldCallQueryExecutorWithTheAnonymousAccessPolicyAndReturnTheResults(t *testing.T) {
-	repo := NewMockRepository(t)
-	paginationTokenSigner := NewMockPayloadSigner(t)
-	paginationTokenSecret := []byte("super-secret")
-
 	qe := NewMockQueryExecutor(t)
-	f := &mockQueryExecutorFactory{
-		t:             t,
-		queryExecutor: qe,
-	}
 
 	ctx := context.TODO()
 	resource := "test-resource"
@@ -89,14 +81,9 @@ func TestExecuteQuery_ShouldCallQueryExecutorWithTheAnonymousAccessPolicyAndRetu
 		).
 		Return(expectedResults, nil)
 
-	s, err := NewQueryApiService(
-		repo,
-		f.builder,
-		paginationTokenSigner,
-		paginationTokenSecret,
-	)
-	require.NoError(t, err)
-
+	s := QueryApiService{
+		queryExecutor: qe,
+	}
 	r, err := s.ExecuteQuery(ctx, resource, queryString)
 
 	require.NoError(t, err)
@@ -104,15 +91,7 @@ func TestExecuteQuery_ShouldCallQueryExecutorWithTheAnonymousAccessPolicyAndRetu
 }
 
 func TestExecuteQuery_ShouldReturnErrorsFromTheQueryExecutor(t *testing.T) {
-	repo := NewMockRepository(t)
-	paginationTokenSigner := NewMockPayloadSigner(t)
-	paginationTokenSecret := []byte("super-secret")
-
 	qe := NewMockQueryExecutor(t)
-	f := &mockQueryExecutorFactory{
-		t:             t,
-		queryExecutor: qe,
-	}
 
 	ctx := context.TODO()
 	resource := "test-resource"
@@ -129,14 +108,9 @@ func TestExecuteQuery_ShouldReturnErrorsFromTheQueryExecutor(t *testing.T) {
 		).
 		Return(nil, expectedErr)
 
-	s, err := NewQueryApiService(
-		repo,
-		f.builder,
-		paginationTokenSigner,
-		paginationTokenSecret,
-	)
-	require.NoError(t, err)
-
+	s := QueryApiService{
+		queryExecutor: qe,
+	}
 	r, err := s.ExecuteQuery(ctx, resource, queryString)
 
 	require.Nil(t, r)
@@ -145,7 +119,7 @@ func TestExecuteQuery_ShouldReturnErrorsFromTheQueryExecutor(t *testing.T) {
 
 type mockQueryExecutorFactory struct {
 	t             testing.TB
-	queryExecutor querystack.QueryExecutor
+	queryExecutor *querystack.QueryExecutor
 
 	builderErr error
 
@@ -164,7 +138,7 @@ func (f *mockQueryExecutorFactory) builder(
 	paginationTokenSecret []byte,
 	sqlFlavor querymodel.SqlFlavour,
 	queryConfig querymodel.QueryConfig,
-) (querystack.QueryExecutor, error) {
+) (*querystack.QueryExecutor, error) {
 	f.t.Helper()
 
 	if repository != nil {

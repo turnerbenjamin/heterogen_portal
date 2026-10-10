@@ -12,8 +12,8 @@ var AnonymousAccessPolicy = &model.DatabaseAccessPolicy{
 		UserCanAccess: true,
 
 		// Users: Allow
-		Id:       true,
-		UserName: true,
+		Id:          true,
+		DisplayName: true,
 
 		// Users: Deny
 		Oid:          false,

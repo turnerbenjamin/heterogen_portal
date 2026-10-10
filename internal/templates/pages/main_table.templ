@@ -1,0 +1,27 @@
+package pages
+
+import (
+    "github.com/turnerbenjamin/heterogen_portal/internal/templates"
+    "github.com/turnerbenjamin/heterogen_portal/internal/templates/layouts"
+    "github.com/turnerbenjamin/heterogen_portal/internal/templates/pagecontent"
+	"github.com/turnerbenjamin/heterogen_portal/internal/icons"
+	"github.com/turnerbenjamin/heterogen_portal/internal/templates/sidebarcontent"
+	"github.com/turnerbenjamin/querystack/querymodel"
+)
+
+
+templ MainTable[T querymodel.TableModel](
+    pageConfig templates.PageConfig, 
+    icons *icons.IconSet,
+    tableData templates.TableData[T],
+) {
+    @layouts.App(
+        pageConfig,
+        icons,
+        layouts.Content{
+           MainContent: pagecontent.MainTable(icons, tableData),
+            SidebarContent: sidebarcontent.MainTableSidebarContent(icons, tableData),
+            NestedSidebarContent: sidebarcontent.MainTableNestedSidebarContent(tableData),
+        },
+    )
+}

@@ -1,0 +1,26 @@
+package components
+
+templ Alert() {
+	<div id="alert-layer">
+		<div id="alert" aria-modal="true" class="hidden">
+			<h2 id="alert-title"></h2>
+			<p id="alert-message"></p>
+			<pre id="alert-detail" class="error-detail"></pre>
+			<div id="alert-controls">
+				<button 
+					id="alert-accept" 
+					initial-focus
+					onclick="hg.closeAlert()"
+				>
+						Ok
+				</button>
+				<button 
+					id="alert-decline"
+					onclick="hg.closeAlert()"
+				>
+					Cancel
+				</button>
+			</div>
+		</div>
+	</div>
+} 

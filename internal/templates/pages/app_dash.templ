@@ -1,0 +1,22 @@
+package pages
+
+import (
+    "github.com/turnerbenjamin/heterogen_portal/internal/templates"
+    "github.com/turnerbenjamin/heterogen_portal/internal/templates/layouts"
+    "github.com/turnerbenjamin/heterogen_portal/internal/templates/pagecontent"
+	"github.com/turnerbenjamin/heterogen_portal/internal/model"
+	"github.com/turnerbenjamin/heterogen_portal/internal/icons"
+)
+
+
+templ AppDash(
+    pageConfig templates.PageConfig, 
+    icons *icons.IconSet,
+    user *model.UsersModel,
+) {
+    @layouts.App(
+        pageConfig,
+        icons,
+        layouts.Content{MainContent: pagecontent.AppDash(user)},
+    )
+}

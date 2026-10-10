@@ -27,11 +27,32 @@ func (app *application) addRoutes() {
 		h.UserStateInit,
 	)
 
+	pipelineWithUserTableState := h.NewPipelineBuilder(
+		app.handlers.errorHandler,
+		os.Stdout,
+		h.UsersTableStateInit,
+	)
+
+	pipelineWithBusinessesTableState := h.NewPipelineBuilder(
+		app.handlers.errorHandler,
+		os.Stdout,
+		h.BusinessesTableStateInit,
+	)
+
 	if sub, err := fs.Sub(app.staticFileSystem, "static"); err == nil {
 		app.addRoute("GET /static/", http.StripPrefix("/static/", http.FileServer(http.FS(sub))))
 	} else {
 		app.addRoute("GET /static/", http.FileServer(http.FS(app.staticFileSystem)))
 	}
+
+	app.addRoute(
+		fmt.Sprintf("GET /api/{%s}", constants.UrlParamResource),
+		pipeline.New(
+			h.ContentTypeJson,
+			[]h.Middleware[h.NoState]{},
+			app.handlers.queryApiHandler.ProcessQuery,
+		),
+	)
 
 	app.addRoute(
 		"GET /",
@@ -73,11 +94,26 @@ func (app *application) addRoutes() {
 	)
 
 	app.addRoute(
-		fmt.Sprintf("GET /api/{%s}", constants.UrlParamResource),
-		pipeline.New(
-			h.ContentTypeJson,
-			[]h.Middleware[h.NoState]{},
-			app.handlers.queryApiHandler.ProcessQuery,
+		"GET /users",
+		pipelineWithUserTableState.New(
+			h.ContentTypeHtml,
+			[]h.Middleware[*h.UsersTableState]{
+				h.ParseJwtMiddleware[*h.UsersTableState](app.services.authService),
+				h.RequireSignInMiddleware[*h.UsersTableState](app.services.authService),
+			},
+			app.handlers.usersHandler.GetRoot,
+		),
+	)
+
+	app.addRoute(
+		"GET /businesses",
+		pipelineWithBusinessesTableState.New(
+			h.ContentTypeHtml,
+			[]h.Middleware[*h.BusinessesTableState]{
+				h.ParseJwtMiddleware[*h.BusinessesTableState](app.services.authService),
+				h.RequireSignInMiddleware[*h.BusinessesTableState](app.services.authService),
+			},
+			app.handlers.businessesHandler.GetRoot,
 		),
 	)
 }

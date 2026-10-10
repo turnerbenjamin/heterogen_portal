@@ -1,0 +1,68 @@
+import { htmxErrorHandler } from "./htmxErrorHandler";
+import { InitialiseToast } from "./toasts";
+import { MainTable } from "./mainTable";
+import { SidebarManager } from "./sidebarManager";
+import { WindowManager } from "./windowManager";
+import { SortableListManager } from "./sortableListManager";
+import {
+  AlertManager,
+  lastDitchHandler as displayFatalAppError,
+} from "./alerts";
+
+export interface HgNamespace {
+  closeAlert: () => void;
+  showSidebar: () => void;
+  closeSidebar: () => void;
+  showNestedSidebar: () => void;
+  closeNestedSidebar: () => void;
+  editColumns: {
+    addColumns: () => void;
+    removeColumn: (_e: MouseEvent) => void;
+  };
+}
+
+export class App {
+  public hgNamespace: HgNamespace | undefined;
+
+  public readonly htmxErrorHandler: htmxErrorHandler | undefined;
+  public readonly alertManager: AlertManager | undefined;
+  public readonly windowManager: WindowManager | undefined;
+  public readonly sidebarManager: SidebarManager | undefined;
+  public readonly sortableListManager: SortableListManager | undefined;
+  public readonly mainTable: MainTable | undefined;
+
+  public constructor() {
+    try {
+      InitialiseToast();
+
+      this.alertManager = new AlertManager();
+      this.windowManager = new WindowManager(this.alertManager);
+
+      this.htmxErrorHandler = new htmxErrorHandler();
+
+      this.mainTable = new MainTable(this.windowManager);
+      this.sidebarManager = new SidebarManager(this.windowManager);
+      this.sortableListManager = new SortableListManager(this.windowManager);
+
+      // Global try/catch
+      addEventListener("error", (e: ErrorEvent) => {
+        e.preventDefault();
+        this.windowManager?.displayError(e.error);
+      });
+
+      this.hgNamespace = {
+        closeAlert: this.windowManager.hgHandlerCloseAlert,
+        showSidebar: this.windowManager.hgHandlerShowSidebar,
+        closeSidebar: this.windowManager.hgHandlerCloseSidebar,
+        showNestedSidebar: this.windowManager.hgHandlerShowNestedSidebar,
+        closeNestedSidebar: this.windowManager.hgHandlerCloseNestedSidebar,
+        editColumns: {
+          addColumns: this.mainTable.hgHandlerAddColumns,
+          removeColumn: this.mainTable.hgHandlerRemoveColumn,
+        },
+      };
+    } catch (err: unknown) {
+      displayFatalAppError(err);
+    }
+  }
+}
