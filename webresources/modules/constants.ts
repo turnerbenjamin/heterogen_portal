@@ -42,27 +42,25 @@ export default {
     },
 
     alert: {
-      id: "alert-container",
-      dialog: {
-        id: "alert",
-        title: {
-          id: "alert-title",
-        },
-        message: {
-          id: "alert-message",
-        },
-        detail: {
-          id: "alert-detail",
-        },
-        confirmButton: {
-          id: "alert-accept",
-        },
-        declineButton: {
-          id: "alert-decline",
-        },
-        modifiers: {
-          error: "error",
-        },
+      id: "alert",
+      containerId: "alert-layer",
+      title: {
+        id: "alert-title",
+      },
+      message: {
+        id: "alert-message",
+      },
+      detail: {
+        id: "alert-detail",
+      },
+      confirmButton: {
+        id: "alert-accept",
+      },
+      declineButton: {
+        id: "alert-decline",
+      },
+      modifiers: {
+        error: "error",
       },
     },
 

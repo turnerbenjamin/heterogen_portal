@@ -2,10 +2,6 @@ declare const htmx: typeof import("htmx.org").default;
 
 export type HtmxEvent<T> = CustomEvent<T>;
 
-export function configureCacheSize(n: number) {
-  htmx.config.historyCacheSize = n;
-}
-
 export function onHtmx<T>(
   eventName: string,
   handler: (_event: HtmxEvent<T>) => void,

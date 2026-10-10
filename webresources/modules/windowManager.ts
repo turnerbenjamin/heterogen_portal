@@ -1,3 +1,4 @@
+import { AlertManager, lastDitchHandler } from "./alerts";
 import constants from "./constants";
 import {
   AppError,
@@ -9,11 +10,6 @@ import {
 import { Fail, Result, Success } from "./result";
 import { toastMyError } from "./toasts";
 import { attributeSelector, parseHtmlElement, setBoolAttribute } from "./utils";
-import {
-  renderConfirmationAlert,
-  renderErrorAlert,
-  renderNotificationAlert,
-} from "./alerts";
 
 interface Layer {
   layerId: string;
@@ -22,6 +18,8 @@ interface Layer {
 }
 
 export class WindowManager {
+  private _alertManager: AlertManager;
+
   private readonly _layerIds = {
     App: constants.layers.app.id,
     Sidebar: constants.layers.sidebar.id,
@@ -46,7 +44,9 @@ export class WindowManager {
     constants.layers.nestedSidebar.events.closed,
   );
 
-  public constructor() {
+  public constructor(alertManager: AlertManager) {
+    this._alertManager = alertManager;
+
     for (const layerId of Object.values(this._layerIds)) {
       const getLayerResult = this.getLayer(layerId);
       if (!getLayerResult.ok) {
@@ -80,33 +80,30 @@ export class WindowManager {
   }
 
   public displayNoticationAlert = (title: string, msg: string) => {
-    const alertErr = renderNotificationAlert(title, msg);
-    if (alertErr) {
-      lastDitchHandler(alertErr);
-      return;
+    this._alertManager.renderNotificationAlert(title, msg);
+    const pushErr = this.pushLayer(this._layerIds.Alert);
+    if (pushErr) {
+      this.resetStack();
+      this.displayError(pushErr);
     }
-
-    this.pushLayer(this._layerIds.Alert);
   };
 
   public displayErrorAlert = (err: AppError) => {
-    const alertErr = renderErrorAlert(err);
-    if (alertErr) {
-      lastDitchHandler(alertErr);
-      return;
+    this._alertManager.renderErrorAlert(err);
+    const pushErr = this.pushLayer(this._layerIds.Alert);
+    if (pushErr) {
+      this.resetStack();
+      lastDitchHandler(pushErr);
     }
-
-    this.pushLayer(this._layerIds.Alert);
   };
 
   public displayConfirmationAlert = (title: string, msg: string) => {
-    const alertErr = renderConfirmationAlert(title, msg);
-    if (alertErr) {
-      lastDitchHandler(alertErr);
-      return;
+    this._alertManager.renderConfirmationAlert(title, msg);
+    const pushErr = this.pushLayer(this._layerIds.Alert);
+    if (pushErr) {
+      this.resetStack();
+      this.displayError(pushErr);
     }
-
-    this.pushLayer(this._layerIds.Alert);
   };
 
   public GetSidebar = (): HTMLElement => {
@@ -196,10 +193,6 @@ export class WindowManager {
     }
     const activeLayer = getActiveLayerResult.value;
 
-    // If any element has focus, then blur it
-    const currentFocussedElement = parseHtmlElement(document.activeElement);
-    currentFocussedElement?.blur();
-
     // Set the current active layer to inert
     setBoolAttribute(
       activeLayer.element,
@@ -275,6 +268,9 @@ export class WindowManager {
     nextElementToFocus.focus();
 
     this.notifyPop(currentLayer.layerId);
+    if (currentLayer.layerId === this._layerIds.Alert) {
+      this._alertManager.hideAlert();
+    }
 
     return null;
   };
@@ -361,30 +357,4 @@ export class WindowManager {
       layer.element.classList.remove(constants.layers.modifierClasses.close);
     }
   };
-}
-
-export function lastDitchHandler(errObj: unknown) {
-  const err = parseAppError(errObj);
-
-  const lastDitchErrContainerEl = document.createElement("div");
-  lastDitchErrContainerEl.id = "last-ditch-err-container";
-
-  const lastDitchTitleEl = document.createElement("h1");
-  lastDitchErrContainerEl.id = "last-ditch-err-title";
-  lastDitchTitleEl.textContent = "Unable to initialise application";
-
-  const lastDitchMsgEl = document.createElement("p");
-  lastDitchMsgEl.id = "last-ditch-err-message";
-  lastDitchMsgEl.textContent = err.message;
-
-  const lastDitchDetailEl = document.createElement("p");
-  lastDitchDetailEl.id = "last-ditch-err-detail";
-  lastDitchDetailEl.textContent = err.details;
-
-  lastDitchErrContainerEl.appendChild(lastDitchTitleEl);
-  lastDitchErrContainerEl.appendChild(lastDitchMsgEl);
-  lastDitchErrContainerEl.appendChild(lastDitchDetailEl);
-
-  document.body.innerHTML = "";
-  document.body.appendChild(lastDitchErrContainerEl);
 }

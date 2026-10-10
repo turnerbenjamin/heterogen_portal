@@ -1,14 +1,26 @@
 package components
 
 templ Alert() {
-	<div id="alert-layer" inert>
-		<div id="alert" class="hidden">
-			<button onclick="hg.closeAlert()">Close</button>
+	<div id="alert-layer">
+		<div id="alert" aria-modal="true" class="hidden">
 			<h2 id="alert-title"></h2>
 			<p id="alert-message"></p>
-			<div id="alert-detail"></div>
-			<button id="alert-accept">Ok</button>
-			<button id="alert-decline">Cancel</button>
+			<pre id="alert-detail" class="error-detail"></pre>
+			<div id="alert-controls">
+				<button 
+					id="alert-accept" 
+					initial-focus
+					onclick="hg.closeAlert()"
+				>
+						Ok
+				</button>
+				<button 
+					id="alert-decline"
+					onclick="hg.closeAlert()"
+				>
+					Cancel
+				</button>
+			</div>
 		</div>
 	</div>
 } 

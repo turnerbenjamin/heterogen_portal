@@ -1,10 +1,13 @@
 import { htmxErrorHandler } from "./htmxErrorHandler";
 import { InitialiseToast } from "./toasts";
 import { MainTable } from "./mainTable";
-import * as htmx from "./htmx";
 import { SidebarManager } from "./sidebarManager";
-import { lastDitchHandler, WindowManager } from "./windowManager";
+import { WindowManager } from "./windowManager";
 import { SortableListManager } from "./sortableListManager";
+import {
+  AlertManager,
+  lastDitchHandler as displayFatalAppError,
+} from "./alerts";
 
 export interface HgNamespace {
   closeAlert: () => void;
@@ -22,6 +25,7 @@ export class App {
   public hgNamespace: HgNamespace | undefined;
 
   public readonly htmxErrorHandler: htmxErrorHandler | undefined;
+  public readonly alertManager: AlertManager | undefined;
   public readonly windowManager: WindowManager | undefined;
   public readonly sidebarManager: SidebarManager | undefined;
   public readonly sortableListManager: SortableListManager | undefined;
@@ -29,10 +33,10 @@ export class App {
 
   public constructor() {
     try {
-      htmx.configureCacheSize(0);
-
       InitialiseToast();
-      this.windowManager = new WindowManager();
+
+      this.alertManager = new AlertManager();
+      this.windowManager = new WindowManager(this.alertManager);
 
       this.htmxErrorHandler = new htmxErrorHandler();
 
@@ -58,7 +62,7 @@ export class App {
         },
       };
     } catch (err: unknown) {
-      lastDitchHandler(err);
+      displayFatalAppError(err);
     }
   }
 }

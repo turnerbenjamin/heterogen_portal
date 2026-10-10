@@ -29,7 +29,7 @@ func Alert() templ.Component {
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div id=\"alert-layer\" inert><div id=\"alert\" class=\"hidden\"><button onclick=\"hg.closeAlert()\">Close</button><h2 id=\"alert-title\"></h2><p id=\"alert-message\"></p><div id=\"alert-detail\"></div><button id=\"alert-accept\">Ok</button> <button id=\"alert-decline\">Cancel</button></div></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div id=\"alert-layer\"><div id=\"alert\" aria-modal=\"true\" class=\"hidden\"><h2 id=\"alert-title\"></h2><p id=\"alert-message\"></p><pre id=\"alert-detail\" class=\"error-detail\"></pre><div id=\"alert-controls\"><button id=\"alert-accept\" initial-focus onclick=\"hg.closeAlert()\">Ok</button> <button id=\"alert-decline\" onclick=\"hg.closeAlert()\">Cancel</button></div></div></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

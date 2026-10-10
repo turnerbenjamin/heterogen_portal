@@ -1,7 +1,13 @@
-import { HtmxBeforeSwapDetails } from "htmx.org";
 import { HtmxEvent, onHtmx } from "./htmx";
 import * as utils from "./utils";
 import { AppError } from "./errors";
+
+interface BeforeSwapDetails {
+  isError: boolean;
+  shouldSwap: boolean;
+  target: Element;
+  swapOverride: string;
+}
 
 export interface ErrorPresenter {
   showToast(_message: string): void;
@@ -14,7 +20,7 @@ export class htmxErrorHandler {
 
   public constructor() {
     onHtmx("htmx:beforeRequest", this.handleBeforeHtmxRequest);
-    onHtmx<HtmxBeforeSwapDetails>("htmx:beforeSwap", this.handleBeforeHtmxSwap);
+    onHtmx<BeforeSwapDetails>("htmx:beforeSwap", this.handleBeforeHtmxSwap);
   }
 
   private handleBeforeHtmxRequest = (e: HtmxEvent<unknown>) => {
@@ -32,7 +38,7 @@ export class htmxErrorHandler {
     errorContainer.setAttribute("aria-hidden", "true");
   };
 
-  private handleBeforeHtmxSwap = (e: HtmxEvent<HtmxBeforeSwapDetails>) => {
+  private handleBeforeHtmxSwap = (e: HtmxEvent<BeforeSwapDetails>) => {
     const target = utils.parseHtmlElement(e.target);
     if (!target) {
       return;

@@ -11,7 +11,7 @@ export function parseAppError(errorObj: unknown): AppError {
     return new UnexpectedErr(`A null/undefined error has been passed`);
   }
 
-  return new UnexpectedErr(JSON.stringify(errorObj));
+  return new UnexpectedErr(JSON.stringify(errorObj, null, 2));
 }
 
 export class AppError extends Error {
