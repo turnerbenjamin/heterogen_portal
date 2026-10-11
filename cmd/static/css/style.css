@@ -543,29 +543,6 @@ button.button-link {
     }
 }
 
-/* #alert {
-    z-index: var(--z-alert);
-    position: absolute;
-    inset: 0;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    pointer-events: none;
-    background-color: rgba(var(--base-bg-rgb) / 65%);
-
-    &[aria-hidden="true"] {
-        display: none;
-    }
-
-    #alert-dialog {
-        pointer-events: all;
-        border: 2px solid var(--base-fg);
-        background-color: var(--base-bg);
-        padding: var(--ws-6);
-    }
-} */
-
 /** TOAST ELEMENTS */
 #toast-container {
     z-index: var(--z-toast);
@@ -834,40 +811,78 @@ button.button-link {
     border-collapse: collapse;
     user-select: none;
     -webkit-user-select: none;
-}
-
-td {
-    padding: var(--ws-5) var(--ws-4) var(--ws-4) var(--ws-4);
-    border-bottom: 1px solid rgba(var(--base-fg-rgb) / 20%);
-}
-
-thead {
-    display: table;
-    width: 100%;
-    flex: 0 0 auto;
-    table-layout: fixed;
-    font-weight: 700;
-    border-bottom: 2px solid rgba(var(--base-fg-rgb) / 40%);
 
     td {
-        padding-bottom: var(--ws-4);
+        padding: var(--ws-5) var(--ws-4) var(--ws-4) var(--ws-4);
+        border-bottom: 1px solid rgba(var(--base-fg-rgb) / 20%);
+    }
+
+    thead {
+        display: table;
+        width: 100%;
+        flex: 0 0 auto;
+        table-layout: fixed;
+        font-weight: 700;
+        border-bottom: 2px solid rgba(var(--base-fg-rgb) / 40%);
+
+        td {
+            padding-bottom: var(--ws-4);
+        }
+    }
+
+    tbody {
+        display: block;
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow-y: auto;
+
+        tr {
+            display: table;
+            width: 100%;
+            table-layout: fixed;
+            cursor: pointer;
+
+            &:hover {
+                background-color: rgba(var(--base-fg-rgb) / 5%);
+            }
+        }
     }
 }
 
-tbody {
-    display: block;
-    flex: 1 1 auto;
-    min-height: 0;
-    overflow-y: auto;
-
-    tr {
-        display: table;
+@media (max-width: 600px) {
+    .main-table {
+        display: block;
         width: 100%;
-        table-layout: fixed;
-        cursor: pointer;
 
-        &:hover {
-            background-color: rgba(var(--base-fg-rgb) / 5%);
+        thead {
+            display: none;
+        }
+
+        tbody,
+        tr,
+        td {
+            display: block;
+            width: 100%;
+        }
+
+        tbody {
+            tr {
+                margin-bottom: var(--ws-2);
+                border: 1px solid var(--base-fg);
+                padding: var(--ws-4);
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                grid-column: 2;
+            }
+            td {
+                display: contents;
+            }
+            td::before {
+                content: attr(data-label);
+                display: block;
+                font-weight: 700;
+                grid-column: 1;
+            }
         }
     }
 }

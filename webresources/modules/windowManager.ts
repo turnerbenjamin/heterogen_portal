@@ -174,17 +174,18 @@ export class WindowManager {
     }
 
     // Get next element to focus
-    const nextElementToFocus = parseHtmlElement(
+    const nextElementToFocusRes = parseHtmlElement(
       newActiveLayer.element.querySelector(
         attributeSelector(constants.layers.contentShape.initialFocusAttribute),
       ),
     );
-    if (!nextElementToFocus) {
+    if (!nextElementToFocusRes.ok) {
       return new NullChildErr(
         newActiveLayer.element,
         attributeSelector(constants.layers.contentShape.initialFocusAttribute),
       );
     }
+    const nextElementToFocus = nextElementToFocusRes.value;
 
     // get the currently active layer
     const getActiveLayerResult = this.getActiveLayer();
@@ -236,22 +237,19 @@ export class WindowManager {
     const nextActiveLayer = getNextActiveLayerRes.value;
 
     // Get next element to focus
-    const nextElementToFocus = parseHtmlElement(
+    const nextElementToFocusRes = parseHtmlElement(
       nextActiveLayer.element.querySelector(
         attributeSelector(constants.layers.contentShape.initialFocusAttribute),
       ),
     );
-    if (!nextElementToFocus) {
+    if (!nextElementToFocusRes.ok) {
       return new WindowManagerErr(
         `Unable to pop layer ${layerId}. ${nextActiveLayer.layerId} must ` +
           `contain an child element with ` +
           `the '${constants.layers.contentShape.initialFocusAttribute}' attribute`,
       );
     }
-
-    // If any element has focus, then blur it
-    const currentFocussedElement = parseHtmlElement(document.activeElement);
-    currentFocussedElement?.blur();
+    const nextElementToFocus = nextElementToFocusRes.value;
 
     // pop the current layer and set it as inert
     this._layerStack.pop();
@@ -328,12 +326,12 @@ export class WindowManager {
   }
 
   private getLayer = (layerId: string): Result<Layer> => {
-    const layerEl = parseHtmlElement(document.getElementById(layerId));
-    if (!layerEl) {
+    const layerElRes = parseHtmlElement(document.getElementById(layerId));
+    if (!layerElRes.ok) {
       return Fail(new NoElWithIdErr(layerId));
     }
 
-    return Success({ layerId: layerId, element: layerEl, stackIndex: -1 });
+    return Success({ layerId: layerId, element: layerElRes.value, stackIndex: -1 });
   };
 
   private resetStack = () => {

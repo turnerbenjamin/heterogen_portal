@@ -18,6 +18,9 @@ export default {
           openAddColumnScreenButton: {
             id: "open-add-column-screen-button",
           },
+          applyButton: {
+            id: "apply-column-edits-button",
+          },
         },
       },
       events: {

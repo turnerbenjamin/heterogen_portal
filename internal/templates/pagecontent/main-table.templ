@@ -26,7 +26,7 @@ templ MainTable[T querymodel.TableModel](
                 <input type=text/>
             </div>
         </div>
-        <table class="main-table mt-6"> 
+        <table id="main-table" class="main-table mt-6"> 
             <thead>
                 <tr>
                 for _, headerColumn := range tableData.HeaderColumns{
@@ -42,7 +42,7 @@ templ MainTable[T querymodel.TableModel](
             for _ , row := range tableData.Rows{
                 <tr>
                 for _, headerColumn := range tableData.HeaderColumns{
-                    <td>{headerColumn.GetData(row)}</td>
+                    <td data-label={headerColumn.DisplayName}>{headerColumn.GetData(row)}</td>
                 }
                 </tr>
             }

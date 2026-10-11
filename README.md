@@ -34,5 +34,5 @@ mockery
 Templates are built with templ:
 
 ```terminal
-templ generate
+go tool templ generate
 ```

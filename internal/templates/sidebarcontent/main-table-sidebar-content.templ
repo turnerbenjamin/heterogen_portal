@@ -46,8 +46,13 @@ templ MainTableSidebarContent[T querymodel.TableModel](
                 Add Columns
             </button>
             <button
+                id="apply-column-edits-button"
                 aria-label="Apply column edits"
-                onclick="hg.notAFunction()" 
+                hx-get="/businesses" 
+                hx-swap="innerHTML" 
+                hx-target="#main-table"
+                hx-push-url="false"
+                hx-indicator="main"
             >
                 Apply
             </button>

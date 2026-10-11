@@ -29,33 +29,37 @@ export class SortableListManager {
   }
 
   private handleDragStart = (e: Event) => {
-    const t = parseHtmlElement(e.target);
+    const targetRes = parseHtmlElement(e.target);
+    if (!targetRes.ok) {
+      return;
+    }
+    const target = targetRes.value;
+
     if (
-      !t ||
-      !t.classList.contains(constants.classes.sortableList.items.className)
+      !target ||
+      !target.classList.contains(constants.classes.sortableList.items.className)
     ) {
       return;
     }
 
-    const parentList = parseHtmlElement(
-      t.closest(classSelector(constants.classes.sortableList.className)),
+    const parentListRes = parseHtmlElement(
+      target.closest(classSelector(constants.classes.sortableList.className)),
     );
-
-    if (!parentList) {
+    if (!parentListRes.ok) {
       this._windowManager.displayError(
         new NullParentErr(
-          t,
+          target,
           classSelector(constants.classes.sortableList.className),
         ),
       );
       return;
     }
 
-    t.setAttribute("aria-pressed", "true");
+    target.setAttribute("aria-pressed", "true");
 
     this._currentDraggedItem = {
-      sortableList: parentList,
-      item: t,
+      sortableList: parentListRes.value,
+      item: target,
     };
   };
 
@@ -64,24 +68,25 @@ export class SortableListManager {
       return;
     }
 
-    const dropZone = parseHtmlElement(e.target);
+    const dropzoneRes = parseHtmlElement(e.target);
     if (
-      !dropZone ||
-      !dropZone.classList.contains(
+      !dropzoneRes.ok ||
+      !dropzoneRes.value.classList.contains(
         constants.classes.sortableList.items.className,
       ) ||
-      this._currentDraggedItem.item === dropZone
+      this._currentDraggedItem.item === dropzoneRes.value
     ) {
       return;
     }
+    const dropzone = dropzoneRes.value;
 
     const dropZoneParentList = parseHtmlElement(
-      dropZone.closest(classSelector(constants.classes.sortableList.className)),
+      dropzone.closest(classSelector(constants.classes.sortableList.className)),
     );
     if (!dropZoneParentList) {
       this._windowManager.displayError(
         new NullParentErr(
-          dropZone,
+          dropzone,
           classSelector(constants.classes.sortableList.className),
         ),
       );
@@ -92,7 +97,7 @@ export class SortableListManager {
       this._currentDraggedItem.sortableList,
       classSelector(constants.classes.sortableList.items.className),
       this._currentDraggedItem.item,
-      dropZone,
+      dropzone,
     );
     if (error !== null) {
       this._windowManager.displayError(error);
@@ -124,13 +129,15 @@ export class SortableListManager {
       return;
     }
 
-    const nextEl =
+    const nextElRes =
       e.key === constants.keyCodes.ArrowUp
         ? parseHtmlElement(this._currentDraggedItem.item.previousElementSibling)
         : parseHtmlElement(this._currentDraggedItem.item.nextElementSibling);
     if (
-      !nextEl ||
-      !nextEl.classList.contains(constants.classes.sortableList.items.className)
+      !nextElRes.ok ||
+      !nextElRes.value.classList.contains(
+        constants.classes.sortableList.items.className,
+      )
     ) {
       return;
     }
@@ -139,7 +146,7 @@ export class SortableListManager {
       this._currentDraggedItem.sortableList,
       classSelector(constants.classes.sortableList.items.className),
       this._currentDraggedItem.item,
-      nextEl,
+      nextElRes.value,
     );
     if (error !== null) {
       this._windowManager.displayError(error);

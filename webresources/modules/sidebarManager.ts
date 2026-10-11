@@ -65,11 +65,12 @@ export class SidebarManager {
       return;
     }
 
-    const sidebar = utils.parseHtmlElement(e.target);
-    if (sidebar === null) {
+    const sidebarRes = utils.parseHtmlElement(e.target);
+    if (!sidebarRes.ok) {
       this._windowManager.displayError(new NullTargetErr(e));
       return;
     }
+    const sidebar = sidebarRes.value;
 
     if (e.animationName === constants.sidebarCommon.animations.showSidebar) {
       sidebar.classList.remove(constants.layers.modifierClasses.show);

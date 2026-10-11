@@ -94,10 +94,11 @@ function getToastTypeModifier(toast: Toast): Result<string> {
 }
 
 function handleToastLifecycle(e: AnimationEvent) {
-  const target = parseHtmlElement(e.target);
-  if (!target) {
+  const targetRes = parseHtmlElement(e.target);
+  if (!targetRes.ok) {
     return;
   }
+  const target = targetRes.value;
 
   switch (e.animationName) {
     case constants.layers.toast.toastItem.animations.showToast:

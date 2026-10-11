@@ -1,12 +1,25 @@
 import constants from "./constants";
+import { NoElWithIdErr, UnexpectedErr } from "./errors";
+import { Fail, Result, Success } from "./result";
 
 export function parseHtmlElement(
-  t: EventTarget | Element | undefined | null,
-): HTMLElement | null {
-  if (!(t instanceof HTMLElement)) {
-    return null;
+  e: EventTarget | Element | undefined | null,
+): Result<HTMLElement> {
+  if (!e) {
+    return Fail(
+      new UnexpectedErr("Unable to parse HTML element: element is null"),
+    );
   }
-  return t as HTMLElement;
+
+  if (!(e instanceof HTMLElement)) {
+    return Fail(
+      new UnexpectedErr(
+        "unable to parse HTML element: element is not instance of HTML element",
+      ),
+    );
+  }
+
+  return Success(e);
 }
 
 export function switchSiblingElements(
@@ -82,4 +95,12 @@ export function attributeSelector(
 
 export function setBoolAttribute(el: HTMLElement, attributeName: string): void {
   el.setAttribute(attributeName, "");
+}
+
+export function getElementById(id: string): Result<HTMLElement> {
+  const elRes = parseHtmlElement(document.getElementById(id));
+  if (!elRes.ok) {
+    return Fail(new NoElWithIdErr(id));
+  }
+  return Success(elRes.value);
 }
