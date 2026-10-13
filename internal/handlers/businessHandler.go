@@ -77,18 +77,21 @@ func (h *BusinessesHandler) GetRoot(
 		return NewServerError(err)
 	}
 
-	c.state.TableData = templates.TableData[*model.BusinessesModel]{
-		TableName:     "Businesses",
-		SchemaVersion: 1,
+	d := c.state.TableData
 
-		OrderedColumnDefinitions: h.orderedTableColumns,
-		ColumnDefinitions:        h.tableColumns,
+	d.TableName = "Businesses"
+	d.SchemaVersion = 1
 
-		HeaderColumns:   h.defaultHeaderColumns,
-		HeaderColumnSet: h.defaultHeaderColumnsSet,
+	d.OrderedColumnDefinitions = h.orderedTableColumns
+	d.ColumnDefinitions = h.tableColumns
 
-		Rows: result.Data,
+	if len(d.HeaderColumns) == 0 {
+		d.HeaderColumns = h.defaultHeaderColumns
+		d.HeaderColumnSet = h.defaultHeaderColumnsSet
 	}
+
+	d.Rows = result.Data
+	c.state.TableData = d
 
 	err = h.templateStore.ExecutePageBusinesses(
 		r.Context(),

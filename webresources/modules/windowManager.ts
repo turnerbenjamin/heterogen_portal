@@ -17,8 +17,17 @@ interface Layer {
   stackIndex: number;
 }
 
+export enum Hook {
+  layerChange,
+  openSidebar,
+  closeSidebar,
+  openNestedSidebar,
+  closeNestedSidebar,
+}
+
 export class WindowManager {
   private _alertManager: AlertManager;
+  private _hooks: Partial<Record<Hook, Array<() => void>>> = {};
 
   private readonly _layerIds = {
     App: constants.layers.app.id,
@@ -30,19 +39,6 @@ export class WindowManager {
   private readonly _layers: Record<string, Layer> = {};
 
   private _layerStack: Layer[] = [];
-
-  private openedSidebarEvent = new CustomEvent<Event>(
-    constants.layers.sidebar.events.opened,
-  );
-  private closedSidebarEvent = new CustomEvent<Event>(
-    constants.layers.sidebar.events.closed,
-  );
-  private openedNestedSidebarEvent = new CustomEvent<Event>(
-    constants.layers.nestedSidebar.events.opened,
-  );
-  private closedNestedSidebarEvent = new CustomEvent<Event>(
-    constants.layers.nestedSidebar.events.closed,
-  );
 
   public constructor(alertManager: AlertManager) {
     this._alertManager = alertManager;
@@ -273,13 +269,32 @@ export class WindowManager {
     return null;
   };
 
+  public registerHook = (h: Hook, fn: () => void) => {
+    if (!this._hooks[h]) {
+      this._hooks[h] = [];
+    }
+    this._hooks[h].push(fn);
+  };
+
+  private invokeHook = (h: Hook) => {
+    if (!this._hooks[h]) {
+      return;
+    }
+
+    for (const callback of this._hooks[h]) {
+      callback();
+    }
+  };
+
   private notifyPush(layerId: string) {
+    this.invokeHook(Hook.layerChange);
+
     switch (layerId) {
       case this._layerIds.Sidebar:
-        document.dispatchEvent(this.openedSidebarEvent);
+        this.invokeHook(Hook.openSidebar);
         break;
       case this._layerIds.NestedSidebar:
-        document.dispatchEvent(this.openedNestedSidebarEvent);
+        this.invokeHook(Hook.openNestedSidebar);
         break;
       default:
         return;
@@ -287,12 +302,14 @@ export class WindowManager {
   }
 
   private notifyPop(layerId: string) {
+    this.invokeHook(Hook.layerChange);
+
     switch (layerId) {
       case this._layerIds.Sidebar:
-        document.dispatchEvent(this.closedSidebarEvent);
+        this.invokeHook(Hook.closeSidebar);
         break;
       case this._layerIds.NestedSidebar:
-        document.dispatchEvent(this.closedNestedSidebarEvent);
+        this.invokeHook(Hook.closeNestedSidebar);
         break;
       default:
         return;
@@ -331,7 +348,11 @@ export class WindowManager {
       return Fail(new NoElWithIdErr(layerId));
     }
 
-    return Success({ layerId: layerId, element: layerElRes.value, stackIndex: -1 });
+    return Success({
+      layerId: layerId,
+      element: layerElRes.value,
+      stackIndex: -1,
+    });
   };
 
   private resetStack = () => {

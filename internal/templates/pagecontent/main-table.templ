@@ -11,6 +11,20 @@ templ MainTable[T querymodel.TableModel](
     icons *icons.IconSet,
     tableData templates.TableData[T],
 ){
+    switch tableData.RequestTarget{
+        case templates.MainTableRequestTargetTableBody:
+            @tableBody(tableData)
+        case templates.MainTableRequestTargetTable:
+            @table(tableData)
+        default:
+            @mainTablePageContent(icons, tableData)
+    }
+}
+
+templ mainTablePageContent[T querymodel.TableModel](
+    icons *icons.IconSet,
+    tableData templates.TableData[T],
+){
     <main id="main-table-content">
         <div class="main-table-head">
             <h3>{tableData.TableName}</h3>
@@ -27,26 +41,38 @@ templ MainTable[T querymodel.TableModel](
             </div>
         </div>
         <table id="main-table" class="main-table mt-6"> 
-            <thead>
-                <tr>
-                for _, headerColumn := range tableData.HeaderColumns{
-                    <th 
-                        data-column-path={headerColumn.Path}
-                    >
-                        {headerColumn.DisplayName}
-                    </th>
-                }
-                </tr>
-            </thead>
-            <tbody>
-            for _ , row := range tableData.Rows{
-                <tr>
-                for _, headerColumn := range tableData.HeaderColumns{
-                    <td data-label={headerColumn.DisplayName}>{headerColumn.GetData(row)}</td>
-                }
-                </tr>
-            }
-            </tbody>
+        @table(tableData)
         </table>
     </main>
+}
+
+templ table[T querymodel.TableModel](
+    tableData templates.TableData[T],
+){
+    <thead>
+        <tr>
+        for _, headerColumn := range tableData.HeaderColumns{
+            <th 
+                data-column-path={headerColumn.Path}
+            >
+                {headerColumn.DisplayName}
+            </th>
+        }
+        </tr>
+    </thead>
+    <tbody id="main-table-body">
+        @tableBody(tableData) 
+    </tbody>
+}
+
+templ tableBody[T querymodel.TableModel](
+    tableData templates.TableData[T],
+){
+for _ , row := range tableData.Rows{
+    <tr>
+    for _, headerColumn := range tableData.HeaderColumns{
+        <td data-label={headerColumn.DisplayName}>{headerColumn.GetData(row)}</td>
+    }
+    </tr>
+}
 }

@@ -10,6 +10,12 @@ export interface BeforeSwapEventContext extends HtmxRequestCtx {
   swapOverride: string;
 }
 
+export interface AfterSwapEventContext extends HtmxRequestCtx {
+  elt: Element;
+  failed: boolean;
+  successful: boolean;
+}
+
 export interface ConfigRequestEventContext extends HtmxRequestCtx {
   elt: Element;
   formData: FormData;
@@ -24,6 +30,12 @@ export function onHtmxBeforeSwapEvent(
   handler: (_event: HtmxEvent<BeforeSwapEventContext>) => void,
 ) {
   return htmx.on("htmx:beforeSwap", handler as EventListener);
+}
+
+export function onHtmxAfterSwapEvent(
+  handler: (_event: HtmxEvent<AfterSwapEventContext>) => void,
+) {
+  return htmx.on("htmx:afterSwap", handler as EventListener);
 }
 
 export function onHtmxBeforeRequestEvent(

@@ -5,6 +5,15 @@ import (
 	"github.com/turnerbenjamin/querystack/querymodel"
 )
 
+type MainTableRequestTarget string
+
+const (
+	MainTableRequestTargetFullPage    = MainTableRequestTarget("full-page")
+	MainTableRequestTargetPageContent = MainTableRequestTarget("page-content")
+	MainTableRequestTargetTable       = MainTableRequestTarget("main-table")
+	MainTableRequestTargetTableBody   = MainTableRequestTarget("main-table-body")
+)
+
 type ToastData struct {
 	ToastSuccess string
 }
@@ -38,9 +47,11 @@ type ColumnData[T querymodel.TableModel] struct {
 type TableData[T querymodel.TableModel] struct {
 	TableName     string
 	SchemaVersion uint64
+	RequestTarget MainTableRequestTarget
 
 	OrderedColumnDefinitions []ColumnData[T]
-	ColumnDefinitions        map[string]ColumnData[T]
+
+	ColumnDefinitions map[string]ColumnData[T]
 
 	HeaderColumns   []ColumnData[T]
 	HeaderColumnSet map[string]struct{}

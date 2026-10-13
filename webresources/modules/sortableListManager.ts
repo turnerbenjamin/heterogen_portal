@@ -5,7 +5,7 @@ import {
   parseHtmlElement,
   switchSiblingElements,
 } from "./utils";
-import { WindowManager } from "./windowManager";
+import { Hook, WindowManager } from "./windowManager";
 
 export interface DraggedItem {
   sortableList: HTMLElement;
@@ -26,6 +26,7 @@ export class SortableListManager {
 
     // Keyboard controls
     document.addEventListener("keydown", this.handleKeyDown);
+    this._windowManager.registerHook(Hook.layerChange, this.handleDragEnd);
   }
 
   private handleDragStart = (e: Event) => {
@@ -113,6 +114,8 @@ export class SortableListManager {
 
   private handleKeyDown = (e: KeyboardEvent) => {
     if (e.key === constants.keyCodes.Space) {
+      e.preventDefault(); // stop default scroll down behaviour
+
       if (this._currentDraggedItem === null) {
         this.handleDragStart(e);
       } else {

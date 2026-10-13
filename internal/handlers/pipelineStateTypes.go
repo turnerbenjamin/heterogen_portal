@@ -3,6 +3,7 @@ package handlers
 import (
 	"github.com/turnerbenjamin/heterogen_portal/internal/model"
 	"github.com/turnerbenjamin/heterogen_portal/internal/templates"
+	"github.com/turnerbenjamin/querystack/querymodel"
 )
 
 // NoState is a placeholder type for handlers that do not require
@@ -18,8 +19,17 @@ type UserState interface {
 	GetUser() *model.UsersModel
 	SetUser(v *model.UsersModel)
 }
+
+type TableState[T querymodel.TableModel] interface {
+	GetTableData() *templates.TableData[T]
+}
+
 type userState struct {
 	user *model.UsersModel
+}
+
+func UserStateInit() UserState {
+	return &userState{}
 }
 
 func (s *userState) GetUser() *model.UsersModel {
@@ -32,7 +42,15 @@ func (s *userState) SetUser(v *model.UsersModel) {
 
 type UsersTableState struct {
 	User      *model.UsersModel
-	TableData templates.TableData[*model.UsersModel]
+	TableData *templates.TableData[*model.UsersModel]
+}
+
+func UsersTableStateInit() *UsersTableState {
+	return &UsersTableState{
+		TableData: &templates.TableData[*model.UsersModel]{
+			ColumnDefinitions: userTableColumns,
+		},
+	}
 }
 
 func (s *UsersTableState) GetUser() *model.UsersModel {
@@ -43,21 +61,21 @@ func (s *UsersTableState) SetUser(v *model.UsersModel) {
 	s.User = v
 }
 
-func UserStateInit() UserState {
-	return &userState{}
-}
-
-func UsersTableStateInit() *UsersTableState {
-	return &UsersTableState{}
+func (s *UsersTableState) GetTableData() *templates.TableData[*model.UsersModel] {
+	return s.TableData
 }
 
 type BusinessesTableState struct {
 	User      *model.UsersModel
-	TableData templates.TableData[*model.BusinessesModel]
+	TableData *templates.TableData[*model.BusinessesModel]
 }
 
 func BusinessesTableStateInit() *BusinessesTableState {
-	return &BusinessesTableState{}
+	return &BusinessesTableState{
+		TableData: &templates.TableData[*model.BusinessesModel]{
+			ColumnDefinitions: businessTableColumns,
+		},
+	}
 }
 
 func (s *BusinessesTableState) GetUser() *model.UsersModel {
@@ -66,4 +84,8 @@ func (s *BusinessesTableState) GetUser() *model.UsersModel {
 
 func (s *BusinessesTableState) SetUser(v *model.UsersModel) {
 	s.User = v
+}
+
+func (s *BusinessesTableState) GetTableData() *templates.TableData[*model.BusinessesModel] {
+	return s.TableData
 }

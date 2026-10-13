@@ -29,14 +29,14 @@ type TemplateStore interface {
 		ctx context.Context,
 		w io.Writer,
 		pageConfig templates.PageConfig,
-		tableData templates.TableData[*model.UsersModel],
+		tableData *templates.TableData[*model.UsersModel],
 	) error
 
 	ExecutePageBusinesses(
 		ctx context.Context,
 		w io.Writer,
 		pageConfig templates.PageConfig,
-		tableData templates.TableData[*model.BusinessesModel],
+		tableData *templates.TableData[*model.BusinessesModel],
 	) error
 
 	ExecutePageOutOfAppError(

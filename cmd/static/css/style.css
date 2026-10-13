@@ -798,8 +798,6 @@ button.button-link {
 
     align-items: center;
     justify-content: end;
-
-    white-space: nowrap;
 }
 
 .main-table {
@@ -812,9 +810,17 @@ button.button-link {
     user-select: none;
     -webkit-user-select: none;
 
+    th,
+    td {
+        white-space: nowrap;
+        text-overflow: ellipsis;
+        overflow: hidden;
+    }
+
     td {
         padding: var(--ws-5) var(--ws-4) var(--ws-4) var(--ws-4);
         border-bottom: 1px solid rgba(var(--base-fg-rgb) / 20%);
+        min-width: 6rem;
     }
 
     thead {
@@ -950,6 +956,17 @@ button.button-link {
     padding: var(--ws-6);
     box-shadow: -2px 2px 2px 3px rgba(var(--base-fg-rgb) / 10%);
     z-index: var(--z-sidebar);
+
+    #sidebar-content,
+    #nested-sidebar-content {
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+
+        .sidebar-content-group-container {
+            display: contents;
+        }
+    }
 
     &.show {
         animation: show-sidebar 150ms ease-in-out;

@@ -7,8 +7,10 @@ import {
   NullParentErr,
 } from "./errors";
 import {
+  AfterSwapEventContext,
   ConfigRequestEventContext,
   HtmxEvent,
+  onHtmxAfterSwapEvent,
   onHtmxConfigRequestEvent,
 } from "./htmx";
 import { Fail, Result, Success } from "./result";
@@ -18,7 +20,7 @@ import {
   classSelector,
   getElementById,
 } from "./utils";
-import { WindowManager } from "./windowManager";
+import { Hook, WindowManager } from "./windowManager";
 
 interface SelectStatement {
   statement: string;
@@ -33,25 +35,26 @@ export class MainTable {
   public constructor(windowManager: WindowManager) {
     this._windowManager = windowManager;
 
-    document.addEventListener(
-      constants.layers.sidebar.events.opened,
-      this.snapshotPreEditState,
+    this._windowManager.registerHook(
+      Hook.openSidebar,
+      this.snapshotColumnState,
     );
 
-    document.addEventListener(
-      constants.layers.sidebar.events.closed,
+    this._windowManager.registerHook(
+      Hook.closeSidebar,
       this.restoreEditColumnState,
     );
 
-    document.addEventListener(
-      constants.layers.nestedSidebar.events.closed,
+    this._windowManager.registerHook(
+      Hook.closeNestedSidebar,
       this.handleCloseNestedSidebar,
     );
 
-    onHtmxConfigRequestEvent(this.handleConfigRequestEvent);
+    onHtmxConfigRequestEvent(this.handleHtmxConfigRequestEvent);
+    onHtmxAfterSwapEvent(this.handleHtmxAfterSwapEvent);
   }
 
-  private handleConfigRequestEvent = (
+  private handleHtmxConfigRequestEvent = (
     e: HtmxEvent<ConfigRequestEventContext>,
   ) => {
     const targetRes = parseHtmlElement(e.detail.elt);
@@ -78,10 +81,27 @@ export class MainTable {
 
     if (!selectRes.value.isDiff) {
       e.preventDefault();
-      this._windowManager.hgHandlerCloseSidebar();
+      // this._windowManager.hgHandlerCloseSidebar();
     }
 
     e.detail.path += `?select=${selectRes.value.statement}`;
+    this.snapshotColumnState();
+  };
+
+  private handleHtmxAfterSwapEvent = (e: HtmxEvent<AfterSwapEventContext>) => {
+    const targetRes = parseHtmlElement(e.detail.elt);
+    if (!targetRes.ok) {
+      e.preventDefault();
+      this._windowManager.displayError(targetRes.error);
+      return;
+    }
+    const target = targetRes.value;
+
+    if (target.id !== constants.mainPages.mainTablePage.mainTable.id) {
+      return;
+    }
+
+    this._windowManager.hgHandlerCloseSidebar();
   };
 
   public hgHandlerAddColumns = () => {
@@ -303,7 +323,7 @@ export class MainTable {
     sortableList.removeChild(sortableColumn);
   };
 
-  private snapshotPreEditState = () => {
+  private snapshotColumnState = () => {
     const res = this.getEditAndAddColumnListEls();
     if (!res.ok) {
       this._windowManager.displayError(res.error);
@@ -516,6 +536,8 @@ export class MainTable {
   }
 
   private isMainTablePage = (): boolean => {
-    return document.getElementById(constants.mainPageIds.mainTable) !== null;
+    return (
+      document.getElementById(constants.mainPages.mainTablePage.id) !== null
+    );
   };
 }

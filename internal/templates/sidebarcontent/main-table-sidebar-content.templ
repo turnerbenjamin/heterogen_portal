@@ -12,7 +12,7 @@ templ MainTableSidebarContent[T querymodel.TableModel](
     icons *icons.IconSet,
     tableData templates.TableData[T],
 ){
- <div id="edit-columns-sidebar" id="column-editor">
+ <div id="edit-columns-sidebar" class="sidebar-content-group-container">
 
             <div id="edit-columns-list" class="sortable-list mt-7 mb-6">
             for _, headerColumn := range tableData.HeaderColumns{

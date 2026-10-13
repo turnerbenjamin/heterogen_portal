@@ -39,7 +39,7 @@ func MainTableSidebarContent[T querymodel.TableModel](
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div id=\"edit-columns-sidebar\" id=\"column-editor\"><div id=\"edit-columns-list\" class=\"sortable-list mt-7 mb-6\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div id=\"edit-columns-sidebar\" class=\"sidebar-content-group-container\"><div id=\"edit-columns-list\" class=\"sortable-list mt-7 mb-6\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

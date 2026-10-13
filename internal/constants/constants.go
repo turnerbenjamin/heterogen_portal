@@ -52,6 +52,7 @@ const (
 const (
 	HxRequestHeaderRequest        = "HX-Request"
 	HxRequestHeaderHistoryRestore = "HX-History-Restore-Request"
+	HxRequestHeaderTarget         = "HX-Target"
 	HxResponseHeaderRedirect      = "HX-Redirect"
 )
 

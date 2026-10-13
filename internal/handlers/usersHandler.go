@@ -72,18 +72,18 @@ func (h *UsersHandler) GetRoot(w http.ResponseWriter, r *http.Request, c *Pipeli
 		return NewServerError(err)
 	}
 
-	c.state.TableData = templates.TableData[*model.UsersModel]{
-		TableName:     "Users",
-		SchemaVersion: 1,
+	d := c.state.TableData
 
-		OrderedColumnDefinitions: h.orderedTableColumns,
-		ColumnDefinitions:        h.tableColumns,
+	d.TableName = "Users"
+	d.SchemaVersion = 1
 
-		HeaderColumns:   h.defaultHeaderColumns,
-		HeaderColumnSet: h.defaultHeaderColumnsSet,
+	d.OrderedColumnDefinitions = h.orderedTableColumns
+	d.ColumnDefinitions = h.tableColumns
 
-		Rows: result.Data,
-	}
+	d.HeaderColumns = h.defaultHeaderColumns
+	d.HeaderColumnSet = h.defaultHeaderColumnsSet
+
+	d.Rows = result.Data
 
 	err = h.templateStore.ExecutePageUsers(
 		r.Context(),

@@ -36,7 +36,7 @@ func MainTableNestedSidebarContent[T querymodel.TableModel](
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div id=\"add-columns-sidebar\"><div id=\"add-columns-options\" class=\"option-group mt-7 mb-7\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div id=\"add-columns-sidebar\" class=\"sidebar-content-group-container\"><div id=\"add-columns-options\" class=\"option-group mt-7 mb-7\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
