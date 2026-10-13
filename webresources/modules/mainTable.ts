@@ -3,61 +3,133 @@ import {
   NoElWithIdErr,
   UnexpectedErr,
   QSelectFail,
-  NullCurrentTargetErr,
   NullAttributeErr,
   NullParentErr,
 } from "./errors";
+import {
+  AfterSwapEventContext,
+  ConfigRequestEventContext,
+  HtmxEvent,
+  onHtmxAfterSwapEvent,
+  onHtmxConfigRequestEvent,
+} from "./htmx";
 import { Fail, Result, Success } from "./result";
-import { setVisibility, parseHtmlElement, classSelector } from "./utils";
-import { WindowManager } from "./windowManager";
+import {
+  setVisibility,
+  parseHtmlElement,
+  classSelector,
+  getElementById,
+} from "./utils";
+import { Hook, WindowManager } from "./windowManager";
+
+interface SelectStatement {
+  statement: string;
+  isDiff: boolean;
+}
 
 export class MainTable {
   private _windowManager: WindowManager;
+  private editColumnsListPreEditState: HTMLElement | null = null;
+  private addColumnsListPreEditState: HTMLElement | null = null;
 
   public constructor(windowManager: WindowManager) {
     this._windowManager = windowManager;
 
-    document.addEventListener(
-      constants.layers.nestedSidebar.events.closed,
+    this._windowManager.registerHook(
+      Hook.openSidebar,
+      this.snapshotColumnState,
+    );
+
+    this._windowManager.registerHook(
+      Hook.closeSidebar,
+      this.restoreEditColumnState,
+    );
+
+    this._windowManager.registerHook(
+      Hook.closeNestedSidebar,
       this.handleCloseNestedSidebar,
     );
+
+    onHtmxConfigRequestEvent(this.handleHtmxConfigRequestEvent);
+    onHtmxAfterSwapEvent(this.handleHtmxAfterSwapEvent);
   }
 
-  public hgHandlerAddColumns = () => {
-    const editColumnsOptionsSet = document.getElementById(
-      constants.layers.sidebar.content.editColumnsSidebar.editColumnsList.id,
-    );
-    if (!editColumnsOptionsSet) {
-      this._windowManager.displayError(
-        new NoElWithIdErr(
-          constants.layers.sidebar.content.editColumnsSidebar.editColumnsList
-            .id,
-        ),
-      );
+  private handleHtmxConfigRequestEvent = (
+    e: HtmxEvent<ConfigRequestEventContext>,
+  ) => {
+    const targetRes = parseHtmlElement(e.detail.elt);
+    if (!targetRes.ok) {
+      e.preventDefault();
+      this._windowManager.displayError(targetRes.error);
       return;
     }
-    const editColumnOptionSetItems =
-      editColumnsOptionsSet.getElementsByClassName(
-        constants.classes.sortableList.items.className,
-      );
-    if (!editColumnOptionSetItems || !editColumnOptionSetItems.length) {
-      this._windowManager.displayError(
-        new UnexpectedErr(
-          `expected ${constants.layers.sidebar.content.editColumnsSidebar.editColumnsList.id} ` +
-            `to contain at least one child of type ${constants.classes.sortableList.items.className}`,
-        ),
-      );
-    }
-    const protoEditColumn = editColumnOptionSetItems[0];
+    const target = targetRes.value;
 
-    const getAddColumnSetResult = this.getAddColumnSet();
-    if (!getAddColumnSetResult.ok) {
-      this._windowManager.displayError(getAddColumnSetResult.error);
+    if (
+      target.id !==
+      constants.layers.sidebar.content.editColumnsSidebar.applyButton.id
+    ) {
+      return;
+    }
+
+    const selectRes = this.buildSelectStatement();
+    if (!selectRes.ok) {
+      e.preventDefault();
+      this._windowManager.displayError(selectRes.error);
+      return;
+    }
+
+    if (!selectRes.value.isDiff) {
+      e.preventDefault();
+      // this._windowManager.hgHandlerCloseSidebar();
+    }
+
+    e.detail.path += `?select=${selectRes.value.statement}`;
+    this.snapshotColumnState();
+  };
+
+  private handleHtmxAfterSwapEvent = (e: HtmxEvent<AfterSwapEventContext>) => {
+    const targetRes = parseHtmlElement(e.detail.elt);
+    if (!targetRes.ok) {
+      e.preventDefault();
+      this._windowManager.displayError(targetRes.error);
+      return;
+    }
+    const target = targetRes.value;
+
+    if (target.id !== constants.mainPages.mainTablePage.mainTable.id) {
+      return;
+    }
+
+    this._windowManager.hgHandlerCloseSidebar();
+  };
+
+  public hgHandlerAddColumns = () => {
+    const getListElementsRes = this.getEditAndAddColumnListEls();
+    if (!getListElementsRes.ok) {
+      this._windowManager.displayError(getListElementsRes.ok);
+      return;
+    }
+    const [editColumnsList, addColumnsList] = getListElementsRes.value;
+
+    const editColumnsListItemsRes =
+      this.getEditColumnsListItems(editColumnsList);
+    if (!editColumnsListItemsRes.ok) {
+      this._windowManager.displayError(editColumnsListItemsRes.error);
+      return;
+    }
+    const editColumnsListItems = editColumnsListItemsRes.value;
+
+    const protoEditColumn = editColumnsListItems[0];
+
+    const addColumnsListItemsRes = this.getAddColumnsListItems(addColumnsList);
+    if (!addColumnsListItemsRes.ok) {
+      this._windowManager.displayError(addColumnsListItemsRes.error);
       return;
     }
 
     let uncheckedCount = 0;
-    for (const optionSetEl of getAddColumnSetResult.value) {
+    for (const optionSetEl of addColumnsListItemsRes.value) {
       const labelEl = optionSetEl.querySelector("label");
       if (!labelEl) {
         this._windowManager.displayError(
@@ -114,7 +186,7 @@ export class MainTable {
       newItemTextContainer.textContent = labelEl.textContent;
 
       // 4. Append new edit column to edit columns
-      editColumnsOptionsSet.appendChild(newEditItem);
+      editColumnsList.appendChild(newEditItem);
     }
 
     const openAddColumnScreenBtn = document.getElementById(
@@ -140,21 +212,15 @@ export class MainTable {
       return;
     }
 
-    const addColumnOptionEl = parseHtmlElement(
-      document.getElementById(
-        constants.layers.nestedSidebar.content.addColumnsSidebar
-          .addColumnsOptions.id,
-      ),
+    const getAddColumnOptionElRes = getElementById(
+      constants.layers.nestedSidebar.content.addColumnsSidebar.addColumnsOptions
+        .id,
     );
-    if (!addColumnOptionEl) {
-      this._windowManager.displayError(
-        new NoElWithIdErr(
-          constants.layers.nestedSidebar.content.addColumnsSidebar
-            .addColumnsOptions.id,
-        ),
-      );
+    if (!getAddColumnOptionElRes.ok) {
+      this._windowManager.displayError(getAddColumnOptionElRes.error);
       return;
     }
+    const addColumnOptionEl = getAddColumnOptionElRes.value;
 
     const checkboxEls = addColumnOptionEl.getElementsByTagName("input");
     for (const checkboxEl of checkboxEls) {
@@ -163,20 +229,23 @@ export class MainTable {
   };
 
   public hgHandlerRemoveColumn = (e: MouseEvent) => {
-    const target = parseHtmlElement(e.currentTarget);
-    if (!target) {
-      this._windowManager.displayError(new NullCurrentTargetErr(e));
+    const targetRes = parseHtmlElement(e.currentTarget);
+    if (!targetRes.ok) {
+      this._windowManager.displayError(targetRes.error);
       return;
     }
+    const target = targetRes.value;
 
-    const sortableColumn = parseHtmlElement(
+    const sortableColumnRes = parseHtmlElement(
       target.closest(
         classSelector(constants.classes.sortableList.items.className),
       ),
     );
-    if (!sortableColumn) {
+    if (!sortableColumnRes.ok) {
       return;
     }
+    const sortableColumn = sortableColumnRes.value;
+
     const headerPath = sortableColumn.getAttribute(
       constants.classes.sortableList.items.attributes.columnPath,
     );
@@ -203,15 +272,23 @@ export class MainTable {
       return;
     }
 
-    const addColumnSetResult = this.getAddColumnSet();
-    if (!addColumnSetResult.ok) {
-      this._windowManager.displayError(addColumnSetResult.error);
+    const addColumnListRes = this.getAddColumnsList();
+    if (!addColumnListRes.ok) {
+      this._windowManager.displayError(addColumnListRes.error);
+      return;
+    }
+
+    const addColumnListItemsResult = this.getAddColumnsListItems(
+      addColumnListRes.value,
+    );
+    if (!addColumnListItemsResult.ok) {
+      this._windowManager.displayError(addColumnListItemsResult.error);
       return;
     }
 
     // find the column in the add columns set and mark it as visible
     let addColumnElement: HTMLElement | null = null;
-    for (const currentEl of addColumnSetResult.value) {
+    for (const currentEl of addColumnListItemsResult.value) {
       const addColumnElementPath = currentEl.getAttribute(
         constants.classes.optionGroup.items.attributes.columnPath,
       );
@@ -246,12 +323,187 @@ export class MainTable {
     sortableList.removeChild(sortableColumn);
   };
 
-  public getAddColumnSet = (): Result<HTMLElement[]> => {
-    const element = document.getElementById(
+  private snapshotColumnState = () => {
+    const res = this.getEditAndAddColumnListEls();
+    if (!res.ok) {
+      this._windowManager.displayError(res.error);
+      return;
+    }
+    const [editColumnsListEl, addColumnsListEl] = res.value;
+
+    const editColumnListCloneRes = parseHtmlElement(
+      editColumnsListEl.cloneNode(true),
+    );
+    if (!editColumnListCloneRes.ok) {
+      this._windowManager.displayError(editColumnListCloneRes.error);
+      return;
+    }
+
+    const addColumnsListCloneRes = parseHtmlElement(
+      addColumnsListEl.cloneNode(true),
+    );
+    if (!addColumnsListCloneRes.ok) {
+      this._windowManager.displayError(addColumnsListCloneRes);
+      return;
+    }
+
+    this.editColumnsListPreEditState = editColumnListCloneRes.value;
+    this.addColumnsListPreEditState = addColumnsListCloneRes.value;
+  };
+
+  private restoreEditColumnState = () => {
+    if (!this.editColumnsListPreEditState || !this.addColumnsListPreEditState) {
+      this._windowManager.displayError(
+        new UnexpectedErr(
+          "Unable to restore state in the edit column sidebar; one or both " +
+            "snapshots are null",
+        ),
+      );
+      return;
+    }
+
+    const res = this.getEditAndAddColumnListEls();
+    if (!res.ok) {
+      this._windowManager.displayError(res.error);
+      return;
+    }
+    const [editColumnsListEl, addColumnsListEl] = res.value;
+
+    editColumnsListEl.replaceWith(this.editColumnsListPreEditState);
+    addColumnsListEl.replaceWith(this.addColumnsListPreEditState);
+
+    this.editColumnsListPreEditState = null;
+    this.addColumnsListPreEditState = null;
+  };
+
+  private buildSelectStatement = (): Result<SelectStatement> => {
+    const editColumnsListElRes = this.getEditColumnsList();
+    if (!editColumnsListElRes.ok) {
+      return Fail(editColumnsListElRes.error);
+    }
+
+    if (this.editColumnsListPreEditState === null) {
+      return Fail(
+        new UnexpectedErr(
+          "Unable to build select statement: Cannot access pre-edit column " +
+            "list snapshot",
+        ),
+      );
+    }
+
+    const currentEditColumnItemsRes = this.getEditColumnsListItems(
+      editColumnsListElRes.value,
+    );
+    if (!currentEditColumnItemsRes.ok) {
+      return Fail(currentEditColumnItemsRes.error);
+    }
+
+    const storedEditColumnItemsRes = this.getEditColumnsListItems(
+      this.editColumnsListPreEditState,
+    );
+    if (!storedEditColumnItemsRes.ok) {
+      return Fail(storedEditColumnItemsRes.error);
+    }
+
+    const select = [];
+    let isDiff =
+      currentEditColumnItemsRes.value.length !==
+      storedEditColumnItemsRes.value.length;
+
+    for (let i = 0; i < currentEditColumnItemsRes.value.length; i++) {
+      const currentColEl = currentEditColumnItemsRes.value[i];
+      const storedColEl =
+        !isDiff && i < storedEditColumnItemsRes.value.length
+          ? storedEditColumnItemsRes.value[i]
+          : null;
+
+      const currentColPath = currentColEl.getAttribute(
+        constants.classes.sortableList.items.attributes.columnPath,
+      );
+      if (!currentColPath) {
+        return Fail(
+          new NullAttributeErr(
+            currentColEl,
+            constants.classes.sortableList.items.attributes.columnPath,
+          ),
+        );
+      }
+
+      const storedColPath =
+        storedColEl?.getAttribute(
+          constants.classes.sortableList.items.attributes.columnPath,
+        ) ?? null;
+
+      if (currentColPath !== storedColPath) {
+        isDiff = true;
+      }
+      select.push(currentColPath);
+    }
+
+    return Success({
+      statement: select.join(","),
+      isDiff: isDiff,
+    });
+  };
+
+  private getEditAndAddColumnListEls = (): Result<
+    [HTMLElement, HTMLElement]
+  > => {
+    const editColumnsListElRes = this.getEditColumnsList();
+    if (!editColumnsListElRes.ok) {
+      return Fail(editColumnsListElRes.error);
+    }
+
+    const addColumnsListElRes = this.getAddColumnsList();
+    if (!addColumnsListElRes.ok) {
+      return Fail(addColumnsListElRes.error);
+    }
+
+    return Success([editColumnsListElRes.value, addColumnsListElRes.value]);
+  };
+
+  private getEditColumnsList(): Result<HTMLElement> {
+    const editColumnsListEl = document.getElementById(
+      constants.layers.sidebar.content.editColumnsSidebar.editColumnsList.id,
+    );
+    if (!editColumnsListEl) {
+      return Fail(
+        new NoElWithIdErr(
+          constants.layers.sidebar.content.editColumnsSidebar.editColumnsList
+            .id,
+        ),
+      );
+    }
+    return Success(editColumnsListEl);
+  }
+
+  private getEditColumnsListItems(listEl: HTMLElement): Result<HTMLElement[]> {
+    const listItems = Array.from(
+      listEl.getElementsByClassName(
+        constants.classes.sortableList.items.className,
+      ),
+    ).filter(
+      (element): element is HTMLElement => element instanceof HTMLElement,
+    );
+
+    if (!listItems?.length) {
+      return Fail(
+        new UnexpectedErr(
+          `expected ${listEl.id} to contain at least one child of type ` +
+            constants.classes.sortableList.items.className,
+        ),
+      );
+    }
+
+    return Success(listItems);
+  }
+
+  private getAddColumnsList(): Result<HTMLElement> {
+    const addColumnsListEl = document.getElementById(
       constants.layers.nestedSidebar.content.addColumnsSidebar.addColumnsOptions
         .id,
     );
-    if (!element) {
+    if (!addColumnsListEl) {
       return Fail(
         new NoElWithIdErr(
           constants.layers.nestedSidebar.content.addColumnsSidebar
@@ -259,19 +511,33 @@ export class MainTable {
         ),
       );
     }
+    return Success(addColumnsListEl);
+  }
 
-    return Success(
-      Array.from(
-        element.getElementsByClassName(
-          constants.classes.optionGroup.items.className,
-        ),
-      ).filter(
-        (element): element is HTMLElement => element instanceof HTMLElement,
+  private getAddColumnsListItems(listEl: HTMLElement): Result<HTMLElement[]> {
+    const listItems = Array.from(
+      listEl.getElementsByClassName(
+        constants.classes.optionGroup.items.className,
       ),
+    ).filter(
+      (element): element is HTMLElement => element instanceof HTMLElement,
     );
-  };
+
+    if (!listItems?.length) {
+      return Fail(
+        new UnexpectedErr(
+          `expected ${listEl.id} to contain at least one child of type ` +
+            constants.classes.optionGroup.items.className,
+        ),
+      );
+    }
+
+    return Success(listItems);
+  }
 
   private isMainTablePage = (): boolean => {
-    return document.getElementById(constants.mainPageIds.mainTable) !== null;
+    return (
+      document.getElementById(constants.mainPages.mainTablePage.id) !== null
+    );
   };
 }

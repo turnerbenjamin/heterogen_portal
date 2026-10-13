@@ -1,6 +1,11 @@
 export default {
-  mainPageIds: {
-    mainTable: "main-table-content",
+  mainPages: {
+    mainTablePage: {
+      id: "main-table-content",
+      mainTable: {
+        id: "main-table",
+      },
+    },
   },
 
   layers: {
@@ -18,12 +23,15 @@ export default {
           openAddColumnScreenButton: {
             id: "open-add-column-screen-button",
           },
+          applyButton: {
+            id: "apply-column-edits-button",
+          },
         },
       },
-      events: {
-        opened: "openedsidebar",
-        closed: "closedsidebar",
-      },
+      // events: {
+      //   opened: "openedsidebar",
+      //   closed: "closedsidebar",
+      // },
     },
 
     nestedSidebar: {
@@ -35,10 +43,10 @@ export default {
           },
         },
       },
-      events: {
-        opened: "openednestedsidebar",
-        closed: "closednestedsidebar",
-      },
+      // events: {
+      //   opened: "openednestedsidebar",
+      //   closed: "closednestedsidebar",
+      // },
     },
 
     alert: {

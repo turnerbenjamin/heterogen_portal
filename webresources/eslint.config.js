@@ -24,7 +24,11 @@ export default [
       "@typescript-eslint": typescriptEslintPlugin,
     },
     rules: {
-      "no-unused-vars": ["warn", { argsIgnorePattern: "^_" }],
+      "no-unused-vars": "off",
+      "@typescript-eslint/no-unused-vars": [
+        "warn",
+        { argsIgnorePattern: "^_" },
+      ],
       eqeqeq: "error",
       "linebreak-style": "warn",
       "@typescript-eslint/no-explicit-any": "warn",

@@ -9,12 +9,12 @@ import (
 templ MainTableNestedSidebarContent[T querymodel.TableModel](
     tableData templates.TableData[T],
 ){
-        <div id="add-columns-sidebar">
+        <div id="add-columns-sidebar" class="sidebar-content-group-container">
             <div id="add-columns-options" class="option-group mt-7 mb-7">
             for _, column := range tableData.OrderedColumnDefinitions{
                 {{
                     hiddenClass := "";
-                    _, doHide := tableData.HeaderColumnSet[column.Path]
+                    _, doHide := tableData.Query.SelectColsSet[column.Path]
                     if doHide{
                         hiddenClass = "hidden"
                     }

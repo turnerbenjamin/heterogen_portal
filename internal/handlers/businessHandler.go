@@ -25,21 +25,13 @@ type BusinessesHandler struct {
 	orderedTableColumns []templates.ColumnData[*model.BusinessesModel]
 	tableColumns        map[string]templates.ColumnData[*model.BusinessesModel]
 
-	defaultHeaderColumns    []templates.ColumnData[*model.BusinessesModel]
-	defaultHeaderColumnsSet map[string]struct{}
+	defaultQuery *templates.TableQuery[*model.BusinessesModel]
 }
 
 func NewBusinessesHandler(
 	templateStore TemplateStore,
 	businessesService BusinessesService,
 ) (*BusinessesHandler, error) {
-	defaultHeaderColumns := []templates.ColumnData[*model.BusinessesModel]{
-		businessTableColumns[model.ColBusinessesTradingName],
-		businessTableColumns[model.ColBusinessesReference],
-		businessTableColumns[model.ColBusinessesBusinessType],
-		businessTableColumns[model.ColBusinessesCounty],
-	}
-
 	h := &BusinessesHandler{
 		templateStore:     templateStore,
 		businessesService: businessesService,
@@ -47,12 +39,12 @@ func NewBusinessesHandler(
 		orderedTableColumns: OrderedColumnData(businessTableColumns),
 		tableColumns:        businessTableColumns,
 
-		defaultHeaderColumns:    defaultHeaderColumns,
-		defaultHeaderColumnsSet: make(map[string]struct{}, len(defaultHeaderColumns)),
-	}
-
-	for _, c := range h.defaultHeaderColumns {
-		h.defaultHeaderColumnsSet[c.Path] = struct{}{}
+		defaultQuery: newTableQuery([]templates.ColumnData[*model.BusinessesModel]{
+			columnDataBusinessesTradingName,
+			columnDataBusinessesReference,
+			columnDataBusinessesBusinessType,
+			columnDataBusinessesCounty,
+		}),
 	}
 
 	return h, nil
@@ -69,32 +61,35 @@ func (h *BusinessesHandler) GetRoot(
 		Title:       "HETEROGEN - BUSINESSES",
 	}
 
+	d := c.state.TableData
+
+	d.TableName = "Businesses"
+	d.SchemaVersion = 1
+
+	d.OrderedColumnDefinitions = h.orderedTableColumns
+	d.ColumnDefinitions = h.tableColumns
+
+	if d.Query == nil {
+		d.Query = h.defaultQuery
+	}
+
 	result, err := h.businessesService.ExecuteQuery(
 		r.Context(),
-		"",
+		d.Query.QueryString,
 	)
 	if err != nil {
 		return NewServerError(err)
 	}
 
-	c.state.TableData = templates.TableData[*model.BusinessesModel]{
-		TableName:     "Businesses",
-		SchemaVersion: 1,
-
-		OrderedColumnDefinitions: h.orderedTableColumns,
-		ColumnDefinitions:        h.tableColumns,
-
-		HeaderColumns:   h.defaultHeaderColumns,
-		HeaderColumnSet: h.defaultHeaderColumnsSet,
-
-		Rows: result.Data,
-	}
+	d.Rows = result.Data
+	c.state.TableData = d
 
 	err = h.templateStore.ExecutePageBusinesses(
 		r.Context(),
 		w,
 		pageConfig,
 		c.state.TableData,
+		r.URL.Path,
 	)
 	if err != nil {
 		return NewServerError(err)

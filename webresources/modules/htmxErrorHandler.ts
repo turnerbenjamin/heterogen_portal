@@ -1,13 +1,12 @@
-import { HtmxEvent, onHtmx } from "./htmx";
+import {
+  HtmxEvent,
+  onHtmxBeforeSwapEvent,
+  BeforeSwapEventContext,
+  onHtmxBeforeRequestEvent,
+} from "./htmx";
 import * as utils from "./utils";
 import { AppError } from "./errors";
-
-interface BeforeSwapDetails {
-  isError: boolean;
-  shouldSwap: boolean;
-  target: Element;
-  swapOverride: string;
-}
+import { HtmxRequestCtx } from "htmx.org";
 
 export interface ErrorPresenter {
   showToast(_message: string): void;
@@ -19,15 +18,16 @@ export class htmxErrorHandler {
   private _errorContainerSelector = ".error-container";
 
   public constructor() {
-    onHtmx("htmx:beforeRequest", this.handleBeforeHtmxRequest);
-    onHtmx<BeforeSwapDetails>("htmx:beforeSwap", this.handleBeforeHtmxSwap);
+    onHtmxBeforeRequestEvent(this.handleBeforeHtmxRequest);
+    onHtmxBeforeSwapEvent(this.handleBeforeHtmxSwap);
   }
 
-  private handleBeforeHtmxRequest = (e: HtmxEvent<unknown>) => {
-    const target = utils.parseHtmlElement(e.target);
-    if (!target) {
+  private handleBeforeHtmxRequest = (e: HtmxEvent<HtmxRequestCtx>) => {
+    const targetRes = utils.parseHtmlElement(e.target);
+    if (!targetRes.ok) {
       return;
     }
+    const target = targetRes.value;
 
     const errorContainer = target.querySelector(this._errorContainerSelector);
     if (!errorContainer) {
@@ -38,11 +38,12 @@ export class htmxErrorHandler {
     errorContainer.setAttribute("aria-hidden", "true");
   };
 
-  private handleBeforeHtmxSwap = (e: HtmxEvent<BeforeSwapDetails>) => {
-    const target = utils.parseHtmlElement(e.target);
-    if (!target) {
+  private handleBeforeHtmxSwap = (e: HtmxEvent<BeforeSwapEventContext>) => {
+    const targetRes = utils.parseHtmlElement(e.target);
+    if (!targetRes.ok) {
       return;
     }
+    const target = targetRes.value;
 
     if (!e.detail.isError) {
       return;

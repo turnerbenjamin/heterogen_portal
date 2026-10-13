@@ -9,13 +9,14 @@ import (
 
 
 templ MainTableSidebarContent[T querymodel.TableModel](
+    resourceEndpoint string,
     icons *icons.IconSet,
     tableData templates.TableData[T],
 ){
- <div id="edit-columns-sidebar" id="column-editor">
+ <div id="edit-columns-sidebar" class="sidebar-content-group-container">
 
             <div id="edit-columns-list" class="sortable-list mt-7 mb-6">
-            for _, headerColumn := range tableData.HeaderColumns{
+            for _, headerColumn := range tableData.Query.SelectCols{
                 <div 
                     role="button"
                     aria-label={fmt.Sprintf("%s column. Press Space to toggle select and arrow keys to move.", headerColumn.DisplayName)}
@@ -46,8 +47,13 @@ templ MainTableSidebarContent[T querymodel.TableModel](
                 Add Columns
             </button>
             <button
+                id="apply-column-edits-button"
                 aria-label="Apply column edits"
-                onclick="hg.notAFunction()" 
+                hx-get={resourceEndpoint} 
+                hx-swap="innerHTML" 
+                hx-target="#main-table"
+                hx-push-url="false"
+                hx-indicator="main"
             >
                 Apply
             </button>

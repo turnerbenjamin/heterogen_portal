@@ -1,7 +1,7 @@
 import constants from "./constants";
 import { NullTargetErr } from "./errors";
 import * as utils from "./utils";
-import { WindowManager } from "./windowManager";
+import { Hook, WindowManager } from "./windowManager";
 
 export class SidebarManager {
   private readonly _windowManager: WindowManager;
@@ -9,22 +9,20 @@ export class SidebarManager {
   public constructor(windowManager: WindowManager) {
     this._windowManager = windowManager;
 
-    document.addEventListener(constants.layers.sidebar.events.opened, () =>
+    this._windowManager.registerHook(Hook.openSidebar, () =>
       this.showSidebar(this._windowManager.GetSidebar()),
     );
 
-    document.addEventListener(constants.layers.sidebar.events.closed, () =>
+    this._windowManager.registerHook(Hook.closeSidebar, () =>
       this.hideSidebar(this._windowManager.GetSidebar()),
     );
 
-    document.addEventListener(
-      constants.layers.nestedSidebar.events.opened,
-      () => this.showSidebar(this._windowManager.GetNestedSidebar()),
+    this._windowManager.registerHook(Hook.openNestedSidebar, () =>
+      this.showSidebar(this._windowManager.GetNestedSidebar()),
     );
 
-    document.addEventListener(
-      constants.layers.nestedSidebar.events.closed,
-      () => this.hideSidebar(this._windowManager.GetNestedSidebar()),
+    this._windowManager.registerHook(Hook.closeNestedSidebar, () =>
+      this.hideSidebar(this._windowManager.GetNestedSidebar()),
     );
 
     document.addEventListener("animationend", this.handleSidebarTransitionEnd);
@@ -65,11 +63,12 @@ export class SidebarManager {
       return;
     }
 
-    const sidebar = utils.parseHtmlElement(e.target);
-    if (sidebar === null) {
+    const sidebarRes = utils.parseHtmlElement(e.target);
+    if (!sidebarRes.ok) {
       this._windowManager.displayError(new NullTargetErr(e));
       return;
     }
+    const sidebar = sidebarRes.value;
 
     if (e.animationName === constants.sidebarCommon.animations.showSidebar) {
       sidebar.classList.remove(constants.layers.modifierClasses.show);

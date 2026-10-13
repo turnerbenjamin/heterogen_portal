@@ -8,6 +8,7 @@ import (
 
 	"github.com/turnerbenjamin/heterogen_portal/internal/constants"
 	h "github.com/turnerbenjamin/heterogen_portal/internal/handlers"
+	"github.com/turnerbenjamin/heterogen_portal/internal/model"
 )
 
 func (app *application) addRoute(pattern string, handler http.Handler) {
@@ -100,6 +101,7 @@ func (app *application) addRoutes() {
 			[]h.Middleware[*h.UsersTableState]{
 				h.ParseJwtMiddleware[*h.UsersTableState](app.services.authService),
 				h.RequireSignInMiddleware[*h.UsersTableState](app.services.authService),
+				h.MainTableRequestEnrichment[*model.UsersModel, *h.UsersTableState](),
 			},
 			app.handlers.usersHandler.GetRoot,
 		),
@@ -112,6 +114,7 @@ func (app *application) addRoutes() {
 			[]h.Middleware[*h.BusinessesTableState]{
 				h.ParseJwtMiddleware[*h.BusinessesTableState](app.services.authService),
 				h.RequireSignInMiddleware[*h.BusinessesTableState](app.services.authService),
+				h.MainTableRequestEnrichment[*model.BusinessesModel, *h.BusinessesTableState](),
 			},
 			app.handlers.businessesHandler.GetRoot,
 		),
