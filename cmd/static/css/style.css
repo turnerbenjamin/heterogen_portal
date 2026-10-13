@@ -830,6 +830,7 @@ button.button-link {
         table-layout: fixed;
         font-weight: 700;
         border-bottom: 2px solid rgba(var(--base-fg-rgb) / 40%);
+        text-align: left;
 
         td {
             padding-bottom: var(--ws-4);
@@ -945,9 +946,9 @@ button.button-link {
     right: 0;
     top: 0;
     bottom: 0;
+    overflow: hidden;
 
     max-height: 100%;
-    overflow: hidden;
 
     display: flex;
     flex-direction: column;
@@ -961,7 +962,9 @@ button.button-link {
     #nested-sidebar-content {
         display: flex;
         flex-direction: column;
-        overflow: hidden;
+        min-height: 0;
+        padding-bottom: var(--ws-2);
+        overflow: visible;
 
         .sidebar-content-group-container {
             display: contents;

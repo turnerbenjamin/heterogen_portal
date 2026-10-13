@@ -25,21 +25,13 @@ type BusinessesHandler struct {
 	orderedTableColumns []templates.ColumnData[*model.BusinessesModel]
 	tableColumns        map[string]templates.ColumnData[*model.BusinessesModel]
 
-	defaultHeaderColumns    []templates.ColumnData[*model.BusinessesModel]
-	defaultHeaderColumnsSet map[string]struct{}
+	defaultQuery *templates.TableQuery[*model.BusinessesModel]
 }
 
 func NewBusinessesHandler(
 	templateStore TemplateStore,
 	businessesService BusinessesService,
 ) (*BusinessesHandler, error) {
-	defaultHeaderColumns := []templates.ColumnData[*model.BusinessesModel]{
-		businessTableColumns[model.ColBusinessesTradingName],
-		businessTableColumns[model.ColBusinessesReference],
-		businessTableColumns[model.ColBusinessesBusinessType],
-		businessTableColumns[model.ColBusinessesCounty],
-	}
-
 	h := &BusinessesHandler{
 		templateStore:     templateStore,
 		businessesService: businessesService,
@@ -47,12 +39,12 @@ func NewBusinessesHandler(
 		orderedTableColumns: OrderedColumnData(businessTableColumns),
 		tableColumns:        businessTableColumns,
 
-		defaultHeaderColumns:    defaultHeaderColumns,
-		defaultHeaderColumnsSet: make(map[string]struct{}, len(defaultHeaderColumns)),
-	}
-
-	for _, c := range h.defaultHeaderColumns {
-		h.defaultHeaderColumnsSet[c.Path] = struct{}{}
+		defaultQuery: newTableQuery([]templates.ColumnData[*model.BusinessesModel]{
+			columnDataBusinessesTradingName,
+			columnDataBusinessesReference,
+			columnDataBusinessesBusinessType,
+			columnDataBusinessesCounty,
+		}),
 	}
 
 	return h, nil
@@ -69,14 +61,6 @@ func (h *BusinessesHandler) GetRoot(
 		Title:       "HETEROGEN - BUSINESSES",
 	}
 
-	result, err := h.businessesService.ExecuteQuery(
-		r.Context(),
-		"",
-	)
-	if err != nil {
-		return NewServerError(err)
-	}
-
 	d := c.state.TableData
 
 	d.TableName = "Businesses"
@@ -85,9 +69,16 @@ func (h *BusinessesHandler) GetRoot(
 	d.OrderedColumnDefinitions = h.orderedTableColumns
 	d.ColumnDefinitions = h.tableColumns
 
-	if len(d.HeaderColumns) == 0 {
-		d.HeaderColumns = h.defaultHeaderColumns
-		d.HeaderColumnSet = h.defaultHeaderColumnsSet
+	if d.Query == nil {
+		d.Query = h.defaultQuery
+	}
+
+	result, err := h.businessesService.ExecuteQuery(
+		r.Context(),
+		d.Query.QueryString,
+	)
+	if err != nil {
+		return NewServerError(err)
 	}
 
 	d.Rows = result.Data
@@ -98,6 +89,7 @@ func (h *BusinessesHandler) GetRoot(
 		w,
 		pageConfig,
 		c.state.TableData,
+		r.URL.Path,
 	)
 	if err != nil {
 		return NewServerError(err)

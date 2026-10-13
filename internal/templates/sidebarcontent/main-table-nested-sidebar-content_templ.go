@@ -42,7 +42,7 @@ func MainTableNestedSidebarContent[T querymodel.TableModel](
 		}
 		for _, column := range tableData.OrderedColumnDefinitions {
 			hiddenClass := ""
-			_, doHide := tableData.HeaderColumnSet[column.Path]
+			_, doHide := tableData.Query.SelectColsSet[column.Path]
 			if doHide {
 				hiddenClass = "hidden"
 			}

@@ -3,6 +3,7 @@ package handlers
 import (
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/turnerbenjamin/heterogen_portal/internal/constants"
 	"github.com/turnerbenjamin/heterogen_portal/internal/templates"
@@ -20,32 +21,38 @@ func MainTableRequestEnrichment[MT querymodel.TableModel, PT TableState[MT]]() M
 			}
 			d.RequestTarget = requestTarget
 
-			selectCols, selectColsSet, err := parseSelectedColumns(r, d.ColumnDefinitions)
+			tableQuery, err := parseTableQuery(r, d.ColumnDefinitions)
 			if err != nil {
 				return NewServerError(err)
 			}
-			d.HeaderColumns = selectCols
-			d.HeaderColumnSet = selectColsSet
+			d.Query = tableQuery
 
 			return next(w, r, c)
 		}
 	}
 }
 
-func parseSelectedColumns[T querymodel.TableModel](
+func parseTableQuery[T querymodel.TableModel](
 	r *http.Request,
 	columns map[string]templates.ColumnData[T],
-) ([]templates.ColumnData[T], map[string]struct{}, error) {
+) (*templates.TableQuery[T], error) {
 	queryValues := r.URL.Query()
-
 	selectQuery := queryValues.Get("select")
 	if selectQuery == "" {
-		return nil, nil, nil
+		return nil, nil
 	}
 	selectQueryLen := len(selectQuery)
 
-	selectCols := []templates.ColumnData[T]{}
-	selectColsSet := map[string]struct{}{}
+	query := templates.TableQuery[T]{
+		SelectCols:    []templates.ColumnData[T]{},
+		SelectColsSet: map[string]struct{}{},
+	}
+
+	selectBuilder := strings.Builder{}
+	selectCount := 0
+
+	expandBuilder := strings.Builder{}
+	expandCount := 0
 
 	li := 0
 	ri := 0
@@ -63,25 +70,42 @@ func parseSelectedColumns[T querymodel.TableModel](
 		colPath := string(selectQuery[li : ri+1])
 		col, exists := columns[colPath]
 		if !exists {
-			return nil, nil, fmt.Errorf(
+			return nil, fmt.Errorf(
 				"unable to parse select columns: invalid column path '%s'",
 				colPath,
 			)
 		}
 
-		if _, selected := selectColsSet[colPath]; selected {
-			return nil, nil, fmt.Errorf(
+		if _, selected := query.SelectColsSet[colPath]; selected {
+			return nil, fmt.Errorf(
 				"unable to parse select columns: duplicate column found '%s'",
 				colPath,
 			)
 		}
 
-		selectCols = append(selectCols, col)
-		selectColsSet[colPath] = struct{}{}
+		query.SelectCols = append(query.SelectCols, col)
+		query.SelectColsSet[colPath] = struct{}{}
+
+		if col.Expansion != "" {
+			if expandCount > 0 {
+				expandBuilder.WriteByte(',')
+			}
+			expandBuilder.WriteString(col.Expansion)
+			expandCount++
+		} else {
+			if selectCount > 0 {
+				selectBuilder.WriteByte(',')
+			}
+			selectBuilder.WriteString(col.Path)
+			selectCount++
+		}
+
 		ri += 2
 		li = ri
 	}
-	return selectCols, selectColsSet, nil
+
+	query.QueryString = buildQueryString(selectBuilder, expandBuilder)
+	return &query, nil
 }
 
 func parseRequestTarget(r *http.Request) (templates.MainTableRequestTarget, error) {
@@ -102,4 +126,54 @@ func parseRequestTarget(r *http.Request) (templates.MainTableRequestTarget, erro
 			target,
 		)
 	}
+}
+
+func newTableQuery[T querymodel.TableModel](selectCols []templates.ColumnData[T]) *templates.TableQuery[T] {
+	selectBuilder := strings.Builder{}
+	expandBuilder := strings.Builder{}
+	selectColsSet := make(map[string]struct{}, len(selectCols))
+
+	expandCount := 0
+	selectCount := 0
+	for _, c := range selectCols {
+		selectColsSet[c.Path] = struct{}{}
+		if c.Expansion != "" {
+			if expandCount > 0 {
+				expandBuilder.WriteByte(',')
+			}
+			expandBuilder.WriteString(c.Expansion)
+			expandCount++
+		} else {
+			if selectCount > 0 {
+				selectBuilder.WriteByte(',')
+			}
+			selectBuilder.WriteString(c.Path)
+			selectCount++
+		}
+	}
+
+	return &templates.TableQuery[T]{
+		SelectCols:    selectCols,
+		SelectColsSet: selectColsSet,
+		QueryString:   buildQueryString(selectBuilder, expandBuilder),
+	}
+}
+
+func buildQueryString(selectBuilder strings.Builder, expandBuilder strings.Builder) string {
+	selectStmt := selectBuilder.String()
+	expandStmt := expandBuilder.String()
+
+	if selectStmt == "" && expandStmt == "" {
+		return ""
+	}
+
+	if selectStmt != "" && expandStmt == "" {
+		return fmt.Sprintf("select=%s", selectStmt)
+	}
+
+	if expandStmt != "" && selectStmt == "" {
+		return fmt.Sprintf("expand=%s", expandStmt)
+	}
+
+	return fmt.Sprintf("select=%s&expand=%s", selectStmt, expandStmt)
 }

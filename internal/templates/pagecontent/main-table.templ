@@ -51,7 +51,7 @@ templ table[T querymodel.TableModel](
 ){
     <thead>
         <tr>
-        for _, headerColumn := range tableData.HeaderColumns{
+        for _, headerColumn := range tableData.Query.SelectCols{
             <th 
                 data-column-path={headerColumn.Path}
             >
@@ -70,7 +70,7 @@ templ tableBody[T querymodel.TableModel](
 ){
 for _ , row := range tableData.Rows{
     <tr>
-    for _, headerColumn := range tableData.HeaderColumns{
+    for _, headerColumn := range tableData.Query.SelectCols{
         <td data-label={headerColumn.DisplayName}>{headerColumn.GetData(row)}</td>
     }
     </tr>

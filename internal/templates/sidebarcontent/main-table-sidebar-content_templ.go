@@ -16,6 +16,7 @@ import (
 )
 
 func MainTableSidebarContent[T querymodel.TableModel](
+	resourceEndpoint string,
 	icons *icons.IconSet,
 	tableData templates.TableData[T],
 ) templ.Component {
@@ -43,7 +44,7 @@ func MainTableSidebarContent[T querymodel.TableModel](
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		for _, headerColumn := range tableData.HeaderColumns {
+		for _, headerColumn := range tableData.Query.SelectCols {
 			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "<div role=\"button\" aria-label=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
@@ -51,7 +52,7 @@ func MainTableSidebarContent[T querymodel.TableModel](
 			var templ_7745c5c3_Var2 string
 			templ_7745c5c3_Var2, templ_7745c5c3_Err = templ.ResolveAttributeValue(fmt.Sprintf("%s column. Press Space to toggle select and arrow keys to move.", headerColumn.DisplayName))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `sidebarcontent/main-table-sidebar-content.templ`, Line: 21, Col: 136}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `sidebarcontent/main-table-sidebar-content.templ`, Line: 22, Col: 136}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var2)
 			if templ_7745c5c3_Err != nil {
@@ -64,7 +65,7 @@ func MainTableSidebarContent[T querymodel.TableModel](
 			var templ_7745c5c3_Var3 string
 			templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.ResolveAttributeValue(headerColumn.Path)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `sidebarcontent/main-table-sidebar-content.templ`, Line: 24, Col: 55}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `sidebarcontent/main-table-sidebar-content.templ`, Line: 25, Col: 55}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var3)
 			if templ_7745c5c3_Err != nil {
@@ -85,7 +86,7 @@ func MainTableSidebarContent[T querymodel.TableModel](
 			var templ_7745c5c3_Var4 string
 			templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(headerColumn.DisplayName)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `sidebarcontent/main-table-sidebar-content.templ`, Line: 29, Col: 73}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `sidebarcontent/main-table-sidebar-content.templ`, Line: 30, Col: 73}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 			if templ_7745c5c3_Err != nil {
@@ -98,7 +99,7 @@ func MainTableSidebarContent[T querymodel.TableModel](
 			var templ_7745c5c3_Var5 string
 			templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.ResolveAttributeValue(fmt.Sprintf("Remove %s column from selection", headerColumn.DisplayName))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `sidebarcontent/main-table-sidebar-content.templ`, Line: 33, Col: 103}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `sidebarcontent/main-table-sidebar-content.templ`, Line: 34, Col: 103}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var5)
 			if templ_7745c5c3_Err != nil {
@@ -117,7 +118,20 @@ func MainTableSidebarContent[T querymodel.TableModel](
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "</div><button id=\"open-add-column-screen-button\" class=\"button-link mb-4\" aria-label=\"Open add columns modal\" onclick=\"hg.showNestedSidebar()\">Add Columns</button> <button id=\"apply-column-edits-button\" aria-label=\"Apply column edits\" hx-get=\"/businesses\" hx-swap=\"innerHTML\" hx-target=\"#main-table\" hx-push-url=\"false\" hx-indicator=\"main\">Apply</button></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "</div><button id=\"open-add-column-screen-button\" class=\"button-link mb-4\" aria-label=\"Open add columns modal\" onclick=\"hg.showNestedSidebar()\">Add Columns</button> <button id=\"apply-column-edits-button\" aria-label=\"Apply column edits\" hx-get=\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var6 string
+		templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.ResolveAttributeValue(resourceEndpoint)
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `sidebarcontent/main-table-sidebar-content.templ`, Line: 52, Col: 40}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var6)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "\" hx-swap=\"innerHTML\" hx-target=\"#main-table\" hx-push-url=\"false\" hx-indicator=\"main\">Apply</button></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

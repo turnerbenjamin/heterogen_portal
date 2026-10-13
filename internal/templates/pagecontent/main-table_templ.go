@@ -139,7 +139,7 @@ func table[T querymodel.TableModel](
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		for _, headerColumn := range tableData.HeaderColumns {
+		for _, headerColumn := range tableData.Query.SelectCols {
 			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "<th data-column-path=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
@@ -215,7 +215,7 @@ func tableBody[T querymodel.TableModel](
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			for _, headerColumn := range tableData.HeaderColumns {
+			for _, headerColumn := range tableData.Query.SelectCols {
 				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "<td data-label=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err

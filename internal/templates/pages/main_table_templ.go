@@ -21,6 +21,7 @@ func MainTable[T querymodel.TableModel](
 	pageConfig templates.PageConfig,
 	icons *icons.IconSet,
 	tableData templates.TableData[T],
+	resourceEndpoint string,
 ) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
@@ -47,7 +48,7 @@ func MainTable[T querymodel.TableModel](
 			icons,
 			layouts.Content{
 				MainContent:          pagecontent.MainTable(icons, tableData),
-				SidebarContent:       sidebarcontent.MainTableSidebarContent(icons, tableData),
+				SidebarContent:       sidebarcontent.MainTableSidebarContent(resourceEndpoint, icons, tableData),
 				NestedSidebarContent: sidebarcontent.MainTableNestedSidebarContent(tableData),
 			},
 		).Render(ctx, templ_7745c5c3_Buffer)

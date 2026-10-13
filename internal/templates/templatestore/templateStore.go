@@ -48,11 +48,13 @@ func (s *store) ExecutePageUsers(
 	w io.Writer,
 	pageConfig templates.PageConfig,
 	tableData *templates.TableData[*model.UsersModel],
+	resourceEndpoint string,
 ) error {
 	page := pages.MainTable(
 		pageConfig,
 		icons.Set,
 		*tableData,
+		resourceEndpoint,
 	)
 	return page.Render(ctx, w)
 }
@@ -62,11 +64,13 @@ func (s *store) ExecutePageBusinesses(
 	w io.Writer,
 	pageConfig templates.PageConfig,
 	tableData *templates.TableData[*model.BusinessesModel],
+	resourceEndpoint string,
 ) error {
 	page := pages.MainTable(
 		pageConfig,
 		icons.Set,
 		*tableData,
+		resourceEndpoint,
 	)
 	return page.Render(ctx, w)
 }

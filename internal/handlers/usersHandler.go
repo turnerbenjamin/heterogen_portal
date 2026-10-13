@@ -25,20 +25,13 @@ type UsersHandler struct {
 	orderedTableColumns []templates.ColumnData[*model.UsersModel]
 	tableColumns        map[string]templates.ColumnData[*model.UsersModel]
 
-	defaultHeaderColumns    []templates.ColumnData[*model.UsersModel]
-	defaultHeaderColumnsSet map[string]struct{}
+	defaultQuery *templates.TableQuery[*model.UsersModel]
 }
 
 func NewUsersHandler(
 	templateStore TemplateStore,
 	usersService UsersService,
 ) (*UsersHandler, error) {
-	defaultHeaderColumns := []templates.ColumnData[*model.UsersModel]{
-		userTableColumns[model.ColUsersDisplayName],
-		userTableColumns[model.ColUsersGivenName],
-		userTableColumns[model.ColUsersFamilyName],
-	}
-
 	h := &UsersHandler{
 		templateStore: templateStore,
 		usersService:  usersService,
@@ -46,12 +39,11 @@ func NewUsersHandler(
 		orderedTableColumns: OrderedColumnData(userTableColumns),
 		tableColumns:        userTableColumns,
 
-		defaultHeaderColumns:    defaultHeaderColumns,
-		defaultHeaderColumnsSet: make(map[string]struct{}, len(defaultHeaderColumns)),
-	}
-
-	for _, c := range h.defaultHeaderColumns {
-		h.defaultHeaderColumnsSet[c.Path] = struct{}{}
+		defaultQuery: newTableQuery([]templates.ColumnData[*model.UsersModel]{
+			columnDataUsersDisplayName,
+			columnDataUsersGivenName,
+			columnDataUsersFamilyName,
+		}),
 	}
 
 	return h, nil
@@ -64,14 +56,6 @@ func (h *UsersHandler) GetRoot(w http.ResponseWriter, r *http.Request, c *Pipeli
 		Title:       "HETEROGEN - USERS",
 	}
 
-	result, err := h.usersService.ExecuteQuery(
-		r.Context(),
-		"",
-	)
-	if err != nil {
-		return NewServerError(err)
-	}
-
 	d := c.state.TableData
 
 	d.TableName = "Users"
@@ -80,8 +64,17 @@ func (h *UsersHandler) GetRoot(w http.ResponseWriter, r *http.Request, c *Pipeli
 	d.OrderedColumnDefinitions = h.orderedTableColumns
 	d.ColumnDefinitions = h.tableColumns
 
-	d.HeaderColumns = h.defaultHeaderColumns
-	d.HeaderColumnSet = h.defaultHeaderColumnsSet
+	if d.Query == nil {
+		d.Query = h.defaultQuery
+	}
+
+	result, err := h.usersService.ExecuteQuery(
+		r.Context(),
+		d.Query.QueryString,
+	)
+	if err != nil {
+		return NewServerError(err)
+	}
 
 	d.Rows = result.Data
 
@@ -90,6 +83,7 @@ func (h *UsersHandler) GetRoot(w http.ResponseWriter, r *http.Request, c *Pipeli
 		w,
 		pageConfig,
 		c.state.TableData,
+		r.URL.Path,
 	)
 	if err != nil {
 		return NewServerError(err)

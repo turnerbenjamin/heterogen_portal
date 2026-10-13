@@ -30,6 +30,7 @@ type TemplateStore interface {
 		w io.Writer,
 		pageConfig templates.PageConfig,
 		tableData *templates.TableData[*model.UsersModel],
+		resourceEndpoint string,
 	) error
 
 	ExecutePageBusinesses(
@@ -37,6 +38,7 @@ type TemplateStore interface {
 		w io.Writer,
 		pageConfig templates.PageConfig,
 		tableData *templates.TableData[*model.BusinessesModel],
+		resourceEndpoint string,
 	) error
 
 	ExecutePageOutOfAppError(
