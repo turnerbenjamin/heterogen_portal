@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/turnerbenjamin/heterogen_portal/internal/constants"
+	"github.com/turnerbenjamin/heterogen_portal/internal/etc"
 	"github.com/turnerbenjamin/querystack/queryerror"
 	"github.com/turnerbenjamin/querystack/querymodel"
 )
@@ -39,12 +40,12 @@ func (h QueryApiHandler) ProcessQuery(
 	w http.ResponseWriter,
 	r *http.Request,
 	c *PipelineContext[NoState],
-) *AppError {
+) *etc.AppError {
 	resource := r.PathValue(constants.UrlParamResource)
 
 	decodedQuery, err := h.decodeUrl(r.URL.RawQuery)
 	if err != nil {
-		return NewServerError(err)
+		return etc.NewServerError(err)
 	}
 
 	res, err := h.service.ExecuteQuery(
@@ -56,23 +57,23 @@ func (h QueryApiHandler) ProcessQuery(
 		errType := queryerror.GetErrorCategory(err)
 		if errType == queryerror.QueryErrInternalErr ||
 			errType == queryerror.QueryErrUnknown {
-			return NewServerError(err)
+			return etc.NewServerError(err)
 		} else {
-			return &AppError{
-				Code:       400,
-				ToastError: err.Error(),
-				innerError: err,
+			return &etc.AppError{
+				Code:         400,
+				ErrorMessage: err.Error(),
+				InnerError:   err,
 			}
 		}
 	}
 
 	jsonBody, err := h.jsonSerialiser.Marshal(res)
 	if err != nil {
-		return NewServerError(err)
+		return etc.NewServerError(err)
 	}
 
 	if _, err := w.Write(jsonBody); err != nil {
-		return NewServerError(err)
+		return etc.NewServerError(err)
 	}
 
 	return nil

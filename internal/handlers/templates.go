@@ -5,6 +5,7 @@ import (
 	"context"
 	"io"
 
+	"github.com/turnerbenjamin/heterogen_portal/internal/etc"
 	"github.com/turnerbenjamin/heterogen_portal/internal/model"
 	"github.com/turnerbenjamin/heterogen_portal/internal/templates"
 )
@@ -47,9 +48,9 @@ type TemplateStore interface {
 		pageConfig templates.PageConfig,
 	) error
 
-	ExecuteComponentErrors(
+	ExecuteRenderAppError(
 		ctx context.Context,
 		w io.Writer,
-		errorData templates.ErrorTemplateData,
+		errorData *etc.AppError,
 	) error
 }

@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/turnerbenjamin/heterogen_portal/internal/constants"
+	"github.com/turnerbenjamin/heterogen_portal/internal/etc"
 	"github.com/turnerbenjamin/heterogen_portal/internal/model"
 	"github.com/turnerbenjamin/heterogen_portal/internal/services"
 	"github.com/turnerbenjamin/heterogen_portal/internal/templates"
@@ -107,11 +108,10 @@ func TestGetRootHandler_HandlesExecuteTemplateErrors(t *testing.T) {
 	t.Parallel()
 
 	wantInnerError := errors.New("test auth services err")
-	wantAppError := &AppError{
-		Code:       http.StatusInternalServerError,
-		ToastError: constants.ErrMsgInternalServerError,
-		PageErrors: []string{constants.ErrMsgInternalServerError},
-		innerError: wantInnerError,
+	wantAppError := &etc.AppError{
+		Code:         http.StatusInternalServerError,
+		ErrorMessage: constants.ErrMsgInternalServerError,
+		InnerError:   wantInnerError,
 	}
 
 	r := httptest.NewRequest("GET", "/", strings.NewReader(""))
@@ -162,11 +162,10 @@ func TestGetSignInRedirectHandler_ReturnsErrorWhenCodeStateOrOidcStateMissing(t 
 	}
 
 	for _, td := range testData {
-		wantAppError := &AppError{
-			Code:       http.StatusInternalServerError,
-			ToastError: constants.ErrMsgInternalServerError,
-			PageErrors: []string{constants.ErrMsgInternalServerError},
-			innerError: td.WantInnerErr,
+		wantAppError := &etc.AppError{
+			Code:         http.StatusInternalServerError,
+			ErrorMessage: constants.ErrMsgInternalServerError,
+			InnerError:   td.WantInnerErr,
 		}
 
 		path := buildRedirectPathWithParams("/sign-in-redirect", td.codeParam, td.stateParam)
@@ -206,11 +205,10 @@ func TestGetSignInRedirectHandler_HandlesAuthServiceErrors(t *testing.T) {
 	t.Parallel()
 
 	wantInnerError := errors.New("test inner error")
-	wantAppError := &AppError{
-		Code:       http.StatusInternalServerError,
-		ToastError: constants.ErrMsgInternalServerError,
-		PageErrors: []string{constants.ErrMsgInternalServerError},
-		innerError: wantInnerError,
+	wantAppError := &etc.AppError{
+		Code:         http.StatusInternalServerError,
+		ErrorMessage: constants.ErrMsgInternalServerError,
+		InnerError:   wantInnerError,
 	}
 
 	testCodeValue := "test-code-value"
@@ -424,11 +422,10 @@ func TestSignedOutHandler_ReturnsErrIfHtmxRequest(t *testing.T) {
 	t.Parallel()
 
 	wantInnerError := errors.New(constants.ErrMsgHtmxNotSupported)
-	wantAppError := &AppError{
-		Code:       http.StatusInternalServerError,
-		ToastError: constants.ErrMsgInternalServerError,
-		PageErrors: []string{constants.ErrMsgInternalServerError},
-		innerError: wantInnerError,
+	wantAppError := &etc.AppError{
+		Code:         http.StatusInternalServerError,
+		ErrorMessage: constants.ErrMsgInternalServerError,
+		InnerError:   wantInnerError,
 	}
 
 	r := httptest.NewRequest("GET", "/", strings.NewReader(""))
@@ -450,11 +447,10 @@ func TestGetSignedOutHandler_HandlesExecuteErr(t *testing.T) {
 	t.Parallel()
 
 	wantInnerError := errors.New("some template error")
-	wantAppError := &AppError{
-		Code:       http.StatusInternalServerError,
-		ToastError: constants.ErrMsgInternalServerError,
-		PageErrors: []string{constants.ErrMsgInternalServerError},
-		innerError: wantInnerError,
+	wantAppError := &etc.AppError{
+		Code:         http.StatusInternalServerError,
+		ErrorMessage: constants.ErrMsgInternalServerError,
+		InnerError:   wantInnerError,
 	}
 
 	r := httptest.NewRequest("GET", "/", strings.NewReader(""))

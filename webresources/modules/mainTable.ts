@@ -7,8 +7,8 @@ import {
   NullParentErr,
 } from "./errors";
 import {
-  AfterSwapEventContext,
-  ConfigRequestEventContext,
+  HtmxAfterSwapEvent,
+  HtmxConfigRequestEvent,
   HtmxEvent,
   onHtmxAfterSwapEvent,
   onHtmxConfigRequestEvent,
@@ -55,9 +55,9 @@ export class MainTable {
   }
 
   private handleHtmxConfigRequestEvent = (
-    e: HtmxEvent<ConfigRequestEventContext>,
+    e: HtmxEvent<HtmxConfigRequestEvent>,
   ) => {
-    const targetRes = parseHtmlElement(e.detail.elt);
+    const targetRes = parseHtmlElement(e.detail.ctx.sourceElement);
     if (!targetRes.ok) {
       e.preventDefault();
       this._windowManager.displayError(targetRes.error);
@@ -81,15 +81,14 @@ export class MainTable {
 
     if (!selectRes.value.isDiff) {
       e.preventDefault();
-      // this._windowManager.hgHandlerCloseSidebar();
     }
 
-    e.detail.path += `?select=${selectRes.value.statement}`;
+    e.detail.ctx.request.action += `?select=${selectRes.value.statement}`;
     this.snapshotColumnState();
   };
 
-  private handleHtmxAfterSwapEvent = (e: HtmxEvent<AfterSwapEventContext>) => {
-    const targetRes = parseHtmlElement(e.detail.elt);
+  private handleHtmxAfterSwapEvent = (e: HtmxEvent<HtmxAfterSwapEvent>) => {
+    const targetRes = parseHtmlElement(e.detail.ctx.sourceElement);
     if (!targetRes.ok) {
       e.preventDefault();
       this._windowManager.displayError(targetRes.error);

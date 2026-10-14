@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 
+	"github.com/turnerbenjamin/heterogen_portal/internal/etc"
 	"github.com/turnerbenjamin/heterogen_portal/internal/icons"
 	"github.com/turnerbenjamin/heterogen_portal/internal/model"
 	"github.com/turnerbenjamin/heterogen_portal/internal/templates"
@@ -84,10 +85,10 @@ func (s *store) ExecutePageOutOfAppError(
 	return page.Render(ctx, w)
 }
 
-func (s *store) ExecuteComponentErrors(
+func (s *store) ExecuteRenderAppError(
 	ctx context.Context,
 	w io.Writer,
-	errorData templates.ErrorTemplateData,
+	errorData *etc.AppError,
 ) error {
 	component := components.Errors(errorData)
 	return component.Render(ctx, w)

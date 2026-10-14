@@ -43,16 +43,6 @@ interface AlertElement {
 }
 
 export class AlertManager {
-  private _alertElement: AlertElement;
-
-  constructor() {
-    const getAlertElementResult = this.getAlertElement();
-    if (!getAlertElementResult.ok) {
-      throw getAlertElementResult.error;
-    }
-    this._alertElement = getAlertElementResult.value;
-  }
-
   public renderNotificationAlert = (title: string, message: string): void => {
     return this.renderAlert({
       type: "notification",
@@ -82,35 +72,52 @@ export class AlertManager {
     });
   };
 
+  public renderServerAlert() {
+    this.renderAlert();
+  }
+
   private renderAlert = (
-    alert: NotificationAlert | ErrorAlert | ConfirmationAlert,
+    alert?: NotificationAlert | ErrorAlert | ConfirmationAlert,
   ): void => {
-    this._alertElement.container.classList.remove(
+    const alertElementRes = this.getAlertElement();
+    if (!alertElementRes.ok) {
+      return lastDitchHandler(alertElementRes.error);
+    }
+    const alertElement = alertElementRes.value;
+
+    alertElement.container.classList.remove(
       constants.layers.alert.modifiers.error,
     );
 
-    this._alertElement.title.textContent = alert.title;
-    this._alertElement.message.textContent = alert.message;
-    this._alertElement.confirmBtn.textContent = alert.confirmButtonText;
+    if (alert) {
+      alertElement.title.textContent = alert.title;
+      alertElement.message.textContent = alert.message;
+      alertElement.confirmBtn.textContent = alert.confirmButtonText;
+    }
 
-    setVisibility(this._alertElement.detail, alert.type === "error");
-    if (alert.type === "error") {
-      this._alertElement.detail.textContent = alert.detail;
-      this._alertElement.container.classList.add(
+    setVisibility(alertElement.detail, alert?.type === "error");
+    if (alert?.type === "error") {
+      alertElement.detail.textContent = alert.detail;
+      alertElement.container.classList.add(
         constants.layers.alert.modifiers.error,
       );
     }
 
-    setVisibility(this._alertElement.declineBtn, alert.type === "confirmation");
-    if (alert.type === "confirmation") {
-      this._alertElement.detail.textContent = alert.declineButtonText;
+    setVisibility(alertElement.declineBtn, alert?.type === "confirmation");
+    if (alert?.type === "confirmation") {
+      alertElement.detail.textContent = alert.declineButtonText;
     }
 
-    setVisibility(this._alertElement.container, true);
+    setVisibility(alertElement.container, true);
   };
 
   public hideAlert() {
-    setVisibility(this._alertElement.container, false);
+    const alertElementRes = this.getAlertElement();
+    if (!alertElementRes.ok) {
+      return lastDitchHandler(alertElementRes.error);
+    }
+    const alertElement = alertElementRes.value;
+    setVisibility(alertElement.container, false);
   }
 
   private getAlertElement = (): Result<AlertElement> => {

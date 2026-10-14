@@ -29,7 +29,7 @@ func OutOfAppError() templ.Component {
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<main class=\"focussed-main\"><div class=\"flex col justify-content-center align-items-center gap-4 mt-8\"><h1>Heterogen</h1><h2>Portal</h2><p class=\"error-container show mt-4 txt-center\">There has been an unexpected error, please try again later.</p></div></main>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<main class=\"focussed-main\"><div id=\"last-ditch-err-container\"><h1 id=\"last-ditch-err-title\">Server Error</h1><p id=\"last-ditch-err-message\">There has been an unexpected error, please try again later.</p></div></main>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

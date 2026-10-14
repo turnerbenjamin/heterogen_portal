@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"github.com/turnerbenjamin/heterogen_portal/internal/constants"
+	"github.com/turnerbenjamin/heterogen_portal/internal/etc"
 	"github.com/turnerbenjamin/heterogen_portal/internal/templates"
 )
 
@@ -52,7 +53,7 @@ func TestWrite_ReturnsError_ForUnsupportedContentType(t *testing.T) {
 	}
 
 	for _, td := range testData {
-		testAppError := &AppError{Code: 500, ToastError: "Test error"}
+		testAppError := &etc.AppError{Code: 500, ErrorMessage: "Test error"}
 
 		r := httptest.NewRequest("GET", "/", strings.NewReader(""))
 
@@ -61,7 +62,7 @@ func TestWrite_ReturnsError_ForUnsupportedContentType(t *testing.T) {
 
 		ts := NewMockTemplateStore(t)
 		ts.EXPECT().
-			ExecuteComponentErrors(mock.Anything, mock.Anything, mock.Anything).
+			ExecuteRenderAppError(mock.Anything, mock.Anything, mock.Anything).
 			Maybe().
 			Return(nil)
 
@@ -83,10 +84,9 @@ func TestWrite_ReturnsError_ForUnsupportedContentType(t *testing.T) {
 func TestWrite_HandlesErrorResponseWhenContentTypeIsJson(t *testing.T) {
 	t.Parallel()
 
-	testAppError := &AppError{
-		Code:       200,
-		ToastError: "Test error",
-		PageErrors: []string{"A page error", "and another"},
+	testAppError := &etc.AppError{
+		Code:         200,
+		ErrorMessage: "Test error",
 	}
 	expectedResponse := "expected response"
 
@@ -113,10 +113,9 @@ func TestWrite_HandlesErrorResponseWhenContentTypeIsJson(t *testing.T) {
 func TestWrite_ReturnsErrorsFromJsonMarshal(t *testing.T) {
 	t.Parallel()
 
-	testAppError := &AppError{
-		Code:       500,
-		ToastError: "Test error",
-		PageErrors: []string{"A page error", "and another"},
+	testAppError := &etc.AppError{
+		Code:         500,
+		ErrorMessage: "Test error",
 	}
 	expectedErr := errors.New("expected error")
 
@@ -138,10 +137,9 @@ func TestWrite_ReturnsErrorsFromJsonMarshal(t *testing.T) {
 func TestWrite_SetsErrorCodeIfNotSet(t *testing.T) {
 	t.Parallel()
 
-	testAppError := &AppError{
-		Code:       0,
-		ToastError: "Test error",
-		PageErrors: []string{"A page error", "and another"},
+	testAppError := &etc.AppError{
+		Code:         0,
+		ErrorMessage: "Test error",
 	}
 
 	r := httptest.NewRequest("GET", "/", strings.NewReader(""))
@@ -165,10 +163,9 @@ func TestWrite_HandlesErrorResponseWhenContentTypeIsHtmlForHTMXRequest(t *testin
 
 	wantStatusCode := 500
 
-	testAppError := &AppError{
-		Code:       wantStatusCode,
-		ToastError: "Some toast error",
-		PageErrors: []string{"A page error", "and another"},
+	testAppError := &etc.AppError{
+		Code:         wantStatusCode,
+		ErrorMessage: "Some toast error",
 	}
 
 	ts := NewMockTemplateStore(t)
@@ -179,10 +176,10 @@ func TestWrite_HandlesErrorResponseWhenContentTypeIsHtmlForHTMXRequest(t *testin
 	w := httptest.NewRecorder()
 	w.Header().Set("Content-Type", ContentTypeHtml.String())
 
-	var capturedErrorData templates.ErrorTemplateData
+	var capturedErrorData *etc.AppError
 	ts.EXPECT().
-		ExecuteComponentErrors(r.Context(), w, mock.Anything).
-		Run(func(_ context.Context, _ io.Writer, ed templates.ErrorTemplateData) {
+		ExecuteRenderAppError(r.Context(), w, mock.Anything).
+		Run(func(_ context.Context, _ io.Writer, ed *etc.AppError) {
 			capturedErrorData = ed
 		}).
 		Once().
@@ -199,9 +196,8 @@ func TestWrite_HandlesErrorResponseWhenContentTypeIsHtmlForHTMXRequest(t *testin
 	assert.Equal(t, wantStatusCode, w.Code)
 
 	assert.Equal(t, testAppError.Code, capturedErrorData.Code)
-	assert.Equal(t, testAppError.ToastError, capturedErrorData.Error)
-	assert.ElementsMatch(t, testAppError.PageErrors, capturedErrorData.SubErrors)
-	assert.Equal(t, testAppError.innerError, capturedErrorData.InnerError)
+	assert.Equal(t, testAppError.ErrorMessage, capturedErrorData.ErrorMessage)
+	assert.Equal(t, testAppError.InnerError, capturedErrorData.InnerError)
 }
 
 func TestWrite_HandlesErrorResponseWhenContentTypeIsHtmlForNonHTMXRequest(t *testing.T) {
@@ -209,10 +205,9 @@ func TestWrite_HandlesErrorResponseWhenContentTypeIsHtmlForNonHTMXRequest(t *tes
 
 	wantStatusCode := 418
 
-	testAppError := &AppError{
-		Code:       wantStatusCode,
-		ToastError: "Some toast error",
-		PageErrors: []string{"A page error", "and another"},
+	testAppError := &etc.AppError{
+		Code:         wantStatusCode,
+		ErrorMessage: "Some toast error",
 	}
 
 	ts := NewMockTemplateStore(t)
@@ -263,7 +258,7 @@ func TestWrite_ShouldReturnErrorsReturnedFromExecuteForNonHtmxRequests(t *testin
 	h := NewErrorHandler(ts, js)
 
 	r := httptest.NewRequest("GET", "/", strings.NewReader(""))
-	gotErr := h.Write(w, r, &AppError{Code: 200})
+	gotErr := h.Write(w, r, &etc.AppError{Code: 200})
 
 	assert.EqualError(t, gotErr, wantError.Error())
 }
@@ -278,7 +273,7 @@ func TestWrite_ShouldReturnErrorsReturnedFromExecuteForHtmxRequests(t *testing.T
 
 	ts := NewMockTemplateStore(t)
 	ts.EXPECT().
-		ExecuteComponentErrors(mock.Anything, mock.Anything, mock.Anything).
+		ExecuteRenderAppError(mock.Anything, mock.Anything, mock.Anything).
 		Return(wantError)
 
 	js := NewMockJsonSerialiser(t)
@@ -289,7 +284,7 @@ func TestWrite_ShouldReturnErrorsReturnedFromExecuteForHtmxRequests(t *testing.T
 	r := httptest.NewRequest("GET", "/", strings.NewReader(""))
 	r.Header.Set(constants.HxRequestHeaderRequest, "true")
 
-	gotErr := h.Write(w, r, &AppError{Code: 200})
+	gotErr := h.Write(w, r, &etc.AppError{Code: 200})
 
 	assert.EqualError(t, gotErr, wantError.Error())
 }

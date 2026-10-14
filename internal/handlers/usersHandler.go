@@ -7,6 +7,7 @@ import (
 	"context"
 	"net/http"
 
+	"github.com/turnerbenjamin/heterogen_portal/internal/etc"
 	"github.com/turnerbenjamin/heterogen_portal/internal/model"
 	"github.com/turnerbenjamin/heterogen_portal/internal/templates"
 	"github.com/turnerbenjamin/querystack/querymodel"
@@ -50,7 +51,7 @@ func NewUsersHandler(
 }
 
 // GetRootHandler returns a handler for the application root.
-func (h *UsersHandler) GetRoot(w http.ResponseWriter, r *http.Request, c *PipelineContext[*UsersTableState]) *AppError {
+func (h *UsersHandler) GetRoot(w http.ResponseWriter, r *http.Request, c *PipelineContext[*UsersTableState]) *etc.AppError {
 	pageConfig := templates.PageConfig{
 		ContentOnly: DoSendContentOnly(r),
 		Title:       "HETEROGEN - USERS",
@@ -73,7 +74,7 @@ func (h *UsersHandler) GetRoot(w http.ResponseWriter, r *http.Request, c *Pipeli
 		d.Query.QueryString,
 	)
 	if err != nil {
-		return NewServerError(err)
+		return etc.NewServerError(err)
 	}
 
 	d.Rows = result.Data
@@ -86,7 +87,8 @@ func (h *UsersHandler) GetRoot(w http.ResponseWriter, r *http.Request, c *Pipeli
 		r.URL.Path,
 	)
 	if err != nil {
-		return NewServerError(err)
+		return etc.NewServerError(err)
 	}
+
 	return nil
 }

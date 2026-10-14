@@ -52,7 +52,7 @@ templ App(
                 })
                 @Sidebar(pageConfig, icons, content.SidebarContent)
                 @NestedSidebar(pageConfig, icons, content.NestedSidebarContent)
-                @components.Alert()
+                @components.Alert(pageConfig, components.AlertData{})
                 <div id="app">
                     <aside id="title-bar">Title</aside>
                     <nav id="nav-bar">

@@ -10,6 +10,7 @@ import (
 	"net/http"
 
 	mock "github.com/stretchr/testify/mock"
+	"github.com/turnerbenjamin/heterogen_portal/internal/etc"
 	"github.com/turnerbenjamin/heterogen_portal/internal/model"
 	"github.com/turnerbenjamin/heterogen_portal/internal/services"
 	"github.com/turnerbenjamin/heterogen_portal/internal/templates"
@@ -622,7 +623,7 @@ func (_m *MockErrorWriter) EXPECT() *MockErrorWriter_Expecter {
 }
 
 // Write provides a mock function for the type MockErrorWriter
-func (_mock *MockErrorWriter) Write(responseWriter http.ResponseWriter, request *http.Request, appError *AppError) error {
+func (_mock *MockErrorWriter) Write(responseWriter http.ResponseWriter, request *http.Request, appError *etc.AppError) error {
 	ret := _mock.Called(responseWriter, request, appError)
 
 	if len(ret) == 0 {
@@ -630,7 +631,7 @@ func (_mock *MockErrorWriter) Write(responseWriter http.ResponseWriter, request 
 	}
 
 	var r0 error
-	if returnFunc, ok := ret.Get(0).(func(http.ResponseWriter, *http.Request, *AppError) error); ok {
+	if returnFunc, ok := ret.Get(0).(func(http.ResponseWriter, *http.Request, *etc.AppError) error); ok {
 		r0 = returnFunc(responseWriter, request, appError)
 	} else {
 		r0 = ret.Error(0)
@@ -646,12 +647,12 @@ type MockErrorWriter_Write_Call struct {
 // Write is a helper method to define mock.On call
 //   - responseWriter http.ResponseWriter
 //   - request *http.Request
-//   - appError *AppError
+//   - appError *etc.AppError
 func (_e *MockErrorWriter_Expecter) Write(responseWriter any, request any, appError any) *MockErrorWriter_Write_Call {
 	return &MockErrorWriter_Write_Call{Call: _e.mock.On("Write", responseWriter, request, appError)}
 }
 
-func (_c *MockErrorWriter_Write_Call) Run(run func(responseWriter http.ResponseWriter, request *http.Request, appError *AppError)) *MockErrorWriter_Write_Call {
+func (_c *MockErrorWriter_Write_Call) Run(run func(responseWriter http.ResponseWriter, request *http.Request, appError *etc.AppError)) *MockErrorWriter_Write_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 http.ResponseWriter
 		if args[0] != nil {
@@ -661,9 +662,9 @@ func (_c *MockErrorWriter_Write_Call) Run(run func(responseWriter http.ResponseW
 		if args[1] != nil {
 			arg1 = args[1].(*http.Request)
 		}
-		var arg2 *AppError
+		var arg2 *etc.AppError
 		if args[2] != nil {
-			arg2 = args[2].(*AppError)
+			arg2 = args[2].(*etc.AppError)
 		}
 		run(
 			arg0,
@@ -679,7 +680,7 @@ func (_c *MockErrorWriter_Write_Call) Return(err error) *MockErrorWriter_Write_C
 	return _c
 }
 
-func (_c *MockErrorWriter_Write_Call) RunAndReturn(run func(responseWriter http.ResponseWriter, request *http.Request, appError *AppError) error) *MockErrorWriter_Write_Call {
+func (_c *MockErrorWriter_Write_Call) RunAndReturn(run func(responseWriter http.ResponseWriter, request *http.Request, appError *etc.AppError) error) *MockErrorWriter_Write_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -996,69 +997,6 @@ type MockTemplateStore_Expecter struct {
 
 func (_m *MockTemplateStore) EXPECT() *MockTemplateStore_Expecter {
 	return &MockTemplateStore_Expecter{mock: &_m.Mock}
-}
-
-// ExecuteComponentErrors provides a mock function for the type MockTemplateStore
-func (_mock *MockTemplateStore) ExecuteComponentErrors(ctx context.Context, w io.Writer, errorData templates.ErrorTemplateData) error {
-	ret := _mock.Called(ctx, w, errorData)
-
-	if len(ret) == 0 {
-		panic("no return value specified for ExecuteComponentErrors")
-	}
-
-	var r0 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, io.Writer, templates.ErrorTemplateData) error); ok {
-		r0 = returnFunc(ctx, w, errorData)
-	} else {
-		r0 = ret.Error(0)
-	}
-	return r0
-}
-
-// MockTemplateStore_ExecuteComponentErrors_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ExecuteComponentErrors'
-type MockTemplateStore_ExecuteComponentErrors_Call struct {
-	*mock.Call
-}
-
-// ExecuteComponentErrors is a helper method to define mock.On call
-//   - ctx context.Context
-//   - w io.Writer
-//   - errorData templates.ErrorTemplateData
-func (_e *MockTemplateStore_Expecter) ExecuteComponentErrors(ctx any, w any, errorData any) *MockTemplateStore_ExecuteComponentErrors_Call {
-	return &MockTemplateStore_ExecuteComponentErrors_Call{Call: _e.mock.On("ExecuteComponentErrors", ctx, w, errorData)}
-}
-
-func (_c *MockTemplateStore_ExecuteComponentErrors_Call) Run(run func(ctx context.Context, w io.Writer, errorData templates.ErrorTemplateData)) *MockTemplateStore_ExecuteComponentErrors_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		var arg0 context.Context
-		if args[0] != nil {
-			arg0 = args[0].(context.Context)
-		}
-		var arg1 io.Writer
-		if args[1] != nil {
-			arg1 = args[1].(io.Writer)
-		}
-		var arg2 templates.ErrorTemplateData
-		if args[2] != nil {
-			arg2 = args[2].(templates.ErrorTemplateData)
-		}
-		run(
-			arg0,
-			arg1,
-			arg2,
-		)
-	})
-	return _c
-}
-
-func (_c *MockTemplateStore_ExecuteComponentErrors_Call) Return(err error) *MockTemplateStore_ExecuteComponentErrors_Call {
-	_c.Call.Return(err)
-	return _c
-}
-
-func (_c *MockTemplateStore_ExecuteComponentErrors_Call) RunAndReturn(run func(ctx context.Context, w io.Writer, errorData templates.ErrorTemplateData) error) *MockTemplateStore_ExecuteComponentErrors_Call {
-	_c.Call.Return(run)
-	return _c
 }
 
 // ExecutePageApp provides a mock function for the type MockTemplateStore
@@ -1402,6 +1340,69 @@ func (_c *MockTemplateStore_ExecutePageUsers_Call) Return(err error) *MockTempla
 }
 
 func (_c *MockTemplateStore_ExecutePageUsers_Call) RunAndReturn(run func(ctx context.Context, w io.Writer, pageConfig templates.PageConfig, tableData *templates.TableData[*model.UsersModel], resourceEndpoint string) error) *MockTemplateStore_ExecutePageUsers_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// ExecuteRenderAppError provides a mock function for the type MockTemplateStore
+func (_mock *MockTemplateStore) ExecuteRenderAppError(ctx context.Context, w io.Writer, errorData *etc.AppError) error {
+	ret := _mock.Called(ctx, w, errorData)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ExecuteRenderAppError")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, io.Writer, *etc.AppError) error); ok {
+		r0 = returnFunc(ctx, w, errorData)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockTemplateStore_ExecuteRenderAppError_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ExecuteRenderAppError'
+type MockTemplateStore_ExecuteRenderAppError_Call struct {
+	*mock.Call
+}
+
+// ExecuteRenderAppError is a helper method to define mock.On call
+//   - ctx context.Context
+//   - w io.Writer
+//   - errorData *etc.AppError
+func (_e *MockTemplateStore_Expecter) ExecuteRenderAppError(ctx any, w any, errorData any) *MockTemplateStore_ExecuteRenderAppError_Call {
+	return &MockTemplateStore_ExecuteRenderAppError_Call{Call: _e.mock.On("ExecuteRenderAppError", ctx, w, errorData)}
+}
+
+func (_c *MockTemplateStore_ExecuteRenderAppError_Call) Run(run func(ctx context.Context, w io.Writer, errorData *etc.AppError)) *MockTemplateStore_ExecuteRenderAppError_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 io.Writer
+		if args[1] != nil {
+			arg1 = args[1].(io.Writer)
+		}
+		var arg2 *etc.AppError
+		if args[2] != nil {
+			arg2 = args[2].(*etc.AppError)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockTemplateStore_ExecuteRenderAppError_Call) Return(err error) *MockTemplateStore_ExecuteRenderAppError_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockTemplateStore_ExecuteRenderAppError_Call) RunAndReturn(run func(ctx context.Context, w io.Writer, errorData *etc.AppError) error) *MockTemplateStore_ExecuteRenderAppError_Call {
 	_c.Call.Return(run)
 	return _c
 }

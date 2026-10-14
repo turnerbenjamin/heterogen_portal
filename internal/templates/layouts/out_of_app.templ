@@ -1,0 +1,35 @@
+package layouts
+
+import (
+    "github.com/turnerbenjamin/heterogen_portal/internal/templates"
+)
+
+templ OutOfApp(
+    pageConfig templates.PageConfig,
+    content templ.Component,
+) {
+
+    <!DOCTYPE html>
+        <html lang="en">
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1">
+
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1">
+                <meta name="description" content="Seed management tool"/>
+
+                if len(pageConfig.Title) > 0{
+                    <title>{pageConfig.Title}</title>
+                } else {
+                    <title>HETEROGEN</title>
+                }
+
+                <link href="/static/css/style.css" rel="stylesheet">
+                <link rel="icon" type="image/x-icon" href="/static/images/favicon.ico">
+            </head>
+            <body>
+             @content 
+        </body>
+    </html>
+}
