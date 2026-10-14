@@ -9,6 +9,7 @@ import (
 	"net/http"
 
 	"github.com/turnerbenjamin/heterogen_portal/internal/constants"
+	"github.com/turnerbenjamin/heterogen_portal/internal/etc"
 	"github.com/turnerbenjamin/heterogen_portal/internal/templates"
 )
 
@@ -41,7 +42,7 @@ func NewErrorHandler(
 func (h *ErrorHandler) Write(
 	w http.ResponseWriter,
 	r *http.Request,
-	appErr *AppError,
+	appErr *etc.AppError,
 ) error {
 	// Write response code
 	if appErr.Code == 0 {
@@ -73,13 +74,6 @@ func (h *ErrorHandler) Write(
 		return err
 	}
 
-	errorData := templates.ErrorTemplateData{
-		Code:       appErr.Code,
-		Error:      appErr.ToastError,
-		SubErrors:  appErr.PageErrors,
-		InnerError: appErr.innerError,
-	}
-
 	// If the request is not from htmx, return a full page, out of app error
 	// template
 	if r.Header.Get(constants.HxRequestHeaderRequest) == "" {
@@ -90,9 +84,9 @@ func (h *ErrorHandler) Write(
 		)
 	}
 
-	return h.templateStore.ExecuteComponentErrors(
+	return h.templateStore.ExecuteRenderAppError(
 		r.Context(),
 		w,
-		errorData,
+		appErr,
 	)
 }

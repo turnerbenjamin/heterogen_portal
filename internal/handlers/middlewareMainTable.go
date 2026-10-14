@@ -6,24 +6,25 @@ import (
 	"strings"
 
 	"github.com/turnerbenjamin/heterogen_portal/internal/constants"
+	"github.com/turnerbenjamin/heterogen_portal/internal/etc"
 	"github.com/turnerbenjamin/heterogen_portal/internal/templates"
 	"github.com/turnerbenjamin/querystack/querymodel"
 )
 
 func MainTableRequestEnrichment[MT querymodel.TableModel, PT TableState[MT]]() Middleware[PT] {
 	return func(next AppHandler[PT]) AppHandler[PT] {
-		return func(w http.ResponseWriter, r *http.Request, c *PipelineContext[PT]) *AppError {
+		return func(w http.ResponseWriter, r *http.Request, c *PipelineContext[PT]) *etc.AppError {
 			d := c.state.GetTableData()
 
 			requestTarget, error := parseRequestTarget(r)
 			if error != nil {
-				return NewServerError(error)
+				return etc.NewServerError(error)
 			}
 			d.RequestTarget = requestTarget
 
 			tableQuery, err := parseTableQuery(r, d.ColumnDefinitions)
 			if err != nil {
-				return NewServerError(err)
+				return etc.NewServerError(err)
 			}
 			d.Query = tableQuery
 
@@ -114,11 +115,11 @@ func parseRequestTarget(r *http.Request) (templates.MainTableRequestTarget, erro
 	switch target {
 	case "":
 		return templates.MainTableRequestTargetFullPage, nil
-	case "page-content":
+	case "div#page-content":
 		return templates.MainTableRequestTargetPageContent, nil
-	case "main-table":
+	case "table#main-table":
 		return templates.MainTableRequestTargetTable, nil
-	case "main-table-body":
+	case "tbody#main-table-body":
 		return templates.MainTableRequestTargetTableBody, nil
 	default:
 		return templates.MainTableRequestTargetFullPage, fmt.Errorf(

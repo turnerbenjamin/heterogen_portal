@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"github.com/turnerbenjamin/heterogen_portal/internal/constants"
+	"github.com/turnerbenjamin/heterogen_portal/internal/etc"
 	"github.com/turnerbenjamin/heterogen_portal/internal/model"
 	"github.com/turnerbenjamin/heterogen_portal/internal/services"
 )
@@ -217,11 +218,10 @@ func TestRequireSignInMiddleware_HandlesAuthServicesErrors(t *testing.T) {
 	t.Parallel()
 
 	wantInnerError := errors.New("test auth services err")
-	wantAppError := &AppError{
-		Code:       http.StatusInternalServerError,
-		ToastError: constants.ErrMsgInternalServerError,
-		PageErrors: []string{constants.ErrMsgInternalServerError},
-		innerError: wantInnerError,
+	wantAppError := &etc.AppError{
+		Code:         http.StatusInternalServerError,
+		ErrorMessage: constants.ErrMsgInternalServerError,
+		InnerError:   wantInnerError,
 	}
 	wantTestHandlerCallCount := 0
 
@@ -268,11 +268,11 @@ func TestRequireSignInMiddleware_CallsNextWhenUserIsNotNil(t *testing.T) {
 
 type testHandler[T any] struct {
 	t          *testing.T
-	returnsErr *AppError
+	returnsErr *etc.AppError
 	callCount  int
 }
 
-func (m *testHandler[T]) handle(_ http.ResponseWriter, _ *http.Request, _ *PipelineContext[T]) *AppError {
+func (m *testHandler[T]) handle(_ http.ResponseWriter, _ *http.Request, _ *PipelineContext[T]) *etc.AppError {
 	m.t.Helper()
 
 	m.callCount = m.callCount + 1

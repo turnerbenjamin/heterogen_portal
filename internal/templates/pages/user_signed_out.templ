@@ -12,9 +12,5 @@ templ UserSignedOut(
     pageConfig templates.PageConfig,
     icons *icons.IconSet,
 ) {
-    @layouts.App(
-        pageConfig,
-        icons,
-        layouts.Content{MainContent: pagecontent.UserSignedOut()},
-    )
+    @layouts.OutOfApp(pageConfig, pagecontent.UserSignedOut())
 }

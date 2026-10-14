@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/turnerbenjamin/heterogen_portal/internal/constants"
+	"github.com/turnerbenjamin/heterogen_portal/internal/etc"
 	"github.com/turnerbenjamin/querystack/queryerror"
 	"github.com/turnerbenjamin/querystack/querymodel"
 )
@@ -71,7 +72,7 @@ func TestProcessQuery_HandlesErrorsFromDecodeUrl(t *testing.T) {
 	w := httptest.NewRecorder()
 
 	gotErr := h.ProcessQuery(w, r, &PipelineContext[NoState]{})
-	wantErr := NewServerError(decodeUrlErr)
+	wantErr := etc.NewServerError(decodeUrlErr)
 
 	assertAppErrorsEqual(t, wantErr, gotErr)
 }
@@ -149,15 +150,15 @@ func TestProcessQuery_HandlesExecuteQueryErrors(t *testing.T) {
 
 		gotErr := h.ProcessQuery(w, r, &PipelineContext[NoState]{})
 
-		var wantErr *AppError
+		var wantErr *etc.AppError
 		if td.isUserError {
-			wantErr = &AppError{
-				Code:       400,
-				ToastError: td.executeQueryErr.Error(),
-				innerError: td.executeQueryErr,
+			wantErr = &etc.AppError{
+				Code:         400,
+				ErrorMessage: td.executeQueryErr.Error(),
+				InnerError:   td.executeQueryErr,
 			}
 		} else {
-			wantErr = NewServerError(td.executeQueryErr)
+			wantErr = etc.NewServerError(td.executeQueryErr)
 		}
 
 		assertAppErrorsEqual(t, wantErr, gotErr)
@@ -188,7 +189,7 @@ func TestProcessQuery_HandlesErrorsFromJsonMarshal(t *testing.T) {
 		Return(nil, expectedErr)
 
 	gotErr := h.ProcessQuery(w, r, &PipelineContext[NoState]{})
-	wantErr := NewServerError(expectedErr)
+	wantErr := etc.NewServerError(expectedErr)
 
 	assertAppErrorsEqual(t, wantErr, gotErr)
 }
@@ -218,7 +219,7 @@ func TestProcessQuery_HandlesErrorsFromWrite(t *testing.T) {
 		Return([]byte("response json"), nil)
 
 	gotErr := h.ProcessQuery(w, r, &PipelineContext[NoState]{})
-	wantErr := NewServerError(expectedErr)
+	wantErr := etc.NewServerError(expectedErr)
 
 	assertAppErrorsEqual(t, wantErr, gotErr)
 }
@@ -229,7 +230,7 @@ func newDecodeUrlFunc(s string, err error) func(string) (string, error) {
 	}
 }
 
-func assertAppErrorsEqual(t testing.TB, expected *AppError, got *AppError) {
+func assertAppErrorsEqual(t testing.TB, expected *etc.AppError, got *etc.AppError) {
 	t.Helper()
 
 	if expected == nil {
@@ -239,9 +240,8 @@ func assertAppErrorsEqual(t testing.TB, expected *AppError, got *AppError) {
 	}
 
 	assert.Equal(t, expected.Code, got.Code)
-	assert.Equal(t, expected.ToastError, got.ToastError)
-	assert.Equal(t, expected.innerError, got.innerError)
-	assert.Equal(t, expected.PageErrors, got.PageErrors)
+	assert.Equal(t, expected.ErrorMessage, got.ErrorMessage)
+	assert.Equal(t, expected.InnerError, got.InnerError)
 }
 
 type mockResponseWriter struct {

@@ -28,10 +28,6 @@ export default {
           },
         },
       },
-      // events: {
-      //   opened: "openedsidebar",
-      //   closed: "closedsidebar",
-      // },
     },
 
     nestedSidebar: {
@@ -43,10 +39,6 @@ export default {
           },
         },
       },
-      // events: {
-      //   opened: "openednestedsidebar",
-      //   closed: "closednestedsidebar",
-      // },
     },
 
     alert: {
@@ -69,6 +61,9 @@ export default {
       },
       modifiers: {
         error: "error",
+      },
+      attributes: {
+        serverAlert: "server-alert",
       },
     },
 

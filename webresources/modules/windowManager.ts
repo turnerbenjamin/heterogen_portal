@@ -7,9 +7,15 @@ import {
   parseAppError,
   WindowManagerErr,
 } from "./errors";
+import { HtmxAfterSwapEvent, HtmxEvent, onHtmxAfterSwapEvent } from "./htmx";
 import { Fail, Result, Success } from "./result";
 import { toastMyError } from "./toasts";
-import { attributeSelector, parseHtmlElement, setBoolAttribute } from "./utils";
+import {
+  attributeSelector,
+  getElementById,
+  parseHtmlElement,
+  setBoolAttribute,
+} from "./utils";
 
 interface Layer {
   layerId: string;
@@ -64,6 +70,7 @@ export class WindowManager {
     this._layerStack = [appLayer];
 
     document.addEventListener("keydown", this.handleEsc);
+    onHtmxAfterSwapEvent(this.handleAfterHtmxSwap);
   }
 
   public displayError(errorObj: unknown) {
@@ -267,6 +274,30 @@ export class WindowManager {
     }
 
     return null;
+  };
+
+  private handleAfterHtmxSwap = (e: HtmxEvent<HtmxAfterSwapEvent>) => {
+    if (e.detail.ctx.response?.raw.ok) {
+      return;
+    }
+
+    const getAlertElRes = getElementById(constants.layers.alert.id);
+    if (!getAlertElRes.ok) {
+      return lastDitchHandler(getAlertElRes.error);
+    }
+    if (
+      !getAlertElRes.value.hasAttribute(
+        constants.layers.alert.attributes.serverAlert,
+      )
+    ) {
+      return;
+    }
+
+    getAlertElRes.value.removeAttribute(
+      constants.layers.alert.attributes.serverAlert,
+    );
+    this._alertManager.renderServerAlert();
+    this.pushLayer(this._layerIds.Alert);
   };
 
   public registerHook = (h: Hook, fn: () => void) => {

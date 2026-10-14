@@ -2,50 +2,47 @@ import { HtmxRequestCtx } from "htmx.org";
 
 declare const htmx: typeof import("htmx.org").default;
 
-export type HtmxEvent<T extends HtmxRequestCtx> = CustomEvent<T>;
+export type HtmxEvent<T extends BaseHtmxEvent> = CustomEvent<T>;
 
-export interface BeforeSwapEventContext extends HtmxRequestCtx {
-  isError: boolean;
-  shouldSwap: boolean;
-  swapOverride: string;
+interface BaseHtmxEvent {
+  ctx: HtmxRequestCtx;
 }
 
-export interface AfterSwapEventContext extends HtmxRequestCtx {
-  elt: Element;
-  failed: boolean;
-  successful: boolean;
+export interface HtmxErrorEventContext extends BaseHtmxEvent {
+  error: unknown;
 }
 
-export interface ConfigRequestEventContext extends HtmxRequestCtx {
-  elt: Element;
-  formData: FormData;
-  headers: Partial<Record<string, string | null>>;
-  path: string;
-  useUrlParams: boolean;
-  verb: string;
-  withCredentials: boolean;
-}
+export interface HtmxBeforeRequestEventContext extends BaseHtmxEvent {}
+export interface HtmxConfigRequestEvent extends BaseHtmxEvent {}
+export interface HtmxAfterSwapEvent extends BaseHtmxEvent {}
+export interface HtmxResponseErrorEventContext extends BaseHtmxEvent {}
 
-export function onHtmxBeforeSwapEvent(
-  handler: (_event: HtmxEvent<BeforeSwapEventContext>) => void,
+export function onHtmxError(
+  handler: (_event: HtmxEvent<HtmxErrorEventContext>) => void,
 ) {
-  return htmx.on("htmx:beforeSwap", handler as EventListener);
+  return htmx.on("htmx:error", handler as EventListener);
+}
+
+export function onHtmxResponseError(
+  handler: (_event: HtmxEvent<HtmxResponseErrorEventContext>) => void,
+) {
+  return htmx.on("htmx:response:error", handler as EventListener);
 }
 
 export function onHtmxAfterSwapEvent(
-  handler: (_event: HtmxEvent<AfterSwapEventContext>) => void,
+  handler: (_event: HtmxEvent<HtmxAfterSwapEvent>) => void,
 ) {
-  return htmx.on("htmx:afterSwap", handler as EventListener);
+  return htmx.on("htmx:after:swap", handler as EventListener);
 }
 
 export function onHtmxBeforeRequestEvent(
-  handler: (_event: HtmxEvent<HtmxRequestCtx>) => void,
+  handler: (_event: HtmxEvent<HtmxBeforeRequestEventContext>) => void,
 ) {
-  return htmx.on("htmx:beforeRequest", handler as EventListener);
+  return htmx.on("htmx:before:request", handler as EventListener);
 }
 
 export function onHtmxConfigRequestEvent(
-  handler: (_event: HtmxEvent<ConfigRequestEventContext>) => void,
+  handler: (_event: HtmxEvent<HtmxConfigRequestEvent>) => void,
 ) {
-  return htmx.on("htmx:configRequest", handler as EventListener);
+  return htmx.on("htmx:config:request", handler as EventListener);
 }

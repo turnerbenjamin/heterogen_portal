@@ -7,6 +7,7 @@ import (
 	"context"
 	"net/http"
 
+	"github.com/turnerbenjamin/heterogen_portal/internal/etc"
 	"github.com/turnerbenjamin/heterogen_portal/internal/model"
 	"github.com/turnerbenjamin/heterogen_portal/internal/templates"
 	"github.com/turnerbenjamin/querystack/querymodel"
@@ -55,7 +56,7 @@ func (h *BusinessesHandler) GetRoot(
 	w http.ResponseWriter,
 	r *http.Request,
 	c *PipelineContext[*BusinessesTableState],
-) *AppError {
+) *etc.AppError {
 	pageConfig := templates.PageConfig{
 		ContentOnly: DoSendContentOnly(r),
 		Title:       "HETEROGEN - BUSINESSES",
@@ -78,7 +79,7 @@ func (h *BusinessesHandler) GetRoot(
 		d.Query.QueryString,
 	)
 	if err != nil {
-		return NewServerError(err)
+		return etc.NewServerError(err)
 	}
 
 	d.Rows = result.Data
@@ -92,7 +93,7 @@ func (h *BusinessesHandler) GetRoot(
 		r.URL.Path,
 	)
 	if err != nil {
-		return NewServerError(err)
+		return etc.NewServerError(err)
 	}
 	return nil
 }

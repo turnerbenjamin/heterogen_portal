@@ -2,18 +2,14 @@ package pages
 
 import (
     "github.com/turnerbenjamin/heterogen_portal/internal/templates"
-    "github.com/turnerbenjamin/heterogen_portal/internal/templates/layouts"
     "github.com/turnerbenjamin/heterogen_portal/internal/templates/pagecontent"
 	"github.com/turnerbenjamin/heterogen_portal/internal/icons"
+	"github.com/turnerbenjamin/heterogen_portal/internal/templates/layouts"
 )
 
 templ OutOfAppError(
     pageConfig templates.PageConfig,
     icons *icons.IconSet,
 ) {
-    @layouts.App(
-        pageConfig,
-        icons,
-        layouts.Content{MainContent: pagecontent.OutOfAppError()},
-    )
+    @layouts.OutOfApp(pageConfig, pagecontent.OutOfAppError())
 }
