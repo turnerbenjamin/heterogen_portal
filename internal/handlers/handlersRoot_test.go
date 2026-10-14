@@ -187,7 +187,13 @@ func TestGetSignInRedirectHandler_ReturnsErrorWhenCodeStateOrOidcStateMissing(t 
 
 		err := h.GetSignInRedirect(w, r, c)
 
-		assert.EqualValues(t, wantAppError, err)
+		if td.HasOidcStateCookie {
+			assert.EqualValues(t, wantAppError, err)
+		} else {
+			assert.Nil(t, err)
+			assert.Equal(t, http.StatusSeeOther, w.Code)
+			assert.Equal(t, "/?auth_retry=1", w.Header().Get("Location"))
+		}
 		if td.HasOidcStateCookie {
 			wantCookie := buildExpectedUnsetOidcStateCookie()
 

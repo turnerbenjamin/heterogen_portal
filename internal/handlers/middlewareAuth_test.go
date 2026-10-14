@@ -214,6 +214,29 @@ func TestRequireSignInMiddleware_RedirectsUserToSignInWhenUserIsNil(t *testing.T
 	}
 }
 
+func TestRequireSignInMiddleware_DoesNotRetryAuthIndefinitely(t *testing.T) {
+	wantInnerError := errors.New(constants.ErrMissingOIDCStateCookie)
+	wantAppError := &etc.AppError{
+		Code:         http.StatusInternalServerError,
+		ErrorMessage: constants.ErrMsgInternalServerError,
+		InnerError:   wantInnerError,
+	}
+
+	r := httptest.NewRequest("GET", "/?auth_retry=1", strings.NewReader(""))
+	w := httptest.NewRecorder()
+	c := &PipelineContext[UserState]{state: UserStateInit()}
+
+	as := NewMockAuthService(t)
+	testHandler := &testHandler[UserState]{t: t}
+	mw := RequireSignInMiddleware[UserState](as)(testHandler.handle)
+
+	err := mw(w, r, c)
+
+	assert.EqualValues(t, wantAppError, err)
+	assert.Equal(t, 0, testHandler.callCount)
+	assert.Equal(t, http.StatusOK, w.Code)
+}
+
 func TestRequireSignInMiddleware_HandlesAuthServicesErrors(t *testing.T) {
 	t.Parallel()
 

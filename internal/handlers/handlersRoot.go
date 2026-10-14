@@ -81,7 +81,9 @@ func (h AuthHandler) GetSignInRedirect(
 	// access signed oidc state from the cookie and clear it up
 	cookie, err := r.Cookie(constants.IdentifierOidcStateCookie)
 	if err != nil {
-		return etc.NewServerError(errors.New(constants.ErrMissingOIDCStateCookie))
+		// if oidc state is invalid attempt one retry
+		redirect(w, r, "/?auth_retry=1")
+		return nil
 	}
 	signedOidcState := cookie.Value
 	unsetOidcStateCookie(w)

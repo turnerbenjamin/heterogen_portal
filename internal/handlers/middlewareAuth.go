@@ -4,6 +4,7 @@
 package handlers
 
 import (
+	"errors"
 	"log/slog"
 	"net/http"
 
@@ -52,6 +53,10 @@ func RequireSignInMiddleware[T UserState](authService AuthService) Middleware[T]
 		return func(w http.ResponseWriter, r *http.Request, c *PipelineContext[T]) *etc.AppError {
 			// If user is nil, redirect to sign-in service
 			if c.state.GetUser() == nil {
+				if r.URL.Query().Get("auth_retry") == "1" {
+					return etc.NewServerError(errors.New(constants.ErrMissingOIDCStateCookie))
+				}
+
 				redirectReq, err := authService.BuildSignInRedirectRequest(r.URL.Path)
 				if err != nil {
 					return etc.NewServerError(err)
