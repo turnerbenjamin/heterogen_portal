@@ -17,6 +17,7 @@ export default {
       id: "sidebar",
       content: {
         editColumnsSidebar: {
+          id: "edit-columns-sidebar",
           editColumnsList: {
             id: "edit-columns-list",
           },
@@ -27,6 +28,9 @@ export default {
             id: "apply-column-edits-button",
           },
         },
+        editFiltersSidebar: {
+          id: "edit-filters-sidebar",
+        },
       },
     },
 
@@ -34,6 +38,7 @@ export default {
       id: "nested-sidebar",
       content: {
         addColumnsSidebar: {
+          id: "add-columns-sidebar",
           addColumnsOptions: {
             id: "add-columns-options",
           },
@@ -112,6 +117,7 @@ export default {
       showSidebar: "show-sidebar",
       closeSidebar: "close-sidebar",
     },
+    contentGroupClass: "sidebar-content-group-container",
   },
 
   globalModifiers: {

@@ -22,7 +22,7 @@ templ MainTable[T querymodel.TableModel](
         layouts.Content{
            MainContent: pagecontent.MainTable(icons, tableData),
             SidebarContent: sidebarcontent.MainTableSidebarContent(resourceEndpoint, icons, tableData),
-            NestedSidebarContent: sidebarcontent.MainTableNestedSidebarContent(tableData),
+            NestedSidebarContent: sidebarcontent.MainTableNestedSidebarContent(icons, tableData),
         },
     )
 }

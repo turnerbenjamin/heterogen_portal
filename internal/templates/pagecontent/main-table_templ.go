@@ -96,7 +96,7 @@ func mainTablePageContent[T querymodel.TableModel](
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "</h3><div class=\"main-table-cmd\"><button class=\"button-link\" onclick=\"hg.showSidebar()\" initial-focus>Edit Columns</button><div>Edit Filters</div><input type=\"text\"></div></div><table id=\"main-table\" class=\"main-table mt-6\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "</h3><div class=\"main-table-cmd\"><button class=\"button-link\" onclick=\"hg.mainTable.showEditColumnsSidebar()\" initial-focus>Edit Columns</button> <button class=\"button-link\" onclick=\"hg.mainTable.showEditFiltersSidebar()\" initial-focus>Edit Filters</button> <input type=\"text\"></div></div><table id=\"main-table\" class=\"main-table mt-6\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -147,7 +147,7 @@ func table[T querymodel.TableModel](
 			var templ_7745c5c3_Var5 string
 			templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.ResolveAttributeValue(headerColumn.Path)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pagecontent/main-table.templ`, Line: 56, Col: 51}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pagecontent/main-table.templ`, Line: 62, Col: 51}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var5)
 			if templ_7745c5c3_Err != nil {
@@ -160,7 +160,7 @@ func table[T querymodel.TableModel](
 			var templ_7745c5c3_Var6 string
 			templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(headerColumn.DisplayName)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pagecontent/main-table.templ`, Line: 58, Col: 41}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pagecontent/main-table.templ`, Line: 64, Col: 41}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
 			if templ_7745c5c3_Err != nil {
@@ -223,7 +223,7 @@ func tableBody[T querymodel.TableModel](
 				var templ_7745c5c3_Var8 string
 				templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.ResolveAttributeValue(headerColumn.DisplayName)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pagecontent/main-table.templ`, Line: 74, Col: 48}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pagecontent/main-table.templ`, Line: 80, Col: 48}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var8)
 				if templ_7745c5c3_Err != nil {
@@ -236,7 +236,7 @@ func tableBody[T querymodel.TableModel](
 				var templ_7745c5c3_Var9 string
 				templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinStringErrs(headerColumn.GetData(row))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pagecontent/main-table.templ`, Line: 74, Col: 76}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pagecontent/main-table.templ`, Line: 80, Col: 76}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var9))
 				if templ_7745c5c3_Err != nil {

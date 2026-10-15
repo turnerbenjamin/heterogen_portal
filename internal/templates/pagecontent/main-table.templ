@@ -31,12 +31,18 @@ templ mainTablePageContent[T querymodel.TableModel](
             <div class="main-table-cmd">
                 <button 
                     class="button-link"
-                    onclick="hg.showSidebar()"
+                    onclick="hg.mainTable.showEditColumnsSidebar()"
                     initial-focus
                 >
                     Edit Columns
                 </button>
-                <div>Edit Filters</div>
+                <button 
+                    class="button-link"
+                    onclick="hg.mainTable.showEditFiltersSidebar()"
+                    initial-focus
+                >
+                    Edit Filters
+                </button>
                 <input type=text/>
             </div>
         </div>

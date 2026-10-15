@@ -1,7 +1,10 @@
 import constants from "./constants";
-import { AppError, NoElWithIdAndTypeErr, parseAppError } from "./errors";
+import { NoElWithIdAndTypeErr, parseAppError } from "./errors";
 import { Fail, Result, Success } from "./result";
-import { setVisibility } from "./utils";
+import { toastMyError } from "./toasts";
+import { getElementById, setVisibility } from "./utils";
+import { WindowManager } from "./windowManager";
+import { HtmxEvent, HtmxAfterSwapEvent, onHtmxAfterSwapEvent } from "./htmx";
 
 interface Alert {
   type: "notification" | "error" | "confirmation";
@@ -43,45 +46,72 @@ interface AlertElement {
 }
 
 export class AlertManager {
-  public renderNotificationAlert = (title: string, message: string): void => {
-    return this.renderAlert({
+  private readonly _windowManager: WindowManager;
+  private readonly _panic: (errObj: unknown) => void;
+
+  public constructor(
+    windowManager: WindowManager,
+    panic: (errObj: unknown) => void,
+  ) {
+    this._windowManager = windowManager;
+    this._panic = panic;
+
+    onHtmxAfterSwapEvent(this.handleAfterHtmxSwap);
+    document.addEventListener("keydown", this.handleEsc);
+  }
+
+  public hgHandlerCloseAlert = () => {
+    this._windowManager.popAlert();
+  };
+
+  public renderNotificationMsg = (title: string, message: string): void => {
+    this.renderAlert({
       type: "notification",
       title: title,
       message: message,
       confirmButtonText: "Ok",
     });
+    this._windowManager.pushAlertLayer();
   };
 
-  public renderErrorAlert = (err: AppError): void => {
-    return this.renderAlert({
-      type: "error",
-      title: "Error",
-      message: err.message,
-      detail: err.details,
-      confirmButtonText: "Ok",
-    });
+  public renderError = (errObj: unknown): void => {
+    const err = parseAppError(errObj);
+
+    if (err.doBlock) {
+      this.renderAlert({
+        type: "error",
+        title: "Error",
+        message: err.message,
+        detail: err.details,
+        confirmButtonText: "Ok",
+      });
+      this._windowManager.pushAlertLayer();
+    } else {
+      const toastErr = toastMyError(err.message);
+      if (toastErr) {
+        this._panic(toastErr);
+      }
+    }
   };
 
-  public renderConfirmationAlert = (title: string, message: string): void => {
-    return this.renderAlert({
+  public renderConfirmationDialog = (title: string, message: string): void => {
+    this.renderAlert({
       type: "confirmation",
       title: title,
       message: message,
       confirmButtonText: "Continue",
       declineButtonText: "Cancel",
     });
-  };
 
-  public renderServerAlert() {
-    this.renderAlert();
-  }
+    this._windowManager.pushAlertLayer();
+  };
 
   private renderAlert = (
     alert?: NotificationAlert | ErrorAlert | ConfirmationAlert,
   ): void => {
     const alertElementRes = this.getAlertElement();
     if (!alertElementRes.ok) {
-      return lastDitchHandler(alertElementRes.error);
+      return this._panic(alertElementRes.error);
     }
     const alertElement = alertElementRes.value;
 
@@ -114,7 +144,7 @@ export class AlertManager {
   public hideAlert() {
     const alertElementRes = this.getAlertElement();
     if (!alertElementRes.ok) {
-      return lastDitchHandler(alertElementRes.error);
+      return this._panic(alertElementRes.error);
     }
     const alertElement = alertElementRes.value;
     setVisibility(alertElement.container, false);
@@ -166,31 +196,43 @@ export class AlertManager {
       declineBtn: declineBtn,
     });
   };
-}
 
-export function lastDitchHandler(errObj: unknown) {
-  const err = parseAppError(errObj);
+  private handleAfterHtmxSwap = (e: HtmxEvent<HtmxAfterSwapEvent>) => {
+    if (e.detail.ctx.response?.raw.ok) {
+      return;
+    }
 
-  const lastDitchErrContainerEl = document.createElement("div");
-  lastDitchErrContainerEl.id = "last-ditch-err-container";
+    const getAlertElRes = getElementById(constants.layers.alert.id);
+    if (!getAlertElRes.ok) {
+      return this._panic(getAlertElRes.error);
+    }
+    if (
+      !getAlertElRes.value.hasAttribute(
+        constants.layers.alert.attributes.serverAlert,
+      )
+    ) {
+      return;
+    }
 
-  const lastDitchTitleEl = document.createElement("h1");
-  lastDitchTitleEl.id = "last-ditch-err-title";
-  lastDitchTitleEl.textContent = "Unable to initialise application";
+    getAlertElRes.value.removeAttribute(
+      constants.layers.alert.attributes.serverAlert,
+    );
+    this.renderAlert();
+    this._windowManager.pushAlertLayer();
+  };
 
-  const lastDitchMsgEl = document.createElement("p");
-  lastDitchMsgEl.id = "last-ditch-err-message";
-  lastDitchMsgEl.textContent = err.message;
+  private handleEsc = (e: KeyboardEvent) => {
+    if (e.key !== constants.keyCodes.Escape) {
+      return;
+    }
 
-  const lastDitchDetailEl = document.createElement("pre");
-  lastDitchDetailEl.id = "last-ditch-err-detail";
-  lastDitchDetailEl.classList.add("error-detail");
-  lastDitchDetailEl.textContent = err.details;
+    const activeLayer = this._windowManager.getActiveLayer();
+    if (!activeLayer.ok) {
+      return this.renderError(activeLayer.error);
+    }
 
-  lastDitchErrContainerEl.appendChild(lastDitchTitleEl);
-  lastDitchErrContainerEl.appendChild(lastDitchMsgEl);
-  lastDitchErrContainerEl.appendChild(lastDitchDetailEl);
-
-  document.body.innerHTML = "";
-  document.body.appendChild(lastDitchErrContainerEl);
+    if (activeLayer.value.layerId === constants.layers.alert.id) {
+      this._windowManager.popAlert();
+    }
+  };
 }

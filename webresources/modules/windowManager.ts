@@ -1,21 +1,7 @@
-import { AlertManager, lastDitchHandler } from "./alerts";
 import constants from "./constants";
-import {
-  AppError,
-  NoElWithIdErr,
-  NullChildErr,
-  parseAppError,
-  WindowManagerErr,
-} from "./errors";
-import { HtmxAfterSwapEvent, HtmxEvent, onHtmxAfterSwapEvent } from "./htmx";
+import { NoElWithIdErr, NullChildErr, WindowManagerErr } from "./errors";
 import { Fail, Result, Success } from "./result";
-import { toastMyError } from "./toasts";
-import {
-  attributeSelector,
-  getElementById,
-  parseHtmlElement,
-  setBoolAttribute,
-} from "./utils";
+import { attributeSelector, parseHtmlElement, setBoolAttribute } from "./utils";
 
 interface Layer {
   layerId: string;
@@ -32,8 +18,8 @@ export enum Hook {
 }
 
 export class WindowManager {
-  private _alertManager: AlertManager;
   private _hooks: Partial<Record<Hook, Array<() => void>>> = {};
+  private readonly _panic: (errObj: unknown) => void;
 
   private readonly _layerIds = {
     App: constants.layers.app.id,
@@ -46,8 +32,8 @@ export class WindowManager {
 
   private _layerStack: Layer[] = [];
 
-  public constructor(alertManager: AlertManager) {
-    this._alertManager = alertManager;
+  public constructor(panic: (errObj: unknown) => void) {
+    this._panic = panic;
 
     for (const layerId of Object.values(this._layerIds)) {
       const getLayerResult = this.getLayer(layerId);
@@ -68,102 +54,57 @@ export class WindowManager {
     const appLayer = this._layers[this._layerIds.App];
     appLayer.stackIndex = 0;
     this._layerStack = [appLayer];
-
-    document.addEventListener("keydown", this.handleEsc);
-    onHtmxAfterSwapEvent(this.handleAfterHtmxSwap);
   }
 
-  public displayError(errorObj: unknown) {
-    const err = parseAppError(errorObj);
-    if (err.doBlock) {
-      this.displayErrorAlert(err);
-    } else {
-      toastMyError(err.message);
-    }
+  public getActiveLayer(): Result<Layer> {
+    return this.getLayerAtIndex(this._layerStack.length - 1);
   }
 
-  public displayNoticationAlert = (title: string, msg: string) => {
-    this._alertManager.renderNotificationAlert(title, msg);
+  public pushAlertLayer = () => {
     const pushErr = this.pushLayer(this._layerIds.Alert);
     if (pushErr) {
       this.resetStack();
-      this.displayError(pushErr);
+      this._panic;
     }
   };
 
-  public displayErrorAlert = (err: AppError) => {
-    this._alertManager.renderErrorAlert(err);
-    const pushErr = this.pushLayer(this._layerIds.Alert);
-    if (pushErr) {
-      this.resetStack();
-      lastDitchHandler(pushErr);
-    }
-  };
-
-  public displayConfirmationAlert = (title: string, msg: string) => {
-    this._alertManager.renderConfirmationAlert(title, msg);
-    const pushErr = this.pushLayer(this._layerIds.Alert);
-    if (pushErr) {
-      this.resetStack();
-      this.displayError(pushErr);
-    }
-  };
-
-  public GetSidebar = (): HTMLElement => {
-    return this._layers[this._layerIds.Sidebar].element;
-  };
-
-  public GetNestedSidebar = (): HTMLElement => {
-    return this._layers[this._layerIds.NestedSidebar].element;
-  };
-
-  public hgHandlerCloseAlert = () => {
-    const popLayerErr = this.popLayer(this._layerIds.Alert);
-    if (popLayerErr !== null) {
-      this.resetStack();
-      this.displayError(popLayerErr);
-    }
-  };
-
-  public hgHandlerShowSidebar = () => {
+  public pushSidebar = () => {
     const pushLayerErr = this.pushLayer(this._layerIds.Sidebar);
     if (pushLayerErr !== null) {
       this.resetStack();
-      this.displayError(pushLayerErr);
+      this._panic;
     }
   };
 
-  public hgHandlerCloseSidebar = () => {
-    const popLayerErr = this.popLayer(this._layerIds.Sidebar);
-    if (popLayerErr !== null) {
-      this.resetStack();
-      this.displayError(popLayerErr);
-    }
-  };
-
-  public hgHandlerShowNestedSidebar = () => {
+  public pushNestedSidebar = () => {
     const pushLayerErr = this.pushLayer(this._layerIds.NestedSidebar);
     if (pushLayerErr !== null) {
       this.resetStack();
-      this.displayError(pushLayerErr);
+      this._panic;
     }
   };
 
-  public hgHandlerCloseNestedSidebar = () => {
+  public popAlert = () => {
+    const popLayerErr = this.popLayer(this._layerIds.Alert);
+    if (popLayerErr !== null) {
+      this.resetStack();
+      this._panic;
+    }
+  };
+
+  public popSidebar = () => {
+    const popLayerErr = this.popLayer(this._layerIds.Sidebar);
+    if (popLayerErr !== null) {
+      this.resetStack();
+      this._panic;
+    }
+  };
+
+  public popNestedSidebar = () => {
     const popLayerErr = this.popLayer(this._layerIds.NestedSidebar);
     if (popLayerErr !== null) {
       this.resetStack();
-      this.displayError(popLayerErr);
-    }
-  };
-
-  private handleEsc = (e: KeyboardEvent) => {
-    if (e.key !== constants.keyCodes.Escape) {
-      return;
-    }
-
-    if (this._layerStack.length > 1) {
-      this.popLayer();
+      this._panic;
     }
   };
 
@@ -269,35 +210,8 @@ export class WindowManager {
     nextElementToFocus.focus();
 
     this.notifyPop(currentLayer.layerId);
-    if (currentLayer.layerId === this._layerIds.Alert) {
-      this._alertManager.hideAlert();
-    }
 
     return null;
-  };
-
-  private handleAfterHtmxSwap = (e: HtmxEvent<HtmxAfterSwapEvent>) => {
-    if (e.detail.ctx.response?.raw.ok) {
-      return;
-    }
-
-    const getAlertElRes = getElementById(constants.layers.alert.id);
-    if (!getAlertElRes.ok) {
-      return lastDitchHandler(getAlertElRes.error);
-    }
-    if (
-      !getAlertElRes.value.hasAttribute(
-        constants.layers.alert.attributes.serverAlert,
-      )
-    ) {
-      return;
-    }
-
-    getAlertElRes.value.removeAttribute(
-      constants.layers.alert.attributes.serverAlert,
-    );
-    this._alertManager.renderServerAlert();
-    this.pushLayer(this._layerIds.Alert);
   };
 
   public registerHook = (h: Hook, fn: () => void) => {
@@ -367,10 +281,6 @@ export class WindowManager {
     }
 
     return Success(this._layerStack[n]);
-  }
-
-  private getActiveLayer(): Result<Layer> {
-    return this.getLayerAtIndex(this._layerStack.length - 1);
   }
 
   private getLayer = (layerId: string): Result<Layer> => {

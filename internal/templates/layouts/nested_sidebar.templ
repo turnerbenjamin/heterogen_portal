@@ -12,29 +12,16 @@ templ NestedSidebar(
 ) {
     if pageConfig.ContentOnly {
         if content != nil {
-            <div hx-swap-oob="innerHTML:#nested-sidebar-content">
+            <div hx-swap-oob="innerHTML:#nested-sidebar">
                 @content
             </div>
         }
     }else{
         <div id="nested-sidebar-layer">
             <div id="nested-sidebar" class="hidden" aria-modal="true">
-                <div class="sidebar-title">
-                    <h3>Edit Columns</h3>
-                    <button 
-                        aria-label="Close edit column modal"
-                        class="icon-button icon large interactive" 
-                        onclick="hg.closeNestedSidebar()"
-                        initial-focus
-                    >
-                        @templ.Raw(icons.Xmark)
-                    </button>
-                </div>
-                <div id="nested-sidebar-content">
                 if content != nil{
                     @content
                 }
-                </div>
             </div>
         </div>
     }

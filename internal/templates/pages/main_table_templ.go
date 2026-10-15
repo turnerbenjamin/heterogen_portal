@@ -49,7 +49,7 @@ func MainTable[T querymodel.TableModel](
 			layouts.Content{
 				MainContent:          pagecontent.MainTable(icons, tableData),
 				SidebarContent:       sidebarcontent.MainTableSidebarContent(resourceEndpoint, icons, tableData),
-				NestedSidebarContent: sidebarcontent.MainTableNestedSidebarContent(tableData),
+				NestedSidebarContent: sidebarcontent.MainTableNestedSidebarContent(icons, tableData),
 			},
 		).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {

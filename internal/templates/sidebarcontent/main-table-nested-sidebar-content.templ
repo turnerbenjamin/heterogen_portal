@@ -3,13 +3,29 @@ package sidebarcontent
 import (
     "github.com/turnerbenjamin/heterogen_portal/internal/templates"
 	  "github.com/turnerbenjamin/querystack/querymodel"
+	"github.com/turnerbenjamin/heterogen_portal/internal/icons"
 )
 
 
 templ MainTableNestedSidebarContent[T querymodel.TableModel](
+    icons *icons.IconSet,
     tableData templates.TableData[T],
+
 ){
-        <div id="add-columns-sidebar" class="sidebar-content-group-container">
+    <div id="add-columns-sidebar" class="sidebar-content-group-container">
+        <div class="sidebar-title">
+            <h3>Add Columns</h3>
+            <button 
+                aria-label="Close add column modal"
+                class="icon-button icon large interactive" 
+                onclick="hg.editColumns.closeAddColumnsSidebar()"
+                initial-focus
+            >
+                @templ.Raw(icons.Xmark)
+            </button>
+        </div>
+
+        <div class="nested-sidebar-content">
             <div id="add-columns-options" class="option-group mt-7 mb-7">
             for _, column := range tableData.OrderedColumnDefinitions{
                 {{
@@ -28,4 +44,5 @@ templ MainTableNestedSidebarContent[T querymodel.TableModel](
             </div>
             <button onclick="hg.editColumns.addColumns()">add</button>
         </div>
+    </div>
 }
