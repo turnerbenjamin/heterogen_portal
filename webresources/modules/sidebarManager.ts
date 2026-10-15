@@ -1,58 +1,140 @@
+import { AlertManager } from "./alertManager";
 import constants from "./constants";
-import { NullTargetErr } from "./errors";
-import * as utils from "./utils";
-import { Hook, WindowManager } from "./windowManager";
+import { NullTargetErr, UnexpectedErr } from "./errors";
+import {
+  attributeSelector,
+  classSelector,
+  getElementById,
+  parseHtmlElement,
+  setVisibility,
+} from "./utils";
+import { WindowManager } from "./windowManager";
 
 export class SidebarManager {
   private readonly _windowManager: WindowManager;
+  private readonly _alertManager: AlertManager;
 
-  public constructor(windowManager: WindowManager) {
+  public constructor(windowManager: WindowManager, alertManager: AlertManager) {
     this._windowManager = windowManager;
-
-    this._windowManager.registerHook(Hook.openSidebar, () =>
-      this.showSidebar(this._windowManager.GetSidebar()),
-    );
-
-    this._windowManager.registerHook(Hook.closeSidebar, () =>
-      this.hideSidebar(this._windowManager.GetSidebar()),
-    );
-
-    this._windowManager.registerHook(Hook.openNestedSidebar, () =>
-      this.showSidebar(this._windowManager.GetNestedSidebar()),
-    );
-
-    this._windowManager.registerHook(Hook.closeNestedSidebar, () =>
-      this.hideSidebar(this._windowManager.GetNestedSidebar()),
-    );
+    this._alertManager = alertManager;
 
     document.addEventListener("animationend", this.handleSidebarTransitionEnd);
   }
 
-  private showSidebar = (sideBar: HTMLElement) => {
-    // return early if element is in transition
-    if (
-      sideBar.classList.contains(constants.layers.modifierClasses.show) ||
-      sideBar.classList.contains(constants.layers.modifierClasses.close)
-    ) {
-      return;
+  public showSidebar = (contentIdentifier: string): Error | null => {
+    const err = this.showSidebarElement(
+      constants.layers.sidebar.id,
+      contentIdentifier,
+    );
+    if (err) {
+      return err;
     }
-
-    // remove close and hidden classes
-    sideBar.classList.add(constants.layers.modifierClasses.show);
-    sideBar.classList.remove(constants.globalModifiers.hidden);
+    this._windowManager.pushSidebar();
+    return null;
   };
 
-  private hideSidebar = (sideBar: HTMLElement) => {
+  public showNestedSidebar = (contentIdentifier: string): Error | null => {
+    const err = this.showSidebarElement(
+      constants.layers.nestedSidebar.id,
+      contentIdentifier,
+    );
+    if (err) {
+      return err;
+    }
+    this._windowManager.pushNestedSidebar();
+    return null;
+  };
+
+  private showSidebarElement = (
+    sidebarId: string,
+    contentIdentifier: string,
+  ): Error | null => {
+    const sidebarElRes = getElementById(sidebarId);
+    if (!sidebarElRes.ok) {
+      return sidebarElRes.error;
+    }
+    const sidebarEl = sidebarElRes.value;
+
+    if (
+      sidebarEl.classList.contains(constants.layers.modifierClasses.show) ||
+      sidebarEl.classList.contains(constants.layers.modifierClasses.close)
+    ) {
+      // return early if element is in transition
+      return null;
+    }
+
+    const contentEl = getElementById(contentIdentifier);
+    if (!contentEl.ok) {
+      return contentEl.error;
+    }
+    const labelEl = contentEl.value.querySelector(
+      attributeSelector(constants.layers.sidebar.content.labelElAttribute),
+    );
+    if (!labelEl) {
+      return new UnexpectedErr(
+        `unable to show sidebar element: sidebar elements must contain an ` +
+          `element with a ${constants.layers.sidebar.content.labelElAttribute} ` +
+          `attribute.`,
+      );
+    }
+    sidebarEl.ariaLabel = labelEl.textContent;
+
+    let didFindContentElement = false;
+    for (const e of sidebarEl.querySelectorAll(
+      classSelector(constants.sidebarCommon.contentGroupClass),
+    )) {
+      const elRes = parseHtmlElement(e);
+      if (!elRes.ok) {
+        return elRes.error;
+      }
+
+      if (elRes.value.id === contentIdentifier) {
+        didFindContentElement = true;
+      }
+
+      setVisibility(elRes.value, elRes.value.id === contentIdentifier);
+    }
+
+    if (!didFindContentElement) {
+      return new UnexpectedErr(
+        `unable to show sidebar element: '${contentIdentifier} cannot be found'`,
+      );
+    }
+
+    // remove close and hidden classes
+    sidebarEl.classList.add(constants.layers.modifierClasses.show);
+    sidebarEl.classList.remove(constants.globalModifiers.hidden);
+
+    return null;
+  };
+
+  public closeSidebar = () => {
+    this.hideSidebarEl(constants.layers.sidebar.id);
+    this._windowManager.popSidebar();
+  };
+
+  public closeNestedSidebar = () => {
+    this.hideSidebarEl(constants.layers.nestedSidebar.id);
+    this._windowManager.popNestedSidebar();
+  };
+
+  public hideSidebarEl = (sidebarId: string) => {
+    const sideBarElRes = getElementById(sidebarId);
+    if (!sideBarElRes.ok) {
+      return this._alertManager.renderError(sideBarElRes.error);
+    }
+    const sidebarEl = sideBarElRes.value;
+
     // return early if element is in transition
     if (
-      sideBar.classList.contains(constants.layers.modifierClasses.show) ||
-      sideBar.classList.contains(constants.layers.modifierClasses.close)
+      sidebarEl.classList.contains(constants.layers.modifierClasses.show) ||
+      sidebarEl.classList.contains(constants.layers.modifierClasses.close)
     ) {
       return;
     }
 
     // remove close and hidden classes
-    sideBar.classList.add(constants.layers.modifierClasses.close);
+    sidebarEl.classList.add(constants.layers.modifierClasses.close);
   };
 
   private handleSidebarTransitionEnd = (e: AnimationEvent) => {
@@ -63,9 +145,9 @@ export class SidebarManager {
       return;
     }
 
-    const sidebarRes = utils.parseHtmlElement(e.target);
+    const sidebarRes = parseHtmlElement(e.target);
     if (!sidebarRes.ok) {
-      this._windowManager.displayError(new NullTargetErr(e));
+      this._alertManager.renderError(new NullTargetErr(e));
       return;
     }
     const sidebar = sidebarRes.value;

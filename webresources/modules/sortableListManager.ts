@@ -1,3 +1,4 @@
+import { AlertManager } from "./alertManager";
 import constants from "./constants";
 import { NullParentErr } from "./errors";
 import {
@@ -14,10 +15,13 @@ export interface DraggedItem {
 
 export class SortableListManager {
   private readonly _windowManager: WindowManager;
+  private readonly _alertManager: AlertManager;
+
   private _currentDraggedItem: DraggedItem | null = null;
 
-  public constructor(windowManager: WindowManager) {
+  public constructor(windowManager: WindowManager, alertManager: AlertManager) {
     this._windowManager = windowManager;
+    this._alertManager = alertManager;
 
     // Drag controls
     document.addEventListener("dragstart", this.handleDragStart);
@@ -47,7 +51,7 @@ export class SortableListManager {
       target.closest(classSelector(constants.classes.sortableList.className)),
     );
     if (!parentListRes.ok) {
-      this._windowManager.displayError(
+      this._alertManager.renderError(
         new NullParentErr(
           target,
           classSelector(constants.classes.sortableList.className),
@@ -85,7 +89,7 @@ export class SortableListManager {
       dropzone.closest(classSelector(constants.classes.sortableList.className)),
     );
     if (!dropZoneParentList) {
-      this._windowManager.displayError(
+      this._alertManager.renderError(
         new NullParentErr(
           dropzone,
           classSelector(constants.classes.sortableList.className),
@@ -101,7 +105,7 @@ export class SortableListManager {
       dropzone,
     );
     if (error !== null) {
-      this._windowManager.displayError(error);
+      this._alertManager.renderError(error);
     }
   };
 
@@ -152,7 +156,7 @@ export class SortableListManager {
       nextElRes.value,
     );
     if (error !== null) {
-      this._windowManager.displayError(error);
+      this._alertManager.renderError(error);
       return;
     }
 

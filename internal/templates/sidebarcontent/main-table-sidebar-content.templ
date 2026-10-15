@@ -13,19 +13,44 @@ templ MainTableSidebarContent[T querymodel.TableModel](
     icons *icons.IconSet,
     tableData templates.TableData[T],
 ){
- <div id="edit-columns-sidebar" class="sidebar-content-group-container">
+    <div id="edit-columns-sidebar" class="sidebar-content-group-container">
+        @editColumnsContent(resourceEndpoint, icons, tableData)
+    </div>
 
-            <div id="edit-columns-list" class="sortable-list mt-7 mb-6">
-            for _, headerColumn := range tableData.Query.SelectCols{
-                <div 
-                    role="button"
-                    aria-label={fmt.Sprintf("%s column. Press Space to toggle select and arrow keys to move.", headerColumn.DisplayName)}
-                    class="sortable-item" 
-                    draggable="true" 
-                    data-column-path={headerColumn.Path}
-                    tabindex="0"
-                    aria-pressed="false"
-                >
+    <div id="edit-filters-sidebar" class="sidebar-content-group-container">
+        @editFiltersContent(resourceEndpoint, icons, tableData)
+    </div>
+}
+
+templ editColumnsContent[T querymodel.TableModel](
+    resourceEndpoint string,
+    icons *icons.IconSet,
+    tableData templates.TableData[T],
+){
+    <div class="sidebar-title">
+        <h3 sidebar-label>Edit Columns</h3>
+        <button 
+            aria-label="Close edit column modal"
+            class="icon-button icon large interactive" 
+            onclick="hg.mainTable.closeEditColumnsSidebar()"
+            initial-focus 
+        >
+            @templ.Raw(icons.Xmark)
+        </button>
+    </div>
+
+    <div class="sidebar-content">
+        <div id="edit-columns-list" class="sortable-list mt-7 mb-6">
+        for _, headerColumn := range tableData.Query.SelectCols{
+            <div 
+                role="button"
+                aria-label={fmt.Sprintf("%s column. Press Space to toggle select and arrow keys to move.", headerColumn.DisplayName)}
+                class="sortable-item" 
+                draggable="true" 
+                data-column-path={headerColumn.Path}
+                tabindex="0"
+                aria-pressed="false"
+            >
                 <div class="draggable-icon">@templ.Raw(icons.Draggable)</div>
                 <div class="sortable-item-text">{headerColumn.DisplayName}</div>
                 <button 
@@ -35,27 +60,61 @@ templ MainTableSidebarContent[T querymodel.TableModel](
                 >
                     @templ.Raw(icons.Minus)
                 </button>
-                </div>
-            }
             </div>
-            <button 
-                id="open-add-column-screen-button"
-                class="button-link mb-4"
-                aria-label="Open add columns modal"
-                onclick="hg.showNestedSidebar()" 
-            >
-                Add Columns
-            </button>
-            <button
-                id="apply-column-edits-button"
-                aria-label="Apply column edits"
-                hx-get={resourceEndpoint} 
-                hx-swap="innerHTML" 
-                hx-target="#main-table"
-                hx-push-url="false"
-                hx-indicator="main"
-            >
-                Apply
-            </button>
+        }
         </div>
+
+        <button 
+            id="open-add-column-screen-button"
+            class="button-link mb-4"
+            aria-label="Open add columns modal"
+            onclick="hg.editColumns.showAddColumnsSidebar()" 
+        >
+            Add Columns
+        </button>
+        <button
+            id="apply-column-edits-button"
+            aria-label="Apply column edits"
+            hx-get={resourceEndpoint} 
+            hx-swap="innerHTML" 
+            hx-target="#main-table"
+            hx-push-url="false"
+            hx-indicator="main"
+        >
+            Apply
+        </button>
+    </div>
+}
+
+templ editFiltersContent[T querymodel.TableModel](
+    resourceEndpoint string,
+    icons *icons.IconSet,
+    tableData templates.TableData[T],
+){
+    <div class="sidebar-title">
+        <h3 sidebar-label>Filter Columns</h3>
+        <button 
+            aria-label="Close edit column modal"
+            class="icon-button icon large interactive" 
+            onclick="hg.mainTable.closeEditFiltersSidebar()"
+            initial-focus 
+        >
+            @templ.Raw(icons.Xmark)
+        </button>
+    </div>
+
+    <div class="sidebar-content">
+        <p>Do some filtering or something I recon</p> 
+        <button
+            id="apply-column-edits-button"
+            aria-label="Apply column edits"
+            hx-get={resourceEndpoint} 
+            hx-swap="innerHTML" 
+            hx-target="#main-table"
+            hx-push-url="false"
+            hx-indicator="main"
+        >
+            Apply
+        </button>
+    </div>
 }

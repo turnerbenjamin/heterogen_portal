@@ -958,8 +958,8 @@ button.button-link {
     box-shadow: -2px 2px 2px 3px rgba(var(--base-fg-rgb) / 10%);
     z-index: var(--z-sidebar);
 
-    #sidebar-content,
-    #nested-sidebar-content {
+    .sidebar-content,
+    .nested-sidebar-content {
         display: flex;
         flex-direction: column;
         min-height: 0;

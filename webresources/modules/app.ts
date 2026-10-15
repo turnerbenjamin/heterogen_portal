@@ -4,20 +4,22 @@ import { MainTable } from "./mainTable";
 import { SidebarManager } from "./sidebarManager";
 import { WindowManager } from "./windowManager";
 import { SortableListManager } from "./sortableListManager";
-import {
-  AlertManager,
-  lastDitchHandler as displayFatalAppError,
-} from "./alerts";
+import { AlertManager } from "./alertManager";
+import { parseAppError } from "./errors";
 
 export interface HgNamespace {
   closeAlert: () => void;
-  showSidebar: () => void;
-  closeSidebar: () => void;
-  showNestedSidebar: () => void;
-  closeNestedSidebar: () => void;
   editColumns: {
     addColumns: () => void;
     removeColumn: (_e: MouseEvent) => void;
+    showAddColumnsSidebar: () => void;
+    closeAddColumnsSidebar: () => void;
+  };
+  mainTable: {
+    showEditColumnsSidebar: () => void;
+    showEditFiltersSidebar: () => void;
+    closeEditColumnsSidebar: () => void;
+    closeEditFiltersSidebar: () => void;
   };
 }
 
@@ -34,35 +36,77 @@ export class App {
   public constructor() {
     try {
       InitialiseToast();
-
-      this.alertManager = new AlertManager();
-      this.windowManager = new WindowManager(this.alertManager);
-
       this.htmxErrorHandler = new htmxErrorHandler();
 
-      this.mainTable = new MainTable(this.windowManager);
-      this.sidebarManager = new SidebarManager(this.windowManager);
-      this.sortableListManager = new SortableListManager(this.windowManager);
+      this.windowManager = new WindowManager(this.panic);
+
+      this.alertManager = new AlertManager(this.windowManager, this.panic);
+      this.sidebarManager = new SidebarManager(
+        this.windowManager,
+        this.alertManager,
+      );
+
+      this.mainTable = new MainTable(this.alertManager, this.sidebarManager);
+      this.sortableListManager = new SortableListManager(
+        this.windowManager,
+        this.alertManager,
+      );
 
       // Global try/catch
       addEventListener("error", (e: ErrorEvent) => {
         e.preventDefault();
-        this.windowManager?.displayError(e.error);
+        this.alertManager?.renderError(e.error);
       });
 
       this.hgNamespace = {
-        closeAlert: this.windowManager.hgHandlerCloseAlert,
-        showSidebar: this.windowManager.hgHandlerShowSidebar,
-        closeSidebar: this.windowManager.hgHandlerCloseSidebar,
-        showNestedSidebar: this.windowManager.hgHandlerShowNestedSidebar,
-        closeNestedSidebar: this.windowManager.hgHandlerCloseNestedSidebar,
+        closeAlert: this.alertManager.hgHandlerCloseAlert,
         editColumns: {
           addColumns: this.mainTable.hgHandlerAddColumns,
           removeColumn: this.mainTable.hgHandlerRemoveColumn,
+          showAddColumnsSidebar: this.mainTable.hgHandlerOpenAddColumnsSidebar,
+          closeAddColumnsSidebar:
+            this.mainTable.hgHandlerCloseAddColumnsSidebar,
+        },
+        mainTable: {
+          showEditColumnsSidebar:
+            this.mainTable.hgHandlerShowEditColumnsSidebar,
+          closeEditColumnsSidebar:
+            this.mainTable.hgHandlerCloseEditColumnsSidebar,
+          showEditFiltersSidebar:
+            this.mainTable.hgHandlerShowEditFiltersSidebar,
+          closeEditFiltersSidebar:
+            this.mainTable.hgHandlerCloseEditColumnsSidebar,
         },
       };
     } catch (err: unknown) {
-      displayFatalAppError(err);
+      this.panic(err);
     }
+  }
+
+  private panic(errObj: unknown) {
+    const err = parseAppError(errObj);
+
+    const lastDitchErrContainerEl = document.createElement("div");
+    lastDitchErrContainerEl.id = "last-ditch-err-container";
+
+    const lastDitchTitleEl = document.createElement("h1");
+    lastDitchTitleEl.id = "last-ditch-err-title";
+    lastDitchTitleEl.textContent = "Unable to initialise application";
+
+    const lastDitchMsgEl = document.createElement("p");
+    lastDitchMsgEl.id = "last-ditch-err-message";
+    lastDitchMsgEl.textContent = err.message;
+
+    const lastDitchDetailEl = document.createElement("pre");
+    lastDitchDetailEl.id = "last-ditch-err-detail";
+    lastDitchDetailEl.classList.add("error-detail");
+    lastDitchDetailEl.textContent = err.details;
+
+    lastDitchErrContainerEl.appendChild(lastDitchTitleEl);
+    lastDitchErrContainerEl.appendChild(lastDitchMsgEl);
+    lastDitchErrContainerEl.appendChild(lastDitchDetailEl);
+
+    document.body.innerHTML = "";
+    document.body.appendChild(lastDitchErrContainerEl);
   }
 }

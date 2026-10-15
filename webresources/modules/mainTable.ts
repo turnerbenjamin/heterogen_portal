@@ -1,3 +1,4 @@
+import { AlertManager } from "./alertManager";
 import constants from "./constants";
 import {
   NoElWithIdErr,
@@ -14,13 +15,13 @@ import {
   onHtmxConfigRequestEvent,
 } from "./htmx";
 import { Fail, Result, Success } from "./result";
+import { SidebarManager } from "./sidebarManager";
 import {
   setVisibility,
   parseHtmlElement,
   classSelector,
   getElementById,
 } from "./utils";
-import { Hook, WindowManager } from "./windowManager";
 
 interface SelectStatement {
   statement: string;
@@ -28,31 +29,64 @@ interface SelectStatement {
 }
 
 export class MainTable {
-  private _windowManager: WindowManager;
+  private _alertManager: AlertManager;
+  private _sidebarManager: SidebarManager;
+
   private editColumnsListPreEditState: HTMLElement | null = null;
   private addColumnsListPreEditState: HTMLElement | null = null;
 
-  public constructor(windowManager: WindowManager) {
-    this._windowManager = windowManager;
-
-    this._windowManager.registerHook(
-      Hook.openSidebar,
-      this.snapshotColumnState,
-    );
-
-    this._windowManager.registerHook(
-      Hook.closeSidebar,
-      this.restoreEditColumnState,
-    );
-
-    this._windowManager.registerHook(
-      Hook.closeNestedSidebar,
-      this.handleCloseNestedSidebar,
-    );
+  public constructor(
+    alertManager: AlertManager,
+    sidebarManager: SidebarManager,
+  ) {
+    this._alertManager = alertManager;
+    this._sidebarManager = sidebarManager;
 
     onHtmxConfigRequestEvent(this.handleHtmxConfigRequestEvent);
     onHtmxAfterSwapEvent(this.handleHtmxAfterSwapEvent);
   }
+
+  public hgHandlerShowEditColumnsSidebar = () => {
+    this.snapshotColumnState();
+    const err = this._sidebarManager.showSidebar(
+      constants.layers.sidebar.content.editColumnsSidebar.id,
+    );
+    if (err) {
+      this._alertManager.renderError(err);
+    }
+  };
+
+  public hgHandlerCloseEditColumnsSidebar = () => {
+    this.restoreEditColumnState();
+    this._sidebarManager.closeSidebar();
+  };
+
+  public hgHandlerShowEditFiltersSidebar = () => {
+    const err = this._sidebarManager.showSidebar(
+      constants.layers.sidebar.content.editFiltersSidebar.id,
+    );
+    if (err) {
+      this._alertManager.renderError(err);
+    }
+  };
+
+  public hgHandlerCloseEditFiltersSidebar = () => {
+    this._sidebarManager.closeSidebar();
+  };
+
+  public hgHandlerOpenAddColumnsSidebar = () => {
+    const err = this._sidebarManager.showNestedSidebar(
+      constants.layers.nestedSidebar.content.addColumnsSidebar.id,
+    );
+    if (err) {
+      this._alertManager.renderError(err);
+    }
+  };
+
+  public hgHandlerCloseAddColumnsSidebar = () => {
+    this.handleCloseAddColumns();
+    this._sidebarManager.closeNestedSidebar();
+  };
 
   private handleHtmxConfigRequestEvent = (
     e: HtmxEvent<HtmxConfigRequestEvent>,
@@ -60,7 +94,7 @@ export class MainTable {
     const targetRes = parseHtmlElement(e.detail.ctx.sourceElement);
     if (!targetRes.ok) {
       e.preventDefault();
-      this._windowManager.displayError(targetRes.error);
+      this._alertManager.renderError(targetRes.error);
       return;
     }
     const target = targetRes.value;
@@ -75,7 +109,7 @@ export class MainTable {
     const selectRes = this.buildSelectStatement();
     if (!selectRes.ok) {
       e.preventDefault();
-      this._windowManager.displayError(selectRes.error);
+      this._alertManager.renderError(selectRes.error);
       return;
     }
 
@@ -91,7 +125,7 @@ export class MainTable {
     const targetRes = parseHtmlElement(e.detail.ctx.sourceElement);
     if (!targetRes.ok) {
       e.preventDefault();
-      this._windowManager.displayError(targetRes.error);
+      this._alertManager.renderError(targetRes.error);
       return;
     }
     const target = targetRes.value;
@@ -100,13 +134,13 @@ export class MainTable {
       return;
     }
 
-    this._windowManager.hgHandlerCloseSidebar();
+    this._sidebarManager.closeSidebar();
   };
 
   public hgHandlerAddColumns = () => {
     const getListElementsRes = this.getEditAndAddColumnListEls();
     if (!getListElementsRes.ok) {
-      this._windowManager.displayError(getListElementsRes.ok);
+      this._alertManager.renderError(getListElementsRes.ok);
       return;
     }
     const [editColumnsList, addColumnsList] = getListElementsRes.value;
@@ -114,7 +148,7 @@ export class MainTable {
     const editColumnsListItemsRes =
       this.getEditColumnsListItems(editColumnsList);
     if (!editColumnsListItemsRes.ok) {
-      this._windowManager.displayError(editColumnsListItemsRes.error);
+      this._alertManager.renderError(editColumnsListItemsRes.error);
       return;
     }
     const editColumnsListItems = editColumnsListItemsRes.value;
@@ -123,7 +157,7 @@ export class MainTable {
 
     const addColumnsListItemsRes = this.getAddColumnsListItems(addColumnsList);
     if (!addColumnsListItemsRes.ok) {
-      this._windowManager.displayError(addColumnsListItemsRes.error);
+      this._alertManager.renderError(addColumnsListItemsRes.error);
       return;
     }
 
@@ -131,7 +165,7 @@ export class MainTable {
     for (const optionSetEl of addColumnsListItemsRes.value) {
       const labelEl = optionSetEl.querySelector("label");
       if (!labelEl) {
-        this._windowManager.displayError(
+        this._alertManager.renderError(
           new QSelectFail(
             "label",
             constants.classes.optionGroup.items.className,
@@ -142,7 +176,7 @@ export class MainTable {
 
       const checkboxEl = optionSetEl.querySelector("input");
       if (!checkboxEl || checkboxEl.type !== "checkbox") {
-        this._windowManager.displayError(
+        this._alertManager.renderError(
           new UnexpectedErr(
             `expected ${constants.classes.optionGroup.items.className} to ` +
               `contain an input element of type checkbox`,
@@ -174,7 +208,7 @@ export class MainTable {
         ),
       );
       if (!newItemTextContainer) {
-        this._windowManager.displayError(
+        this._alertManager.renderError(
           new QSelectFail(
             constants.classes.sortableList.items.textContainer.className,
             constants.classes.sortableList.items.className,
@@ -193,7 +227,7 @@ export class MainTable {
         .openAddColumnScreenButton.id,
     );
     if (!openAddColumnScreenBtn) {
-      this._windowManager.displayError(
+      this._alertManager.renderError(
         new NoElWithIdErr(
           constants.layers.sidebar.content.editColumnsSidebar
             .openAddColumnScreenButton.id,
@@ -203,10 +237,10 @@ export class MainTable {
     }
 
     setVisibility(openAddColumnScreenBtn, uncheckedCount > 0);
-    this._windowManager.hgHandlerCloseNestedSidebar();
+    this._sidebarManager.closeNestedSidebar();
   };
 
-  private handleCloseNestedSidebar = () => {
+  private handleCloseAddColumns = () => {
     if (!this.isMainTablePage) {
       return;
     }
@@ -216,7 +250,7 @@ export class MainTable {
         .id,
     );
     if (!getAddColumnOptionElRes.ok) {
-      this._windowManager.displayError(getAddColumnOptionElRes.error);
+      this._alertManager.renderError(getAddColumnOptionElRes.error);
       return;
     }
     const addColumnOptionEl = getAddColumnOptionElRes.value;
@@ -230,7 +264,7 @@ export class MainTable {
   public hgHandlerRemoveColumn = (e: MouseEvent) => {
     const targetRes = parseHtmlElement(e.currentTarget);
     if (!targetRes.ok) {
-      this._windowManager.displayError(targetRes.error);
+      this._alertManager.renderError(targetRes.error);
       return;
     }
     const target = targetRes.value;
@@ -249,7 +283,7 @@ export class MainTable {
       constants.classes.sortableList.items.attributes.columnPath,
     );
     if (!headerPath) {
-      this._windowManager.displayError(
+      this._alertManager.renderError(
         new NullAttributeErr(
           sortableColumn,
           constants.classes.sortableList.items.attributes.columnPath,
@@ -262,7 +296,7 @@ export class MainTable {
       classSelector(constants.classes.sortableList.className),
     );
     if (!sortableList) {
-      this._windowManager.displayError(
+      this._alertManager.renderError(
         new NullParentErr(
           sortableColumn,
           constants.classes.sortableList.className,
@@ -273,7 +307,7 @@ export class MainTable {
 
     const addColumnListRes = this.getAddColumnsList();
     if (!addColumnListRes.ok) {
-      this._windowManager.displayError(addColumnListRes.error);
+      this._alertManager.renderError(addColumnListRes.error);
       return;
     }
 
@@ -281,7 +315,7 @@ export class MainTable {
       addColumnListRes.value,
     );
     if (!addColumnListItemsResult.ok) {
-      this._windowManager.displayError(addColumnListItemsResult.error);
+      this._alertManager.renderError(addColumnListItemsResult.error);
       return;
     }
 
@@ -292,7 +326,7 @@ export class MainTable {
         constants.classes.optionGroup.items.attributes.columnPath,
       );
       if (!addColumnElementPath) {
-        this._windowManager.displayError(
+        this._alertManager.renderError(
           new NullAttributeErr(
             currentEl,
             constants.classes.optionGroup.items.attributes.columnPath,
@@ -308,7 +342,7 @@ export class MainTable {
     }
 
     if (!addColumnElement) {
-      this._windowManager.displayError(
+      this._alertManager.renderError(
         new UnexpectedErr(
           `A ${constants.classes.optionGroup.items.className} cannot be ` +
             `found for the column ${headerPath}`,
@@ -325,7 +359,7 @@ export class MainTable {
   private snapshotColumnState = () => {
     const res = this.getEditAndAddColumnListEls();
     if (!res.ok) {
-      this._windowManager.displayError(res.error);
+      this._alertManager.renderError(res.error);
       return;
     }
     const [editColumnsListEl, addColumnsListEl] = res.value;
@@ -334,7 +368,7 @@ export class MainTable {
       editColumnsListEl.cloneNode(true),
     );
     if (!editColumnListCloneRes.ok) {
-      this._windowManager.displayError(editColumnListCloneRes.error);
+      this._alertManager.renderError(editColumnListCloneRes.error);
       return;
     }
 
@@ -342,7 +376,7 @@ export class MainTable {
       addColumnsListEl.cloneNode(true),
     );
     if (!addColumnsListCloneRes.ok) {
-      this._windowManager.displayError(addColumnsListCloneRes);
+      this._alertManager.renderError(addColumnsListCloneRes);
       return;
     }
 
@@ -352,7 +386,7 @@ export class MainTable {
 
   private restoreEditColumnState = () => {
     if (!this.editColumnsListPreEditState || !this.addColumnsListPreEditState) {
-      this._windowManager.displayError(
+      this._alertManager.renderError(
         new UnexpectedErr(
           "Unable to restore state in the edit column sidebar; one or both " +
             "snapshots are null",
@@ -363,7 +397,7 @@ export class MainTable {
 
     const res = this.getEditAndAddColumnListEls();
     if (!res.ok) {
-      this._windowManager.displayError(res.error);
+      this._alertManager.renderError(res.error);
       return;
     }
     const [editColumnsListEl, addColumnsListEl] = res.value;
