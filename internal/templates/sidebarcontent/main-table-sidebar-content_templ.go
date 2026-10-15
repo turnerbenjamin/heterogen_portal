@@ -89,7 +89,7 @@ func editColumnsContent[T querymodel.TableModel](
 			templ_7745c5c3_Var2 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "<div class=\"sidebar-title\"><h3>Edit Columns</h3><button aria-label=\"Close edit column modal\" class=\"icon-button icon large interactive\" onclick=\"hg.mainTable.closeEditColumnsSidebar()\" initial-focus>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "<div class=\"sidebar-title\"><h3 sidebar-label>Edit Columns</h3><button aria-label=\"Close edit column modal\" class=\"icon-button icon large interactive\" onclick=\"hg.mainTable.closeEditColumnsSidebar()\" initial-focus>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -221,7 +221,7 @@ func editFiltersContent[T querymodel.TableModel](
 			templ_7745c5c3_Var8 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "<div class=\"sidebar-title\"><h3>Filter Columns</h3><button aria-label=\"Close edit column modal\" class=\"icon-button icon large interactive\" onclick=\"hg.mainTable.closeEditFiltersSidebar()\" initial-focus>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "<div class=\"sidebar-title\"><h3 sidebar-label>Filter Columns</h3><button aria-label=\"Close edit column modal\" class=\"icon-button icon large interactive\" onclick=\"hg.mainTable.closeEditFiltersSidebar()\" initial-focus>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

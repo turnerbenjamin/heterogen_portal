@@ -1,5 +1,10 @@
 import constants from "./constants";
-import { NoElWithIdErr, NullChildErr, WindowManagerErr } from "./errors";
+import {
+  NoElWithIdErr,
+  NullChildErr,
+  UnexpectedErr,
+  WindowManagerErr,
+} from "./errors";
 import { Fail, Result, Success } from "./result";
 import { attributeSelector, parseHtmlElement, setBoolAttribute } from "./utils";
 
@@ -7,6 +12,7 @@ interface Layer {
   layerId: string;
   element: HTMLElement;
   stackIndex: number;
+  depth: number;
 }
 
 export enum Hook {
@@ -26,6 +32,13 @@ export class WindowManager {
     Sidebar: constants.layers.sidebar.id,
     NestedSidebar: constants.layers.nestedSidebar.id,
     Alert: constants.layers.alert.id,
+  } as const;
+
+  private readonly _layerDepths: Partial<Record<string, number>> = {
+    [constants.layers.app.id]: 0,
+    [constants.layers.sidebar.id]: 1,
+    [constants.layers.nestedSidebar.id]: 2,
+    [constants.layers.alert.id]: 3,
   } as const;
 
   private readonly _layers: Record<string, Layer> = {};
@@ -137,6 +150,14 @@ export class WindowManager {
       return getActiveLayerResult.error;
     }
     const activeLayer = getActiveLayerResult.value;
+
+    // Guard that active layer is higher than the current layer
+    if (newActiveLayer.depth < activeLayer.depth) {
+      return new UnexpectedErr(
+        `unable to push layer to stack: ${layerId} has a lower depth value ` +
+          `than the current active layer, ${activeLayer.layerId}`,
+      );
+    }
 
     // Set the current active layer to inert
     setBoolAttribute(
@@ -289,10 +310,20 @@ export class WindowManager {
       return Fail(new NoElWithIdErr(layerId));
     }
 
+    const depth = this._layerDepths[layerId];
+    if (depth === undefined) {
+      return Fail(
+        new UnexpectedErr(
+          `unable to get layer: cannot access depth for ${layerId}`,
+        ),
+      );
+    }
+
     return Success({
       layerId: layerId,
       element: layerElRes.value,
       stackIndex: -1,
+      depth: depth,
     });
   };
 

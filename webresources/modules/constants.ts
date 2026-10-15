@@ -16,6 +16,7 @@ export default {
     sidebar: {
       id: "sidebar",
       content: {
+        labelElAttribute: "sidebar-label",
         editColumnsSidebar: {
           id: "edit-columns-sidebar",
           editColumnsList: {

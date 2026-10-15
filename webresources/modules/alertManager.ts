@@ -61,6 +61,7 @@ export class AlertManager {
   }
 
   public hgHandlerCloseAlert = () => {
+    this.hideAlert();
     this._windowManager.popAlert();
   };
 

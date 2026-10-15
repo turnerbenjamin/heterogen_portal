@@ -1,7 +1,13 @@
 import { AlertManager } from "./alertManager";
 import constants from "./constants";
 import { NullTargetErr, UnexpectedErr } from "./errors";
-import * as utils from "./utils";
+import {
+  attributeSelector,
+  classSelector,
+  getElementById,
+  parseHtmlElement,
+  setVisibility,
+} from "./utils";
 import { WindowManager } from "./windowManager";
 
 export class SidebarManager {
@@ -43,7 +49,7 @@ export class SidebarManager {
     sidebarId: string,
     contentIdentifier: string,
   ): Error | null => {
-    const sidebarElRes = utils.getElementById(sidebarId);
+    const sidebarElRes = getElementById(sidebarId);
     if (!sidebarElRes.ok) {
       return sidebarElRes.error;
     }
@@ -57,11 +63,27 @@ export class SidebarManager {
       return null;
     }
 
+    const contentEl = getElementById(contentIdentifier);
+    if (!contentEl.ok) {
+      return contentEl.error;
+    }
+    const labelEl = contentEl.value.querySelector(
+      attributeSelector(constants.layers.sidebar.content.labelElAttribute),
+    );
+    if (!labelEl) {
+      return new UnexpectedErr(
+        `unable to show sidebar element: sidebar elements must contain an ` +
+          `element with a ${constants.layers.sidebar.content.labelElAttribute} ` +
+          `attribute.`,
+      );
+    }
+    sidebarEl.ariaLabel = labelEl.textContent;
+
     let didFindContentElement = false;
     for (const e of sidebarEl.querySelectorAll(
-      utils.classSelector(constants.sidebarCommon.contentGroupClass),
+      classSelector(constants.sidebarCommon.contentGroupClass),
     )) {
-      const elRes = utils.parseHtmlElement(e);
+      const elRes = parseHtmlElement(e);
       if (!elRes.ok) {
         return elRes.error;
       }
@@ -70,7 +92,7 @@ export class SidebarManager {
         didFindContentElement = true;
       }
 
-      utils.setVisibility(elRes.value, elRes.value.id === contentIdentifier);
+      setVisibility(elRes.value, elRes.value.id === contentIdentifier);
     }
 
     if (!didFindContentElement) {
@@ -97,7 +119,7 @@ export class SidebarManager {
   };
 
   public hideSidebarEl = (sidebarId: string) => {
-    const sideBarElRes = utils.getElementById(sidebarId);
+    const sideBarElRes = getElementById(sidebarId);
     if (!sideBarElRes.ok) {
       return this._alertManager.renderError(sideBarElRes.error);
     }
@@ -123,7 +145,7 @@ export class SidebarManager {
       return;
     }
 
-    const sidebarRes = utils.parseHtmlElement(e.target);
+    const sidebarRes = parseHtmlElement(e.target);
     if (!sidebarRes.ok) {
       this._alertManager.renderError(new NullTargetErr(e));
       return;
