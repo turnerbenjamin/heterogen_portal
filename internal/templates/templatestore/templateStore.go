@@ -7,6 +7,7 @@ import (
 	"github.com/turnerbenjamin/heterogen_portal/internal/etc"
 	"github.com/turnerbenjamin/heterogen_portal/internal/icons"
 	"github.com/turnerbenjamin/heterogen_portal/internal/model"
+	"github.com/turnerbenjamin/heterogen_portal/internal/tables"
 	"github.com/turnerbenjamin/heterogen_portal/internal/templates"
 	"github.com/turnerbenjamin/heterogen_portal/internal/templates/components"
 	"github.com/turnerbenjamin/heterogen_portal/internal/templates/pages"
@@ -48,7 +49,7 @@ func (s *store) ExecutePageUsers(
 	ctx context.Context,
 	w io.Writer,
 	pageConfig templates.PageConfig,
-	tableData *templates.TableData[*model.UsersModel],
+	tableData *tables.TableData[*model.UsersModel],
 	resourceEndpoint string,
 ) error {
 	page := pages.MainTable(
@@ -64,7 +65,7 @@ func (s *store) ExecutePageBusinesses(
 	ctx context.Context,
 	w io.Writer,
 	pageConfig templates.PageConfig,
-	tableData *templates.TableData[*model.BusinessesModel],
+	tableData *tables.TableData[*model.BusinessesModel],
 	resourceEndpoint string,
 ) error {
 	page := pages.MainTable(

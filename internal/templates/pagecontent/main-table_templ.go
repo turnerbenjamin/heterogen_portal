@@ -10,13 +10,13 @@ import templruntime "github.com/a-h/templ/runtime"
 
 import (
 	"github.com/turnerbenjamin/heterogen_portal/internal/icons"
-	"github.com/turnerbenjamin/heterogen_portal/internal/templates"
+	"github.com/turnerbenjamin/heterogen_portal/internal/tables"
 	"github.com/turnerbenjamin/querystack/querymodel"
 )
 
 func MainTable[T querymodel.TableModel](
 	icons *icons.IconSet,
-	tableData templates.TableData[T],
+	tableData tables.TableData[T],
 ) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
@@ -39,12 +39,12 @@ func MainTable[T querymodel.TableModel](
 		}
 		ctx = templ.ClearChildren(ctx)
 		switch tableData.RequestTarget {
-		case templates.MainTableRequestTargetTableBody:
+		case tables.MainTableRequestTargetTableBody:
 			templ_7745c5c3_Err = tableBody(tableData).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-		case templates.MainTableRequestTargetTable:
+		case tables.MainTableRequestTargetTable:
 			templ_7745c5c3_Err = table(tableData).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
@@ -61,7 +61,7 @@ func MainTable[T querymodel.TableModel](
 
 func mainTablePageContent[T querymodel.TableModel](
 	icons *icons.IconSet,
-	tableData templates.TableData[T],
+	tableData tables.TableData[T],
 ) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
@@ -113,7 +113,7 @@ func mainTablePageContent[T querymodel.TableModel](
 }
 
 func table[T querymodel.TableModel](
-	tableData templates.TableData[T],
+	tableData tables.TableData[T],
 ) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
@@ -188,7 +188,7 @@ func table[T querymodel.TableModel](
 }
 
 func tableBody[T querymodel.TableModel](
-	tableData templates.TableData[T],
+	tableData tables.TableData[T],
 ) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context

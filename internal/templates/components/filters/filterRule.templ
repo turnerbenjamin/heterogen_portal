@@ -1,0 +1,31 @@
+package filters
+
+import "github.com/turnerbenjamin/querystack/querymodel"
+import "github.com/turnerbenjamin/heterogen_portal/internal/tables"
+
+templ FilterRule[T querymodel.TableModel](
+  tableData tables.TableData[T],
+  filterRule tables.FilterRule,
+) {
+  <div class="filter-rule">
+    // Table column drop down
+    <select class="filter-rule-display-name" name="filter-rule-column">
+      for _, c := range tableData.OrderedColumnDefinitions{
+        <option value={c.Path} selected?={c.Path == filterRule.ColumnPath}>
+          {c.DisplayName}
+        </option>
+      }
+    </select>
+
+    // Operator drop down
+    <select class="filter-rule-operator" name="filter-rule-operator">
+      for _, o := range filterRule.SupportedOperators{
+        <option value={o.Operator} selected?={o.Operator == filterRule.Operator.Operator}>
+          {o.DisplayName}
+        </option>
+      }
+    </select>
+
+    <p class="filter-rule-value">{"I am a value"}</p> 
+  </div>
+}

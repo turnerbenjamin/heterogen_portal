@@ -928,8 +928,8 @@ button.button-link {
 }
 
 :root {
-    --side-bar-width: 40%;
-    --side-bar-nested-width: 35%;
+    --side-bar-width: 60%;
+    --side-bar-nested-width: 55%;
 }
 
 @media (max-width: 768px) {
@@ -1103,4 +1103,92 @@ button.button-link {
         color: var(--dark-red);
         margin-bottom: var(--ws-8);
     }
+}
+
+:root {
+    --filter-item-height: 3rem;
+    --filter-indent: 1.5rem;
+    --filter-line: 2px;
+}
+
+.filter-group-operator,
+.filter-rule {
+    display: flex;
+    align-items: center;
+    min-height: var(--filter-item-height);
+}
+
+.filter-group-operator {
+    position: relative;
+    z-index: 2;
+    justify-content: flex-start;
+}
+
+.filter-rule {
+    position: relative;
+    flex-direction: row;
+    justify-content: flex-start;
+    gap: var(--ws-2);
+    padding-left: var(--ws-4);
+}
+
+/* The group title is the parent node. */
+.filter-group-title {
+    position: relative;
+    background-color: var(--base-bg);
+    .filter-group-title * {
+        z-index: 1;
+    }
+}
+
+/* Reserve space for the child tree. */
+.filter-group-items {
+    position: relative;
+    margin-left: var(--filter-indent);
+    padding-left: var(--filter-indent);
+}
+
+/* Start at the parent node and extend behind all children. */
+.filter-group-items::before {
+    content: "";
+    position: absolute;
+    z-index: 0;
+    left: 0;
+    top: calc(var(--filter-item-height) / -2);
+    bottom: 0;
+    width: var(--filter-line);
+    background-color: var(--base-fg-sbtl);
+}
+
+/* Every child gets a horizontal connector. */
+.filter-group-items > .filter-rule,
+.filter-group-items > .filter-group {
+    position: relative;
+}
+
+.filter-group-items > .filter-rule::before,
+.filter-group-items > .filter-group::before {
+    content: "";
+    position: absolute;
+    z-index: 2;
+    top: calc(var(--filter-item-height) / 2);
+    left: calc(var(--filter-indent) * -1);
+    width: calc(var(--filter-indent) + var(--filter-line));
+    height: var(--filter-line);
+    background-color: var(--base-fg-sbtl);
+}
+
+/*
+ * Hide the vertical line below the last child's node.
+ * This works whether the final child is a rule or a nested group.
+ */
+.filter-group-items > :last-child::after {
+    content: "";
+    position: absolute;
+    z-index: 1;
+    left: calc(var(--filter-indent) * -1);
+    top: calc(var(--filter-item-height) / 2);
+    bottom: 0;
+    width: var(--filter-line);
+    background-color: var(--base-bg);
 }

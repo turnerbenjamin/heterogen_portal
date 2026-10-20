@@ -49,8 +49,8 @@ func (w *constantsWriter) writeConstants() {
 	w.writeColumnNameConstants()
 	writeToBuilder(w.sb, "\n")
 
-	// w.writeColumnTypeConstants()
-	// writeToBuilder(w.sb, "\n")
+	w.writeColumnTypeConstants()
+	writeToBuilder(w.sb, "\n")
 
 	w.writeColumnDisplayNameConstants()
 	writeToBuilder(w.sb, "\n")
@@ -74,6 +74,7 @@ type DataType string
 const (
 	DataTypeString DataType = "string"
 	DataTypeNumber DataType = "number"
+	DataTypeEnum DataType = "enum"
 	DataTypeTime   DataType = "time"
 	DataTypePoint  DataType = "point"
 )
@@ -120,30 +121,30 @@ func (w *constantsWriter) writeColumnDisplayNameConstants() {
 	writeToBuilder(w.sb, ")\n")
 }
 
-// func (w *constantsWriter) writeColumnTypeConstants() {
-// 	writeToBuilder(w.sb, "// Constants representing column data types\n")
-// 	writeToBuilder(w.sb, "const(\n")
-// 	for i, table := range w.metadata.Tables {
-// 		if i != 0 {
-// 			writeToBuilder(w.sb, "\n")
-// 		}
+func (w *constantsWriter) writeColumnTypeConstants() {
+	writeToBuilder(w.sb, "// Constants representing column data types\n")
+	writeToBuilder(w.sb, "const(\n")
+	for i, table := range w.metadata.Tables {
+		if i != 0 {
+			writeToBuilder(w.sb, "\n")
+		}
 
-// 		for _, column := range table.Columns {
-// 			dataType := msqlTypeToDataTypeString(column.Type, column.Checks)
-// 			if dataType == "" {
-// 				log.Fatal(fmt.Errorf("unable to convert type to go type: %s(%s)", column.Name, column.Type))
-// 			}
+		for _, column := range table.Columns {
+			dataType := msqlTypeToDataTypeString(column)
+			if dataType == "" {
+				log.Fatal(fmt.Errorf("unable to convert type to go type: %s(%s)", column.Name, column.Type))
+			}
 
-// 			fieldNameConst := fmt.Sprintf(
-// 				"ColType%s%s",
-// 				snakeToPascal(table.Name),
-// 				snakeToPascal(column.Name),
-// 			)
-// 			writeToBuilder(w.sb, fmt.Sprintf("%s = %s\n", fieldNameConst, dataType))
-// 		}
-// 	}
-// 	writeToBuilder(w.sb, ")\n")
-// }
+			fieldNameConst := fmt.Sprintf(
+				"ColType%s%s",
+				snakeToPascal(table.Name),
+				snakeToPascal(column.Name),
+			)
+			writeToBuilder(w.sb, fmt.Sprintf("%s = %s\n", fieldNameConst, dataType))
+		}
+	}
+	writeToBuilder(w.sb, ")\n")
+}
 
 func (w *constantsWriter) writeRelationshipNameConstants() {
 	writeToBuilder(w.sb, "// Constants representing relationship columns names\n")
@@ -224,4 +225,39 @@ func snakeToDisplayName(s string) string {
 	}
 
 	return strings.Join(parts, " ")
+}
+
+func msqlTypeToDataTypeString(columnData *builderrepo.ColumnMetadata) string {
+	switch columnData.Type {
+	case MsqlTypeNvarchar:
+		return "DataTypeString"
+	case MsqlTypeInt:
+		return "DataTypeNumber"
+	case MsqlTypeTinyInt:
+		if columnData.EnumName != "" {
+			return "DataTypeEnum"
+		} else {
+			return "DataTypeNumber"
+		}
+	case MsqlTypeDateTimeOffset:
+		return "DataTypeTime"
+	case MsqlTypeGeography:
+		geometryType := ""
+		for _, currentCheck := range columnData.Checks {
+			matches := geometryTypeRegex.FindStringSubmatch(currentCheck.Definition)
+
+			if len(matches) == 2 {
+				geometryType = matches[1]
+			}
+		}
+		switch geometryType {
+		case "Point":
+			return "DataTypePoint"
+		default:
+			panic("unsupported geometry type: " + geometryType)
+		}
+
+	default:
+		panic("unrecognised data type: " + columnData.Type)
+	}
 }

@@ -13,6 +13,7 @@ import (
 	"github.com/turnerbenjamin/heterogen_portal/internal/etc"
 	"github.com/turnerbenjamin/heterogen_portal/internal/model"
 	"github.com/turnerbenjamin/heterogen_portal/internal/services"
+	"github.com/turnerbenjamin/heterogen_portal/internal/tables"
 	"github.com/turnerbenjamin/heterogen_portal/internal/templates"
 	"github.com/turnerbenjamin/querystack/querymodel"
 )
@@ -826,19 +827,19 @@ func (_m *MockTableState[T]) EXPECT() *MockTableState_Expecter[T] {
 }
 
 // GetTableData provides a mock function for the type MockTableState
-func (_mock *MockTableState[T]) GetTableData() *templates.TableData[T] {
+func (_mock *MockTableState[T]) GetTableData() *tables.TableData[T] {
 	ret := _mock.Called()
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetTableData")
 	}
 
-	var r0 *templates.TableData[T]
-	if returnFunc, ok := ret.Get(0).(func() *templates.TableData[T]); ok {
+	var r0 *tables.TableData[T]
+	if returnFunc, ok := ret.Get(0).(func() *tables.TableData[T]); ok {
 		r0 = returnFunc()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*templates.TableData[T])
+			r0 = ret.Get(0).(*tables.TableData[T])
 		}
 	}
 	return r0
@@ -861,12 +862,12 @@ func (_c *MockTableState_GetTableData_Call[T]) Run(run func()) *MockTableState_G
 	return _c
 }
 
-func (_c *MockTableState_GetTableData_Call[T]) Return(tableData *templates.TableData[T]) *MockTableState_GetTableData_Call[T] {
+func (_c *MockTableState_GetTableData_Call[T]) Return(tableData *tables.TableData[T]) *MockTableState_GetTableData_Call[T] {
 	_c.Call.Return(tableData)
 	return _c
 }
 
-func (_c *MockTableState_GetTableData_Call[T]) RunAndReturn(run func() *templates.TableData[T]) *MockTableState_GetTableData_Call[T] {
+func (_c *MockTableState_GetTableData_Call[T]) RunAndReturn(run func() *tables.TableData[T]) *MockTableState_GetTableData_Call[T] {
 	_c.Call.Return(run)
 	return _c
 }
@@ -1069,7 +1070,7 @@ func (_c *MockTemplateStore_ExecutePageApp_Call) RunAndReturn(run func(ctx conte
 }
 
 // ExecutePageBusinesses provides a mock function for the type MockTemplateStore
-func (_mock *MockTemplateStore) ExecutePageBusinesses(ctx context.Context, w io.Writer, pageConfig templates.PageConfig, tableData *templates.TableData[*model.BusinessesModel], resourceEndpoint string) error {
+func (_mock *MockTemplateStore) ExecutePageBusinesses(ctx context.Context, w io.Writer, pageConfig templates.PageConfig, tableData *tables.TableData[*model.BusinessesModel], resourceEndpoint string) error {
 	ret := _mock.Called(ctx, w, pageConfig, tableData, resourceEndpoint)
 
 	if len(ret) == 0 {
@@ -1077,7 +1078,7 @@ func (_mock *MockTemplateStore) ExecutePageBusinesses(ctx context.Context, w io.
 	}
 
 	var r0 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, io.Writer, templates.PageConfig, *templates.TableData[*model.BusinessesModel], string) error); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, io.Writer, templates.PageConfig, *tables.TableData[*model.BusinessesModel], string) error); ok {
 		r0 = returnFunc(ctx, w, pageConfig, tableData, resourceEndpoint)
 	} else {
 		r0 = ret.Error(0)
@@ -1094,13 +1095,13 @@ type MockTemplateStore_ExecutePageBusinesses_Call struct {
 //   - ctx context.Context
 //   - w io.Writer
 //   - pageConfig templates.PageConfig
-//   - tableData *templates.TableData[*model.BusinessesModel]
+//   - tableData *tables.TableData[*model.BusinessesModel]
 //   - resourceEndpoint string
 func (_e *MockTemplateStore_Expecter) ExecutePageBusinesses(ctx any, w any, pageConfig any, tableData any, resourceEndpoint any) *MockTemplateStore_ExecutePageBusinesses_Call {
 	return &MockTemplateStore_ExecutePageBusinesses_Call{Call: _e.mock.On("ExecutePageBusinesses", ctx, w, pageConfig, tableData, resourceEndpoint)}
 }
 
-func (_c *MockTemplateStore_ExecutePageBusinesses_Call) Run(run func(ctx context.Context, w io.Writer, pageConfig templates.PageConfig, tableData *templates.TableData[*model.BusinessesModel], resourceEndpoint string)) *MockTemplateStore_ExecutePageBusinesses_Call {
+func (_c *MockTemplateStore_ExecutePageBusinesses_Call) Run(run func(ctx context.Context, w io.Writer, pageConfig templates.PageConfig, tableData *tables.TableData[*model.BusinessesModel], resourceEndpoint string)) *MockTemplateStore_ExecutePageBusinesses_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -1114,9 +1115,9 @@ func (_c *MockTemplateStore_ExecutePageBusinesses_Call) Run(run func(ctx context
 		if args[2] != nil {
 			arg2 = args[2].(templates.PageConfig)
 		}
-		var arg3 *templates.TableData[*model.BusinessesModel]
+		var arg3 *tables.TableData[*model.BusinessesModel]
 		if args[3] != nil {
-			arg3 = args[3].(*templates.TableData[*model.BusinessesModel])
+			arg3 = args[3].(*tables.TableData[*model.BusinessesModel])
 		}
 		var arg4 string
 		if args[4] != nil {
@@ -1138,7 +1139,7 @@ func (_c *MockTemplateStore_ExecutePageBusinesses_Call) Return(err error) *MockT
 	return _c
 }
 
-func (_c *MockTemplateStore_ExecutePageBusinesses_Call) RunAndReturn(run func(ctx context.Context, w io.Writer, pageConfig templates.PageConfig, tableData *templates.TableData[*model.BusinessesModel], resourceEndpoint string) error) *MockTemplateStore_ExecutePageBusinesses_Call {
+func (_c *MockTemplateStore_ExecutePageBusinesses_Call) RunAndReturn(run func(ctx context.Context, w io.Writer, pageConfig templates.PageConfig, tableData *tables.TableData[*model.BusinessesModel], resourceEndpoint string) error) *MockTemplateStore_ExecutePageBusinesses_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -1270,7 +1271,7 @@ func (_c *MockTemplateStore_ExecutePageUserSignedOut_Call) RunAndReturn(run func
 }
 
 // ExecutePageUsers provides a mock function for the type MockTemplateStore
-func (_mock *MockTemplateStore) ExecutePageUsers(ctx context.Context, w io.Writer, pageConfig templates.PageConfig, tableData *templates.TableData[*model.UsersModel], resourceEndpoint string) error {
+func (_mock *MockTemplateStore) ExecutePageUsers(ctx context.Context, w io.Writer, pageConfig templates.PageConfig, tableData *tables.TableData[*model.UsersModel], resourceEndpoint string) error {
 	ret := _mock.Called(ctx, w, pageConfig, tableData, resourceEndpoint)
 
 	if len(ret) == 0 {
@@ -1278,7 +1279,7 @@ func (_mock *MockTemplateStore) ExecutePageUsers(ctx context.Context, w io.Write
 	}
 
 	var r0 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, io.Writer, templates.PageConfig, *templates.TableData[*model.UsersModel], string) error); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, io.Writer, templates.PageConfig, *tables.TableData[*model.UsersModel], string) error); ok {
 		r0 = returnFunc(ctx, w, pageConfig, tableData, resourceEndpoint)
 	} else {
 		r0 = ret.Error(0)
@@ -1295,13 +1296,13 @@ type MockTemplateStore_ExecutePageUsers_Call struct {
 //   - ctx context.Context
 //   - w io.Writer
 //   - pageConfig templates.PageConfig
-//   - tableData *templates.TableData[*model.UsersModel]
+//   - tableData *tables.TableData[*model.UsersModel]
 //   - resourceEndpoint string
 func (_e *MockTemplateStore_Expecter) ExecutePageUsers(ctx any, w any, pageConfig any, tableData any, resourceEndpoint any) *MockTemplateStore_ExecutePageUsers_Call {
 	return &MockTemplateStore_ExecutePageUsers_Call{Call: _e.mock.On("ExecutePageUsers", ctx, w, pageConfig, tableData, resourceEndpoint)}
 }
 
-func (_c *MockTemplateStore_ExecutePageUsers_Call) Run(run func(ctx context.Context, w io.Writer, pageConfig templates.PageConfig, tableData *templates.TableData[*model.UsersModel], resourceEndpoint string)) *MockTemplateStore_ExecutePageUsers_Call {
+func (_c *MockTemplateStore_ExecutePageUsers_Call) Run(run func(ctx context.Context, w io.Writer, pageConfig templates.PageConfig, tableData *tables.TableData[*model.UsersModel], resourceEndpoint string)) *MockTemplateStore_ExecutePageUsers_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -1315,9 +1316,9 @@ func (_c *MockTemplateStore_ExecutePageUsers_Call) Run(run func(ctx context.Cont
 		if args[2] != nil {
 			arg2 = args[2].(templates.PageConfig)
 		}
-		var arg3 *templates.TableData[*model.UsersModel]
+		var arg3 *tables.TableData[*model.UsersModel]
 		if args[3] != nil {
-			arg3 = args[3].(*templates.TableData[*model.UsersModel])
+			arg3 = args[3].(*tables.TableData[*model.UsersModel])
 		}
 		var arg4 string
 		if args[4] != nil {
@@ -1339,7 +1340,7 @@ func (_c *MockTemplateStore_ExecutePageUsers_Call) Return(err error) *MockTempla
 	return _c
 }
 
-func (_c *MockTemplateStore_ExecutePageUsers_Call) RunAndReturn(run func(ctx context.Context, w io.Writer, pageConfig templates.PageConfig, tableData *templates.TableData[*model.UsersModel], resourceEndpoint string) error) *MockTemplateStore_ExecutePageUsers_Call {
+func (_c *MockTemplateStore_ExecutePageUsers_Call) RunAndReturn(run func(ctx context.Context, w io.Writer, pageConfig templates.PageConfig, tableData *tables.TableData[*model.UsersModel], resourceEndpoint string) error) *MockTemplateStore_ExecutePageUsers_Call {
 	_c.Call.Return(run)
 	return _c
 }

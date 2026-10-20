@@ -9,6 +9,7 @@ import (
 
 	"github.com/turnerbenjamin/heterogen_portal/internal/etc"
 	"github.com/turnerbenjamin/heterogen_portal/internal/model"
+	"github.com/turnerbenjamin/heterogen_portal/internal/tables"
 	"github.com/turnerbenjamin/heterogen_portal/internal/templates"
 	"github.com/turnerbenjamin/querystack/querymodel"
 )
@@ -23,10 +24,10 @@ type BusinessesService interface {
 type BusinessesHandler struct {
 	templateStore       TemplateStore
 	businessesService   BusinessesService
-	orderedTableColumns []templates.ColumnData[*model.BusinessesModel]
-	tableColumns        map[string]templates.ColumnData[*model.BusinessesModel]
+	orderedTableColumns []tables.ColumnData[*model.BusinessesModel]
+	tableColumns        map[string]tables.ColumnData[*model.BusinessesModel]
 
-	defaultQuery *templates.TableQuery[*model.BusinessesModel]
+	defaultQuery *tables.TableQuery[*model.BusinessesModel]
 }
 
 func NewBusinessesHandler(
@@ -40,7 +41,7 @@ func NewBusinessesHandler(
 		orderedTableColumns: OrderedColumnData(businessTableColumns),
 		tableColumns:        businessTableColumns,
 
-		defaultQuery: newTableQuery([]templates.ColumnData[*model.BusinessesModel]{
+		defaultQuery: newTableQuery([]tables.ColumnData[*model.BusinessesModel]{
 			columnDataBusinessesTradingName,
 			columnDataBusinessesReference,
 			columnDataBusinessesBusinessType,
@@ -74,6 +75,16 @@ func (h *BusinessesHandler) GetRoot(
 		d.Query = h.defaultQuery
 	}
 
+	// DUMMY FILTER
+	d.Query.QueryString +=
+		"&filter=reference contains '0' and (county eq 'Dorset' or county " +
+			"contains 'shire' or business_type eq 1) and created_at lt " +
+			"datetime(2026-10-15T07:30:44.958590557+01:00) and " +
+			"(created_by_id/display_name startswith 'p') and (trading_name ne null " +
+			" or (trading_name startswith 'T' and trading_name endswith 't'))"
+	// d.Query.QueryString += "&filter=reference contains '0' or reference startswith '0'"
+	// d.Query.QueryString += "&filter=reference contains '0'"
+
 	result, err := h.businessesService.ExecuteQuery(
 		r.Context(),
 		d.Query.QueryString,
@@ -82,8 +93,16 @@ func (h *BusinessesHandler) GetRoot(
 		return etc.NewServerError(err)
 	}
 
+	tableFilter, err := tables.BuildTableFilter(
+		d.ColumnDefinitions,
+		result.Filter,
+	)
+	if err != nil {
+		return etc.NewServerError(err)
+	}
+
+	d.Filter = tableFilter
 	d.Rows = result.Data
-	c.state.TableData = d
 
 	err = h.templateStore.ExecutePageBusinesses(
 		r.Context(),

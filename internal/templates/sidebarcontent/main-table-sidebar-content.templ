@@ -1,17 +1,18 @@
 package sidebarcontent
 
 import (
-    "github.com/turnerbenjamin/heterogen_portal/internal/templates"
 	  "github.com/turnerbenjamin/querystack/querymodel"
 	  "github.com/turnerbenjamin/heterogen_portal/internal/icons"
 	"fmt"
+	"github.com/turnerbenjamin/heterogen_portal/internal/templates/components/filters"
+	"github.com/turnerbenjamin/heterogen_portal/internal/tables"
 )
 
 
 templ MainTableSidebarContent[T querymodel.TableModel](
     resourceEndpoint string,
     icons *icons.IconSet,
-    tableData templates.TableData[T],
+    tableData tables.TableData[T],
 ){
     <div id="edit-columns-sidebar" class="sidebar-content-group-container">
         @editColumnsContent(resourceEndpoint, icons, tableData)
@@ -25,7 +26,7 @@ templ MainTableSidebarContent[T querymodel.TableModel](
 templ editColumnsContent[T querymodel.TableModel](
     resourceEndpoint string,
     icons *icons.IconSet,
-    tableData templates.TableData[T],
+    tableData tables.TableData[T],
 ){
     <div class="sidebar-title">
         <h3 sidebar-label>Edit Columns</h3>
@@ -89,7 +90,7 @@ templ editColumnsContent[T querymodel.TableModel](
 templ editFiltersContent[T querymodel.TableModel](
     resourceEndpoint string,
     icons *icons.IconSet,
-    tableData templates.TableData[T],
+    tableData tables.TableData[T],
 ){
     <div class="sidebar-title">
         <h3 sidebar-label>Filter Columns</h3>
@@ -104,7 +105,9 @@ templ editFiltersContent[T querymodel.TableModel](
     </div>
 
     <div class="sidebar-content">
-        <p>Do some filtering or something I recon</p> 
+        <div class="filter-container">
+            @filters.FilterItem(tableData, tableData.Filter)
+        </div>
         <button
             id="apply-column-edits-button"
             aria-label="Apply column edits"

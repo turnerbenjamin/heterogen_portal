@@ -1,0 +1,16 @@
+package filters
+
+import "github.com/turnerbenjamin/querystack/querymodel"
+import "github.com/turnerbenjamin/heterogen_portal/internal/tables"
+
+templ FilterItem[T querymodel.TableModel](
+  tableData tables.TableData[T],
+  filterData tables.FilterItem,
+) {
+  switch typedEx := filterData.(type){
+    case tables.FilterGroup:
+      @FilterGroup(tableData, typedEx)
+    case tables.FilterRule:
+      @FilterRule(tableData, typedEx)
+  }
+}

@@ -10,6 +10,7 @@ import templruntime "github.com/a-h/templ/runtime"
 
 import (
 	"github.com/turnerbenjamin/heterogen_portal/internal/icons"
+	"github.com/turnerbenjamin/heterogen_portal/internal/tables"
 	"github.com/turnerbenjamin/heterogen_portal/internal/templates"
 	"github.com/turnerbenjamin/heterogen_portal/internal/templates/layouts"
 	"github.com/turnerbenjamin/heterogen_portal/internal/templates/pagecontent"
@@ -20,7 +21,7 @@ import (
 func MainTable[T querymodel.TableModel](
 	pageConfig templates.PageConfig,
 	icons *icons.IconSet,
-	tableData templates.TableData[T],
+	tableData tables.TableData[T],
 	resourceEndpoint string,
 ) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {

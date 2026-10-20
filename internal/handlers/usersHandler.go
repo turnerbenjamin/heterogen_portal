@@ -9,6 +9,7 @@ import (
 
 	"github.com/turnerbenjamin/heterogen_portal/internal/etc"
 	"github.com/turnerbenjamin/heterogen_portal/internal/model"
+	"github.com/turnerbenjamin/heterogen_portal/internal/tables"
 	"github.com/turnerbenjamin/heterogen_portal/internal/templates"
 	"github.com/turnerbenjamin/querystack/querymodel"
 )
@@ -23,10 +24,10 @@ type UsersService interface {
 type UsersHandler struct {
 	templateStore       TemplateStore
 	usersService        UsersService
-	orderedTableColumns []templates.ColumnData[*model.UsersModel]
-	tableColumns        map[string]templates.ColumnData[*model.UsersModel]
+	orderedTableColumns []tables.ColumnData[*model.UsersModel]
+	tableColumns        map[string]tables.ColumnData[*model.UsersModel]
 
-	defaultQuery *templates.TableQuery[*model.UsersModel]
+	defaultQuery *tables.TableQuery[*model.UsersModel]
 }
 
 func NewUsersHandler(
@@ -40,7 +41,7 @@ func NewUsersHandler(
 		orderedTableColumns: OrderedColumnData(userTableColumns),
 		tableColumns:        userTableColumns,
 
-		defaultQuery: newTableQuery([]templates.ColumnData[*model.UsersModel]{
+		defaultQuery: newTableQuery([]tables.ColumnData[*model.UsersModel]{
 			columnDataUsersDisplayName,
 			columnDataUsersGivenName,
 			columnDataUsersFamilyName,
@@ -76,6 +77,15 @@ func (h *UsersHandler) GetRoot(w http.ResponseWriter, r *http.Request, c *Pipeli
 	if err != nil {
 		return etc.NewServerError(err)
 	}
+
+	tableFilter, err := tables.BuildTableFilter(
+		d.ColumnDefinitions,
+		result.Filter,
+	)
+	if err != nil {
+		return etc.NewServerError(err)
+	}
+	d.Filter = tableFilter
 
 	d.Rows = result.Data
 

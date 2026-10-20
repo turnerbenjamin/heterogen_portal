@@ -193,6 +193,22 @@ var BusinessesMetadata = querymodel.TableMetadata{
 		},
 	},
 	Relationships: map[string]querymodel.RelationshipMetadata{
+		"created_by_id": {
+			Id:                  "businesses_created_by_id_users_id",
+			Type:                querymodel.RelationshipManyToOne,
+			ColumnName:          "created_by_id",
+			ExpansionColumnName: "created_by",
+			From:                BusinessesResource{},
+			To:                  UsersResource{},
+			FromColumn: querymodel.ColumnMetadata{
+				Name: "created_by_id",
+				Type: querymodel.DbTypeString,
+			},
+			ToColumn: querymodel.ColumnMetadata{
+				Name: "id",
+				Type: querymodel.DbTypeString,
+			},
+		},
 		"modified_by_id": {
 			Id:                  "businesses_modified_by_id_users_id",
 			Type:                querymodel.RelationshipManyToOne,
@@ -222,22 +238,6 @@ var BusinessesMetadata = querymodel.TableMetadata{
 			},
 			ToColumn: querymodel.ColumnMetadata{
 				Name: "business_id",
-				Type: querymodel.DbTypeString,
-			},
-		},
-		"created_by_id": {
-			Id:                  "businesses_created_by_id_users_id",
-			Type:                querymodel.RelationshipManyToOne,
-			ColumnName:          "created_by_id",
-			ExpansionColumnName: "created_by",
-			From:                BusinessesResource{},
-			To:                  UsersResource{},
-			FromColumn: querymodel.ColumnMetadata{
-				Name: "created_by_id",
-				Type: querymodel.DbTypeString,
-			},
-			ToColumn: querymodel.ColumnMetadata{
-				Name: "id",
 				Type: querymodel.DbTypeString,
 			},
 		},
@@ -316,16 +316,6 @@ func (ms BusinessesModels) SetProjection(projectionNode *querymodel.ProjectionNo
 // child nodes
 func (m *BusinessesModel) setBusinessesProjection(projection BusinessesProjection, childNodes map[string]*querymodel.ProjectionNode) error {
 	m.projection = projection
-	if node, exists := childNodes["farm_fields_businesses_business_id"]; exists {
-		if m.FarmFieldsBusinessesBusinessId != nil {
-			if err := m.FarmFieldsBusinessesBusinessId.SetProjection(node); err != nil {
-				return err
-			}
-		} else {
-			m.FarmFieldsBusinessesBusinessId = FarmFieldsModels{}
-		}
-	}
-
 	if node, exists := childNodes["created_by"]; exists {
 		if m.CreatedBy != nil {
 			if err := m.CreatedBy.SetProjection(node); err != nil {
@@ -339,6 +329,16 @@ func (m *BusinessesModel) setBusinessesProjection(projection BusinessesProjectio
 			if err := m.ModifiedBy.SetProjection(node); err != nil {
 				return err
 			}
+		}
+	}
+
+	if node, exists := childNodes["farm_fields_businesses_business_id"]; exists {
+		if m.FarmFieldsBusinessesBusinessId != nil {
+			if err := m.FarmFieldsBusinessesBusinessId.SetProjection(node); err != nil {
+				return err
+			}
+		} else {
+			m.FarmFieldsBusinessesBusinessId = FarmFieldsModels{}
 		}
 	}
 
@@ -519,6 +519,14 @@ func (m *BusinessesModel) MarshalJSON() ([]byte, error) {
 		isFirst = false
 	}
 
+	if m.projection.Has(businessesProjectionFarmFieldsBusinessesBusinessId) {
+		err := marshalProperty(&buf, isFirst, "farm_fields_businesses_business_id", m.FarmFieldsBusinessesBusinessId)
+		if err != nil {
+			return nil, err
+		}
+		isFirst = false
+	}
+
 	if m.projection.Has(businessesProjectionCreatedBy) {
 		err := marshalProperty(&buf, isFirst, "created_by", m.CreatedBy)
 		if err != nil {
@@ -529,14 +537,6 @@ func (m *BusinessesModel) MarshalJSON() ([]byte, error) {
 
 	if m.projection.Has(businessesProjectionModifiedBy) {
 		err := marshalProperty(&buf, isFirst, "modified_by", m.ModifiedBy)
-		if err != nil {
-			return nil, err
-		}
-		isFirst = false
-	}
-
-	if m.projection.Has(businessesProjectionFarmFieldsBusinessesBusinessId) {
-		err := marshalProperty(&buf, isFirst, "farm_fields_businesses_business_id", m.FarmFieldsBusinessesBusinessId)
 		if err != nil {
 			return nil, err
 		}
@@ -573,11 +573,11 @@ func (m *BusinessesModel) GetValue(v querymodel.ValueBuilder, path []*querymodel
 // It will return an error for invalid relationships and relationship types
 func (m *BusinessesModel) getRelatedEntity(relationship querymodel.RelationshipMetadata) (querymodel.TableModel, bool, error) {
 	switch relationship.Id {
-	case "businesses_created_by_id_users_id":
-		v := m.CreatedBy
-		return v, v == nil, nil
 	case "businesses_modified_by_id_users_id":
 		v := m.ModifiedBy
+		return v, v == nil, nil
+	case "businesses_created_by_id_users_id":
+		v := m.CreatedBy
 		return v, v == nil, nil
 	default:
 		return nil, true, fmt.Errorf("unable to get related entity: unsupported relationship '%s'", relationship.Id)
@@ -714,12 +714,12 @@ func (p *BusinessesProjection) Add(columnName string) error {
 		*p |= businessesProjectionModifiedAt
 	case "modified_by_id":
 		*p |= businessesProjectionModifiedById
+	case "farm_fields_businesses_business_id":
+		*p |= businessesProjectionFarmFieldsBusinessesBusinessId
 	case "created_by":
 		*p |= businessesProjectionCreatedBy
 	case "modified_by":
 		*p |= businessesProjectionModifiedBy
-	case "farm_fields_businesses_business_id":
-		*p |= businessesProjectionFarmFieldsBusinessesBusinessId
 	default:
 		return fmt.Errorf("unsupported column: '%s'", columnName)
 	}
@@ -938,6 +938,14 @@ func (ms FarmFieldsModels) SetProjection(projectionNode *querymodel.ProjectionNo
 // child nodes
 func (m *FarmFieldsModel) setFarmFieldsProjection(projection FarmFieldsProjection, childNodes map[string]*querymodel.ProjectionNode) error {
 	m.projection = projection
+	if node, exists := childNodes["business"]; exists {
+		if m.Business != nil {
+			if err := m.Business.SetProjection(node); err != nil {
+				return err
+			}
+		}
+	}
+
 	if node, exists := childNodes["created_by"]; exists {
 		if m.CreatedBy != nil {
 			if err := m.CreatedBy.SetProjection(node); err != nil {
@@ -949,14 +957,6 @@ func (m *FarmFieldsModel) setFarmFieldsProjection(projection FarmFieldsProjectio
 	if node, exists := childNodes["modified_by"]; exists {
 		if m.ModifiedBy != nil {
 			if err := m.ModifiedBy.SetProjection(node); err != nil {
-				return err
-			}
-		}
-	}
-
-	if node, exists := childNodes["business"]; exists {
-		if m.Business != nil {
-			if err := m.Business.SetProjection(node); err != nil {
 				return err
 			}
 		}
@@ -1035,6 +1035,14 @@ func (m *FarmFieldsModel) MarshalJSON() ([]byte, error) {
 		isFirst = false
 	}
 
+	if m.projection.Has(farmFieldsProjectionModifiedBy) {
+		err := marshalProperty(&buf, isFirst, "modified_by", m.ModifiedBy)
+		if err != nil {
+			return nil, err
+		}
+		isFirst = false
+	}
+
 	if m.projection.Has(farmFieldsProjectionBusiness) {
 		err := marshalProperty(&buf, isFirst, "business", m.Business)
 		if err != nil {
@@ -1045,14 +1053,6 @@ func (m *FarmFieldsModel) MarshalJSON() ([]byte, error) {
 
 	if m.projection.Has(farmFieldsProjectionCreatedBy) {
 		err := marshalProperty(&buf, isFirst, "created_by", m.CreatedBy)
-		if err != nil {
-			return nil, err
-		}
-		isFirst = false
-	}
-
-	if m.projection.Has(farmFieldsProjectionModifiedBy) {
-		err := marshalProperty(&buf, isFirst, "modified_by", m.ModifiedBy)
 		if err != nil {
 			return nil, err
 		}
@@ -1168,12 +1168,12 @@ func (p *FarmFieldsProjection) Add(columnName string) error {
 		*p |= farmFieldsProjectionModifiedAt
 	case "modified_by_id":
 		*p |= farmFieldsProjectionModifiedById
+	case "business":
+		*p |= farmFieldsProjectionBusiness
 	case "created_by":
 		*p |= farmFieldsProjectionCreatedBy
 	case "modified_by":
 		*p |= farmFieldsProjectionModifiedBy
-	case "business":
-		*p |= farmFieldsProjectionBusiness
 	default:
 		return fmt.Errorf("unsupported column: '%s'", columnName)
 	}
@@ -1359,10 +1359,10 @@ type UsersModel struct {
 	EmailAddress                string           `json:"email_address"`
 	CreatedAt                   *time.Time       `json:"created_at"`
 	ModifiedAt                  *time.Time       `json:"modified_at"`
-	BusinessesUsersCreatedById  BusinessesModels `json:"businesses_users_created_by_id"`
 	BusinessesUsersModifiedById BusinessesModels `json:"businesses_users_modified_by_id"`
 	FarmFieldsUsersCreatedById  FarmFieldsModels `json:"farm_fields_users_created_by_id"`
 	FarmFieldsUsersModifiedById FarmFieldsModels `json:"farm_fields_users_modified_by_id"`
+	BusinessesUsersCreatedById  BusinessesModels `json:"businesses_users_created_by_id"`
 	projection                  UsersProjection  `json:"-"`
 }
 
@@ -1409,6 +1409,16 @@ func (ms UsersModels) SetProjection(projectionNode *querymodel.ProjectionNode) e
 // child nodes
 func (m *UsersModel) setUsersProjection(projection UsersProjection, childNodes map[string]*querymodel.ProjectionNode) error {
 	m.projection = projection
+	if node, exists := childNodes["businesses_users_created_by_id"]; exists {
+		if m.BusinessesUsersCreatedById != nil {
+			if err := m.BusinessesUsersCreatedById.SetProjection(node); err != nil {
+				return err
+			}
+		} else {
+			m.BusinessesUsersCreatedById = BusinessesModels{}
+		}
+	}
+
 	if node, exists := childNodes["businesses_users_modified_by_id"]; exists {
 		if m.BusinessesUsersModifiedById != nil {
 			if err := m.BusinessesUsersModifiedById.SetProjection(node); err != nil {
@@ -1436,16 +1446,6 @@ func (m *UsersModel) setUsersProjection(projection UsersProjection, childNodes m
 			}
 		} else {
 			m.FarmFieldsUsersModifiedById = FarmFieldsModels{}
-		}
-	}
-
-	if node, exists := childNodes["businesses_users_created_by_id"]; exists {
-		if m.BusinessesUsersCreatedById != nil {
-			if err := m.BusinessesUsersCreatedById.SetProjection(node); err != nil {
-				return err
-			}
-		} else {
-			m.BusinessesUsersCreatedById = BusinessesModels{}
 		}
 	}
 
@@ -1522,14 +1522,6 @@ func (m *UsersModel) MarshalJSON() ([]byte, error) {
 		isFirst = false
 	}
 
-	if m.projection.Has(usersProjectionFarmFieldsUsersModifiedById) {
-		err := marshalProperty(&buf, isFirst, "farm_fields_users_modified_by_id", m.FarmFieldsUsersModifiedById)
-		if err != nil {
-			return nil, err
-		}
-		isFirst = false
-	}
-
 	if m.projection.Has(usersProjectionBusinessesUsersCreatedById) {
 		err := marshalProperty(&buf, isFirst, "businesses_users_created_by_id", m.BusinessesUsersCreatedById)
 		if err != nil {
@@ -1548,6 +1540,14 @@ func (m *UsersModel) MarshalJSON() ([]byte, error) {
 
 	if m.projection.Has(usersProjectionFarmFieldsUsersCreatedById) {
 		err := marshalProperty(&buf, isFirst, "farm_fields_users_created_by_id", m.FarmFieldsUsersCreatedById)
+		if err != nil {
+			return nil, err
+		}
+		isFirst = false
+	}
+
+	if m.projection.Has(usersProjectionFarmFieldsUsersModifiedById) {
+		err := marshalProperty(&buf, isFirst, "farm_fields_users_modified_by_id", m.FarmFieldsUsersModifiedById)
 		if err != nil {
 			return nil, err
 		}
@@ -1613,10 +1613,10 @@ const (
 	usersProjectionEmailAddress
 	usersProjectionCreatedAt
 	usersProjectionModifiedAt
+	usersProjectionFarmFieldsUsersCreatedById
 	usersProjectionFarmFieldsUsersModifiedById
 	usersProjectionBusinessesUsersCreatedById
 	usersProjectionBusinessesUsersModifiedById
-	usersProjectionFarmFieldsUsersCreatedById
 )
 
 // Add includes a given column within the projection
@@ -1638,14 +1638,14 @@ func (p *UsersProjection) Add(columnName string) error {
 		*p |= usersProjectionCreatedAt
 	case "modified_at":
 		*p |= usersProjectionModifiedAt
-	case "businesses_users_modified_by_id":
-		*p |= usersProjectionBusinessesUsersModifiedById
-	case "farm_fields_users_created_by_id":
-		*p |= usersProjectionFarmFieldsUsersCreatedById
 	case "farm_fields_users_modified_by_id":
 		*p |= usersProjectionFarmFieldsUsersModifiedById
 	case "businesses_users_created_by_id":
 		*p |= usersProjectionBusinessesUsersCreatedById
+	case "businesses_users_modified_by_id":
+		*p |= usersProjectionBusinessesUsersModifiedById
+	case "farm_fields_users_created_by_id":
+		*p |= usersProjectionFarmFieldsUsersCreatedById
 	default:
 		return fmt.Errorf("unsupported column: '%s'", columnName)
 	}

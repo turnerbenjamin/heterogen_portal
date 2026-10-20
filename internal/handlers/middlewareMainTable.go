@@ -7,7 +7,7 @@ import (
 
 	"github.com/turnerbenjamin/heterogen_portal/internal/constants"
 	"github.com/turnerbenjamin/heterogen_portal/internal/etc"
-	"github.com/turnerbenjamin/heterogen_portal/internal/templates"
+	"github.com/turnerbenjamin/heterogen_portal/internal/tables"
 	"github.com/turnerbenjamin/querystack/querymodel"
 )
 
@@ -35,8 +35,8 @@ func MainTableRequestEnrichment[MT querymodel.TableModel, PT TableState[MT]]() M
 
 func parseTableQuery[T querymodel.TableModel](
 	r *http.Request,
-	columns map[string]templates.ColumnData[T],
-) (*templates.TableQuery[T], error) {
+	columns map[string]tables.ColumnData[T],
+) (*tables.TableQuery[T], error) {
 	queryValues := r.URL.Query()
 	selectQuery := queryValues.Get("select")
 	if selectQuery == "" {
@@ -44,8 +44,8 @@ func parseTableQuery[T querymodel.TableModel](
 	}
 	selectQueryLen := len(selectQuery)
 
-	query := templates.TableQuery[T]{
-		SelectCols:    []templates.ColumnData[T]{},
+	query := tables.TableQuery[T]{
+		SelectCols:    []tables.ColumnData[T]{},
 		SelectColsSet: map[string]struct{}{},
 	}
 
@@ -109,27 +109,27 @@ func parseTableQuery[T querymodel.TableModel](
 	return &query, nil
 }
 
-func parseRequestTarget(r *http.Request) (templates.MainTableRequestTarget, error) {
+func parseRequestTarget(r *http.Request) (tables.MainTableRequestTarget, error) {
 	target := r.Header.Get(constants.HxRequestHeaderTarget)
 
 	switch target {
 	case "":
-		return templates.MainTableRequestTargetFullPage, nil
+		return tables.MainTableRequestTargetFullPage, nil
 	case "div#page-content":
-		return templates.MainTableRequestTargetPageContent, nil
+		return tables.MainTableRequestTargetPageContent, nil
 	case "table#main-table":
-		return templates.MainTableRequestTargetTable, nil
+		return tables.MainTableRequestTargetTable, nil
 	case "tbody#main-table-body":
-		return templates.MainTableRequestTargetTableBody, nil
+		return tables.MainTableRequestTargetTableBody, nil
 	default:
-		return templates.MainTableRequestTargetFullPage, fmt.Errorf(
+		return tables.MainTableRequestTargetFullPage, fmt.Errorf(
 			"unable to enrich main table request: unrecognised target: '%s'",
 			target,
 		)
 	}
 }
 
-func newTableQuery[T querymodel.TableModel](selectCols []templates.ColumnData[T]) *templates.TableQuery[T] {
+func newTableQuery[T querymodel.TableModel](selectCols []tables.ColumnData[T]) *tables.TableQuery[T] {
 	selectBuilder := strings.Builder{}
 	expandBuilder := strings.Builder{}
 	selectColsSet := make(map[string]struct{}, len(selectCols))
@@ -153,7 +153,7 @@ func newTableQuery[T querymodel.TableModel](selectCols []templates.ColumnData[T]
 		}
 	}
 
-	return &templates.TableQuery[T]{
+	return &tables.TableQuery[T]{
 		SelectCols:    selectCols,
 		SelectColsSet: selectColsSet,
 		QueryString:   buildQueryString(selectBuilder, expandBuilder),

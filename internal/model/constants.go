@@ -7,6 +7,7 @@ type DataType string
 const (
 	DataTypeString DataType = "string"
 	DataTypeNumber DataType = "number"
+	DataTypeEnum   DataType = "enum"
 	DataTypeTime   DataType = "time"
 	DataTypePoint  DataType = "point"
 )
@@ -52,6 +53,49 @@ const (
 	ColUsersEmailAddress = "email_address"
 	ColUsersCreatedAt    = "created_at"
 	ColUsersModifiedAt   = "modified_at"
+)
+
+// Constants representing column data types
+const (
+	ColTypeBusinessesId            = DataTypeString
+	ColTypeBusinessesReference     = DataTypeString
+	ColTypeBusinessesTradingName   = DataTypeString
+	ColTypeBusinessesLogoUrl       = DataTypeString
+	ColTypeBusinessesDescription   = DataTypeString
+	ColTypeBusinessesBusinessType  = DataTypeEnum
+	ColTypeBusinessesCphNumber     = DataTypeString
+	ColTypeBusinessesEmailAddress  = DataTypeString
+	ColTypeBusinessesContactNumber = DataTypeString
+	ColTypeBusinessesWebsiteUrl    = DataTypeString
+	ColTypeBusinessesAddressLine1  = DataTypeString
+	ColTypeBusinessesAddressLine2  = DataTypeString
+	ColTypeBusinessesTown          = DataTypeString
+	ColTypeBusinessesCounty        = DataTypeString
+	ColTypeBusinessesCountry       = DataTypeString
+	ColTypeBusinessesPostcode      = DataTypeString
+	ColTypeBusinessesLocation      = DataTypePoint
+	ColTypeBusinessesCreatedAt     = DataTypeTime
+	ColTypeBusinessesCreatedById   = DataTypeString
+	ColTypeBusinessesModifiedAt    = DataTypeTime
+	ColTypeBusinessesModifiedById  = DataTypeString
+
+	ColTypeFarmFieldsId           = DataTypeString
+	ColTypeFarmFieldsReference    = DataTypeString
+	ColTypeFarmFieldsBusinessId   = DataTypeString
+	ColTypeFarmFieldsLocation     = DataTypePoint
+	ColTypeFarmFieldsCreatedAt    = DataTypeTime
+	ColTypeFarmFieldsCreatedById  = DataTypeString
+	ColTypeFarmFieldsModifiedAt   = DataTypeTime
+	ColTypeFarmFieldsModifiedById = DataTypeString
+
+	ColTypeUsersId           = DataTypeString
+	ColTypeUsersOid          = DataTypeString
+	ColTypeUsersGivenName    = DataTypeString
+	ColTypeUsersFamilyName   = DataTypeString
+	ColTypeUsersDisplayName  = DataTypeString
+	ColTypeUsersEmailAddress = DataTypeString
+	ColTypeUsersCreatedAt    = DataTypeTime
+	ColTypeUsersModifiedAt   = DataTypeTime
 )
 
 // Constants representing column display names in the database
@@ -102,9 +146,9 @@ const (
 	RelColBusinessesCreatedById  = "created_by_id"
 	RelColBusinessesModifiedById = "modified_by_id"
 
-	RelColFarmFieldsBusinessId   = "business_id"
 	RelColFarmFieldsCreatedById  = "created_by_id"
 	RelColFarmFieldsModifiedById = "modified_by_id"
+	RelColFarmFieldsBusinessId   = "business_id"
 )
 
 // Constants representing relationship columns display names

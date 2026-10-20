@@ -1,0 +1,20 @@
+package filters
+
+import "github.com/turnerbenjamin/querystack/querymodel"
+import "github.com/turnerbenjamin/heterogen_portal/internal/tables"
+
+templ FilterGroup[T querymodel.TableModel](
+  tableData tables.TableData[T],
+  filterGroup tables.FilterGroup,
+) {
+  <div class="filter-group">
+    <div class="filter-group-title">
+      @FilterGroupOperatorInput(filterGroup.GroupType)
+    </div>
+    <div class="filter-group-items">
+    for _, i := range filterGroup.Items{
+      @FilterItem(tableData, i)
+    }
+    </div>
+  </div>
+}

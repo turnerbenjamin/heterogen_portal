@@ -1,15 +1,15 @@
 package sidebarcontent
 
 import (
-    "github.com/turnerbenjamin/heterogen_portal/internal/templates"
 	  "github.com/turnerbenjamin/querystack/querymodel"
 	"github.com/turnerbenjamin/heterogen_portal/internal/icons"
+	"github.com/turnerbenjamin/heterogen_portal/internal/tables"
 )
 
 
 templ MainTableNestedSidebarContent[T querymodel.TableModel](
     icons *icons.IconSet,
-    tableData templates.TableData[T],
+    tableData tables.TableData[T],
 
 ){
     <div id="add-columns-sidebar" class="sidebar-content-group-container">
