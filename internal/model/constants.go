@@ -146,9 +146,9 @@ const (
 	RelColBusinessesCreatedById  = "created_by_id"
 	RelColBusinessesModifiedById = "modified_by_id"
 
+	RelColFarmFieldsBusinessId   = "business_id"
 	RelColFarmFieldsCreatedById  = "created_by_id"
 	RelColFarmFieldsModifiedById = "modified_by_id"
-	RelColFarmFieldsBusinessId   = "business_id"
 )
 
 // Constants representing relationship columns display names

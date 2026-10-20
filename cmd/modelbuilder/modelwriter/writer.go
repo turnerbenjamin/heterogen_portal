@@ -28,3 +28,7 @@ func (w *writer) WriteLine(statement string, args ...any) {
 func (w *writer) String() string {
 	return w.sb.String()
 }
+
+func strLit(str string) string {
+	return fmt.Sprintf("\"%s\"", str)
+}

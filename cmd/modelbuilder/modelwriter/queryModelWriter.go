@@ -30,7 +30,7 @@ const (
 type queryModelWriter struct {
 	path     string
 	metadata *builderrepo.DatabaseSchema
-	sb       *strings.Builder
+	wtr      *writer
 }
 
 func NewQueryModelWriter(
@@ -40,7 +40,7 @@ func NewQueryModelWriter(
 	return &queryModelWriter{
 		path:     path,
 		metadata: metadata,
-		sb:       &strings.Builder{},
+		wtr:      &writer{sb: &strings.Builder{}},
 	}
 }
 
@@ -48,27 +48,34 @@ func (w *queryModelWriter) Write() {
 	buildTableRelationshipData(w.metadata)
 
 	w.writePackageAndStaticTypeDefinitions()
-	w.writeNewLine()
+	w.wtr.NewLine()
+
 	w.writeSchemaDefinition()
 
 	for _, table := range w.metadata.Tables {
+		w.wtr.NewLine()
 
-		w.writeNewLine()
 		w.writeResourceDefinition(table)
-		w.writeNewLine()
+		w.wtr.NewLine()
+
 		w.writeTableMetadataDefinition(table)
-		w.writeNewLine()
+		w.wtr.NewLine()
+
 		w.WriteTableModel(table)
-		w.writeNewLine()
+		w.wtr.NewLine()
+
 		w.WriteTableModelProjection(table)
 	}
-	w.writeNewLine()
+
+	w.wtr.NewLine()
 	w.writeTableAccessStructs()
 
-	raw := w.sb.String()
+	raw := w.wtr.String()
 	formatted, err := format.Source([]byte(raw))
 	if err != nil {
+		_ = os.WriteFile(w.path+"_raw.go", []byte(raw), 0644)
 		log.Fatal(err)
+
 	}
 
 	err = os.WriteFile(w.path, formatted, 0644)
@@ -77,19 +84,15 @@ func (w *queryModelWriter) Write() {
 	}
 }
 
-func writeToBuilder(sb *strings.Builder, s string) {
-	_, err := sb.Write([]byte(s))
-	if err != nil {
-		log.Fatal(err)
-	}
-}
-
-func (w *queryModelWriter) writeNewLine() {
-	writeToBuilder(w.sb, "\n")
-}
+// func writeToBuilder(sb *strings.Builder, s string) {
+// 	_, err := sb.Write([]byte(s))
+// 	if err != nil {
+// 		log.Fatal(err)
+// 	}
+// }
 
 func (w *queryModelWriter) writePackageAndStaticTypeDefinitions() {
-	writeToBuilder(w.sb, `//GENERATED CODE
+	w.wtr.Write(`//GENERATED CODE
 // see cmd/modelbuilder/
 package model
 
@@ -124,46 +127,51 @@ func marshalProperty(buf *bytes.Buffer, isFirst bool, columnName string, value a
 }
 
 func (w *queryModelWriter) writeSchemaDefinition() {
+	w.wtr.WriteLine("type schema struct{}")
+	w.wtr.NewLine()
 
-	writeToBuilder(w.sb, "type schema struct{}\n\n")
+	w.wtr.WriteLine("func NewSchema() schema{")
+	w.wtr.WriteLine("return schema{}")
+	w.wtr.WriteLine("}")
+	w.wtr.NewLine()
 
-	writeToBuilder(w.sb, "func NewSchema() schema{\n")
-	writeToBuilder(w.sb, "return schema{}\n")
-	writeToBuilder(w.sb, "}\n\n")
+	w.wtr.WriteLine("func (s schema) GetResource(resourceName string) (querymodel.Resource, bool){")
+	w.wtr.WriteLine("switch resourceName{")
 
-	writeToBuilder(w.sb, "func (s schema) GetResource(resourceName string) (querymodel.Resource, bool){\n")
-	writeToBuilder(w.sb, "switch resourceName{\n")
 	for _, t := range w.metadata.Tables {
 		tableName := t.Name
 		resourceName := getModelResourceStructName(tableName)
-		writeToBuilder(w.sb, fmt.Sprintf("case \"%s\":\n", tableName))
-		writeToBuilder(w.sb, fmt.Sprintf("return %s{}, true\n", resourceName))
-	}
-	writeToBuilder(w.sb, "default:\n")
-	writeToBuilder(w.sb, "return nil, false\n")
 
-	writeToBuilder(w.sb, "}\n")
-	writeToBuilder(w.sb, "}\n\n")
+		w.wtr.WriteLine("case \"%s\":", tableName)
+		w.wtr.WriteLine("return %s{}, true", resourceName)
+	}
+	w.wtr.WriteLine("default:")
+	w.wtr.WriteLine("return nil, false")
+
+	w.wtr.WriteLine("}")
+	w.wtr.WriteLine("}\n")
+	w.wtr.NewLine()
 }
 
 func (w *queryModelWriter) writeResourceDefinition(tableData *builderrepo.TableMetadata) {
 	resourceTypeName := getModelResourceStructName(tableData.Name)
 
 	// Write resource type
-	writeToBuilder(w.sb, fmt.Sprintf("type %s struct{}\n\n", resourceTypeName))
+	w.wtr.WriteLine("type %s struct{}", resourceTypeName)
+	w.wtr.NewLine()
 
 	// Write funcs
 	w.writeResourceGetMetadataFunc(resourceTypeName, tableData)
-	w.writeNewLine()
+	w.wtr.NewLine()
 
 	w.writeResourceInitProjectionFunc(resourceTypeName, tableData)
-	w.writeNewLine()
+	w.wtr.NewLine()
 
 	w.WriteResourceSliceFromJSONFunction(resourceTypeName, tableData)
-	w.writeNewLine()
+	w.wtr.NewLine()
 
 	w.WriteResourceTypedSliceFromJSONFunction(resourceTypeName, tableData)
-	w.writeNewLine()
+	w.wtr.NewLine()
 }
 
 func (w *queryModelWriter) writeResourceGetMetadataFunc(
@@ -171,9 +179,9 @@ func (w *queryModelWriter) writeResourceGetMetadataFunc(
 	tableData *builderrepo.TableMetadata,
 ) {
 	metadataIdentifier := modelMetadataStoreIdentifier(tableData.Name)
-	writeToBuilder(w.sb, fmt.Sprintf("func (r %s) GetMetadata() querymodel.TableMetadata {\n", resourceTypeName))
-	writeToBuilder(w.sb, fmt.Sprintf("return %s\n", metadataIdentifier))
-	writeToBuilder(w.sb, "}\n")
+	w.wtr.WriteLine("func (r %s) GetMetadata() querymodel.TableMetadata {", resourceTypeName)
+	w.wtr.WriteLine("return %s", metadataIdentifier)
+	w.wtr.WriteLine("}")
 }
 
 func (w *queryModelWriter) writeResourceInitProjectionFunc(
@@ -181,69 +189,78 @@ func (w *queryModelWriter) writeResourceInitProjectionFunc(
 	tableData *builderrepo.TableMetadata,
 ) {
 	modelProjectionIdentifier := getModelProjectionName(tableData.Name)
-	writeToBuilder(w.sb, fmt.Sprintf("func (r %s) InitProjection() querymodel.Projection { \n", resourceTypeName))
-	writeToBuilder(w.sb, fmt.Sprintf("return new(%s)", modelProjectionIdentifier))
-	writeToBuilder(w.sb, "}\n")
+	w.wtr.WriteLine("func (r %s) InitProjection() querymodel.Projection {", resourceTypeName)
+	w.wtr.WriteLine("return new(%s)", modelProjectionIdentifier)
+	w.wtr.WriteLine("}")
 }
 
 func (w *queryModelWriter) WriteResourceSliceFromJSONFunction(resourceTypeName string, tableData *builderrepo.TableMetadata) {
-	writeToBuilder(w.sb, fmt.Sprintf(
-		"// SliceFromJSON unmarshals a json array of %s and returns it as a slice\n",
+	w.wtr.WriteLine(
+		"// SliceFromJSON unmarshals a json array of %s and returns it as a slice",
 		tableData.Name,
-	))
+	)
 
-	writeToBuilder(w.sb, fmt.Sprintf("func (m %s) SliceFromJSON(jsonData []byte, projectionNode *querymodel.ProjectionNode) ([]querymodel.TableModel, error) {\n", resourceTypeName))
+	w.wtr.WriteLine("func (m %s) SliceFromJSON(", resourceTypeName)
+	w.wtr.WriteLine("  jsonData []byte,")
+	w.wtr.WriteLine("  projectionNode *querymodel.ProjectionNode,")
+	w.wtr.WriteLine(") ([]querymodel.TableModel, error) {")
 
-	writeToBuilder(w.sb, "if len(jsonData) == 0 {\n")
-	writeToBuilder(w.sb, "return []querymodel.TableModel{}, nil\n")
-	writeToBuilder(w.sb, "}\n\n")
+	w.wtr.WriteLine("if len(jsonData) == 0 {")
+	w.wtr.WriteLine("return []querymodel.TableModel{}, nil")
+	w.wtr.WriteLine("}")
+	w.wtr.NewLine()
 
 	modelStructName := getModelStructName(tableData.Name)
-	writeToBuilder(w.sb, fmt.Sprintf("var concreteSlice []*%s\n", modelStructName))
+	w.wtr.WriteLine("var concreteSlice []*%s", modelStructName)
 
-	writeToBuilder(w.sb, "if err := json.Unmarshal(jsonData, &concreteSlice); err != nil {\n")
-	writeToBuilder(w.sb, "return nil, err\n")
-	writeToBuilder(w.sb, "}\n")
+	w.wtr.WriteLine("if err := json.Unmarshal(jsonData, &concreteSlice); err != nil {")
+	w.wtr.WriteLine("return nil, err")
+	w.wtr.WriteLine("}")
 
-	writeToBuilder(w.sb, "result := make([]querymodel.TableModel, len(concreteSlice))\n\n")
+	w.wtr.WriteLine("result := make([]querymodel.TableModel, len(concreteSlice))")
+	w.wtr.NewLine()
 
-	writeToBuilder(w.sb, "for i := range concreteSlice {\n")
-	writeToBuilder(w.sb, "if err := concreteSlice[i].SetProjection(projectionNode); err != nil{\n")
-	writeToBuilder(w.sb, "return nil, err\n")
-	writeToBuilder(w.sb, "}\n")
-	writeToBuilder(w.sb, "result[i] = concreteSlice[i]\n")
-	writeToBuilder(w.sb, "}\n")
+	w.wtr.WriteLine("for i := range concreteSlice {")
+	w.wtr.WriteLine("if err := concreteSlice[i].SetProjection(projectionNode); err != nil{")
+	w.wtr.WriteLine("return nil, err")
+	w.wtr.WriteLine("}")
+	w.wtr.WriteLine("result[i] = concreteSlice[i]")
+	w.wtr.WriteLine("}")
 
-	writeToBuilder(w.sb, "return result, nil\n")
-	writeToBuilder(w.sb, "}\n")
+	w.wtr.WriteLine("return result, nil")
+	w.wtr.WriteLine("}")
 }
 
 func (w *queryModelWriter) WriteResourceTypedSliceFromJSONFunction(resourceTypeName string, tableData *builderrepo.TableMetadata) {
-	writeToBuilder(w.sb, fmt.Sprintf(
+	modelStructName := getModelStructName(tableData.Name)
+	w.wtr.WriteLine(
 		"// TypedSliceFromJSON unmarshals a json array of %s and returns it as a slice\n",
 		tableData.Name,
-	))
+	)
 
-	modelStructName := getModelStructName(tableData.Name)
-	writeToBuilder(w.sb, fmt.Sprintf("func (m %s) TypedSliceFromJSON(jsonData []byte, projectionNode *querymodel.ProjectionNode) ([]*%s, error) {\n", resourceTypeName, modelStructName))
+	w.wtr.WriteLine("func (m %s) TypedSliceFromJSON(", resourceTypeName)
+	w.wtr.WriteLine("  jsonData []byte,")
+	w.wtr.WriteLine("  projectionNode *querymodel.ProjectionNode,")
+	w.wtr.WriteLine(") ([]*%s, error) {", modelStructName)
 
-	writeToBuilder(w.sb, "if len(jsonData) == 0 {\n")
-	writeToBuilder(w.sb, fmt.Sprintf("return []*%s{}, nil\n", modelStructName))
-	writeToBuilder(w.sb, "}\n\n")
+	w.wtr.WriteLine("if len(jsonData) == 0 {")
+	w.wtr.WriteLine("return []*%s{}, nil", modelStructName)
+	w.wtr.WriteLine("}")
+	w.wtr.NewLine()
 
-	writeToBuilder(w.sb, fmt.Sprintf("var results []*%s\n", modelStructName))
-	writeToBuilder(w.sb, "if err := json.Unmarshal(jsonData, &results); err != nil {\n")
-	writeToBuilder(w.sb, "return nil, err\n")
-	writeToBuilder(w.sb, "}\n")
+	w.wtr.WriteLine("var results []*%s", modelStructName)
+	w.wtr.WriteLine("if err := json.Unmarshal(jsonData, &results); err != nil {")
+	w.wtr.WriteLine("return nil, err")
+	w.wtr.WriteLine("}")
 
-	writeToBuilder(w.sb, "for _, result := range results {\n")
-	writeToBuilder(w.sb, "if err := result.SetProjection(projectionNode); err != nil{\n")
-	writeToBuilder(w.sb, "return nil, err\n")
-	writeToBuilder(w.sb, "}\n")
-	writeToBuilder(w.sb, "}\n")
+	w.wtr.WriteLine("for _, result := range results {")
+	w.wtr.WriteLine("if err := result.SetProjection(projectionNode); err != nil{")
+	w.wtr.WriteLine("return nil, err")
+	w.wtr.WriteLine("}")
+	w.wtr.WriteLine("}")
 
-	writeToBuilder(w.sb, "return results, nil\n")
-	writeToBuilder(w.sb, "}\n")
+	w.wtr.WriteLine("return results, nil")
+	w.wtr.WriteLine("}")
 }
 
 func (w *queryModelWriter) writeTableMetadataDefinition(tableData *builderrepo.TableMetadata) {
@@ -255,31 +272,33 @@ func (w *queryModelWriter) writeTableMetadataDefinition(tableData *builderrepo.T
 	relationshipMapValue := w.buildRelationshipMap(tableData)
 	metadataIdentifer := modelMetadataStoreIdentifier(tableData.Name)
 
-	writeToBuilder(w.sb, fmt.Sprintf(
-		"// %s contains the database metadata for the %s.%s table.\n",
+	w.wtr.WriteLine(
+		"// %s contains the database metadata for the %s.%s table.",
 		metadataIdentifer,
 		tableData.Schema,
 		tableData.Name,
-	))
-	writeToBuilder(w.sb, fmt.Sprintf("var %s = querymodel.TableMetadata{\n", metadataIdentifer))
-	writeToBuilder(w.sb, fmt.Sprintf("Name: \"%s\",\n", tableData.Name))
-	writeToBuilder(w.sb, fmt.Sprintf("FullyQualifiedName: \"%s.%s\",\n", tableData.Schema, tableData.Name))
+	)
 
-	writeToBuilder(w.sb, "PrimaryKeyColumn: querymodel.ColumnMetadata{\n")
-	writeToBuilder(w.sb, fmt.Sprintf("Name: \"%s\",\n", primaryKey))
-	writeToBuilder(w.sb, "Type: querymodel.DbTypeString,\n")
-	writeToBuilder(w.sb, "},\n")
+	w.wtr.WriteLine("var %s = querymodel.TableMetadata{", metadataIdentifer)
+	w.wtr.WriteLine("Name: \"%s\",", tableData.Name)
+	w.wtr.WriteLine("FullyQualifiedName: \"%s.%s\",", tableData.Schema, tableData.Name)
 
-	writeToBuilder(w.sb, fmt.Sprintf("Columns: %s,\n", columnMapValue))
-	writeToBuilder(w.sb, fmt.Sprintf("Relationships: %s,\n", relationshipMapValue))
-	writeToBuilder(w.sb, "}\n\n")
+	w.wtr.WriteLine("PrimaryKeyColumn: querymodel.ColumnMetadata{")
+	w.wtr.WriteLine("Name: \"%s\",", primaryKey)
+	w.wtr.WriteLine("Type: querymodel.DbTypeString,")
+	w.wtr.WriteLine("},")
+
+	w.wtr.WriteLine("Columns: %s,", columnMapValue)
+	w.wtr.WriteLine("Relationships: %s,", relationshipMapValue)
+	w.wtr.WriteLine("}")
+	w.wtr.NewLine()
 }
 
 func buildColumnMap(tableData *builderrepo.TableMetadata) (string, string) {
 	primaryKey := ""
-	sbColMap := &strings.Builder{}
+	colMapWtr := &writer{sb: &strings.Builder{}}
 
-	writeToBuilder(sbColMap, "map[string]querymodel.ColumnMetadata{\n")
+	colMapWtr.WriteLine("map[string]querymodel.ColumnMetadata{")
 
 	// DB Columns
 	for _, col := range tableData.Columns {
@@ -288,46 +307,48 @@ func buildColumnMap(tableData *builderrepo.TableMetadata) (string, string) {
 			primaryKey = col.Name
 		}
 
-		writeToBuilder(sbColMap, fmt.Sprintf("\"%s\": {\n", col.Name))
-		writeToBuilder(sbColMap, fmt.Sprintf("Name: \"%s\",\n", col.Name))
-		writeToBuilder(sbColMap, fmt.Sprintf("Type: %s,\n", colType))
-		writeToBuilder(sbColMap, "},\n")
+		colMapWtr.WriteLine("\"%s\": {", col.Name)
+		colMapWtr.WriteLine("Name: \"%s\",", col.Name)
+		colMapWtr.WriteLine("Type: %s,", colType)
+		colMapWtr.WriteLine("},")
 	}
+	colMapWtr.Write("}")
 
-	writeToBuilder(sbColMap, "}")
-
-	return primaryKey, sbColMap.String()
+	return primaryKey, colMapWtr.String()
 }
 
 func (w *queryModelWriter) buildRelationshipMap(tableData *builderrepo.TableMetadata) string {
-	sbR := &strings.Builder{}
+	relMapWtr := &writer{sb: &strings.Builder{}}
 
-	writeToBuilder(sbR, "map[string]querymodel.RelationshipMetadata{\n")
+	relMapWtr.WriteLine("map[string]querymodel.RelationshipMetadata{")
+
 	for key, relationship := range tableData.Relationships {
 		fromResource := getModelResourceStructName(tableData.Name)
 		toResource := getModelResourceStructName(relationship.RelatedTable)
 
-		writeToBuilder(sbR, fmt.Sprintf("\"%s\": {\n", key))
-		writeToBuilder(sbR, fmt.Sprintf("Id: \"%s\",\n", relationship.Id))
-		writeToBuilder(sbR, fmt.Sprintf("Type: %s,\n", relationship.Type))
-		writeToBuilder(sbR, fmt.Sprintf("ColumnName: \"%s\",\n", relationship.ColumnName))
-		writeToBuilder(sbR, fmt.Sprintf("ExpansionColumnName: \"%s\",\n", relationship.ExpansionColumnName))
-		writeToBuilder(sbR, fmt.Sprintf("From: %s{},\n", fromResource))
-		writeToBuilder(sbR, fmt.Sprintf("To: %s{},\n", toResource))
+		relMapWtr.WriteLine("%s: {", strLit(key))
+		relMapWtr.WriteLine("Id: %s,", strLit(relationship.Id))
+		relMapWtr.WriteLine("Type: %s,", relationship.Type)
+		relMapWtr.WriteLine("ColumnName: %s,", strLit(relationship.ColumnName))
+		relMapWtr.WriteLine("ExpansionColumnName: %s,", strLit(relationship.ExpansionColumnName))
+		relMapWtr.WriteLine("From: %s{},", fromResource)
+		relMapWtr.WriteLine("To: %s{},", toResource)
 
-		writeToBuilder(sbR, "FromColumn: querymodel.ColumnMetadata{\n")
-		writeToBuilder(sbR, fmt.Sprintf("Name: \"%s\",\n", relationship.LocalColumn))
-		writeToBuilder(sbR, "Type: querymodel.DbTypeString,\n")
-		writeToBuilder(sbR, "},\n")
-		writeToBuilder(sbR, "ToColumn: querymodel.ColumnMetadata{\n")
-		writeToBuilder(sbR, fmt.Sprintf("Name: \"%s\",\n", relationship.ForeignColumn))
-		writeToBuilder(sbR, "Type: querymodel.DbTypeString,\n")
-		writeToBuilder(sbR, "},\n")
-		writeToBuilder(sbR, "},\n")
+		relMapWtr.WriteLine("FromColumn: querymodel.ColumnMetadata{")
+		relMapWtr.WriteLine("  Name: %s,", strLit(relationship.LocalColumn))
+		relMapWtr.WriteLine("  Type: querymodel.DbTypeString,")
+		relMapWtr.WriteLine("},")
+
+		relMapWtr.WriteLine("ToColumn: querymodel.ColumnMetadata{")
+		relMapWtr.WriteLine("  Name: %s,", strLit(relationship.ForeignColumn))
+		relMapWtr.WriteLine("  Type: querymodel.DbTypeString,")
+		relMapWtr.WriteLine("},")
+
+		relMapWtr.WriteLine("},")
 	}
+	relMapWtr.Write("}")
 
-	writeToBuilder(sbR, "}")
-	return sbR.String()
+	return relMapWtr.String()
 }
 
 func getQueryModelType(typeName builderrepo.MsqlDataTypeName, columnData *builderrepo.ColumnMetadata) string {
@@ -354,13 +375,13 @@ func getQueryModelType(typeName builderrepo.MsqlDataTypeName, columnData *builde
 func (w *queryModelWriter) WriteTableModel(tableData *builderrepo.TableMetadata) {
 	structName := getModelStructName(tableData.Name)
 
-	writeToBuilder(w.sb, fmt.Sprintf(
-		"// %s represents a row from the %s.%s table.\n",
+	w.wtr.WriteLine(
+		"// %s represents a row from the %s.%s table.",
 		structName,
 		tableData.Schema,
 		tableData.Name,
-	))
-	writeToBuilder(w.sb, fmt.Sprintf("type %s struct {\n", structName))
+	)
+	w.wtr.WriteLine("type %s struct {", structName)
 
 	// DB Cols
 	for _, col := range tableData.Columns {
@@ -371,63 +392,73 @@ func (w *queryModelWriter) WriteTableModel(tableData *builderrepo.TableMetadata)
 			log.Fatal(fmt.Errorf("unable to convert type to go type: %s(%s)", col.Name, col.Type))
 		}
 
-		tag := fmt.Sprintf("`json:\"%s\"`", col.Name)
-		writeToBuilder(w.sb, fmt.Sprintf("%s %s %s\n", identifier, goType, tag))
+		tag := fmt.Sprintf("`json:%s`", strLit(col.Name))
+		w.wtr.WriteLine("%s %s %s", identifier, goType, tag)
 	}
 
 	// Relationship Cols
 	for _, tableRelationship := range tableData.Relationships {
-		tag := fmt.Sprintf("`json:\"%s\"`", tableRelationship.ExpansionColumnName)
+		tag := fmt.Sprintf("`json:%s`", strLit(tableRelationship.ExpansionColumnName))
 		identifer := snakeToPascal(tableRelationship.ExpansionColumnName)
-		writeToBuilder(w.sb, fmt.Sprintf("%s %s %s\n", identifer, tableRelationship.RelationshipColumnType, tag))
+		w.wtr.WriteLine("%s %s %s", identifer, tableRelationship.RelationshipColumnType, tag)
 	}
 
 	// projection column
-	writeToBuilder(w.sb, fmt.Sprintf("projection %s `json:\"-\"`\n", getModelProjectionName(tableData.Name)))
+	w.wtr.WriteLine("projection %s `json:\"-\"`", getModelProjectionName(tableData.Name))
 
-	writeToBuilder(w.sb, "}\n\n")
+	w.wtr.WriteLine("}")
+	w.wtr.NewLine()
 
 	// collection type
 	collectionType := getModelCollectionType(tableData.Name)
-	writeToBuilder(w.sb, fmt.Sprintf("type %s []*%s\n\n", collectionType, structName))
+	w.wtr.WriteLine("type %s []*%s", collectionType, structName)
+	w.wtr.NewLine()
 
 	w.WriteSetProjectionFunction(structName, tableData)
-	w.writeNewLine()
+	w.wtr.NewLine()
+
 	w.WriteModelMarshalJSONFunction(structName, tableData)
-	w.writeNewLine()
+	w.wtr.NewLine()
+
 	w.WriteGetValueExpressionFunction(structName, tableData)
-	w.writeNewLine()
+	w.wtr.NewLine()
+
 	w.WriteGetRelatedEntityFunction(structName, tableData)
-	w.writeNewLine()
+	w.wtr.NewLine()
+
 	w.WriteGetValueExpressionPrivateFunction(structName, tableData)
-	w.writeNewLine()
+	w.wtr.NewLine()
+
 	w.WriteProjectionFunction(structName, tableData)
 }
 
 func (w *queryModelWriter) WriteSetProjectionFunction(modelStructName string, tableData *builderrepo.TableMetadata) {
 	writeDocComment := func() {
-		writeToBuilder(
-			w.sb,
-			"// SetProjection sets a projection node and sets projection for itself and any \n"+
-				"// child nodes\n",
-		)
+		w.wtr.WriteLine("// SetProjection sets a projection node and sets projection for itself and any")
+		w.wtr.WriteLine("// child nodes")
 	}
 
 	writeSignature := func(receiverParam string, typeName string) {
-		writeToBuilder(w.sb, fmt.Sprintf("func (%s %s) SetProjection(projectionNode *querymodel.ProjectionNode) error {\n", receiverParam, typeName))
+		w.wtr.WriteLine(
+			"func (%s %s) SetProjection(projectionNode *querymodel.ProjectionNode) error {",
+			receiverParam,
+			typeName,
+		)
 	}
 
 	writeProjectionCast := func() {
-		writeToBuilder(w.sb, "projection := projectionNode.Projection\n\n")
+		w.wtr.WriteLine("projection := projectionNode.Projection")
+		w.wtr.NewLine()
 
 		projectionName := getModelProjectionName(tableData.Name)
-		writeToBuilder(w.sb, fmt.Sprintf("var typedProjection *%s\n", projectionName))
-		writeToBuilder(w.sb, "switch p := projection.(type){\n")
-		writeToBuilder(w.sb, fmt.Sprintf("case *%s:\n", projectionName))
-		writeToBuilder(w.sb, "typedProjection = p\n")
-		writeToBuilder(w.sb, "default:\n")
-		writeToBuilder(w.sb, "return fmt.Errorf(\"unable to create new slice: invalid projection type received\")\n")
-		writeToBuilder(w.sb, "}\n\n")
+		w.wtr.WriteLine("var typedProjection *%s", projectionName)
+		w.wtr.WriteLine("switch p := projection.(type){")
+		w.wtr.WriteLine("case *%s:", projectionName)
+		w.wtr.WriteLine("typedProjection = p")
+		w.wtr.WriteLine("default:")
+		w.wtr.WriteLine("return fmt.Errorf(\"unable to create new slice: invalid projection type received\")")
+		w.wtr.WriteLine("}")
+		w.wtr.NewLine()
 	}
 
 	collectionType := getModelCollectionType(tableData.Name)
@@ -439,8 +470,8 @@ func (w *queryModelWriter) WriteSetProjectionFunction(modelStructName string, ta
 	writeDocComment()
 	writeSignature(receiverParam, "*"+modelStructName)
 	writeProjectionCast()
-	writeToBuilder(w.sb, fmt.Sprintf("return m.%s(*typedProjection, projectionNode.Children)\n", concreteSetterIdentifier))
-	writeToBuilder(w.sb, "}\n")
+	w.wtr.WriteLine("return m.%s(*typedProjection, projectionNode.Children)", concreteSetterIdentifier)
+	w.wtr.WriteLine("}")
 
 	// write typing function for model collection
 	receiverParam = "ms"
@@ -449,79 +480,90 @@ func (w *queryModelWriter) WriteSetProjectionFunction(modelStructName string, ta
 	writeSignature(receiverParam, collectionType)
 	writeProjectionCast()
 
-	writeToBuilder(w.sb, "for _, m := range ms{\n")
-	writeToBuilder(w.sb, fmt.Sprintf("if err := m.%s(*typedProjection, projectionNode.Children); err != nil{\n", concreteSetterIdentifier))
-	writeToBuilder(w.sb, "return err\n")
-	writeToBuilder(w.sb, "}\n")
-	writeToBuilder(w.sb, "}\n")
-	writeToBuilder(w.sb, "return nil\n")
-	writeToBuilder(w.sb, "}\n")
+	w.wtr.WriteLine("for _, m := range ms{")
+	w.wtr.WriteLine(
+		"if err := m.%s(*typedProjection, projectionNode.Children); err != nil{",
+		concreteSetterIdentifier,
+	)
+	w.wtr.WriteLine("return err")
+	w.wtr.WriteLine("}")
+	w.wtr.WriteLine("}")
+	w.wtr.WriteLine("return nil")
+	w.wtr.WriteLine("}")
 
 	// write concrete setter function
-	writeToBuilder(w.sb, fmt.Sprintf(
-		"// %s sets a projection node and sets projection for itself and any \n"+
-			"// child nodes\n",
+	w.wtr.WriteLine(
+		"// %s sets a projection node and sets projection for itself and any",
 		concreteSetterIdentifier,
-	))
+	)
+	w.wtr.WriteLine("// child nodes")
 
 	projectionType := getModelProjectionName(tableData.Name)
-	writeToBuilder(w.sb, fmt.Sprintf(
-		"func (m *%s) %s(projection %s, childNodes map[string]*querymodel.ProjectionNode) error {\n",
+	w.wtr.WriteLine(
+		"func (m *%s) %s(",
 		modelStructName,
 		concreteSetterIdentifier,
-		projectionType,
-	))
+	)
 
-	writeToBuilder(w.sb, "m.projection = projection\n")
+	w.wtr.WriteLine("projection %s,", projectionType)
+	w.wtr.WriteLine("childNodes map[string]*querymodel.ProjectionNode,")
+	w.wtr.WriteLine(") error {")
+
+	w.wtr.WriteLine("m.projection = projection")
 	for _, r := range tableData.Relationships {
 		expansionColumn := snakeToPascal(r.ExpansionColumnName)
 
-		writeToBuilder(w.sb, fmt.Sprintf("if node, exists := childNodes[\"%s\"]; exists {\n", r.ExpansionColumnName))
-		writeToBuilder(w.sb, fmt.Sprintf("if m.%s != nil {\n", expansionColumn))
-		writeToBuilder(w.sb, fmt.Sprintf("if err := m.%s.SetProjection(node); err != nil{\n", expansionColumn))
-		writeToBuilder(w.sb, "return err\n")
-		writeToBuilder(w.sb, "}\n")
-		writeToBuilder(w.sb, "}")
+		w.wtr.WriteLine("if node, exists := childNodes[%s]; exists {", strLit(r.ExpansionColumnName))
+		w.wtr.WriteLine("if m.%s != nil {", expansionColumn)
+		w.wtr.WriteLine("if err := m.%s.SetProjection(node); err != nil{", expansionColumn)
+		w.wtr.WriteLine("return err")
+		w.wtr.WriteLine("}")
+		w.wtr.Write("}")
+
 		if r.Type == "querymodel.RelationshipOneToMany" {
-			writeToBuilder(w.sb, "else{\n")
-			writeToBuilder(w.sb, fmt.Sprintf("m.%s = %s{}", expansionColumn, getModelCollectionType(r.RelatedTable)))
-			writeToBuilder(w.sb, "}\n")
+			w.wtr.WriteLine("else{")
+			w.wtr.WriteLine("m.%s = %s{}", expansionColumn, getModelCollectionType(r.RelatedTable))
+			w.wtr.WriteLine("}")
 		} else {
-			writeToBuilder(w.sb, "\n")
+			w.wtr.NewLine()
 		}
-		writeToBuilder(w.sb, "}\n\n")
+		w.wtr.WriteLine("}")
+		w.wtr.NewLine()
 	}
 
-	writeToBuilder(w.sb, "return nil\n")
-	writeToBuilder(w.sb, "}\n\n")
+	w.wtr.WriteLine("return nil")
+	w.wtr.WriteLine("}")
+	w.wtr.NewLine()
 }
 
 func (w *queryModelWriter) WriteModelMarshalJSONFunction(modelStructName string, tableData *builderrepo.TableMetadata) {
-	writeToBuilder(w.sb, "// MarshalJSON marshals the model to a json string based on the projection\n")
+	w.wtr.WriteLine("// MarshalJSON marshals the model to a json string based on the projection")
 
-	writeToBuilder(w.sb, fmt.Sprintf("func (m *%s) MarshalJSON() ([]byte, error) {\n", modelStructName))
-	writeToBuilder(w.sb, "var buf bytes.Buffer\n")
-	writeToBuilder(w.sb, "buf.WriteByte('{')\n\n")
+	w.wtr.WriteLine("func (m *%s) MarshalJSON() ([]byte, error) {", modelStructName)
+	w.wtr.WriteLine("var buf bytes.Buffer")
+	w.wtr.WriteLine("buf.WriteByte('{')")
+	w.wtr.NewLine()
 
-	writeToBuilder(w.sb, "isFirst := true\n")
+	w.wtr.WriteLine("isFirst := true")
 
 	writeColumn := func(isLastItem bool, columnName string) {
 		projectionIdentifier := getColProjectionId(tableData.Name, columnName)
-		writeToBuilder(w.sb, fmt.Sprintf("if m.projection.Has(%s) {\n", projectionIdentifier))
-		writeToBuilder(w.sb, fmt.Sprintf(
-			"err := marshalProperty(&buf, isFirst, \"%s\", m.%s)\n",
-			columnName,
+		w.wtr.WriteLine("if m.projection.Has(%s) {", projectionIdentifier)
+		w.wtr.WriteLine(
+			"err := marshalProperty(&buf, isFirst, %s, m.%s)",
+			strLit(columnName),
 			snakeToPascal(columnName),
-		))
-		writeToBuilder(w.sb, "if err != nil {\n")
-		writeToBuilder(w.sb, "return nil, err\n")
-		writeToBuilder(w.sb, "}\n")
+		)
+		w.wtr.WriteLine("if err != nil {")
+		w.wtr.WriteLine("return nil, err")
+		w.wtr.WriteLine("}")
 
 		if !isLastItem {
-			writeToBuilder(w.sb, "isFirst = false\n")
+			w.wtr.WriteLine("isFirst = false")
 		}
 
-		writeToBuilder(w.sb, "}\n\n")
+		w.wtr.WriteLine("}")
+		w.wtr.NewLine()
 	}
 
 	colCount := len(tableData.Columns)
@@ -539,47 +581,52 @@ func (w *queryModelWriter) WriteModelMarshalJSONFunction(modelStructName string,
 		i++
 	}
 
-	writeToBuilder(w.sb, "buf.WriteByte('}')\n")
-	writeToBuilder(w.sb, "return buf.Bytes(), nil\n")
-	writeToBuilder(w.sb, "}\n")
+	w.wtr.WriteLine("buf.WriteByte('}')")
+	w.wtr.WriteLine("return buf.Bytes(), nil")
+	w.wtr.WriteLine("}")
 }
 
 func (w *queryModelWriter) WriteGetValueExpressionFunction(modelStructName string, tableData *builderrepo.TableMetadata) {
-	writeToBuilder(w.sb, "// GetValue returns the value from a given path\n")
+	w.wtr.WriteLine("// GetValue returns the value from a given path")
 
-	writeToBuilder(w.sb, fmt.Sprintf("func (m *%s) GetValue(v querymodel.ValueBuilder, path []*querymodel.TraversalStep, columnName string) (querymodel.Value, error){\n", modelStructName))
-	writeToBuilder(w.sb, "if len(path) > 0 {\n")
+	w.wtr.WriteLine("func (m *%s) GetValue(", modelStructName)
+	w.wtr.WriteLine(" v querymodel.ValueBuilder,")
+	w.wtr.WriteLine(" path []*querymodel.TraversalStep,")
+	w.wtr.WriteLine(" columnName string,")
+	w.wtr.WriteLine(") (querymodel.Value, error){")
+
+	w.wtr.WriteLine("if len(path) > 0 {")
 
 	if hasManyToOneRelationships(tableData) {
-		writeToBuilder(w.sb, "nextStep := path[0]\n")
-		writeToBuilder(w.sb, "nextEntity, nextEntityIsNil, err := m.getRelatedEntity(nextStep.Relationship)\n")
+		w.wtr.WriteLine("nextStep := path[0]")
+		w.wtr.WriteLine("nextEntity, nextEntityIsNil, err := m.getRelatedEntity(nextStep.Relationship)")
 
-		writeToBuilder(w.sb, "if err != nil {\n")
-		writeToBuilder(w.sb, "return nil, err\n")
-		writeToBuilder(w.sb, "}\n")
+		w.wtr.WriteLine("if err != nil {")
+		w.wtr.WriteLine("return nil, err")
+		w.wtr.WriteLine("}")
 
-		writeToBuilder(w.sb, "if nextEntityIsNil{\n")
-		writeToBuilder(w.sb, "return v.Null(), nil\n")
-		writeToBuilder(w.sb, "}\n")
+		w.wtr.WriteLine("if nextEntityIsNil{")
+		w.wtr.WriteLine("return v.Null(), nil")
+		w.wtr.WriteLine("}")
 
-		writeToBuilder(w.sb, "return nextEntity.GetValue(v, path[1:], columnName)\n")
+		w.wtr.WriteLine("return nextEntity.GetValue(v, path[1:], columnName)")
 	} else {
-		writeToBuilder(w.sb, "return nil, fmt.Errorf(\"unable to get value: invalid path\")\n")
+		w.wtr.WriteLine("return nil, fmt.Errorf(\"unable to get value: invalid path\")")
 	}
 
-	writeToBuilder(w.sb, "}\n")
+	w.wtr.WriteLine("}")
 
-	writeToBuilder(w.sb, "val, err := m.getValue(columnName, v)\n")
-	writeToBuilder(w.sb, "if err != nil {\n")
-	writeToBuilder(w.sb, "return nil, err\n")
-	writeToBuilder(w.sb, "}\n")
+	w.wtr.WriteLine("val, err := m.getValue(columnName, v)")
+	w.wtr.WriteLine("if err != nil {")
+	w.wtr.WriteLine("return nil, err")
+	w.wtr.WriteLine("}")
 
-	writeToBuilder(w.sb, "if val == nil{\n")
-	writeToBuilder(w.sb, "return v.Null(), nil\n")
-	writeToBuilder(w.sb, "}\n")
+	w.wtr.WriteLine("if val == nil{")
+	w.wtr.WriteLine("return v.Null(), nil")
+	w.wtr.WriteLine("}")
 
-	writeToBuilder(w.sb, "return val, nil\n")
-	writeToBuilder(w.sb, "}\n")
+	w.wtr.WriteLine("return val, nil")
+	w.wtr.WriteLine("}")
 }
 
 func (w *queryModelWriter) WriteGetRelatedEntityFunction(modelStructName string, tableData *builderrepo.TableMetadata) {
@@ -587,51 +634,58 @@ func (w *queryModelWriter) WriteGetRelatedEntityFunction(modelStructName string,
 		return
 	}
 
-	writeToBuilder(w.sb, "// getRelatedEntity returns the value from N:1/1:1 relationships as a TableModel\n")
-	writeToBuilder(w.sb, "// It will return an error for invalid relationships and relationship types\n")
+	w.wtr.WriteLine("// getRelatedEntity returns the value from N:1/1:1 relationships as a TableModel")
+	w.wtr.WriteLine("// It will return an error for invalid relationships and relationship types")
 
-	writeToBuilder(w.sb, fmt.Sprintf("func (m *%s) getRelatedEntity(relationship querymodel.RelationshipMetadata) (querymodel.TableModel, bool, error) {\n", modelStructName))
-	writeToBuilder(w.sb, "switch relationship.Id {\n")
+	w.wtr.WriteLine("func (m *%s) getRelatedEntity(", modelStructName)
+	w.wtr.WriteLine(" relationship querymodel.RelationshipMetadata,")
+	w.wtr.WriteLine(") (querymodel.TableModel, bool, error) {")
 
+	w.wtr.WriteLine("switch relationship.Id {")
 	for _, relationship := range tableData.Relationships {
 		if relationship.Type != "querymodel.RelationshipManyToOne" {
 			continue
 		}
-		writeToBuilder(w.sb, fmt.Sprintf("case \"%s\":\n", relationship.Id))
-		writeToBuilder(w.sb, fmt.Sprintf("v := m.%s\n", snakeToPascal(relationship.ExpansionColumnName)))
-		writeToBuilder(w.sb, "return v, v == nil, nil\n")
+		w.wtr.WriteLine("case %s:", strLit(relationship.Id))
+		w.wtr.WriteLine("v := m.%s", snakeToPascal(relationship.ExpansionColumnName))
+		w.wtr.WriteLine("return v, v == nil, nil")
 	}
 
-	writeToBuilder(w.sb, "default:\n")
-	writeToBuilder(w.sb, "return nil, true, fmt.Errorf(\"unable to get related entity: unsupported relationship '%s'\", relationship.Id)\n")
-	writeToBuilder(w.sb, "}\n")
-	writeToBuilder(w.sb, "}\n")
+	w.wtr.WriteLine("default:")
+	w.wtr.WriteLine("return nil, true, fmt.Errorf(")
+	w.wtr.WriteLine("  \"unable to get related entity: unsupported relationship '%%s'\",")
+	w.wtr.WriteLine(" relationship.Id,")
+	w.wtr.WriteLine(")")
+	w.wtr.WriteLine("}")
+	w.wtr.WriteLine("}")
 }
 
 func (w *queryModelWriter) WriteGetValueExpressionPrivateFunction(modelStructName string, tableData *builderrepo.TableMetadata) {
-	writeToBuilder(w.sb, "// getValue returns the value from a given column\n")
+	w.wtr.WriteLine("// getValue returns the value from a given column")
 
-	writeToBuilder(w.sb, fmt.Sprintf("func (m *%s) getValue(columnName string, v querymodel.ValueBuilder) (querymodel.Value, error) {\n", modelStructName))
-	writeToBuilder(w.sb, "switch columnName{\n")
+	w.wtr.WriteLine("func (m *%s) getValue(", modelStructName)
+	w.wtr.WriteLine("  columnName string,")
+	w.wtr.WriteLine("  v querymodel.ValueBuilder,")
+	w.wtr.WriteLine(") (querymodel.Value, error) {")
 
+	w.wtr.WriteLine("switch columnName{")
 	for _, column := range tableData.Columns {
-		getValueExpression := w.buildGetValueExpression(column)
-		writeToBuilder(w.sb, fmt.Sprintf("case \"%s\":\n", column.Name))
-		writeToBuilder(w.sb, getValueExpression)
+		w.wtr.WriteLine("case %s:", strLit(column.Name))
+		w.wtr.WriteLine("%s", w.buildGetValueExpression(column))
 	}
 
-	writeToBuilder(w.sb, "default:\n")
-	writeToBuilder(w.sb, "return nil, fmt.Errorf(\"unsupported column: '%s'\", columnName)\n")
-	writeToBuilder(w.sb, "}\n")
-	writeToBuilder(w.sb, "}\n")
+	w.wtr.WriteLine("default:")
+	w.wtr.WriteLine("return nil, fmt.Errorf(\"unsupported column: '%%s'\", columnName)")
+	w.wtr.WriteLine("}")
+	w.wtr.WriteLine("}")
 }
 
 func (w *queryModelWriter) WriteProjectionFunction(modelStructName string, tableData *builderrepo.TableMetadata) {
-	writeToBuilder(w.sb, "// Project adds a column to the model's projection set\n")
+	w.wtr.WriteLine("// Project adds a column to the model's projection set")
 
-	writeToBuilder(w.sb, fmt.Sprintf("func (m *%s) Project(columnName string) error { \n", modelStructName))
-	writeToBuilder(w.sb, "return (&m.projection).Add(columnName)\n")
-	writeToBuilder(w.sb, "}\n")
+	w.wtr.WriteLine("func (m *%s) Project(columnName string) error {", modelStructName)
+	w.wtr.WriteLine("return (&m.projection).Add(columnName)")
+	w.wtr.WriteLine("}")
 }
 
 func (w *queryModelWriter) buildGetValueExpression(columnData *builderrepo.ColumnMetadata) string {
@@ -639,18 +693,18 @@ func (w *queryModelWriter) buildGetValueExpression(columnData *builderrepo.Colum
 	goType := msqlTypeToGoType(columnData.Type, columnData)
 
 	if columnData.EnumName != "" {
-		return fmt.Sprintf("return v.Int(int64(m.%s)), nil\n", columnIdentifier)
+		return fmt.Sprintf("return v.Int(int64(m.%s)), nil", columnIdentifier)
 	}
 
 	switch goType {
 	case "string":
-		return fmt.Sprintf("return v.String(m.%s), nil\n", columnIdentifier)
+		return fmt.Sprintf("return v.String(m.%s), nil", columnIdentifier)
 	case "int64":
-		return fmt.Sprintf("return v.Int(m.%s), nil\n", columnIdentifier)
+		return fmt.Sprintf("return v.Int(m.%s), nil", columnIdentifier)
 	case "*time.Time":
-		return fmt.Sprintf("return v.DateTime(*m.%s), nil\n", columnIdentifier)
+		return fmt.Sprintf("return v.DateTime(*m.%s), nil", columnIdentifier)
 	case "*querymodel.Point":
-		return fmt.Sprintf("return v.Point(m.%s.Coordinates[0], m.%s.Coordinates[1]), nil\n", columnIdentifier, columnIdentifier)
+		return fmt.Sprintf("return v.Point(m.%s.Coordinates[0], m.%s.Coordinates[1]), nil", columnIdentifier, columnIdentifier)
 	default:
 		return ""
 	}
@@ -699,107 +753,107 @@ func (w *queryModelWriter) WriteTableModelProjection(tableData *builderrepo.Tabl
 	}
 
 	// Write the type
-	writeToBuilder(w.sb, fmt.Sprintf(
-		"// %s represents column projection for the %s table.\n",
+	w.wtr.WriteLine(
+		"// %s represents column projection for the %s table.",
 		projectionName,
 		tableData.Name,
-	))
-	writeToBuilder(w.sb, fmt.Sprintf("type %s uint64\n", projectionName))
-	w.writeNewLine()
+	)
+	w.wtr.WriteLine("type %s uint64", projectionName)
+	w.wtr.NewLine()
 
 	// Write the constants
-	writeToBuilder(w.sb, "const (\n")
+	w.wtr.WriteLine("const (")
 	for i, col := range tableData.Columns {
 		identifier := getColProjectionId(tableData.Name, col.Name)
 
 		if i == 0 {
-			writeToBuilder(w.sb, fmt.Sprintf("%s %s = 1 << iota\n", identifier, projectionName))
+			w.wtr.WriteLine("%s %s = 1 << iota", identifier, projectionName)
 		} else {
-			writeToBuilder(w.sb, fmt.Sprintf("%s\n", identifier))
+			w.wtr.WriteLine("%s", identifier)
 		}
 	}
 
 	for _, rel := range tableData.Relationships {
 		identifier := getColProjectionId(tableData.Name, rel.ExpansionColumnName)
-		writeToBuilder(w.sb, fmt.Sprintf("%s\n", identifier))
+		w.wtr.WriteLine("%s", identifier)
 	}
 
-	writeToBuilder(w.sb, ")\n")
-	w.writeNewLine()
+	w.wtr.WriteLine(")")
+	w.wtr.NewLine()
 
 	//Write setter
-	writeToBuilder(w.sb, "// Add includes a given column within the projection\n")
+	w.wtr.WriteLine("// Add includes a given column within the projection")
 
-	writeToBuilder(w.sb, fmt.Sprintf("func (p *%s) Add(columnName string) error {\n", projectionName))
-	writeToBuilder(w.sb, "switch columnName{\n")
+	w.wtr.WriteLine("func (p *%s) Add(columnName string) error {", projectionName)
 
+	w.wtr.WriteLine("switch columnName{")
 	for _, column := range tableData.Columns {
-		writeToBuilder(w.sb, fmt.Sprintf("case \"%s\":\n", column.Name))
-		writeToBuilder(w.sb, fmt.Sprintf("*p |= %s\n", getColProjectionId(tableData.Name, column.Name)))
+		w.wtr.WriteLine("case %s:", strLit(column.Name))
+		w.wtr.WriteLine("*p |= %s", getColProjectionId(tableData.Name, column.Name))
 	}
 
 	for _, rel := range tableData.Relationships {
-		writeToBuilder(w.sb, fmt.Sprintf("case \"%s\":\n", rel.ExpansionColumnName))
-		writeToBuilder(w.sb, fmt.Sprintf("*p |= %s\n", getColProjectionId(tableData.Name, rel.ExpansionColumnName)))
+		w.wtr.WriteLine("case %s:", strLit(rel.ExpansionColumnName))
+		w.wtr.WriteLine("*p |= %s", getColProjectionId(tableData.Name, rel.ExpansionColumnName))
 	}
 
-	writeToBuilder(w.sb, "default:\n")
-	writeToBuilder(w.sb, "return fmt.Errorf(\"unsupported column: '%s'\", columnName)\n")
-	writeToBuilder(w.sb, "}\n")
-	writeToBuilder(w.sb, "return nil\n")
-	writeToBuilder(w.sb, "}\n")
-	w.writeNewLine()
+	w.wtr.WriteLine("default:")
+	w.wtr.WriteLine("return fmt.Errorf(\"unsupported column: '%%s'\", columnName)")
+	w.wtr.WriteLine("}")
+	w.wtr.WriteLine("return nil")
+	w.wtr.WriteLine("}")
+	w.wtr.NewLine()
 
-	writeToBuilder(w.sb, "// Has is used to determine if a given column is in a projection\n")
+	w.wtr.WriteLine("// Has is used to determine if a given column is in a projection")
 
-	writeToBuilder(w.sb, fmt.Sprintf("func (p %s) Has(projection %s) bool {\n", projectionName, projectionName))
-	writeToBuilder(w.sb, "return p&projection != 0\n")
-	writeToBuilder(w.sb, "}\n")
-	w.writeNewLine()
+	w.wtr.WriteLine("func (p %s) Has(projection %s) bool {", projectionName, projectionName)
+	w.wtr.WriteLine("return p&projection != 0")
+	w.wtr.WriteLine("}")
+	w.wtr.NewLine()
 
 	// WRITE IS EMPTY
-	writeToBuilder(w.sb, "// IsEmpty is used to determine if there are no projections\n")
-	writeToBuilder(w.sb, fmt.Sprintf("func (p %s) IsEmpty() bool {\n", projectionName))
-	writeToBuilder(w.sb, "return p == 0\n")
-	writeToBuilder(w.sb, "}\n")
-	w.writeNewLine()
+	w.wtr.WriteLine("// IsEmpty is used to determine if there are no projections")
+	w.wtr.WriteLine("func (p %s) IsEmpty() bool {", projectionName)
+	w.wtr.WriteLine("return p == 0")
+	w.wtr.WriteLine("}")
+	w.wtr.NewLine()
 }
 
 func (w *queryModelWriter) writeTableAccessStructs() {
 	// Database Access Policy
-	writeToBuilder(w.sb, "// AccessPolicy defines the access policy for the database\n")
+	w.wtr.WriteLine("// AccessPolicy defines the access policy for the database")
 
-	writeToBuilder(w.sb, "type DatabaseAccessPolicy struct {\n")
+	w.wtr.WriteLine("type DatabaseAccessPolicy struct {")
 	for _, t := range w.metadata.Tables {
 		tableAccessPolicyName := getTableAccessPolicyName(t.Name)
-		writeToBuilder(w.sb, fmt.Sprintf("%s *%s\n", tableAccessPolicyName, tableAccessPolicyName))
+		w.wtr.WriteLine("%s *%s", tableAccessPolicyName, tableAccessPolicyName)
 	}
-	writeToBuilder(w.sb, "}\n")
-	w.writeNewLine()
+	w.wtr.WriteLine("}")
+	w.wtr.NewLine()
 
 	// Table access policy getter
-	writeToBuilder(
-		w.sb,
-		"// GetTableAccessPolicy returns an access policy for a given table for nil\n"+
-			"// if the table does not exist\n",
-	)
+	w.wtr.WriteLine("// GetTableAccessPolicy returns an access policy for a given table for nil")
+	w.wtr.WriteLine("// if the table does not exist")
 
-	writeToBuilder(w.sb, "func (p *DatabaseAccessPolicy) GetTableAccessPolicy(\ntableName string,\n) (querymodel.TableAccessPolicy, bool) {\n")
-	writeToBuilder(w.sb, "switch tableName {\n")
+	w.wtr.WriteLine("func (p *DatabaseAccessPolicy) GetTableAccessPolicy(")
+	w.wtr.WriteLine("  tableName string,")
+	w.wtr.WriteLine(") (querymodel.TableAccessPolicy, bool) {")
+
+	w.wtr.WriteLine("switch tableName {")
 	for _, t := range w.metadata.Tables {
-		writeToBuilder(w.sb, fmt.Sprintf("case \"%s\":\n", t.Name))
-		writeToBuilder(w.sb, fmt.Sprintf("return p.%s, true\n", getTableAccessPolicyName(t.Name)))
+		w.wtr.WriteLine("case %s:", strLit(t.Name))
+		w.wtr.WriteLine("return p.%s, true", getTableAccessPolicyName(t.Name))
 	}
-	writeToBuilder(w.sb, "default:\n")
-	writeToBuilder(w.sb, "return nil, false\n")
-	writeToBuilder(w.sb, "}\n")
-	writeToBuilder(w.sb, "}\n")
-	w.writeNewLine()
+	w.wtr.WriteLine("default:")
+	w.wtr.WriteLine("return nil, false")
+	w.wtr.WriteLine("}")
+	w.wtr.WriteLine("}")
+	w.wtr.NewLine()
 
 	// Individual Table Access Policy struct definitions
 	for i, t := range w.metadata.Tables {
 		if i != 0 {
-			w.writeNewLine()
+			w.wtr.NewLine()
 		}
 		w.writeTableAccessStruct(t)
 	}
@@ -808,48 +862,51 @@ func (w *queryModelWriter) writeTableAccessStructs() {
 func (w *queryModelWriter) writeTableAccessStruct(t *builderrepo.TableMetadata) {
 	accessPolicyStructName := getTableAccessPolicyName(t.Name)
 	// Access Policy Struct
-	writeToBuilder(w.sb, fmt.Sprintf(
-		"// %s defines an access policy for the %s table\n",
+	w.wtr.WriteLine(
+		"// %s defines an access policy for the %s table",
 		accessPolicyStructName,
 		t.Name,
-	))
+	)
 
-	writeToBuilder(w.sb, fmt.Sprintf("type %s struct {\n", accessPolicyStructName))
-	writeToBuilder(w.sb, "UserCanAccess bool\n")
+	w.wtr.WriteLine("type %s struct {", accessPolicyStructName)
+	w.wtr.WriteLine("UserCanAccess bool")
 	for _, c := range t.Columns {
-		writeToBuilder(w.sb, fmt.Sprintf("%s bool\n", snakeToPascal(c.Name)))
+		w.wtr.WriteLine("%s bool", snakeToPascal(c.Name))
 	}
-	writeToBuilder(w.sb, "}\n")
-	w.writeNewLine()
+	w.wtr.WriteLine("}")
+	w.wtr.NewLine()
 
 	// Can Access
-	writeToBuilder(w.sb, fmt.Sprintf(
-		"// CanAccess defines, at the table level, if a user can perform any\n"+
-			"// operations on the %s table. Specific column access policies can restrict\n"+
-			"// access given but cannot override access denied\n",
-		t.Name,
-	))
-	writeToBuilder(w.sb, fmt.Sprintf("func (p *%s) CanAccess() bool {\n", accessPolicyStructName))
-	writeToBuilder(w.sb, "return p.UserCanAccess\n")
-	writeToBuilder(w.sb, "}\n")
-	w.writeNewLine()
+	w.wtr.WriteLine("// CanAccess defines, at the table level, if a user can perform any")
+	w.wtr.WriteLine("// operations on the %s table. Specific column access policies can restrict", t.Name)
+	w.wtr.WriteLine("// access given but cannot override access denied")
+
+	w.wtr.WriteLine("func (p *%s) CanAccess() bool {", accessPolicyStructName)
+	w.wtr.WriteLine("return p.UserCanAccess")
+	w.wtr.WriteLine("}")
+	w.wtr.NewLine()
 
 	// GetColumn
-	writeToBuilder(w.sb, fmt.Sprintf(
-		"// CanAccessColumn returns true if a column can be accessed else false. An error\n"+
-			"// is returned if the column does not exist on the table\n",
-	))
-	writeToBuilder(w.sb, fmt.Sprintf("func (p *%s) CanAccessColumn(\ncolumnName string,\n) (bool, error) {\n", accessPolicyStructName))
-	writeToBuilder(w.sb, "switch columnName {\n")
+	w.wtr.WriteLine("// CanAccessColumn returns true if a column can be accessed else false. An error")
+	w.wtr.WriteLine("// is returned if the column does not exist on the table")
+
+	w.wtr.WriteLine("func (p *%s) CanAccessColumn(", accessPolicyStructName)
+	w.wtr.WriteLine("  columnName string,")
+	w.wtr.WriteLine(") (bool, error) {")
+
+	w.wtr.WriteLine("switch columnName {")
 	for _, c := range t.Columns {
-		writeToBuilder(w.sb, fmt.Sprintf("case \"%s\":\n", c.Name))
-		writeToBuilder(w.sb, fmt.Sprintf("return p.%s, nil\n", snakeToPascal(c.Name)))
+		w.wtr.WriteLine("case %s:", strLit(c.Name))
+		w.wtr.WriteLine("return p.%s, nil", snakeToPascal(c.Name))
 	}
-	writeToBuilder(w.sb, "default:\n")
-	writeToBuilder(w.sb, fmt.Sprintf("return false, fmt.Errorf(\"column %%s does not exists on the %s table\", columnName)\n", t.Name))
-	writeToBuilder(w.sb, "}\n")
-	writeToBuilder(w.sb, "}\n")
-	w.writeNewLine()
+	w.wtr.WriteLine("default:")
+	w.wtr.WriteLine("return false, fmt.Errorf(")
+	w.wtr.WriteLine("  \"column %%s does not exists on the %s table\",", t.Name)
+	w.wtr.WriteLine("  columnName,")
+	w.wtr.WriteLine(")")
+	w.wtr.WriteLine("}")
+	w.wtr.WriteLine("}")
+	w.wtr.NewLine()
 
 }
 

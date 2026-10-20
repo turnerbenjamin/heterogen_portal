@@ -13,7 +13,7 @@ import (
 type constantsWriter struct {
 	path     string
 	metadata *builderrepo.DatabaseSchema
-	sb       *strings.Builder
+	wtr      *writer
 }
 
 func NewConstantsWriter(
@@ -23,7 +23,7 @@ func NewConstantsWriter(
 	return &constantsWriter{
 		path:     path,
 		metadata: metadata,
-		sb:       &strings.Builder{},
+		wtr:      &writer{&strings.Builder{}},
 	}
 }
 
@@ -32,7 +32,7 @@ func (w *constantsWriter) Write() {
 	w.writePackageDefinition()
 	w.writeConstants()
 
-	raw := w.sb.String()
+	raw := w.wtr.String()
 	formatted, err := format.Source([]byte(raw))
 	if err != nil {
 		log.Fatal(err)
@@ -47,25 +47,25 @@ func (w *constantsWriter) Write() {
 func (w *constantsWriter) writeConstants() {
 
 	w.writeColumnNameConstants()
-	writeToBuilder(w.sb, "\n")
+	w.wtr.NewLine()
 
 	w.writeColumnTypeConstants()
-	writeToBuilder(w.sb, "\n")
+	w.wtr.NewLine()
 
 	w.writeColumnDisplayNameConstants()
-	writeToBuilder(w.sb, "\n")
+	w.wtr.NewLine()
 
 	w.writeRelationshipNameConstants()
-	writeToBuilder(w.sb, "\n")
+	w.wtr.NewLine()
 
 	w.writeRelationshipDisplayNameConstants()
-	writeToBuilder(w.sb, "\n")
+	w.wtr.NewLine()
 
 	w.writeMaxLengthConstants()
 }
 
 func (w *constantsWriter) writePackageDefinition() {
-	writeToBuilder(w.sb, `//GENERATED CODE
+	w.wtr.WriteLine(`//GENERATED CODE
 // see cmd/modelbuilder/
 package model
 
@@ -77,16 +77,15 @@ const (
 	DataTypeEnum DataType = "enum"
 	DataTypeTime   DataType = "time"
 	DataTypePoint  DataType = "point"
-)
-`)
+)`)
 }
 
 func (w *constantsWriter) writeColumnNameConstants() {
-	writeToBuilder(w.sb, "// Constants representing column names in the database\n")
-	writeToBuilder(w.sb, "const(\n")
+	w.wtr.WriteLine("// Constants representing column names in the database")
+	w.wtr.WriteLine("const(")
 	for i, table := range w.metadata.Tables {
 		if i != 0 {
-			writeToBuilder(w.sb, "\n")
+			w.wtr.NewLine()
 		}
 
 		for _, column := range table.Columns {
@@ -95,18 +94,18 @@ func (w *constantsWriter) writeColumnNameConstants() {
 				snakeToPascal(table.Name),
 				snakeToPascal(column.Name),
 			)
-			writeToBuilder(w.sb, fmt.Sprintf("%s = \"%s\"\n", fieldNameConst, column.Name))
+			w.wtr.WriteLine("%s = %s", fieldNameConst, strLit(column.Name))
 		}
 	}
-	writeToBuilder(w.sb, ")\n")
+	w.wtr.WriteLine(")")
 }
 
 func (w *constantsWriter) writeColumnDisplayNameConstants() {
-	writeToBuilder(w.sb, "// Constants representing column display names in the database\n")
-	writeToBuilder(w.sb, "const(\n")
+	w.wtr.WriteLine("// Constants representing column display names in the database")
+	w.wtr.WriteLine("const(")
 	for i, table := range w.metadata.Tables {
 		if i != 0 {
-			writeToBuilder(w.sb, "\n")
+			w.wtr.NewLine()
 		}
 
 		for _, column := range table.Columns {
@@ -115,18 +114,18 @@ func (w *constantsWriter) writeColumnDisplayNameConstants() {
 				snakeToPascal(table.Name),
 				snakeToPascal(column.Name),
 			)
-			writeToBuilder(w.sb, fmt.Sprintf("%s = \"%s\"\n", fieldNameConst, snakeToDisplayName(column.Name)))
+			w.wtr.WriteLine("%s = %s", fieldNameConst, strLit(snakeToDisplayName(column.Name)))
 		}
 	}
-	writeToBuilder(w.sb, ")\n")
+	w.wtr.WriteLine(")")
 }
 
 func (w *constantsWriter) writeColumnTypeConstants() {
-	writeToBuilder(w.sb, "// Constants representing column data types\n")
-	writeToBuilder(w.sb, "const(\n")
+	w.wtr.WriteLine("// Constants representing column data types")
+	w.wtr.WriteLine("const(")
 	for i, table := range w.metadata.Tables {
 		if i != 0 {
-			writeToBuilder(w.sb, "\n")
+			w.wtr.NewLine()
 		}
 
 		for _, column := range table.Columns {
@@ -140,18 +139,18 @@ func (w *constantsWriter) writeColumnTypeConstants() {
 				snakeToPascal(table.Name),
 				snakeToPascal(column.Name),
 			)
-			writeToBuilder(w.sb, fmt.Sprintf("%s = %s\n", fieldNameConst, dataType))
+			w.wtr.WriteLine("%s = %s", fieldNameConst, dataType)
 		}
 	}
-	writeToBuilder(w.sb, ")\n")
+	w.wtr.WriteLine(")")
 }
 
 func (w *constantsWriter) writeRelationshipNameConstants() {
-	writeToBuilder(w.sb, "// Constants representing relationship columns names\n")
-	writeToBuilder(w.sb, "const(\n")
+	w.wtr.WriteLine("// Constants representing relationship columns names")
+	w.wtr.WriteLine("const(")
 	for i, table := range w.metadata.Tables {
 		if i != 0 {
-			writeToBuilder(w.sb, "\n")
+			w.wtr.NewLine()
 		}
 
 		for _, relationship := range table.Relationships {
@@ -164,18 +163,18 @@ func (w *constantsWriter) writeRelationshipNameConstants() {
 				snakeToPascal(table.Name),
 				snakeToPascal(relationship.ColumnName),
 			)
-			writeToBuilder(w.sb, fmt.Sprintf("%s = \"%s\"\n", fieldNameConst, relationship.ColumnName))
+			w.wtr.WriteLine("%s = %s", fieldNameConst, strLit(relationship.ColumnName))
 		}
 	}
-	writeToBuilder(w.sb, ")\n")
+	w.wtr.WriteLine(")")
 }
 
 func (w *constantsWriter) writeRelationshipDisplayNameConstants() {
-	writeToBuilder(w.sb, "// Constants representing relationship columns display names\n")
-	writeToBuilder(w.sb, "const(\n")
+	w.wtr.WriteLine("// Constants representing relationship columns display names")
+	w.wtr.WriteLine("const(")
 	for i, table := range w.metadata.Tables {
 		if i != 0 {
-			writeToBuilder(w.sb, "\n")
+			w.wtr.NewLine()
 		}
 
 		for _, relationship := range table.Relationships {
@@ -188,15 +187,15 @@ func (w *constantsWriter) writeRelationshipDisplayNameConstants() {
 				snakeToPascal(table.Name),
 				snakeToPascal(relationship.ColumnName),
 			)
-			writeToBuilder(w.sb, fmt.Sprintf("%s = \"%s\"\n", fieldNameConst, snakeToDisplayName(relationship.ExpansionColumnName)))
+			w.wtr.WriteLine("%s = %s", fieldNameConst, strLit(snakeToDisplayName(relationship.ExpansionColumnName)))
 		}
 	}
-	writeToBuilder(w.sb, ")\n")
+	w.wtr.WriteLine(")")
 }
 
 func (w *constantsWriter) writeMaxLengthConstants() {
-	writeToBuilder(w.sb, "// Constants representing column max lengths\n")
-	writeToBuilder(w.sb, "const(\n")
+	w.wtr.WriteLine("// Constants representing column max lengths")
+	w.wtr.WriteLine("const(")
 	for _, table := range w.metadata.Tables {
 		for _, column := range table.Columns {
 			if column.Type != MsqlTypeNvarchar {
@@ -207,11 +206,11 @@ func (w *constantsWriter) writeMaxLengthConstants() {
 				snakeToPascal(table.Name),
 				snakeToPascal(column.Name),
 			)
-			writeToBuilder(w.sb, fmt.Sprintf("%s = %d\n", constraintConst, column.MaxLength))
+			w.wtr.WriteLine("%s = %d", constraintConst, column.MaxLength)
 		}
 	}
 
-	writeToBuilder(w.sb, ")\n")
+	w.wtr.WriteLine(")")
 }
 
 func snakeToDisplayName(s string) string {
