@@ -102,7 +102,6 @@ func newTableColumnWriter(
 }
 
 func (w *tableColumnWriter) Write() {
-	buildTableRelationshipData(w.metadata)
 	w.writePackageDefinition()
 
 	for k, v := range tableConfig {
@@ -188,45 +187,9 @@ func (w *tableColumnWriter) buildTableConfig(
 	return &TableColumnDef{
 		Path:        columnPath,
 		DisplayName: snakeToDisplayName(colData.Name),
-		DataType:    msqlTypeToDataType(colData),
 		Expansion:   buildExpansionStatement(pathComponents),
 	}, nil
 
-}
-
-func msqlTypeToDataType(columnData *builderrepo.ColumnMetadata) DataType {
-	switch columnData.Type {
-	case MsqlTypeNvarchar:
-		return DataTypeString
-	case MsqlTypeInt:
-		return DataTypeNumber
-	case MsqlTypeTinyInt:
-		if columnData.EnumName != "" {
-			return DataTypeEnum
-		} else {
-			return DataTypeNumber
-		}
-	case MsqlTypeDateTimeOffset:
-		return DataTypeTime
-	case MsqlTypeGeography:
-		geometryType := ""
-		for _, currentCheck := range columnData.Checks {
-			matches := geometryTypeRegex.FindStringSubmatch(currentCheck.Definition)
-
-			if len(matches) == 2 {
-				geometryType = matches[1]
-			}
-		}
-		switch geometryType {
-		case "Point":
-			return DataTypePoint
-		default:
-			panic("unsupported geometry type: " + geometryType)
-		}
-
-	default:
-		panic("unrecognised data type: " + columnData.Type)
-	}
 }
 
 func buildExpansionStatement(pathComponents []string) string {

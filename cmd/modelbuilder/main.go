@@ -11,6 +11,7 @@ import (
 
 	"github.com/turnerbenjamin/heterogen_portal/cmd/modelbuilder/builderrepo"
 	"github.com/turnerbenjamin/heterogen_portal/cmd/modelbuilder/modelwriter"
+	"github.com/turnerbenjamin/heterogen_portal/cmd/modelbuilder/schemamodel"
 )
 
 type config struct {
@@ -58,6 +59,11 @@ func main() {
 		}
 	}
 
+	schemaData, err := schemamodel.BuildModel(metadata)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	tableTypesPath, err := filepath.Abs("internal/model/tableTypes.go")
 	if err != nil {
 		log.Fatal(err)
@@ -76,14 +82,18 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	queryModelWriter := modelwriter.NewQueryModelWriter(queryModelPath, metadata)
-	queryModelWriter.Write()
+
+	queryModelWriter := modelwriter.NewQueryModelWriter(queryModelPath, schemaData)
+	err = queryModelWriter.Write()
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	constantsPath, err := filepath.Abs("internal/model/constants.go")
 	if err != nil {
 		log.Fatal(err)
 	}
-	constantsWriter := modelwriter.NewConstantsWriter(constantsPath, metadata)
+	constantsWriter := modelwriter.NewConstantsWriter(constantsPath, schemaData)
 	constantsWriter.Write()
 }
 

@@ -2,6 +2,7 @@ package schemamodel
 
 import (
 	"fmt"
+	"regexp"
 	"slices"
 	"strings"
 
@@ -15,35 +16,122 @@ const (
 	RelationshipManyToOne relationshipType = "N:1"
 )
 
-type columnType string
+const (
+	MsqlTypeTinyInt        builderrepo.MsqlDataTypeName = "tinyint"
+	MsqlTypeNvarchar       builderrepo.MsqlDataTypeName = "nvarchar"
+	MsqlTypeInt            builderrepo.MsqlDataTypeName = "int"
+	MsqlTypeGeography      builderrepo.MsqlDataTypeName = "geography"
+	MsqlTypeDateTimeOffset builderrepo.MsqlDataTypeName = "datetimeoffset"
+)
+
+type GoColType string
 
 const (
-	ColumnTypeString columnType = "string"
+	GoColTypeString GoColType = "string"
+	GoColTypeInt64  GoColType = "int64"
+	GoColTypeUInt8  GoColType = "uint8"
+	GoColTypeTime   GoColType = "*time.Time"
+	GoColTypePoint  GoColType = "*querymodel.Point"
 )
+
+func (t GoColType) String() string {
+	return string(t)
+}
+
+type QueryModelType string
+
+const (
+	QueryModelTypeEnum   QueryModelType = "DbTypeEnum"
+	QueryModelTypeString QueryModelType = "DbTypeString"
+	QueryModelTypeInt    QueryModelType = "DbTypeInt"
+	QueryModelTypeTime   QueryModelType = "DbTypeDateTime"
+	QueryModelTypePoint  QueryModelType = "DbTypePoint"
+)
+
+func (t QueryModelType) String() string {
+	return string(t)
+}
+
+type AppColType interface {
+	IsAppColType()
+}
+
+type AppColTypeString struct {
+	MaxLenth int16
+}
+
+func (t AppColTypeString) IsAppColType() {}
+
+type AppColTypeNumber struct{}
+
+func (t AppColTypeNumber) IsAppColType() {}
+
+type AppColTypeTime struct{}
+
+func (t AppColTypeTime) IsAppColType() {}
+
+type AppColTypePoint struct{}
+
+func (t AppColTypePoint) IsAppColType() {}
+
+type AppColTypeIdentifier struct{}
+
+func (t AppColTypeIdentifier) IsAppColType() {}
+
+type AppColTypeEnum struct{}
+
+func (t AppColTypeEnum) IsAppColType() {}
+
+type AppColTypeLookup struct {
+	RelatedTable  *Table
+	RelatedColumn *Column
+}
+
+func (t AppColTypeLookup) IsAppColType() {}
+
+type ColumnIdentifiers struct {
+	StructProperty string
+	Projection     string
+}
 
 type Column struct {
 	Name              string
 	DisplayName       string
-	Type              columnType
+	Identifiers       ColumnIdentifiers
+	TypeData          TypeData
 	IsExpansionColumn bool
 }
 
 type Relationship struct {
-	Id                string
-	Type              relationshipType
-	ColumnName        string
-	ExpansionColumn   *Column
-	RelatedTableName  string
+	Id   string
+	Type relationshipType
+
+	ColumnName string
+	Column     *Column
+
+	ExpansionColumn *Column
+
+	RelatedTableName string
+	RelatedTable     *Table
+
 	RelatedColumnName string
+	RelatedColumn     *Column
 }
 
 type TableIdentifiers struct {
 	ModelStruct      string
-	Collection       string
+	CollectionType   string
 	Resource         string
 	Projection       string
 	MetadataVar      string
 	AccessPolicyName string
+}
+
+type TypeData struct {
+	DbType                   builderrepo.MsqlDataTypeName
+	GoTypeIdentifier         GoColType
+	QueryModelTypeIdentifier QueryModelType
+	AppType                  AppColType
 }
 
 type ColumnData struct {
@@ -53,6 +141,8 @@ type ColumnData struct {
 	// Ordered is the collection of columns sorted in alphabetical order - This
 	// should be used when writing the model to ensure deterministic output
 	Ordered []*Column
+
+	All []*Column
 
 	// PrimaryKey is the primary key field for the table
 	PrimaryKey *Column
@@ -68,6 +158,9 @@ type RelationshipData struct {
 
 	// Ordered is the collection of relaitonships, sorted by the column name
 	Ordered []*Relationship
+
+	OneToManyRelationships []*Relationship
+	ManyToOneRelationships []*Relationship
 }
 
 type Table struct {
@@ -85,8 +178,8 @@ type Table struct {
 	// data structures for the table
 	Identifiers TableIdentifiers
 
-	ColumnData    ColumnData
-	Relationships RelationshipData
+	ColumnData       ColumnData
+	RelationshipData RelationshipData
 }
 
 type TableData struct {
@@ -107,7 +200,7 @@ func BuildModel(metadata *builderrepo.DatabaseSchema) (*Schema, error) {
 	}
 	// Build Table
 	for _, tableData := range metadata.Tables {
-		table, err := buildTable(tableData)
+		table, err := buildTable(metadata, tableData)
 		if err != nil {
 			return nil, err
 		}
@@ -119,11 +212,75 @@ func BuildModel(metadata *builderrepo.DatabaseSchema) (*Schema, error) {
 		return strings.Compare(a.Name, b.Name)
 	})
 
+	if err := schema.enrichRelationshipData(); err != nil {
+		return nil, err
+	}
+
 	return schema, nil
 }
 
-func buildTable(tableData *builderrepo.TableMetadata) (*Table, error) {
-	columnData, err := buildColumnData(tableData)
+func (s Schema) enrichRelationshipData() error {
+	for _, localTable := range s.TableData.Ordered {
+		for _, relationship := range localTable.RelationshipData.Ordered {
+
+			localColumn, exists := localTable.ColumnData.Map[relationship.ColumnName]
+			if !exists {
+				return fmt.Errorf(
+					"unable to enrich relationship data: cannot access column %s",
+					relationship.ColumnName,
+				)
+			}
+
+			foreignTable, exists := s.TableData.Map[relationship.RelatedTableName]
+			if !exists {
+				return fmt.Errorf(
+					"unable to enrich relationship data: cannot access table %s",
+					relationship.RelatedTableName,
+				)
+			}
+
+			foreignColumn, exists := foreignTable.ColumnData.Map[relationship.RelatedColumnName]
+			if !exists {
+				return fmt.Errorf(
+					"unable to enrich relationship data: cannot access column %s",
+					relationship.RelatedColumnName,
+				)
+			}
+
+			relationship.ExpansionColumn.TypeData = TypeData{
+				DbType: MsqlTypeNvarchar,
+				GoTypeIdentifier: GoColType(
+					fmt.Sprintf("*%s", foreignTable.Identifiers.ModelStruct),
+				),
+				QueryModelTypeIdentifier: QueryModelTypeString,
+				AppType: AppColTypeLookup{
+					RelatedTable:  foreignTable,
+					RelatedColumn: foreignColumn,
+				},
+			}
+
+			relationship.Column = localColumn
+			relationship.RelatedTable = foreignTable
+			relationship.RelatedColumn = foreignColumn
+		}
+	}
+	return nil
+}
+
+func buildTable(
+	schema *builderrepo.DatabaseSchema,
+	tableData *builderrepo.TableMetadata,
+) (*Table, error) {
+
+	relationshipData, err := buildRelationshipData(
+		schema,
+		tableData,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	columnData, err := buildColumnData(tableData, relationshipData)
 	if err != nil {
 		return nil, err
 	}
@@ -141,14 +298,15 @@ func buildTable(tableData *builderrepo.TableMetadata) (*Table, error) {
 
 		Identifiers: TableIdentifiers{
 			ModelStruct:      fmt.Sprintf("%sModel", tableNamePascal),
-			Collection:       fmt.Sprintf("%sModels", tableNamePascal),
+			CollectionType:   fmt.Sprintf("%sModels", tableNamePascal),
 			Projection:       fmt.Sprintf("%sProjection", tableNamePascal),
 			MetadataVar:      fmt.Sprintf("%sMetadata", tableNamePascal),
 			Resource:         fmt.Sprintf("%sResource", tableNamePascal),
 			AccessPolicyName: fmt.Sprintf("%sAccessPolicy", tableNamePascal),
 		},
 
-		ColumnData: columnData,
+		ColumnData:       columnData,
+		RelationshipData: relationshipData,
 	}, nil
 }
 
@@ -157,8 +315,10 @@ func buildRelationshipData(
 	table *builderrepo.TableMetadata,
 ) (RelationshipData, error) {
 	data := RelationshipData{
-		Map:     map[string]*Relationship{},
-		Ordered: []*Relationship{},
+		Map:                    map[string]*Relationship{},
+		Ordered:                []*Relationship{},
+		ManyToOneRelationships: []*Relationship{},
+		OneToManyRelationships: []*Relationship{},
 	}
 
 	for _, metadata := range schema.Relationships {
@@ -179,7 +339,11 @@ func buildRelationshipData(
 		}
 
 		expansionColumn := &Column{
-			Name:              expansionColName,
+			Name: expansionColName,
+			Identifiers: ColumnIdentifiers{
+				StructProperty: snakeToPascal(expansionColName),
+				Projection:     getColProjectionId(table.Name, metadata.Name),
+			},
 			DisplayName:       snakeToDisplayName(expansionColName),
 			IsExpansionColumn: true,
 		}
@@ -194,6 +358,8 @@ func buildRelationshipData(
 				RelatedTableName:  metadata.ReferencedTable,
 				RelatedColumnName: metadata.ReferencedColumn,
 			}
+			data.ManyToOneRelationships = append(data.ManyToOneRelationships, relationship)
+
 		} else {
 			relationship = &Relationship{
 				Id:                relationshipId(metadata),
@@ -203,6 +369,7 @@ func buildRelationshipData(
 				RelatedTableName:  metadata.ParentTable,
 				RelatedColumnName: metadata.ParentColumn,
 			}
+			data.OneToManyRelationships = append(data.OneToManyRelationships, relationship)
 		}
 
 		data.Map[relationship.ColumnName] = relationship
@@ -214,30 +381,62 @@ func buildRelationshipData(
 		return strings.Compare(a.ColumnName, b.ColumnName)
 	})
 
+	slices.SortFunc(data.ManyToOneRelationships, func(a *Relationship, b *Relationship) int {
+		return strings.Compare(a.ColumnName, b.ColumnName)
+	})
+
+	slices.SortFunc(data.OneToManyRelationships, func(a *Relationship, b *Relationship) int {
+		return strings.Compare(a.ColumnName, b.ColumnName)
+	})
+
 	return data, nil
 }
 
-func buildColumnData(tableData *builderrepo.TableMetadata) (ColumnData, error) {
+func buildColumnData(
+	tableData *builderrepo.TableMetadata,
+	RelationshipData RelationshipData,
+) (ColumnData, error) {
 	columnData := ColumnData{
 		Map:     map[string]*Column{},
 		Ordered: make([]*Column, 0, len(tableData.Columns)),
+		All:     make([]*Column, 0, len(tableData.Columns)),
 	}
 
 	for _, metadata := range tableData.Columns {
+		typeData, err := parseTypeData(metadata)
+		if err != nil {
+			return columnData, err
+		}
+
 		col := &Column{
-			Name:        metadata.Name,
+			Name: metadata.Name,
+			Identifiers: ColumnIdentifiers{
+				StructProperty: snakeToPascal(metadata.Name),
+				Projection:     getColProjectionId(tableData.Name, metadata.Name),
+			},
 			DisplayName: snakeToDisplayName(metadata.Name),
+			TypeData:    *typeData,
 		}
 
 		columnData.Map[col.Name] = col
 		columnData.Ordered = append(columnData.Ordered, col)
+		columnData.All = append(columnData.All, col)
 
 		if metadata.PrimaryKey == 1 {
 			columnData.PrimaryKey = col
 		}
 	}
 
+	for _, relationship := range RelationshipData.Ordered {
+		columnData.Map[relationship.ExpansionColumn.Name] = relationship.ExpansionColumn
+		columnData.All = append(columnData.All, relationship.ExpansionColumn)
+	}
+
 	slices.SortFunc(columnData.Ordered, func(a *Column, b *Column) int {
+		return strings.Compare(a.Name, b.Name)
+	})
+
+	slices.SortFunc(columnData.All, func(a *Column, b *Column) int {
 		return strings.Compare(a.Name, b.Name)
 	})
 
@@ -252,12 +451,96 @@ func validateColumnData(columnData ColumnData) error {
 	return nil
 }
 
-func modelMetadataStoreIdentifier(tableName string) string {
-	return fmt.Sprintf("%sMetadata", snakeToPascal(tableName))
+func parseTypeData(columnData *builderrepo.ColumnMetadata) (*TypeData, error) {
+	switch columnData.Type {
+
+	case MsqlTypeNvarchar:
+		return &TypeData{
+			DbType:                   MsqlTypeNvarchar,
+			GoTypeIdentifier:         GoColTypeString,
+			QueryModelTypeIdentifier: QueryModelTypeString,
+			AppType: AppColTypeString{
+				MaxLenth: columnData.MaxLength,
+			},
+		}, nil
+
+	case MsqlTypeInt:
+		return &TypeData{
+			DbType:                   MsqlTypeInt,
+			GoTypeIdentifier:         GoColTypeInt64,
+			QueryModelTypeIdentifier: QueryModelTypeInt,
+			AppType:                  AppColTypeNumber{},
+		}, nil
+
+	case MsqlTypeTinyInt:
+		if columnData.EnumName != "" {
+			return &TypeData{
+				DbType:                   MsqlTypeTinyInt,
+				GoTypeIdentifier:         enumTypeName(columnData.EnumName),
+				QueryModelTypeIdentifier: QueryModelTypeEnum,
+				AppType:                  AppColTypeEnum{},
+			}, nil
+		} else {
+			return &TypeData{
+				DbType:                   MsqlTypeTinyInt,
+				GoTypeIdentifier:         GoColTypeUInt8,
+				QueryModelTypeIdentifier: QueryModelTypeInt,
+				AppType:                  AppColTypeNumber{},
+			}, nil
+		}
+
+	case MsqlTypeDateTimeOffset:
+		return &TypeData{
+			DbType:                   MsqlTypeDateTimeOffset,
+			GoTypeIdentifier:         GoColTypeTime,
+			QueryModelTypeIdentifier: QueryModelTypeTime,
+			AppType:                  AppColTypeTime{},
+		}, nil
+
+	case MsqlTypeGeography:
+		return parseGeographyType(columnData)
+
+	default:
+		return nil, fmt.Errorf("unable to map '%s' to go type", columnData.Type)
+	}
 }
 
-func getModelResourceStructName(tableName string) string {
-	return fmt.Sprintf("%sResource", snakeToPascal(tableName))
+func parseGeographyType(
+	columnData *builderrepo.ColumnMetadata,
+) (*TypeData, error) {
+
+	var geographyTypeRegex = regexp.MustCompile(
+		`(?i)STGeometryType\]\(\)\s*=\s*'([^']+)'`,
+	)
+
+	geographyType := ""
+	for _, currentCheck := range columnData.Checks {
+		matches := geographyTypeRegex.FindStringSubmatch(currentCheck.Definition)
+
+		if len(matches) == 2 {
+			geographyType = matches[1]
+		}
+	}
+	if geographyType == "" {
+		return nil, fmt.Errorf("unable to parse geography type: type check not defined")
+	}
+
+	switch geographyType {
+
+	case "Point":
+		return &TypeData{
+			DbType:                   MsqlTypeGeography,
+			GoTypeIdentifier:         GoColTypePoint,
+			QueryModelTypeIdentifier: QueryModelTypePoint,
+			AppType:                  AppColTypePoint{},
+		}, nil
+
+	default:
+		return nil, fmt.Errorf(
+			"unable to parse geography type: unrecognised type: '%s'",
+			geographyType,
+		)
+	}
 }
 
 func getRelationshipType(
@@ -312,6 +595,10 @@ func relationshipId(relationship *builderrepo.RelationshipMetadata) string {
 	)
 }
 
+func enumTypeName(enumTableName string) GoColType {
+	return GoColType(fmt.Sprintf("Enum%s", snakeToPascal(enumTableName)))
+}
+
 func snakeToDisplayName(s string) string {
 	parts := strings.Split(s, "_")
 
@@ -323,6 +610,10 @@ func snakeToDisplayName(s string) string {
 	}
 
 	return strings.Join(parts, " ")
+}
+
+func getColProjectionId(tableName, columnName string) string {
+	return fmt.Sprintf("%sProjection%s", snakeToCamel(tableName), snakeToPascal(columnName))
 }
 
 func snakeToPascal(s string) string {

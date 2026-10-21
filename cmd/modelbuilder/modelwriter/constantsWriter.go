@@ -7,18 +7,18 @@ import (
 	"os"
 	"strings"
 
-	"github.com/turnerbenjamin/heterogen_portal/cmd/modelbuilder/builderrepo"
+	"github.com/turnerbenjamin/heterogen_portal/cmd/modelbuilder/schemamodel"
 )
 
 type constantsWriter struct {
 	path     string
-	metadata *builderrepo.DatabaseSchema
+	metadata *schemamodel.Schema
 	wtr      *writer
 }
 
 func NewConstantsWriter(
 	path string,
-	metadata *builderrepo.DatabaseSchema,
+	metadata *schemamodel.Schema,
 ) *constantsWriter {
 	return &constantsWriter{
 		path:     path,
@@ -28,7 +28,6 @@ func NewConstantsWriter(
 }
 
 func (w *constantsWriter) Write() {
-	buildTableRelationshipData(w.metadata)
 	w.writePackageDefinition()
 	w.writeConstants()
 
@@ -49,8 +48,8 @@ func (w *constantsWriter) writeConstants() {
 	w.writeColumnNameConstants()
 	w.wtr.NewLine()
 
-	w.writeColumnTypeConstants()
-	w.wtr.NewLine()
+	// w.writeColumnTypeConstants()
+	// w.wtr.NewLine()
 
 	w.writeColumnDisplayNameConstants()
 	w.wtr.NewLine()
@@ -83,12 +82,12 @@ const (
 func (w *constantsWriter) writeColumnNameConstants() {
 	w.wtr.WriteLine("// Constants representing column names in the database")
 	w.wtr.WriteLine("const(")
-	for i, table := range w.metadata.Tables {
+	for i, table := range w.metadata.TableData.Ordered {
 		if i != 0 {
 			w.wtr.NewLine()
 		}
 
-		for _, column := range table.Columns {
+		for _, column := range table.ColumnData.Ordered {
 			fieldNameConst := fmt.Sprintf(
 				"Col%s%s",
 				snakeToPascal(table.Name),
@@ -103,12 +102,12 @@ func (w *constantsWriter) writeColumnNameConstants() {
 func (w *constantsWriter) writeColumnDisplayNameConstants() {
 	w.wtr.WriteLine("// Constants representing column display names in the database")
 	w.wtr.WriteLine("const(")
-	for i, table := range w.metadata.Tables {
+	for i, table := range w.metadata.TableData.Ordered {
 		if i != 0 {
 			w.wtr.NewLine()
 		}
 
-		for _, column := range table.Columns {
+		for _, column := range table.ColumnData.Ordered {
 			fieldNameConst := fmt.Sprintf(
 				"ColDisplayName%s%s",
 				snakeToPascal(table.Name),
@@ -120,44 +119,40 @@ func (w *constantsWriter) writeColumnDisplayNameConstants() {
 	w.wtr.WriteLine(")")
 }
 
-func (w *constantsWriter) writeColumnTypeConstants() {
-	w.wtr.WriteLine("// Constants representing column data types")
-	w.wtr.WriteLine("const(")
-	for i, table := range w.metadata.Tables {
-		if i != 0 {
-			w.wtr.NewLine()
-		}
+// func (w *constantsWriter) writeColumnTypeConstants() {
+// 	w.wtr.WriteLine("// Constants representing column data types")
+// 	w.wtr.WriteLine("const(")
+// 	for i, table := range w.metadata.TableData.Ordered {
+// 		if i != 0 {
+// 			w.wtr.NewLine()
+// 		}
 
-		for _, column := range table.Columns {
-			dataType := msqlTypeToDataTypeString(column)
-			if dataType == "" {
-				log.Fatal(fmt.Errorf("unable to convert type to go type: %s(%s)", column.Name, column.Type))
-			}
+// 		for _, column := range table.ColumnData.Ordered {
+// 			dataType := msqlTypeToDataTypeString(column)
+// 			if dataType == "" {
+// 				log.Fatal(fmt.Errorf("unable to convert type to go type: %s(%s)", column.Name, column.Type))
+// 			}
 
-			fieldNameConst := fmt.Sprintf(
-				"ColType%s%s",
-				snakeToPascal(table.Name),
-				snakeToPascal(column.Name),
-			)
-			w.wtr.WriteLine("%s = %s", fieldNameConst, dataType)
-		}
-	}
-	w.wtr.WriteLine(")")
-}
+// 			fieldNameConst := fmt.Sprintf(
+// 				"ColType%s%s",
+// 				snakeToPascal(table.Name),
+// 				snakeToPascal(column.Name),
+// 			)
+// 			w.wtr.WriteLine("%s = %s", fieldNameConst, dataType)
+// 		}
+// 	}
+// 	w.wtr.WriteLine(")")
+// }
 
 func (w *constantsWriter) writeRelationshipNameConstants() {
 	w.wtr.WriteLine("// Constants representing relationship columns names")
 	w.wtr.WriteLine("const(")
-	for i, table := range w.metadata.Tables {
+	for i, table := range w.metadata.TableData.Ordered {
 		if i != 0 {
 			w.wtr.NewLine()
 		}
 
-		for _, relationship := range table.Relationships {
-			if relationship.Type != "querymodel.RelationshipManyToOne" {
-				continue
-			}
-
+		for _, relationship := range table.RelationshipData.ManyToOneRelationships {
 			fieldNameConst := fmt.Sprintf(
 				"RelCol%s%s",
 				snakeToPascal(table.Name),
@@ -172,22 +167,18 @@ func (w *constantsWriter) writeRelationshipNameConstants() {
 func (w *constantsWriter) writeRelationshipDisplayNameConstants() {
 	w.wtr.WriteLine("// Constants representing relationship columns display names")
 	w.wtr.WriteLine("const(")
-	for i, table := range w.metadata.Tables {
+	for i, table := range w.metadata.TableData.Ordered {
 		if i != 0 {
 			w.wtr.NewLine()
 		}
 
-		for _, relationship := range table.Relationships {
-			if relationship.Type != "querymodel.RelationshipManyToOne" {
-				continue
-			}
-
+		for _, relationship := range table.RelationshipData.ManyToOneRelationships {
 			fieldNameConst := fmt.Sprintf(
 				"RelColDisplayName%s%s",
 				snakeToPascal(table.Name),
 				snakeToPascal(relationship.ColumnName),
 			)
-			w.wtr.WriteLine("%s = %s", fieldNameConst, strLit(snakeToDisplayName(relationship.ExpansionColumnName)))
+			w.wtr.WriteLine("%s = %s", fieldNameConst, strLit(relationship.ExpansionColumn.DisplayName))
 		}
 	}
 	w.wtr.WriteLine(")")
@@ -196,17 +187,17 @@ func (w *constantsWriter) writeRelationshipDisplayNameConstants() {
 func (w *constantsWriter) writeMaxLengthConstants() {
 	w.wtr.WriteLine("// Constants representing column max lengths")
 	w.wtr.WriteLine("const(")
-	for _, table := range w.metadata.Tables {
-		for _, column := range table.Columns {
-			if column.Type != MsqlTypeNvarchar {
-				continue
+	for _, table := range w.metadata.TableData.Ordered {
+		for _, column := range table.ColumnData.Ordered {
+			switch col := column.TypeData.AppType.(type) {
+			case schemamodel.AppColTypeString:
+				constraintConst := fmt.Sprintf(
+					"MaxLen%s%s",
+					snakeToPascal(table.Name),
+					snakeToPascal(column.Name),
+				)
+				w.wtr.WriteLine("%s = %d", constraintConst, col.MaxLenth)
 			}
-			constraintConst := fmt.Sprintf(
-				"MaxLen%s%s",
-				snakeToPascal(table.Name),
-				snakeToPascal(column.Name),
-			)
-			w.wtr.WriteLine("%s = %d", constraintConst, column.MaxLength)
 		}
 	}
 
@@ -224,39 +215,4 @@ func snakeToDisplayName(s string) string {
 	}
 
 	return strings.Join(parts, " ")
-}
-
-func msqlTypeToDataTypeString(columnData *builderrepo.ColumnMetadata) string {
-	switch columnData.Type {
-	case MsqlTypeNvarchar:
-		return "DataTypeString"
-	case MsqlTypeInt:
-		return "DataTypeNumber"
-	case MsqlTypeTinyInt:
-		if columnData.EnumName != "" {
-			return "DataTypeEnum"
-		} else {
-			return "DataTypeNumber"
-		}
-	case MsqlTypeDateTimeOffset:
-		return "DataTypeTime"
-	case MsqlTypeGeography:
-		geometryType := ""
-		for _, currentCheck := range columnData.Checks {
-			matches := geometryTypeRegex.FindStringSubmatch(currentCheck.Definition)
-
-			if len(matches) == 2 {
-				geometryType = matches[1]
-			}
-		}
-		switch geometryType {
-		case "Point":
-			return "DataTypePoint"
-		default:
-			panic("unsupported geometry type: " + geometryType)
-		}
-
-	default:
-		panic("unrecognised data type: " + columnData.Type)
-	}
 }

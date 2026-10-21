@@ -27,8 +27,6 @@ func NewTableTypesWriter(
 }
 
 func (w *tableTypesWriter) Write() {
-	buildTableRelationshipData(w.metadata)
-
 	w.writePackageDefinition()
 	w.wtr.NewLine()
 
