@@ -415,12 +415,12 @@ func (s *AuthService) RetrieveUserById(userId string) (*model.UsersModel, error)
 func (s *AuthService) buildAppToken(user *model.UsersModel, idToken string) (string, error) {
 	appToken := jwt.NewWithClaims(jwt.SigningMethodHS256, appClaims{
 		RegisteredClaims: jwt.RegisteredClaims{
-			Subject:   user.Id.String(),
+			Subject:   user.Id,
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(24 * time.Hour)),
 		},
 		IdToken:   idToken,
-		UserId:    user.Id.String(),
+		UserId:    user.Id,
 		UserOid:   user.Oid,
 		UserEmail: user.EmailAddress,
 	})

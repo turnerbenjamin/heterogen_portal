@@ -37,16 +37,14 @@ func OrderedColumnData[T querymodel.TableModel](dataMap map[string]tables.Column
 type TableColumnDefinition[T querymodel.TableModel] = map[string]tables.ColumnData[T]
 
 var columnDataUsersUserId = tables.ColumnData[*model.UsersModel]{
-	DataType:    model.ColTypeUsersId,
 	Path:        ColPath(model.ColUsersId),
 	DisplayName: model.ColDisplayNameUsersId,
 	GetData: func(m *model.UsersModel) string {
-		return m.Id.String()
+		return m.Id
 	},
 }
 
 var columnDataUsersGivenName = tables.ColumnData[*model.UsersModel]{
-	DataType:    model.ColTypeUsersGivenName,
 	Path:        ColPath(model.ColUsersGivenName),
 	DisplayName: model.ColDisplayNameUsersGivenName,
 	GetData: func(m *model.UsersModel) string {
@@ -55,7 +53,6 @@ var columnDataUsersGivenName = tables.ColumnData[*model.UsersModel]{
 }
 
 var columnDataUsersFamilyName = tables.ColumnData[*model.UsersModel]{
-	DataType:    model.ColTypeUsersFamilyName,
 	Path:        ColPath(model.ColUsersFamilyName),
 	DisplayName: model.ColDisplayNameUsersFamilyName,
 	GetData: func(m *model.UsersModel) string {
@@ -64,7 +61,6 @@ var columnDataUsersFamilyName = tables.ColumnData[*model.UsersModel]{
 }
 
 var columnDataUsersDisplayName = tables.ColumnData[*model.UsersModel]{
-	DataType:    model.ColTypeUsersDisplayName,
 	Path:        ColPath(model.ColUsersDisplayName),
 	DisplayName: model.ColDisplayNameUsersDisplayName,
 	GetData: func(m *model.UsersModel) string {
@@ -73,7 +69,6 @@ var columnDataUsersDisplayName = tables.ColumnData[*model.UsersModel]{
 }
 
 var columnDataUsersEmailAddress = tables.ColumnData[*model.UsersModel]{
-	DataType:    model.ColTypeUsersEmailAddress,
 	Path:        ColPath(model.ColUsersEmailAddress),
 	DisplayName: model.ColDisplayNameUsersEmailAddress,
 	GetData: func(m *model.UsersModel) string {
@@ -82,7 +77,6 @@ var columnDataUsersEmailAddress = tables.ColumnData[*model.UsersModel]{
 }
 
 var columnDataUsersCreatedAt = tables.ColumnData[*model.UsersModel]{
-	DataType:    model.ColTypeUsersCreatedAt,
 	Path:        ColPath(model.ColUsersCreatedAt),
 	DisplayName: model.ColDisplayNameUsersCreatedAt,
 	GetData: func(m *model.UsersModel) string {
@@ -91,7 +85,6 @@ var columnDataUsersCreatedAt = tables.ColumnData[*model.UsersModel]{
 }
 
 var columnDataUsersModifiedAt = tables.ColumnData[*model.UsersModel]{
-	DataType:    model.ColTypeUsersModifiedAt,
 	Path:        ColPath(model.ColUsersModifiedAt),
 	DisplayName: model.ColDisplayNameUsersModifiedAt,
 	GetData: func(m *model.UsersModel) string {
@@ -110,16 +103,14 @@ var userTableColumns = map[string]tables.ColumnData[*model.UsersModel]{
 }
 
 var columnDataBusinessesBusinessId = tables.ColumnData[*model.BusinessesModel]{
-	DataType:    model.ColTypeBusinessesId,
 	Path:        ColPath(model.ColBusinessesId),
 	DisplayName: model.ColDisplayNameBusinessesId,
 	GetData: func(m *model.BusinessesModel) string {
-		return m.Id.String()
+		return m.Id
 	},
 }
 
 var columnDataBusinessesReference = tables.ColumnData[*model.BusinessesModel]{
-	DataType:    model.ColTypeBusinessesReference,
 	Path:        ColPath(model.ColBusinessesReference),
 	DisplayName: model.ColDisplayNameBusinessesReference,
 	GetData: func(m *model.BusinessesModel) string {
@@ -128,7 +119,6 @@ var columnDataBusinessesReference = tables.ColumnData[*model.BusinessesModel]{
 }
 
 var columnDataBusinessesTradingName = tables.ColumnData[*model.BusinessesModel]{
-	DataType:    model.ColTypeBusinessesTradingName,
 	Path:        ColPath(model.ColBusinessesTradingName),
 	DisplayName: model.ColDisplayNameBusinessesTradingName,
 	GetData: func(m *model.BusinessesModel) string {
@@ -137,7 +127,6 @@ var columnDataBusinessesTradingName = tables.ColumnData[*model.BusinessesModel]{
 }
 
 var columnDataBusinessesBusinessType = tables.ColumnData[*model.BusinessesModel]{
-	DataType:    model.ColTypeBusinessesBusinessType,
 	Path:        ColPath(model.ColBusinessesBusinessType),
 	DisplayName: model.ColDisplayNameBusinessesBusinessType,
 	GetData: func(m *model.BusinessesModel) string {
@@ -150,7 +139,6 @@ var columnDataBusinessesBusinessType = tables.ColumnData[*model.BusinessesModel]
 }
 
 var columnDataBusinessesCphNumber = tables.ColumnData[*model.BusinessesModel]{
-	DataType:    model.ColTypeBusinessesCphNumber,
 	Path:        ColPath(model.ColBusinessesCphNumber),
 	DisplayName: model.ColDisplayNameBusinessesCphNumber,
 	GetData: func(m *model.BusinessesModel) string {
@@ -159,7 +147,6 @@ var columnDataBusinessesCphNumber = tables.ColumnData[*model.BusinessesModel]{
 }
 
 var columnDataBusinessesEmailAddress = tables.ColumnData[*model.BusinessesModel]{
-	DataType:    model.ColTypeBusinessesEmailAddress,
 	Path:        ColPath(model.ColBusinessesEmailAddress),
 	DisplayName: model.ColDisplayNameBusinessesEmailAddress,
 	GetData: func(m *model.BusinessesModel) string {
@@ -168,7 +155,6 @@ var columnDataBusinessesEmailAddress = tables.ColumnData[*model.BusinessesModel]
 }
 
 var columnDataBusinessesContactNumber = tables.ColumnData[*model.BusinessesModel]{
-	DataType:    model.ColTypeBusinessesContactNumber,
 	Path:        ColPath(model.ColBusinessesContactNumber),
 	DisplayName: model.ColDisplayNameBusinessesContactNumber,
 	GetData: func(m *model.BusinessesModel) string {
@@ -177,7 +163,6 @@ var columnDataBusinessesContactNumber = tables.ColumnData[*model.BusinessesModel
 }
 
 var columnDataBusinessesWebsiteUrl = tables.ColumnData[*model.BusinessesModel]{
-	DataType:    model.ColTypeBusinessesWebsiteUrl,
 	Path:        ColPath(model.ColBusinessesWebsiteUrl),
 	DisplayName: model.ColDisplayNameBusinessesWebsiteUrl,
 	GetData: func(m *model.BusinessesModel) string {
@@ -186,7 +171,6 @@ var columnDataBusinessesWebsiteUrl = tables.ColumnData[*model.BusinessesModel]{
 }
 
 var columnDataBusinessesAddressLine1 = tables.ColumnData[*model.BusinessesModel]{
-	DataType:    model.ColTypeBusinessesAddressLine1,
 	Path:        ColPath(model.ColBusinessesAddressLine1),
 	DisplayName: model.ColDisplayNameBusinessesAddressLine1,
 	GetData: func(m *model.BusinessesModel) string {
@@ -195,7 +179,6 @@ var columnDataBusinessesAddressLine1 = tables.ColumnData[*model.BusinessesModel]
 }
 
 var columnDataBusinessesAddressLine2 = tables.ColumnData[*model.BusinessesModel]{
-	DataType:    model.ColTypeBusinessesAddressLine2,
 	Path:        ColPath(model.ColBusinessesAddressLine2),
 	DisplayName: model.ColDisplayNameBusinessesAddressLine2,
 	GetData: func(m *model.BusinessesModel) string {
@@ -204,7 +187,6 @@ var columnDataBusinessesAddressLine2 = tables.ColumnData[*model.BusinessesModel]
 }
 
 var columnDataBusinessesTown = tables.ColumnData[*model.BusinessesModel]{
-	DataType:    model.ColTypeBusinessesTown,
 	Path:        ColPath(model.ColBusinessesTown),
 	DisplayName: model.ColDisplayNameBusinessesTown,
 	GetData: func(m *model.BusinessesModel) string {
@@ -213,7 +195,6 @@ var columnDataBusinessesTown = tables.ColumnData[*model.BusinessesModel]{
 }
 
 var columnDataBusinessesCounty = tables.ColumnData[*model.BusinessesModel]{
-	DataType:    model.ColTypeBusinessesCounty,
 	Path:        ColPath(model.ColBusinessesCounty),
 	DisplayName: model.ColDisplayNameBusinessesCounty,
 	GetData: func(m *model.BusinessesModel) string {
@@ -222,7 +203,6 @@ var columnDataBusinessesCounty = tables.ColumnData[*model.BusinessesModel]{
 }
 
 var columnDataBusinessesCountry = tables.ColumnData[*model.BusinessesModel]{
-	DataType:    model.ColTypeBusinessesCountry,
 	Path:        ColPath(model.ColBusinessesCountry),
 	DisplayName: model.ColDisplayNameBusinessesCountry,
 	GetData: func(m *model.BusinessesModel) string {
@@ -231,7 +211,6 @@ var columnDataBusinessesCountry = tables.ColumnData[*model.BusinessesModel]{
 }
 
 var columnDataBusinessesPostcode = tables.ColumnData[*model.BusinessesModel]{
-	DataType:    model.ColTypeBusinessesPostcode,
 	Path:        ColPath(model.ColBusinessesPostcode),
 	DisplayName: model.ColDisplayNameBusinessesPostcode,
 	GetData: func(m *model.BusinessesModel) string {
@@ -240,7 +219,6 @@ var columnDataBusinessesPostcode = tables.ColumnData[*model.BusinessesModel]{
 }
 
 var columnDataBusinessesCreatedAt = tables.ColumnData[*model.BusinessesModel]{
-	DataType:    model.ColTypeBusinessesCreatedAt,
 	DisplayName: model.ColDisplayNameBusinessesCreatedAt,
 	GetData: func(m *model.BusinessesModel) string {
 		return m.CreatedAt.Format(dateFormat)
@@ -249,7 +227,6 @@ var columnDataBusinessesCreatedAt = tables.ColumnData[*model.BusinessesModel]{
 }
 
 var columnDataBusinessesCreatedByIdUsersDisplayName = tables.ColumnData[*model.BusinessesModel]{
-	DataType:    model.ColTypeUsersDisplayName,
 	Path:        ColPath(model.RelColBusinessesCreatedById, model.ColUsersDisplayName),
 	DisplayName: model.RelColDisplayNameBusinessesCreatedById,
 	Expansion:   SingleLevelExpand(model.RelColBusinessesCreatedById, model.ColUsersDisplayName),
@@ -259,7 +236,6 @@ var columnDataBusinessesCreatedByIdUsersDisplayName = tables.ColumnData[*model.B
 }
 
 var columnDataBusinessesModifiedAt = tables.ColumnData[*model.BusinessesModel]{
-	DataType:    model.ColTypeBusinessesModifiedAt,
 	Path:        ColPath(model.ColBusinessesModifiedAt),
 	DisplayName: model.ColDisplayNameBusinessesModifiedAt,
 	GetData: func(m *model.BusinessesModel) string {
@@ -268,7 +244,6 @@ var columnDataBusinessesModifiedAt = tables.ColumnData[*model.BusinessesModel]{
 }
 
 var columnDataBusinessesModifiedByIdUsersDisplayName = tables.ColumnData[*model.BusinessesModel]{
-	DataType:    model.ColTypeUsersDisplayName,
 	Path:        ColPath(model.RelColBusinessesModifiedById, model.ColUsersDisplayName),
 	DisplayName: model.RelColDisplayNameBusinessesModifiedById,
 	Expansion:   SingleLevelExpand(model.RelColBusinessesModifiedById, model.ColUsersDisplayName),

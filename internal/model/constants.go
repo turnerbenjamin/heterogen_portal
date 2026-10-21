@@ -14,137 +14,94 @@ const (
 
 // Constants representing column names in the database
 const (
-	ColBusinessesId            = "id"
-	ColBusinessesReference     = "reference"
-	ColBusinessesTradingName   = "trading_name"
-	ColBusinessesLogoUrl       = "logo_url"
-	ColBusinessesDescription   = "description"
-	ColBusinessesBusinessType  = "business_type"
-	ColBusinessesCphNumber     = "cph_number"
-	ColBusinessesEmailAddress  = "email_address"
-	ColBusinessesContactNumber = "contact_number"
-	ColBusinessesWebsiteUrl    = "website_url"
 	ColBusinessesAddressLine1  = "address_line_1"
 	ColBusinessesAddressLine2  = "address_line_2"
-	ColBusinessesTown          = "town"
-	ColBusinessesCounty        = "county"
+	ColBusinessesBusinessType  = "business_type"
+	ColBusinessesContactNumber = "contact_number"
 	ColBusinessesCountry       = "country"
-	ColBusinessesPostcode      = "postcode"
-	ColBusinessesLocation      = "location"
+	ColBusinessesCounty        = "county"
+	ColBusinessesCphNumber     = "cph_number"
 	ColBusinessesCreatedAt     = "created_at"
 	ColBusinessesCreatedById   = "created_by_id"
+	ColBusinessesDescription   = "description"
+	ColBusinessesEmailAddress  = "email_address"
+	ColBusinessesId            = "id"
+	ColBusinessesLocation      = "location"
+	ColBusinessesLogoUrl       = "logo_url"
 	ColBusinessesModifiedAt    = "modified_at"
 	ColBusinessesModifiedById  = "modified_by_id"
+	ColBusinessesPostcode      = "postcode"
+	ColBusinessesReference     = "reference"
+	ColBusinessesTown          = "town"
+	ColBusinessesTradingName   = "trading_name"
+	ColBusinessesWebsiteUrl    = "website_url"
 
-	ColFarmFieldsId           = "id"
-	ColFarmFieldsReference    = "reference"
 	ColFarmFieldsBusinessId   = "business_id"
-	ColFarmFieldsLocation     = "location"
 	ColFarmFieldsCreatedAt    = "created_at"
 	ColFarmFieldsCreatedById  = "created_by_id"
+	ColFarmFieldsId           = "id"
+	ColFarmFieldsLocation     = "location"
 	ColFarmFieldsModifiedAt   = "modified_at"
 	ColFarmFieldsModifiedById = "modified_by_id"
+	ColFarmFieldsReference    = "reference"
 
-	ColUsersId           = "id"
-	ColUsersOid          = "oid"
-	ColUsersGivenName    = "given_name"
-	ColUsersFamilyName   = "family_name"
+	ColUsersCreatedAt    = "created_at"
 	ColUsersDisplayName  = "display_name"
 	ColUsersEmailAddress = "email_address"
-	ColUsersCreatedAt    = "created_at"
+	ColUsersFamilyName   = "family_name"
+	ColUsersGivenName    = "given_name"
+	ColUsersId           = "id"
 	ColUsersModifiedAt   = "modified_at"
-)
-
-// Constants representing column data types
-const (
-	ColTypeBusinessesId            = DataTypeString
-	ColTypeBusinessesReference     = DataTypeString
-	ColTypeBusinessesTradingName   = DataTypeString
-	ColTypeBusinessesLogoUrl       = DataTypeString
-	ColTypeBusinessesDescription   = DataTypeString
-	ColTypeBusinessesBusinessType  = DataTypeEnum
-	ColTypeBusinessesCphNumber     = DataTypeString
-	ColTypeBusinessesEmailAddress  = DataTypeString
-	ColTypeBusinessesContactNumber = DataTypeString
-	ColTypeBusinessesWebsiteUrl    = DataTypeString
-	ColTypeBusinessesAddressLine1  = DataTypeString
-	ColTypeBusinessesAddressLine2  = DataTypeString
-	ColTypeBusinessesTown          = DataTypeString
-	ColTypeBusinessesCounty        = DataTypeString
-	ColTypeBusinessesCountry       = DataTypeString
-	ColTypeBusinessesPostcode      = DataTypeString
-	ColTypeBusinessesLocation      = DataTypePoint
-	ColTypeBusinessesCreatedAt     = DataTypeTime
-	ColTypeBusinessesCreatedById   = DataTypeString
-	ColTypeBusinessesModifiedAt    = DataTypeTime
-	ColTypeBusinessesModifiedById  = DataTypeString
-
-	ColTypeFarmFieldsId           = DataTypeString
-	ColTypeFarmFieldsReference    = DataTypeString
-	ColTypeFarmFieldsBusinessId   = DataTypeString
-	ColTypeFarmFieldsLocation     = DataTypePoint
-	ColTypeFarmFieldsCreatedAt    = DataTypeTime
-	ColTypeFarmFieldsCreatedById  = DataTypeString
-	ColTypeFarmFieldsModifiedAt   = DataTypeTime
-	ColTypeFarmFieldsModifiedById = DataTypeString
-
-	ColTypeUsersId           = DataTypeString
-	ColTypeUsersOid          = DataTypeString
-	ColTypeUsersGivenName    = DataTypeString
-	ColTypeUsersFamilyName   = DataTypeString
-	ColTypeUsersDisplayName  = DataTypeString
-	ColTypeUsersEmailAddress = DataTypeString
-	ColTypeUsersCreatedAt    = DataTypeTime
-	ColTypeUsersModifiedAt   = DataTypeTime
+	ColUsersOid          = "oid"
 )
 
 // Constants representing column display names in the database
 const (
-	ColDisplayNameBusinessesId            = "Id"
-	ColDisplayNameBusinessesReference     = "Reference"
-	ColDisplayNameBusinessesTradingName   = "Trading Name"
-	ColDisplayNameBusinessesLogoUrl       = "Logo Url"
-	ColDisplayNameBusinessesDescription   = "Description"
-	ColDisplayNameBusinessesBusinessType  = "Business Type"
-	ColDisplayNameBusinessesCphNumber     = "Cph Number"
-	ColDisplayNameBusinessesEmailAddress  = "Email Address"
-	ColDisplayNameBusinessesContactNumber = "Contact Number"
-	ColDisplayNameBusinessesWebsiteUrl    = "Website Url"
 	ColDisplayNameBusinessesAddressLine1  = "Address Line 1"
 	ColDisplayNameBusinessesAddressLine2  = "Address Line 2"
-	ColDisplayNameBusinessesTown          = "Town"
-	ColDisplayNameBusinessesCounty        = "County"
+	ColDisplayNameBusinessesBusinessType  = "Business Type"
+	ColDisplayNameBusinessesContactNumber = "Contact Number"
 	ColDisplayNameBusinessesCountry       = "Country"
-	ColDisplayNameBusinessesPostcode      = "Postcode"
-	ColDisplayNameBusinessesLocation      = "Location"
+	ColDisplayNameBusinessesCounty        = "County"
+	ColDisplayNameBusinessesCphNumber     = "Cph Number"
 	ColDisplayNameBusinessesCreatedAt     = "Created At"
 	ColDisplayNameBusinessesCreatedById   = "Created By Id"
+	ColDisplayNameBusinessesDescription   = "Description"
+	ColDisplayNameBusinessesEmailAddress  = "Email Address"
+	ColDisplayNameBusinessesId            = "Id"
+	ColDisplayNameBusinessesLocation      = "Location"
+	ColDisplayNameBusinessesLogoUrl       = "Logo Url"
 	ColDisplayNameBusinessesModifiedAt    = "Modified At"
 	ColDisplayNameBusinessesModifiedById  = "Modified By Id"
+	ColDisplayNameBusinessesPostcode      = "Postcode"
+	ColDisplayNameBusinessesReference     = "Reference"
+	ColDisplayNameBusinessesTown          = "Town"
+	ColDisplayNameBusinessesTradingName   = "Trading Name"
+	ColDisplayNameBusinessesWebsiteUrl    = "Website Url"
 
-	ColDisplayNameFarmFieldsId           = "Id"
-	ColDisplayNameFarmFieldsReference    = "Reference"
 	ColDisplayNameFarmFieldsBusinessId   = "Business Id"
-	ColDisplayNameFarmFieldsLocation     = "Location"
 	ColDisplayNameFarmFieldsCreatedAt    = "Created At"
 	ColDisplayNameFarmFieldsCreatedById  = "Created By Id"
+	ColDisplayNameFarmFieldsId           = "Id"
+	ColDisplayNameFarmFieldsLocation     = "Location"
 	ColDisplayNameFarmFieldsModifiedAt   = "Modified At"
 	ColDisplayNameFarmFieldsModifiedById = "Modified By Id"
+	ColDisplayNameFarmFieldsReference    = "Reference"
 
-	ColDisplayNameUsersId           = "Id"
-	ColDisplayNameUsersOid          = "Oid"
-	ColDisplayNameUsersGivenName    = "Given Name"
-	ColDisplayNameUsersFamilyName   = "Family Name"
+	ColDisplayNameUsersCreatedAt    = "Created At"
 	ColDisplayNameUsersDisplayName  = "Display Name"
 	ColDisplayNameUsersEmailAddress = "Email Address"
-	ColDisplayNameUsersCreatedAt    = "Created At"
+	ColDisplayNameUsersFamilyName   = "Family Name"
+	ColDisplayNameUsersGivenName    = "Given Name"
+	ColDisplayNameUsersId           = "Id"
 	ColDisplayNameUsersModifiedAt   = "Modified At"
+	ColDisplayNameUsersOid          = "Oid"
 )
 
 // Constants representing relationship columns names
 const (
-	RelColBusinessesModifiedById = "modified_by_id"
 	RelColBusinessesCreatedById  = "created_by_id"
+	RelColBusinessesModifiedById = "modified_by_id"
 
 	RelColFarmFieldsBusinessId   = "business_id"
 	RelColFarmFieldsCreatedById  = "created_by_id"
@@ -163,32 +120,32 @@ const (
 
 // Constants representing column max lengths
 const (
-	MaxLenBusinessesId            = 72
-	MaxLenBusinessesReference     = 16
-	MaxLenBusinessesTradingName   = 510
-	MaxLenBusinessesLogoUrl       = 4096
-	MaxLenBusinessesDescription   = 8000
-	MaxLenBusinessesCphNumber     = 22
-	MaxLenBusinessesEmailAddress  = 640
-	MaxLenBusinessesContactNumber = 100
-	MaxLenBusinessesWebsiteUrl    = 4096
 	MaxLenBusinessesAddressLine1  = 510
 	MaxLenBusinessesAddressLine2  = 510
-	MaxLenBusinessesTown          = 200
-	MaxLenBusinessesCounty        = 200
+	MaxLenBusinessesContactNumber = 100
 	MaxLenBusinessesCountry       = 200
-	MaxLenBusinessesPostcode      = 40
+	MaxLenBusinessesCounty        = 200
+	MaxLenBusinessesCphNumber     = 22
 	MaxLenBusinessesCreatedById   = 72
+	MaxLenBusinessesDescription   = 8000
+	MaxLenBusinessesEmailAddress  = 640
+	MaxLenBusinessesId            = 72
+	MaxLenBusinessesLogoUrl       = 4096
 	MaxLenBusinessesModifiedById  = 72
-	MaxLenFarmFieldsId            = 72
-	MaxLenFarmFieldsReference     = 510
+	MaxLenBusinessesPostcode      = 40
+	MaxLenBusinessesReference     = 16
+	MaxLenBusinessesTown          = 200
+	MaxLenBusinessesTradingName   = 510
+	MaxLenBusinessesWebsiteUrl    = 4096
 	MaxLenFarmFieldsBusinessId    = 72
 	MaxLenFarmFieldsCreatedById   = 72
+	MaxLenFarmFieldsId            = 72
 	MaxLenFarmFieldsModifiedById  = 72
-	MaxLenUsersId                 = 72
-	MaxLenUsersOid                = 72
-	MaxLenUsersGivenName          = 128
-	MaxLenUsersFamilyName         = 128
+	MaxLenFarmFieldsReference     = 510
 	MaxLenUsersDisplayName        = 256
 	MaxLenUsersEmailAddress       = 640
+	MaxLenUsersFamilyName         = 128
+	MaxLenUsersGivenName          = 128
+	MaxLenUsersId                 = 72
+	MaxLenUsersOid                = 72
 )

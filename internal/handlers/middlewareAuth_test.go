@@ -114,7 +114,7 @@ func TestParseJwtMiddleware_HandlesErrorsReturnedFromAuthService(t *testing.T) {
 func TestParseJwtMiddleware_SetsUserOnContextOnSuccessfulParse(t *testing.T) {
 	testCookieJwtToken := "some-jwt-token"
 	testUserId := "test-user-id"
-	testUser := &model.UsersModel{Id: model.Guid(testUserId)}
+	testUser := &model.UsersModel{Id: testUserId}
 
 	r := httptest.NewRequest("GET", "/", strings.NewReader(""))
 	r.AddCookie(buildExpectedSetJwtCookie(testCookieJwtToken))
