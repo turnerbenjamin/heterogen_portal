@@ -1003,7 +1003,7 @@ func TestAuthenticateUser(t *testing.T) {
 
 		wantAppTokenClaims := &appClaims{
 			IdToken:   idTokenString,
-			UserId:    upsertedUser.Id,
+			UserId:    upsertedUser.Id.String(),
 			UserOid:   upsertedUser.Oid,
 			UserEmail: upsertedUser.EmailAddress,
 		}

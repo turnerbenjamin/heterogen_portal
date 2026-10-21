@@ -143,8 +143,8 @@ const (
 
 // Constants representing relationship columns names
 const (
-	RelColBusinessesCreatedById  = "created_by_id"
 	RelColBusinessesModifiedById = "modified_by_id"
+	RelColBusinessesCreatedById  = "created_by_id"
 
 	RelColFarmFieldsBusinessId   = "business_id"
 	RelColFarmFieldsCreatedById  = "created_by_id"

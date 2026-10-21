@@ -200,22 +200,6 @@ var BusinessesMetadata = querymodel.TableMetadata{
 		},
 	},
 	Relationships: map[string]querymodel.RelationshipMetadata{
-		"farm_fields_businesses_business_id": {
-			Id:                  "farm_fields_business_id_businesses_id",
-			Type:                querymodel.RelationshipOneToMany,
-			ColumnName:          "farm_fields_businesses_business_id",
-			ExpansionColumnName: "farm_fields_businesses_business_id",
-			From:                BusinessesResource{},
-			To:                  FarmFieldsResource{},
-			FromColumn: querymodel.ColumnMetadata{
-				Name: "id",
-				Type: querymodel.DbTypeString,
-			},
-			ToColumn: querymodel.ColumnMetadata{
-				Name: "business_id",
-				Type: querymodel.DbTypeString,
-			},
-		},
 		"created_by_id": {
 			Id:                  "businesses_created_by_id_users_id",
 			Type:                querymodel.RelationshipManyToOne,
@@ -248,12 +232,28 @@ var BusinessesMetadata = querymodel.TableMetadata{
 				Type: querymodel.DbTypeString,
 			},
 		},
+		"farm_fields_businesses_business_id": {
+			Id:                  "farm_fields_business_id_businesses_id",
+			Type:                querymodel.RelationshipOneToMany,
+			ColumnName:          "farm_fields_businesses_business_id",
+			ExpansionColumnName: "farm_fields_businesses_business_id",
+			From:                BusinessesResource{},
+			To:                  FarmFieldsResource{},
+			FromColumn: querymodel.ColumnMetadata{
+				Name: "id",
+				Type: querymodel.DbTypeString,
+			},
+			ToColumn: querymodel.ColumnMetadata{
+				Name: "business_id",
+				Type: querymodel.DbTypeString,
+			},
+		},
 	},
 }
 
 // BusinessesModel represents a row from the hg.businesses table.
 type BusinessesModel struct {
-	Id                             string                     `json:"id"`
+	Id                             Guid                       `json:"id"`
 	Reference                      string                     `json:"reference"`
 	TradingName                    string                     `json:"trading_name"`
 	LogoUrl                        string                     `json:"logo_url"`
@@ -274,9 +274,9 @@ type BusinessesModel struct {
 	CreatedById                    string                     `json:"created_by_id"`
 	ModifiedAt                     *time.Time                 `json:"modified_at"`
 	ModifiedById                   string                     `json:"modified_by_id"`
+	CreatedBy                      *UsersModel                `json:"created_by"`
 	ModifiedBy                     *UsersModel                `json:"modified_by"`
 	FarmFieldsBusinessesBusinessId FarmFieldsModels           `json:"farm_fields_businesses_business_id"`
-	CreatedBy                      *UsersModel                `json:"created_by"`
 	projection                     BusinessesProjection       `json:"-"`
 }
 
@@ -326,6 +326,14 @@ func (m *BusinessesModel) setBusinessesProjection(
 	childNodes map[string]*querymodel.ProjectionNode,
 ) error {
 	m.projection = projection
+	if node, exists := childNodes["created_by"]; exists {
+		if m.CreatedBy != nil {
+			if err := m.CreatedBy.SetProjection(node); err != nil {
+				return err
+			}
+		}
+	}
+
 	if node, exists := childNodes["modified_by"]; exists {
 		if m.ModifiedBy != nil {
 			if err := m.ModifiedBy.SetProjection(node); err != nil {
@@ -341,14 +349,6 @@ func (m *BusinessesModel) setBusinessesProjection(
 			}
 		} else {
 			m.FarmFieldsBusinessesBusinessId = FarmFieldsModels{}
-		}
-	}
-
-	if node, exists := childNodes["created_by"]; exists {
-		if m.CreatedBy != nil {
-			if err := m.CreatedBy.SetProjection(node); err != nil {
-				return err
-			}
 		}
 	}
 
@@ -610,7 +610,7 @@ func (m *BusinessesModel) getValue(
 ) (querymodel.Value, error) {
 	switch columnName {
 	case "id":
-		return v.String(m.Id), nil
+		return v.String(m.Id.String()), nil
 	case "reference":
 		return v.String(m.Reference), nil
 	case "trading_name":
@@ -910,7 +910,7 @@ var FarmFieldsMetadata = querymodel.TableMetadata{
 
 // FarmFieldsModel represents a row from the hg.farm_fields table.
 type FarmFieldsModel struct {
-	Id           string               `json:"id"`
+	Id           Guid                 `json:"id"`
 	Reference    string               `json:"reference"`
 	BusinessId   string               `json:"business_id"`
 	Location     *querymodel.Point    `json:"location"`
@@ -970,14 +970,6 @@ func (m *FarmFieldsModel) setFarmFieldsProjection(
 	childNodes map[string]*querymodel.ProjectionNode,
 ) error {
 	m.projection = projection
-	if node, exists := childNodes["modified_by"]; exists {
-		if m.ModifiedBy != nil {
-			if err := m.ModifiedBy.SetProjection(node); err != nil {
-				return err
-			}
-		}
-	}
-
 	if node, exists := childNodes["business"]; exists {
 		if m.Business != nil {
 			if err := m.Business.SetProjection(node); err != nil {
@@ -989,6 +981,14 @@ func (m *FarmFieldsModel) setFarmFieldsProjection(
 	if node, exists := childNodes["created_by"]; exists {
 		if m.CreatedBy != nil {
 			if err := m.CreatedBy.SetProjection(node); err != nil {
+				return err
+			}
+		}
+	}
+
+	if node, exists := childNodes["modified_by"]; exists {
+		if m.ModifiedBy != nil {
+			if err := m.ModifiedBy.SetProjection(node); err != nil {
 				return err
 			}
 		}
@@ -1151,7 +1151,7 @@ func (m *FarmFieldsModel) getValue(
 ) (querymodel.Value, error) {
 	switch columnName {
 	case "id":
-		return v.String(m.Id), nil
+		return v.String(m.Id.String()), nil
 	case "reference":
 		return v.String(m.Reference), nil
 	case "business_id":
@@ -1188,9 +1188,9 @@ const (
 	farmFieldsProjectionCreatedById
 	farmFieldsProjectionModifiedAt
 	farmFieldsProjectionModifiedById
+	farmFieldsProjectionBusiness
 	farmFieldsProjectionCreatedBy
 	farmFieldsProjectionModifiedBy
-	farmFieldsProjectionBusiness
 )
 
 // Add includes a given column within the projection
@@ -1212,12 +1212,12 @@ func (p *FarmFieldsProjection) Add(columnName string) error {
 		*p |= farmFieldsProjectionModifiedAt
 	case "modified_by_id":
 		*p |= farmFieldsProjectionModifiedById
+	case "business":
+		*p |= farmFieldsProjectionBusiness
 	case "created_by":
 		*p |= farmFieldsProjectionCreatedBy
 	case "modified_by":
 		*p |= farmFieldsProjectionModifiedBy
-	case "business":
-		*p |= farmFieldsProjectionBusiness
 	default:
 		return fmt.Errorf("unsupported column: '%s'", columnName)
 	}
@@ -1402,7 +1402,7 @@ var UsersMetadata = querymodel.TableMetadata{
 
 // UsersModel represents a row from the hg.users table.
 type UsersModel struct {
-	Id                          string           `json:"id"`
+	Id                          Guid             `json:"id"`
 	Oid                         string           `json:"oid"`
 	GivenName                   string           `json:"given_name"`
 	FamilyName                  string           `json:"family_name"`
@@ -1463,26 +1463,6 @@ func (m *UsersModel) setUsersProjection(
 	childNodes map[string]*querymodel.ProjectionNode,
 ) error {
 	m.projection = projection
-	if node, exists := childNodes["businesses_users_modified_by_id"]; exists {
-		if m.BusinessesUsersModifiedById != nil {
-			if err := m.BusinessesUsersModifiedById.SetProjection(node); err != nil {
-				return err
-			}
-		} else {
-			m.BusinessesUsersModifiedById = BusinessesModels{}
-		}
-	}
-
-	if node, exists := childNodes["farm_fields_users_created_by_id"]; exists {
-		if m.FarmFieldsUsersCreatedById != nil {
-			if err := m.FarmFieldsUsersCreatedById.SetProjection(node); err != nil {
-				return err
-			}
-		} else {
-			m.FarmFieldsUsersCreatedById = FarmFieldsModels{}
-		}
-	}
-
 	if node, exists := childNodes["farm_fields_users_modified_by_id"]; exists {
 		if m.FarmFieldsUsersModifiedById != nil {
 			if err := m.FarmFieldsUsersModifiedById.SetProjection(node); err != nil {
@@ -1500,6 +1480,26 @@ func (m *UsersModel) setUsersProjection(
 			}
 		} else {
 			m.BusinessesUsersCreatedById = BusinessesModels{}
+		}
+	}
+
+	if node, exists := childNodes["businesses_users_modified_by_id"]; exists {
+		if m.BusinessesUsersModifiedById != nil {
+			if err := m.BusinessesUsersModifiedById.SetProjection(node); err != nil {
+				return err
+			}
+		} else {
+			m.BusinessesUsersModifiedById = BusinessesModels{}
+		}
+	}
+
+	if node, exists := childNodes["farm_fields_users_created_by_id"]; exists {
+		if m.FarmFieldsUsersCreatedById != nil {
+			if err := m.FarmFieldsUsersCreatedById.SetProjection(node); err != nil {
+				return err
+			}
+		} else {
+			m.FarmFieldsUsersCreatedById = FarmFieldsModels{}
 		}
 	}
 
@@ -1637,7 +1637,7 @@ func (m *UsersModel) getValue(
 ) (querymodel.Value, error) {
 	switch columnName {
 	case "id":
-		return v.String(m.Id), nil
+		return v.String(m.Id.String()), nil
 	case "oid":
 		return v.String(m.Oid), nil
 	case "given_name":
@@ -1699,14 +1699,14 @@ func (p *UsersProjection) Add(columnName string) error {
 		*p |= usersProjectionCreatedAt
 	case "modified_at":
 		*p |= usersProjectionModifiedAt
+	case "businesses_users_created_by_id":
+		*p |= usersProjectionBusinessesUsersCreatedById
 	case "businesses_users_modified_by_id":
 		*p |= usersProjectionBusinessesUsersModifiedById
 	case "farm_fields_users_created_by_id":
 		*p |= usersProjectionFarmFieldsUsersCreatedById
 	case "farm_fields_users_modified_by_id":
 		*p |= usersProjectionFarmFieldsUsersModifiedById
-	case "businesses_users_created_by_id":
-		*p |= usersProjectionBusinessesUsersCreatedById
 	default:
 		return fmt.Errorf("unsupported column: '%s'", columnName)
 	}

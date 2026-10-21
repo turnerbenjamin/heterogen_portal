@@ -58,6 +58,13 @@ func main() {
 		}
 	}
 
+	tableTypesPath, err := filepath.Abs("internal/model/tableTypes.go")
+	if err != nil {
+		log.Fatal(err)
+	}
+	tableTypesWriter := modelwriter.NewTableTypesWriter(tableTypesPath, metadata)
+	tableTypesWriter.Write()
+
 	enumPath, err := filepath.Abs("internal/model/enums.go")
 	if err != nil {
 		log.Fatal(err)

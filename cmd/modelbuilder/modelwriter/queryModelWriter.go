@@ -84,13 +84,6 @@ func (w *queryModelWriter) Write() {
 	}
 }
 
-// func writeToBuilder(sb *strings.Builder, s string) {
-// 	_, err := sb.Write([]byte(s))
-// 	if err != nil {
-// 		log.Fatal(err)
-// 	}
-// }
-
 func (w *queryModelWriter) writePackageAndStaticTypeDefinitions() {
 	w.wtr.Write(`//GENERATED CODE
 // see cmd/modelbuilder/
@@ -104,6 +97,7 @@ import (
 
 	"github.com/turnerbenjamin/querystack/querymodel"
 )
+
 
 // marshalProperty is a helper method to marshal an attribute and value to a json string buffer
 func marshalProperty(buf *bytes.Buffer, isFirst bool, columnName string, value any) error {
@@ -359,7 +353,7 @@ func getQueryModelType(typeName builderrepo.MsqlDataTypeName, columnData *builde
 	}
 
 	switch goType {
-	case "string":
+	case "string", "Guid":
 		return "querymodel.DbTypeString"
 	case "int64", "uint8":
 		return "querymodel.DbTypeInt"
@@ -699,6 +693,8 @@ func (w *queryModelWriter) buildGetValueExpression(columnData *builderrepo.Colum
 	switch goType {
 	case "string":
 		return fmt.Sprintf("return v.String(m.%s), nil", columnIdentifier)
+	case "Guid":
+		return fmt.Sprintf("return v.String(m.%s.String()), nil", columnIdentifier)
 	case "int64":
 		return fmt.Sprintf("return v.Int(m.%s), nil", columnIdentifier)
 	case "*time.Time":
@@ -970,6 +966,13 @@ var geometryTypeRegex = regexp.MustCompile(
 )
 
 func msqlTypeToGoType(typeName builderrepo.MsqlDataTypeName, columnData *builderrepo.ColumnMetadata) string {
+	if columnData.PrimaryKey == 1 {
+		if typeName != MsqlTypeNvarchar {
+			panic("unable to parse msql type: primary keys must be of type string")
+		}
+		return "Guid"
+	}
+
 	switch typeName {
 	case MsqlTypeNvarchar:
 		return "string"

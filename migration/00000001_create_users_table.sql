@@ -4,8 +4,8 @@
 EXEC('CREATE SCHEMA hg');
 
 CREATE TABLE hg.users (
-    id NVARCHAR(36) NOT NULL PRIMARY KEY DEFAULT (NEWID()),
-    oid NVARCHAR(36) NOT NULL UNIQUE DEFAULT (NEWID()),
+    id UNIQUEIDENTIFIER NOT NULL PRIMARY KEY DEFAULT (NEWID()),
+    oid UNIQUEIDENTIFIER NOT NULL UNIQUE DEFAULT (NEWID()),
     given_name NVARCHAR(64) NOT NULL CHECK (LEN(given_name) > 0 AND LEN(given_name) <= 64),
     family_name NVARCHAR(64) NOT NULL CHECK (LEN(family_name) > 0 AND LEN(family_name) <= 64),
     display_name NVARCHAR(128) NOT NULL UNIQUE CHECK (LEN(display_name) > 0 AND LEN(display_name) <= 128),
