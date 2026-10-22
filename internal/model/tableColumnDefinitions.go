@@ -50,6 +50,54 @@ type TableColumn[T querymodel.TableModel] struct {
 	GetData     func(T) string
 }
 
+var FarmFieldsBusinessIdCreatedByIdDisplayNameColumn = TableColumn[*FarmFieldsModel]{
+	Path:        "business_id/created_by_id/display_name",
+	DisplayName: "Display Name",
+	Expansion:   "expand=business_id(expand=created_by_id(select=display_name))",
+}
+
+var UsersIdColumn = TableColumn[*UsersModel]{
+	Path:        "id",
+	DisplayName: "Id",
+	Expansion:   "",
+}
+
+var UsersGivenNameColumn = TableColumn[*UsersModel]{
+	Path:        "given_name",
+	DisplayName: "Given Name",
+	Expansion:   "",
+}
+
+var UsersFamilyNameColumn = TableColumn[*UsersModel]{
+	Path:        "family_name",
+	DisplayName: "Family Name",
+	Expansion:   "",
+}
+
+var UsersDisplayNameColumn = TableColumn[*UsersModel]{
+	Path:        "display_name",
+	DisplayName: "Display Name",
+	Expansion:   "",
+}
+
+var UsersEmailAddressColumn = TableColumn[*UsersModel]{
+	Path:        "email_address",
+	DisplayName: "Email Address",
+	Expansion:   "",
+}
+
+var UsersCreatedAtColumn = TableColumn[*UsersModel]{
+	Path:        "created_at",
+	DisplayName: "Created At",
+	Expansion:   "",
+}
+
+var UsersModifiedAtColumn = TableColumn[*UsersModel]{
+	Path:        "modified_at",
+	DisplayName: "Modified At",
+	Expansion:   "",
+}
+
 var BusinessesIdColumn = TableColumn[*BusinessesModel]{
 	Path:        "id",
 	DisplayName: "Id",
@@ -76,7 +124,7 @@ var BusinessesBusinessTypeColumn = TableColumn[*BusinessesModel]{
 
 var BusinessesCphNumberColumn = TableColumn[*BusinessesModel]{
 	Path:        "cph_number",
-	DisplayName: "Cph Number",
+	DisplayName: "CPH Number",
 	Expansion:   "",
 }
 
@@ -150,52 +198,4 @@ var BusinessesModifiedByIdDisplayNameColumn = TableColumn[*BusinessesModel]{
 	Path:        "modified_by_id/display_name",
 	DisplayName: "Display Name",
 	Expansion:   "expand=modified_by_id(select=display_name)",
-}
-
-var FarmFieldsBusinessIdCreatedByIdDisplayNameColumn = TableColumn[*FarmFieldsModel]{
-	Path:        "business_id/created_by_id/display_name",
-	DisplayName: "Display Name",
-	Expansion:   "expand=business_id(expand=created_by_id(select=display_name))",
-}
-
-var UsersIdColumn = TableColumn[*UsersModel]{
-	Path:        "id",
-	DisplayName: "Id",
-	Expansion:   "",
-}
-
-var UsersGivenNameColumn = TableColumn[*UsersModel]{
-	Path:        "given_name",
-	DisplayName: "Given Name",
-	Expansion:   "",
-}
-
-var UsersFamilyNameColumn = TableColumn[*UsersModel]{
-	Path:        "family_name",
-	DisplayName: "Family Name",
-	Expansion:   "",
-}
-
-var UsersDisplayNameColumn = TableColumn[*UsersModel]{
-	Path:        "display_name",
-	DisplayName: "Display Name",
-	Expansion:   "",
-}
-
-var UsersEmailAddressColumn = TableColumn[*UsersModel]{
-	Path:        "email_address",
-	DisplayName: "Email Address",
-	Expansion:   "",
-}
-
-var UsersCreatedAtColumn = TableColumn[*UsersModel]{
-	Path:        "created_at",
-	DisplayName: "Created At",
-	Expansion:   "",
-}
-
-var UsersModifiedAtColumn = TableColumn[*UsersModel]{
-	Path:        "modified_at",
-	DisplayName: "Modified At",
-	Expansion:   "",
 }

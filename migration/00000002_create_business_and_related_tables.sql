@@ -77,6 +77,40 @@ EXEC sys.sp_addextendedproperty
     @level2type = N'COLUMN',
     @level2name = N'business_type';
 
+EXEC sys.sp_addextendedproperty
+    @name = N'DisplayName',
+    @value = N'CPH Number',
+    @level0type = N'SCHEMA',
+    @level0name = N'hg',
+    @level1type = N'TABLE',
+    @level1name = N'businesses',
+    @level2type = N'COLUMN',
+    @level2name = N'cph_number';
+
+EXEC sys.sp_addextendedproperty
+    @name = N'DisplayName',
+    @value = N'Business',
+    @level0type = N'SCHEMA',
+    @level0name = N'hg',
+    @level1type = N'TABLE',
+    @level1name = N'businesses';
+
+EXEC sys.sp_addextendedproperty
+    @name = N'PluralName',
+    @value = N'Businesses',
+    @level0type = N'SCHEMA',
+    @level0name = N'hg',
+    @level1type = N'TABLE',
+    @level1name = N'businesses';
+
+EXEC sys.sp_addextendedproperty
+    @name = N'PrimaryColumn',
+    @value = N'trading_name',
+    @level0type = N'SCHEMA',
+    @level0name = N'hg',
+    @level1type = N'TABLE',
+    @level1name = N'businesses';
+
 CREATE TABLE hg.farm_fields (
     id UNIQUEIDENTIFIER NOT NULL PRIMARY KEY DEFAULT (NEWID()),
 
@@ -106,6 +140,30 @@ CREATE TABLE hg.farm_fields (
         FOREIGN KEY (modified_by_id)
         REFERENCES hg.users(id)
 );
+
+EXEC sys.sp_addextendedproperty
+    @name = N'DisplayName',
+    @value = N'Field',
+    @level0type = N'SCHEMA',
+    @level0name = N'hg',
+    @level1type = N'TABLE',
+    @level1name = N'farm_fields';
+
+EXEC sys.sp_addextendedproperty
+    @name = N'PluralName',
+    @value = N'Fields',
+    @level0type = N'SCHEMA',
+    @level0name = N'hg',
+    @level1type = N'TABLE',
+    @level1name = N'farm_fields';
+
+EXEC sys.sp_addextendedproperty
+    @name = N'PrimaryColumn',
+    @value = N'reference',
+    @level0type = N'SCHEMA',
+    @level0name = N'hg',
+    @level1type = N'TABLE',
+    @level1name = N'farm_fields';
 
 CREATE INDEX IX_businesses_trading_name
     ON hg.businesses(trading_name);

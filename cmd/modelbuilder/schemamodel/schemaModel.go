@@ -102,6 +102,7 @@ type Column struct {
 	DisplayName       string
 	Identifiers       ColumnIdentifiers
 	TypeData          TypeData
+	IsPrimaryKey      bool
 	IsExpansionColumn bool
 }
 
@@ -177,6 +178,13 @@ type Table struct {
 	// DisplayName is the display name of the table
 	DisplayName string
 
+	// PluralName is the plural display name for the table
+	PluralDisplayName string
+
+	// PrimaryColumn is the column used as a display name for individual records,
+	// e.g. to use in place of the raw id for lookup columns
+	PrimaryColumn *Column
+
 	// Identifiers is the collection of identifiers used when building models and
 	// data structures for the table
 	Identifiers TableIdentifiers
@@ -216,6 +224,10 @@ func BuildModel(metadata *builderrepo.DatabaseSchema) (*Schema, error) {
 	})
 
 	if err := schema.enrichRelationshipData(); err != nil {
+		return nil, err
+	}
+
+	if err := validateSchemaRelationshipData(schema); err != nil {
 		return nil, err
 	}
 
@@ -293,10 +305,64 @@ func buildTable(
 	}
 
 	tableNamePascal := snakeToPascal(tableData.Name)
+
+	displayName := tableData.DisplayName
+	if displayName == "" {
+		return nil, fmt.Errorf(
+			"unable to build table '%s': display name is not set",
+			tableData.Name,
+		)
+	}
+
+	pluralName := tableData.PluralName
+	if pluralName == "" {
+		return nil, fmt.Errorf(
+			"unable to build table '%s': plural name is not set",
+			tableData.Name,
+		)
+	}
+
+	primaryColumnName := tableData.PrimaryColumn
+	if primaryColumnName == "" {
+		return nil, fmt.Errorf(
+			"unable to build table '%s': primary column is not set",
+			tableData.Name,
+		)
+	}
+
+	primaryColumn, exists := columnData.Map[primaryColumnName]
+	if !exists {
+		return nil, fmt.Errorf(
+			"unable to build table '%s': primary column '%s' does not exist",
+			tableData.Name,
+			primaryColumnName,
+		)
+	}
+
+	switch pc := primaryColumn.TypeData.AppType.(type) {
+	case AppColTypeString:
+		if pc.MaxLenth < 1 || pc.MaxLenth > 255 {
+			return nil, fmt.Errorf(
+				"unable to build table '%s': primary column '%s' must have a max length of 1-255",
+				tableData.Name,
+				primaryColumnName,
+			)
+		}
+	default:
+		return nil, fmt.Errorf(
+			"unable to build table '%s': primary column '%s' must be a string type",
+			tableData.Name,
+			primaryColumnName,
+		)
+	}
+
 	return &Table{
 		Name:               tableData.Name,
 		FullyQualifiedName: fmt.Sprintf("%s.%s", tableData.Schema, tableData.Name),
-		DisplayName:        snakeToDisplayName(tableData.Name),
+
+		DisplayName:       displayName,
+		PluralDisplayName: pluralName,
+		PrimaryColumn:     primaryColumn,
 
 		Identifiers: TableIdentifiers{
 			ModelStruct:      fmt.Sprintf("%sModel", tableNamePascal),
@@ -339,6 +405,7 @@ func buildRelationshipData(
 		if err != nil {
 			return data, err
 		}
+		displayName := snakeToDisplayName(expansionColName)
 
 		expansionColumn := &Column{
 			Name: expansionColName,
@@ -346,7 +413,7 @@ func buildRelationshipData(
 				StructProperty: snakeToPascal(expansionColName),
 				Projection:     getColProjectionId(table.Name, metadata.Name),
 			},
-			DisplayName:       snakeToDisplayName(expansionColName),
+			DisplayName:       displayName,
 			IsExpansionColumn: true,
 		}
 
@@ -376,7 +443,6 @@ func buildRelationshipData(
 
 		data.Map[relationship.ColumnName] = relationship
 		data.Ordered = append(data.Ordered, relationship)
-
 	}
 
 	slices.SortFunc(data.Ordered, func(a *Relationship, b *Relationship) int {
@@ -410,13 +476,18 @@ func buildColumnData(
 			return columnData, err
 		}
 
+		displayName := snakeToDisplayName(metadata.Name)
+		if metadata.DisplayName != "" {
+			displayName = metadata.DisplayName
+		}
+
 		col := &Column{
 			Name: metadata.Name,
 			Identifiers: ColumnIdentifiers{
 				StructProperty: snakeToPascal(metadata.Name),
 				Projection:     getColProjectionId(tableData.Name, metadata.Name),
 			},
-			DisplayName: snakeToDisplayName(metadata.Name),
+			DisplayName: displayName,
 			TypeData:    *typeData,
 		}
 
@@ -426,6 +497,7 @@ func buildColumnData(
 
 		if metadata.PrimaryKey == 1 {
 			columnData.PrimaryKey = col
+			col.IsPrimaryKey = true
 		}
 	}
 
@@ -445,9 +517,57 @@ func buildColumnData(
 	return columnData, nil
 }
 
+func validateSchemaRelationshipData(schema *Schema) error {
+	for _, table := range schema.TableData.Ordered {
+		if err := validateRelationshipData(table.RelationshipData); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func validateRelationshipData(relationshipData RelationshipData) error {
+
+	for _, nToOneRel := range relationshipData.ManyToOneRelationships {
+		if nToOneRel.Column.TypeData.DbType != MsqlTypeUniqueIdentifier {
+			return fmt.Errorf(
+				"invalid relationship: '%s': local column must be of type '%s'",
+				nToOneRel.Id,
+				MsqlTypeUniqueIdentifier,
+			)
+		}
+
+		if !nToOneRel.RelatedColumn.IsPrimaryKey {
+			return fmt.Errorf(
+				"invalid relationship: '%s': foreign column must be a primary key",
+				nToOneRel.Id,
+			)
+		}
+	}
+
+	return nil
+}
+
 func validateColumnData(columnData ColumnData) error {
 	if columnData.PrimaryKey == nil {
 		return fmt.Errorf("invalid column data: unable to access the primary key")
+	}
+
+	if columnData.PrimaryKey.Name != "id" {
+		return fmt.Errorf("invalid column data: the primary key must be named \"id\"")
+	}
+
+	if columnData.PrimaryKey.TypeData.DbType != MsqlTypeUniqueIdentifier {
+		return fmt.Errorf(
+			"invalid column data: the primary key must be of type %s",
+			MsqlTypeUniqueIdentifier,
+		)
+	}
+
+	if len(columnData.All) > 64 {
+		return fmt.Errorf(
+			"model writer currently only supports tables with up to 64 columns",
+		)
 	}
 
 	return nil
@@ -468,7 +588,7 @@ func parseTypeData(
 			GoTypeIdentifier:         GoColTypeString,
 			QueryModelTypeIdentifier: QueryModelTypeString,
 			AppType: AppColTypeString{
-				MaxLenth: columnData.MaxLength,
+				MaxLenth: columnData.MaxLength / 2, // convert from bytes to chars(2 bytes)
 			},
 		}, nil
 

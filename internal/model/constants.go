@@ -120,27 +120,27 @@ const (
 
 // Constants representing column max lengths
 const (
-	MaxLenBusinessesAddressLine1  = 510
-	MaxLenBusinessesAddressLine2  = 510
-	MaxLenBusinessesContactNumber = 100
-	MaxLenBusinessesCountry       = 200
-	MaxLenBusinessesCounty        = 200
-	MaxLenBusinessesCphNumber     = 22
-	MaxLenBusinessesDescription   = 8000
-	MaxLenBusinessesEmailAddress  = 640
+	MaxLenBusinessesAddressLine1  = 255
+	MaxLenBusinessesAddressLine2  = 255
+	MaxLenBusinessesContactNumber = 50
+	MaxLenBusinessesCountry       = 100
+	MaxLenBusinessesCounty        = 100
+	MaxLenBusinessesCphNumber     = 11
+	MaxLenBusinessesDescription   = 4000
+	MaxLenBusinessesEmailAddress  = 320
 	MaxLenBusinessesId            = 16
-	MaxLenBusinessesLogoUrl       = 4096
-	MaxLenBusinessesPostcode      = 40
-	MaxLenBusinessesReference     = 16
-	MaxLenBusinessesTown          = 200
-	MaxLenBusinessesTradingName   = 510
-	MaxLenBusinessesWebsiteUrl    = 4096
+	MaxLenBusinessesLogoUrl       = 2048
+	MaxLenBusinessesPostcode      = 20
+	MaxLenBusinessesReference     = 8
+	MaxLenBusinessesTown          = 100
+	MaxLenBusinessesTradingName   = 255
+	MaxLenBusinessesWebsiteUrl    = 2048
 	MaxLenFarmFieldsId            = 16
-	MaxLenFarmFieldsReference     = 510
-	MaxLenUsersDisplayName        = 256
-	MaxLenUsersEmailAddress       = 640
-	MaxLenUsersFamilyName         = 128
-	MaxLenUsersGivenName          = 128
+	MaxLenFarmFieldsReference     = 255
+	MaxLenUsersDisplayName        = 128
+	MaxLenUsersEmailAddress       = 320
+	MaxLenUsersFamilyName         = 64
+	MaxLenUsersGivenName          = 64
 	MaxLenUsersId                 = 16
 	MaxLenUsersOid                = 16
 )

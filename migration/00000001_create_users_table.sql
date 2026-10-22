@@ -18,6 +18,30 @@ CREATE INDEX IX_user_oid
 
 CREATE INDEX IX_user_display_name
     ON hg.users(display_name);
+
+EXEC sys.sp_addextendedproperty
+    @name = N'DisplayName',
+    @value = N'User',
+    @level0type = N'SCHEMA',
+    @level0name = N'hg',
+    @level1type = N'TABLE',
+    @level1name = N'users';
+
+EXEC sys.sp_addextendedproperty
+    @name = N'PluralName',
+    @value = N'Users',
+    @level0type = N'SCHEMA',
+    @level0name = N'hg',
+    @level1type = N'TABLE',
+    @level1name = N'users';
+
+EXEC sys.sp_addextendedproperty
+    @name = N'PrimaryColumn',
+    @value = N'display_name',
+    @level0type = N'SCHEMA',
+    @level0name = N'hg',
+    @level1type = N'TABLE',
+    @level1name = N'users';
 -- +goose StatementEnd
 
 

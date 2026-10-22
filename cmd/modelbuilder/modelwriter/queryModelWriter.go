@@ -731,7 +731,7 @@ func (p BusinessesProjection) Has(columnName string) bool {
 func (w *queryModelWriter) WriteTableModelProjection(
 	tableData *schemamodel.Table,
 ) error {
-	if len(tableData.ColumnData.Ordered) > 64 {
+	if len(tableData.ColumnData.All) > 64 {
 		return fmt.Errorf("model writer currently only supports tables with up to 64 columns")
 	}
 

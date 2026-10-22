@@ -148,12 +148,6 @@ func closeDBConnection(connection *sql.DB) {
 }
 
 func writeToCache(cachePath string, metadata *builderrepo.DatabaseSchema) (err error) {
-	jsonData, err := json.Marshal(metadata)
-
-	if err != nil {
-		return err
-	}
-
 	f, err := os.Create(cachePath)
 	if err != nil {
 		return err
@@ -162,7 +156,10 @@ func writeToCache(cachePath string, metadata *builderrepo.DatabaseSchema) (err e
 		err = f.Close()
 	}()
 
-	_, err = f.Write(jsonData)
+	encoder := json.NewEncoder(f)
+	encoder.SetIndent("", "  ")
+
+	err = encoder.Encode(metadata)
 	if err != nil {
 		return err
 	}

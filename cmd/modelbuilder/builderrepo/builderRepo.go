@@ -22,18 +22,22 @@ type DatabaseSchema struct {
 type TableMetadata struct {
 	Schema        string            `json:"schema"`
 	Name          string            `json:"name"`
+	DisplayName   string            `json:"displayName"`
+	PluralName    string            `json:"pluralName"`
+	PrimaryColumn string            `json:"primaryColumn"`
 	Columns       []*ColumnMetadata `json:"columns"`
 	Relationships map[string]*TableRelationship
 }
 
 type ColumnMetadata struct {
-	Name       string           `json:"name"`
-	Type       MsqlDataTypeName `json:"type"`
-	MaxLength  int16            `json:"maxLength"`
-	PrimaryKey int8             `json:"primaryKey"`
-	IsNullable bool             `json:"isNullable"`
-	Checks     []Check          `json:"checks"`
-	EnumName   string           `json:"enumName"`
+	Name        string           `json:"name"`
+	Type        MsqlDataTypeName `json:"type"`
+	MaxLength   int16            `json:"maxLength"`
+	PrimaryKey  int8             `json:"primaryKey"`
+	IsNullable  bool             `json:"isNullable"`
+	Checks      []Check          `json:"checks"`
+	EnumName    string           `json:"enumName"`
+	DisplayName string           `json:"displayName"`
 }
 
 type Check struct {
@@ -87,6 +91,30 @@ SELECT CAST(
             SELECT
                 s.name AS [schema],
                 t.name AS [name],
+								(
+										SELECT CONVERT(nvarchar(128), ep.value)
+										FROM sys.extended_properties AS ep
+										WHERE ep.class = 1
+										AND ep.major_id = t.object_id
+										AND ep.minor_id = 0
+										AND ep.name = N'DisplayName'
+								) AS [displayName],
+								(
+										SELECT CONVERT(nvarchar(128), ep.value)
+										FROM sys.extended_properties AS ep
+										WHERE ep.class = 1
+										AND ep.major_id = t.object_id
+										AND ep.minor_id = 0
+										AND ep.name = N'PluralName'
+								) AS [pluralName],
+								(
+										SELECT CONVERT(nvarchar(128), ep.value)
+										FROM sys.extended_properties AS ep
+										WHERE ep.class = 1
+										AND ep.major_id = t.object_id
+										AND ep.minor_id = 0
+										AND ep.name = N'PrimaryColumn'
+								) AS [primaryColumn],
                 JSON_QUERY((
                     SELECT
                         c.name AS [name],
@@ -101,6 +129,14 @@ SELECT CAST(
                             AND ep.minor_id = c.column_id
                             AND ep.name = N'Enum'
                         ) AS [enumName],
+                        (
+                            SELECT CONVERT(nvarchar(128), ep.value)
+                            FROM sys.extended_properties AS ep
+                            WHERE ep.class = 1
+                            AND ep.major_id = c.object_id
+                            AND ep.minor_id = c.column_id
+                            AND ep.name = N'DisplayName'
+                        ) AS [displayName],
                     CASE
                         WHEN EXISTS (
                             SELECT 1
