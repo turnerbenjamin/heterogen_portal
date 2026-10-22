@@ -2,12 +2,18 @@ package modelwriter
 
 import (
 	"fmt"
+	"go/format"
+	"log"
+	"os"
 	"strings"
 
-	"github.com/turnerbenjamin/heterogen_portal/cmd/modelbuilder/builderrepo"
+	"github.com/turnerbenjamin/heterogen_portal/cmd/modelbuilder/schemamodel"
 )
 
 var tableConfig = map[string][]string{
+	"farm_fields": {
+		"business_id/created_by_id/display_name",
+	},
 	"users": {
 		"id",
 		"given_name",
@@ -38,101 +44,110 @@ var tableConfig = map[string][]string{
 	},
 }
 
-type DataType string
-
-const (
-	DataTypeString DataType = "string"
-	DataTypeNumber DataType = "number"
-	DataTypeEnum   DataType = "enum"
-	DataTypeTime   DataType = "time"
-	DataTypePoint  DataType = "point"
-)
-
 type EnumOption struct {
 }
 
 type TableColumnDef struct {
-	Path        string
-	DisplayName string
-	DataType    DataType
-	Expansion   string
-	EnumOptions []string
-}
-
-type tableData struct {
-	columns       map[string]*builderrepo.ColumnMetadata
-	relationships map[string]*builderrepo.TableRelationship
+	Path         string
+	DisplayName  string
+	PropertyName string
+	AppColType   schemamodel.AppColType
+	Expansion    string
 }
 
 type tableColumnWriter struct {
 	path     string
-	metadata *builderrepo.DatabaseSchema
-	w        *writer
-	tableMap map[string]*tableData
+	metadata *schemamodel.Schema
+	wtr      *writer
 }
 
-func newTableColumnWriter(
+func NewTableColumnDefinitionWriter(
 	path string,
-	metadata *builderrepo.DatabaseSchema,
+	metadata *schemamodel.Schema,
 ) *tableColumnWriter {
-	tableMap := map[string]*tableData{}
-	for _, table := range metadata.Tables {
-		colMap := map[string]*builderrepo.ColumnMetadata{}
-		for _, col := range table.Columns {
-			colMap[col.Name] = col
-		}
-
-		relMap := map[string]*builderrepo.TableRelationship{}
-		for _, rel := range table.Relationships {
-			relMap[rel.LocalColumn] = rel
-		}
-
-		tableMap[table.Name] = &tableData{
-			columns:       colMap,
-			relationships: relMap,
-		}
-	}
-
 	return &tableColumnWriter{
 		path:     path,
 		metadata: metadata,
-		w:        &writer{sb: &strings.Builder{}},
-		tableMap: tableMap,
+		wtr:      &writer{sb: &strings.Builder{}},
 	}
 }
 
-func (w *tableColumnWriter) Write() {
+func (w *tableColumnWriter) Write() error {
 	w.writePackageDefinition()
 
 	for k, v := range tableConfig {
-		tableData, exists := w.tableMap[k]
+		tableData, exists := w.metadata.TableData.Map[k]
 		if !exists {
-			err := fmt.Errorf("invalid table config: cannot find data for %s", k)
-			panic(err)
+			return fmt.Errorf("invalid table config: cannot find data for %s", k)
 		}
-		w.writeTableConfig(tableData, v)
+		err := w.writeTableConfig(tableData, v)
+		if err != nil {
+			return err
+		}
 	}
+
+	raw := w.wtr.String()
+	formatted, err := format.Source([]byte(raw))
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	err = os.WriteFile(w.path, formatted, 0644)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return nil
 }
 
 func (w *tableColumnWriter) writePackageDefinition() {
-	w.w.Write(`//GENERATED CODE
+	w.wtr.Write(`//GENERATED CODE
 // see cmd/modelbuilder/
 package model
 
-type DataType string
+import "github.com/turnerbenjamin/querystack/querymodel"
 
-const (
-	DataTypeString DataType = "string"
-	DataTypeNumber DataType = "number"
-	DataTypeEnum DataType = "enum"
-	DataTypeTime   DataType = "time"
-	DataTypePoint  DataType = "point"
-)
+type AppColType interface {
+	IsAppColType()
+}
 
-type TableColumn struct{
+type AppColTypeString struct {
+	MaxLenth int16
+}
+
+func (t AppColTypeString) IsAppColType() {}
+
+type AppColTypeNumber struct{}
+
+func (t AppColTypeNumber) IsAppColType() {}
+
+type AppColTypeTime struct{}
+
+func (t AppColTypeTime) IsAppColType() {}
+
+type AppColTypePoint struct{}
+
+func (t AppColTypePoint) IsAppColType() {}
+
+type AppColTypeIdentifier struct{}
+
+func (t AppColTypeIdentifier) IsAppColType() {}
+
+type AppColTypeEnum struct {
+	EnumType string
+}
+
+func (t AppColTypeEnum) IsAppColType() {}
+
+type AppColTypeLookup struct {
+	TableName string
+}
+
+func (t AppColTypeLookup) IsAppColType() {}
+
+type TableColumn[T querymodel.TableModel] struct{
 	Path string
 	DisplayName string
-	DataType DataType	
+	Type AppColType
 	Expansion string
 	GetData func(T) string
 }
@@ -140,21 +155,40 @@ type TableColumn struct{
 }
 
 func (w *tableColumnWriter) writeTableConfig(
-	table *tableData,
+	table *schemamodel.Table,
 	columnPaths []string,
-) {
-	// for _, path := range columnPaths {
-	// 	config, err := w.buildTableConfig(table, path)
-	// 	if err != nil {
-	// 		panic(err)
-	// 	}
+) error {
+	tableColumnDefinitions := []*TableColumnDef{}
+	for _, path := range columnPaths {
+		columnDefiniton, err := w.buildTableConfig(table, path)
+		if err != nil {
+			return err
+		}
+		tableColumnDefinitions = append(tableColumnDefinitions, columnDefiniton)
+	}
 
-	// 	w.wr
-	// }
+	for _, colDef := range tableColumnDefinitions {
+		w.wtr.WriteLine(
+			"var %s%sColumn =  TableColumn[*%s]{",
+			snakeToPascal(table.Name),
+			snakeToPascal(strings.ReplaceAll(colDef.Path, "/", "_")),
+			table.Identifiers.ModelStruct,
+		)
+
+		w.wtr.WriteLine("Path: %s,", strLit(colDef.Path))
+		w.wtr.WriteLine("DisplayName: %s,", strLit(colDef.DisplayName))
+		// w.wtr.WriteLine("Type: %s,", )
+		w.wtr.WriteLine("Expansion: %s,", strLit(colDef.Expansion))
+
+		w.wtr.WriteLine("}")
+		w.wtr.NewLine()
+	}
+
+	return nil
 }
 
 func (w *tableColumnWriter) buildTableConfig(
-	table *tableData,
+	table *schemamodel.Table,
 	columnPath string,
 ) (*TableColumnDef, error) {
 	pathComponents := strings.Split(columnPath, "/")
@@ -166,28 +200,34 @@ func (w *tableColumnWriter) buildTableConfig(
 	i := 0
 	for i < (len(pathComponents) - 1) {
 		intermediateComponent := pathComponents[i]
-		relatedData, exists := endResource.relationships[intermediateComponent]
-		if !exists {
-			return nil, fmt.Errorf("unable to find related table from col: %s", intermediateComponent)
+
+		var relationship *schemamodel.Relationship = nil
+		for _, r := range endResource.RelationshipData.ManyToOneRelationships {
+			if r.ColumnName == intermediateComponent {
+				relationship = r
+				break
+			}
 		}
 
-		relatedTableData, exists := w.tableMap[relatedData.Name]
-		if !exists {
-			return nil, fmt.Errorf("unable to find table data for: %s", relatedData.Name)
+		if relationship == nil {
+			return nil, fmt.Errorf("unable to find related table from col: %s", intermediateComponent)
 		}
-		endResource = relatedTableData
+		endResource = relationship.RelatedTable
+		i++
 	}
 
 	columnName := pathComponents[len(pathComponents)-1]
-	colData, exists := endResource.columns[columnName]
+	colData, exists := endResource.ColumnData.Map[columnName]
 	if !exists {
 		return nil, fmt.Errorf("unable to find column data for: %s", columnName)
 	}
 
 	return &TableColumnDef{
-		Path:        columnPath,
-		DisplayName: snakeToDisplayName(colData.Name),
-		Expansion:   buildExpansionStatement(pathComponents),
+		DisplayName:  colData.DisplayName,
+		PropertyName: colData.Identifiers.StructProperty,
+		Path:         columnPath,
+		AppColType:   colData.TypeData.AppType,
+		Expansion:    buildExpansionStatement(pathComponents),
 	}, nil
 
 }

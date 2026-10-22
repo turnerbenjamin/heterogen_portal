@@ -95,9 +95,9 @@ import (
 	"fmt"
 	"time"
 
+	mssql "github.com/microsoft/go-mssqldb"
 	"github.com/turnerbenjamin/querystack/querymodel"
 )
-
 
 // marshalProperty is a helper method to marshal an attribute and value to a json string buffer
 func marshalProperty(buf *bytes.Buffer, isFirst bool, columnName string, value any) error {
@@ -665,6 +665,9 @@ func (w *queryModelWriter) buildGetValueExpression(columnData *schemamodel.Colum
 	}
 
 	switch columnData.TypeData.GoTypeIdentifier {
+
+	case schemamodel.GoColTypeId:
+		return fmt.Sprintf("return v.String(m.%s.String()), nil", columnIdentifier), nil
 
 	case schemamodel.GoColTypeString:
 		return fmt.Sprintf("return v.String(m.%s), nil", columnIdentifier), nil

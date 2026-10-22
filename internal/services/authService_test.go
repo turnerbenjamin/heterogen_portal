@@ -8,9 +8,11 @@ import (
 	"net/http"
 	"net/url"
 	"testing"
+	"uuid"
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/golang-jwt/jwt/v5"
+	mssql "github.com/microsoft/go-mssqldb"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -883,7 +885,7 @@ func TestAuthenticateUser(t *testing.T) {
 			UserName:     "want username",
 			EmailAddress: "want email address",
 		}
-		upsertedUser := &model.UsersModel{Id: "upserted-user-id"}
+		upsertedUser := &model.UsersModel{Id: mssql.UniqueIdentifier(uuid.New())}
 
 		appSettings := &etc.AppSettings{
 			OidcStateSecret: []byte("super-secret-secret"),
@@ -995,16 +997,16 @@ func TestAuthenticateUser(t *testing.T) {
 			EmailAddress: "want email address",
 		}
 		upsertedUser := &model.UsersModel{
-			Id:           "upserted-user-id",
-			Oid:          "upserted-user-oid",
+			Id:           mssql.UniqueIdentifier(uuid.New()),
+			Oid:          mssql.UniqueIdentifier(uuid.New()),
 			EmailAddress: "upserted-user-email-address",
 		}
 		wantSignedToken := "want-signed-token"
 
 		wantAppTokenClaims := &appClaims{
 			IdToken:   idTokenString,
-			UserId:    upsertedUser.Id,
-			UserOid:   upsertedUser.Oid,
+			UserId:    upsertedUser.Id.String(),
+			UserOid:   upsertedUser.Oid.String(),
 			UserEmail: upsertedUser.EmailAddress,
 		}
 		var capturedToken *jwt.Token = nil

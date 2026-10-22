@@ -64,12 +64,15 @@ func main() {
 		log.Fatal(err)
 	}
 
-	tableTypesPath, err := filepath.Abs("internal/model/tableTypes.go")
+	tableColumnDefinitionsPath, err := filepath.Abs("internal/model/tableColumnDefinitions.go")
 	if err != nil {
 		log.Fatal(err)
 	}
-	tableTypesWriter := modelwriter.NewTableTypesWriter(tableTypesPath, metadata)
-	tableTypesWriter.Write()
+	tableTypesWriter := modelwriter.NewTableColumnDefinitionWriter(tableColumnDefinitionsPath, schemaData)
+	err = tableTypesWriter.Write()
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	enumPath, err := filepath.Abs("internal/model/enums.go")
 	if err != nil {

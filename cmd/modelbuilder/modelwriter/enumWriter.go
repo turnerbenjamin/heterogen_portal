@@ -11,9 +11,9 @@ import (
 )
 
 type enumWriter struct {
-	path   string
-	writer writer
-	enums  []*builderrepo.EnumMetadata
+	path  string
+	wtr   writer
+	enums []*builderrepo.EnumMetadata
 }
 
 func NewEnumWriter(
@@ -21,9 +21,9 @@ func NewEnumWriter(
 	enums []*builderrepo.EnumMetadata,
 ) *enumWriter {
 	return &enumWriter{
-		path:   path,
-		writer: writer{},
-		enums:  enums,
+		path:  path,
+		wtr:   writer{},
+		enums: enums,
 	}
 }
 
@@ -32,12 +32,12 @@ func (w *enumWriter) Write() {
 
 	for i, enum := range w.enums {
 		if i > 0 {
-			w.writer.NewLine()
+			w.wtr.NewLine()
 		}
 		w.writeEnum(enum)
 	}
 
-	raw := w.writer.String()
+	raw := w.wtr.String()
 	formatted, err := format.Source([]byte(raw))
 	if err != nil {
 		log.Fatal(err)
@@ -50,9 +50,19 @@ func (w *enumWriter) Write() {
 }
 
 func (w *enumWriter) writePackageDefinition() {
-	w.writer.Write(`//GENERATED CODE
+	w.wtr.Write(`//GENERATED CODE
 // see cmd/modelbuilder/
 package model
+
+type EnumOption struct {
+	DisplayName string
+	Value       uint8
+}
+
+type Enum interface {
+	String() (string, bool)
+	Options() []EnumOption
+}
 
 `)
 }
@@ -61,29 +71,46 @@ func (w *enumWriter) writeEnum(enum *builderrepo.EnumMetadata) {
 	enumType := enumTypeName(enum.Name)
 
 	// Type
-	w.writer.WriteLine("type %s uint8", enumType)
-	w.writer.NewLine()
+	w.wtr.WriteLine("type %s uint8", enumType)
+	w.wtr.NewLine()
 
 	// Constants
-	w.writer.WriteLine("const (")
+	w.wtr.WriteLine("const (")
 	for _, val := range enum.Values {
 		valueName := enumValueName(enumType, val.DisplayName)
-		w.writer.WriteLine("%s %s = %d", valueName, enumType, val.Value)
+		w.wtr.WriteLine("%s %s = %d", valueName, enumType, val.Value)
 	}
-	w.writer.WriteLine(")")
-	w.writer.NewLine()
+	w.wtr.WriteLine(")")
+	w.wtr.NewLine()
 
 	// String Getter
-	w.writer.WriteLine("func (e %s) String() (string, bool) {", enumType)
-	w.writer.WriteLine("switch e {")
+	w.wtr.WriteLine("func (e %s) String() (string, bool) {", enumType)
+	w.wtr.WriteLine("switch e {")
 	for _, val := range enum.Values {
-		w.writer.WriteLine("case %d:", val.Value)
-		w.writer.WriteLine("return \"%s\", true", val.DisplayName)
+		w.wtr.WriteLine("case %d:", val.Value)
+		w.wtr.WriteLine("return \"%s\", true", val.DisplayName)
 	}
-	w.writer.WriteLine("default:")
-	w.writer.WriteLine("return \"\", false")
-	w.writer.WriteLine("}")
-	w.writer.WriteLine("}")
+	w.wtr.WriteLine("default:")
+	w.wtr.WriteLine("return \"\", false")
+	w.wtr.WriteLine("}")
+	w.wtr.WriteLine("}")
+	w.wtr.NewLine()
+
+	// Options
+	w.wtr.WriteLine("var %sOptions = []EnumOption {", enumType)
+	for _, val := range enum.Values {
+		w.wtr.WriteLine("{")
+		w.wtr.WriteLine("DisplayName: %s,", strLit(val.DisplayName))
+		w.wtr.WriteLine("Value: %d,", val.Value)
+		w.wtr.WriteLine("},")
+	}
+	w.wtr.WriteLine("}")
+	w.wtr.NewLine()
+
+	// Options Getter
+	w.wtr.WriteLine("func (e %s) Options() []EnumOption{", enumType)
+	w.wtr.WriteLine("  return %sOptions", enumType)
+	w.wtr.WriteLine("}")
 }
 
 func enumTypeName(enumTableName string) string {

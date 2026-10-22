@@ -2,6 +2,16 @@
 // see cmd/modelbuilder/
 package model
 
+type EnumOption struct {
+	DisplayName string
+	Value       uint8
+}
+
+type Enum interface {
+	String() (string, bool)
+	Options() []EnumOption
+}
+
 type EnumBusinessesBusinessType uint8
 
 const (
@@ -18,4 +28,19 @@ func (e EnumBusinessesBusinessType) String() (string, bool) {
 	default:
 		return "", false
 	}
+}
+
+var EnumBusinessesBusinessTypeOptions = []EnumOption{
+	{
+		DisplayName: "Merchant",
+		Value:       1,
+	},
+	{
+		DisplayName: "Grower",
+		Value:       2,
+	},
+}
+
+func (e EnumBusinessesBusinessType) Options() []EnumOption {
+	return EnumBusinessesBusinessTypeOptions
 }

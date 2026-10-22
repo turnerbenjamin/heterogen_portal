@@ -40,7 +40,7 @@ var columnDataUsersUserId = tables.ColumnData[*model.UsersModel]{
 	Path:        ColPath(model.ColUsersId),
 	DisplayName: model.ColDisplayNameUsersId,
 	GetData: func(m *model.UsersModel) string {
-		return m.Id
+		return m.Id.String()
 	},
 }
 
@@ -106,7 +106,7 @@ var columnDataBusinessesBusinessId = tables.ColumnData[*model.BusinessesModel]{
 	Path:        ColPath(model.ColBusinessesId),
 	DisplayName: model.ColDisplayNameBusinessesId,
 	GetData: func(m *model.BusinessesModel) string {
-		return m.Id
+		return m.Id.String()
 	},
 }
 

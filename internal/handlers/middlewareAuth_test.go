@@ -10,7 +10,9 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"uuid"
 
+	mssql "github.com/microsoft/go-mssqldb"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -114,7 +116,7 @@ func TestParseJwtMiddleware_HandlesErrorsReturnedFromAuthService(t *testing.T) {
 func TestParseJwtMiddleware_SetsUserOnContextOnSuccessfulParse(t *testing.T) {
 	testCookieJwtToken := "some-jwt-token"
 	testUserId := "test-user-id"
-	testUser := &model.UsersModel{Id: testUserId}
+	testUser := &model.UsersModel{Id: mssql.UniqueIdentifier(uuid.New())}
 
 	r := httptest.NewRequest("GET", "/", strings.NewReader(""))
 	r.AddCookie(buildExpectedSetJwtCookie(testCookieJwtToken))
@@ -250,7 +252,7 @@ func TestRequireSignInMiddleware_CallsNextWhenUserIsNotNil(t *testing.T) {
 	w := httptest.NewRecorder()
 	c := &PipelineContext[UserState]{state: UserStateInit()}
 	c.state.SetUser(&model.UsersModel{
-		Id:           "123",
+		Id:           mssql.UniqueIdentifier(uuid.New()),
 		GivenName:    "Test",
 		FamilyName:   "User",
 		EmailAddress: "test@user.com",

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"time"
 
+	mssql "github.com/microsoft/go-mssqldb"
 	"github.com/turnerbenjamin/querystack/querymodel"
 )
 
@@ -262,16 +263,16 @@ type BusinessesModel struct {
 	CphNumber                      string                     `json:"cph_number"`
 	CreatedAt                      *time.Time                 `json:"created_at"`
 	CreatedBy                      *UsersModel                `json:"created_by"`
-	CreatedById                    string                     `json:"created_by_id"`
+	CreatedById                    mssql.UniqueIdentifier     `json:"created_by_id"`
 	Description                    string                     `json:"description"`
 	EmailAddress                   string                     `json:"email_address"`
 	FarmFieldsBusinessesBusinessId *FarmFieldsModel           `json:"farm_fields_businesses_business_id"`
-	Id                             string                     `json:"id"`
+	Id                             mssql.UniqueIdentifier     `json:"id"`
 	Location                       *querymodel.Point          `json:"location"`
 	LogoUrl                        string                     `json:"logo_url"`
 	ModifiedAt                     *time.Time                 `json:"modified_at"`
 	ModifiedBy                     *UsersModel                `json:"modified_by"`
-	ModifiedById                   string                     `json:"modified_by_id"`
+	ModifiedById                   mssql.UniqueIdentifier     `json:"modified_by_id"`
 	Postcode                       string                     `json:"postcode"`
 	Reference                      string                     `json:"reference"`
 	Town                           string                     `json:"town"`
@@ -624,13 +625,13 @@ func (m *BusinessesModel) getValue(
 	case "created_at":
 		return v.DateTime(*m.CreatedAt), nil
 	case "created_by_id":
-		return v.String(m.CreatedById), nil
+		return v.String(m.CreatedById.String()), nil
 	case "description":
 		return v.String(m.Description), nil
 	case "email_address":
 		return v.String(m.EmailAddress), nil
 	case "id":
-		return v.String(m.Id), nil
+		return v.String(m.Id.String()), nil
 	case "location":
 		return v.Point(m.Location.Coordinates[0], m.Location.Coordinates[1]), nil
 	case "logo_url":
@@ -638,7 +639,7 @@ func (m *BusinessesModel) getValue(
 	case "modified_at":
 		return v.DateTime(*m.ModifiedAt), nil
 	case "modified_by_id":
-		return v.String(m.ModifiedById), nil
+		return v.String(m.ModifiedById.String()), nil
 	case "postcode":
 		return v.String(m.Postcode), nil
 	case "reference":
@@ -908,18 +909,18 @@ var FarmFieldsMetadata = querymodel.TableMetadata{
 
 // FarmFieldsModel represents a row from the hg.farm_fields table.
 type FarmFieldsModel struct {
-	Business     *BusinessesModel     `json:"business"`
-	BusinessId   string               `json:"business_id"`
-	CreatedAt    *time.Time           `json:"created_at"`
-	CreatedBy    *UsersModel          `json:"created_by"`
-	CreatedById  string               `json:"created_by_id"`
-	Id           string               `json:"id"`
-	Location     *querymodel.Point    `json:"location"`
-	ModifiedAt   *time.Time           `json:"modified_at"`
-	ModifiedBy   *UsersModel          `json:"modified_by"`
-	ModifiedById string               `json:"modified_by_id"`
-	Reference    string               `json:"reference"`
-	projection   FarmFieldsProjection `json:"-"`
+	Business     *BusinessesModel       `json:"business"`
+	BusinessId   mssql.UniqueIdentifier `json:"business_id"`
+	CreatedAt    *time.Time             `json:"created_at"`
+	CreatedBy    *UsersModel            `json:"created_by"`
+	CreatedById  mssql.UniqueIdentifier `json:"created_by_id"`
+	Id           mssql.UniqueIdentifier `json:"id"`
+	Location     *querymodel.Point      `json:"location"`
+	ModifiedAt   *time.Time             `json:"modified_at"`
+	ModifiedBy   *UsersModel            `json:"modified_by"`
+	ModifiedById mssql.UniqueIdentifier `json:"modified_by_id"`
+	Reference    string                 `json:"reference"`
+	projection   FarmFieldsProjection   `json:"-"`
 }
 
 type FarmFieldsModels []*FarmFieldsModel
@@ -1149,19 +1150,19 @@ func (m *FarmFieldsModel) getValue(
 ) (querymodel.Value, error) {
 	switch columnName {
 	case "business_id":
-		return v.String(m.BusinessId), nil
+		return v.String(m.BusinessId.String()), nil
 	case "created_at":
 		return v.DateTime(*m.CreatedAt), nil
 	case "created_by_id":
-		return v.String(m.CreatedById), nil
+		return v.String(m.CreatedById.String()), nil
 	case "id":
-		return v.String(m.Id), nil
+		return v.String(m.Id.String()), nil
 	case "location":
 		return v.Point(m.Location.Coordinates[0], m.Location.Coordinates[1]), nil
 	case "modified_at":
 		return v.DateTime(*m.ModifiedAt), nil
 	case "modified_by_id":
-		return v.String(m.ModifiedById), nil
+		return v.String(m.ModifiedById.String()), nil
 	case "reference":
 		return v.String(m.Reference), nil
 	default:
@@ -1400,19 +1401,19 @@ var UsersMetadata = querymodel.TableMetadata{
 
 // UsersModel represents a row from the hg.users table.
 type UsersModel struct {
-	BusinessesUsersCreatedById  *BusinessesModel `json:"businesses_users_created_by_id"`
-	BusinessesUsersModifiedById *BusinessesModel `json:"businesses_users_modified_by_id"`
-	CreatedAt                   *time.Time       `json:"created_at"`
-	DisplayName                 string           `json:"display_name"`
-	EmailAddress                string           `json:"email_address"`
-	FamilyName                  string           `json:"family_name"`
-	FarmFieldsUsersCreatedById  *FarmFieldsModel `json:"farm_fields_users_created_by_id"`
-	FarmFieldsUsersModifiedById *FarmFieldsModel `json:"farm_fields_users_modified_by_id"`
-	GivenName                   string           `json:"given_name"`
-	Id                          string           `json:"id"`
-	ModifiedAt                  *time.Time       `json:"modified_at"`
-	Oid                         string           `json:"oid"`
-	projection                  UsersProjection  `json:"-"`
+	BusinessesUsersCreatedById  *BusinessesModel       `json:"businesses_users_created_by_id"`
+	BusinessesUsersModifiedById *BusinessesModel       `json:"businesses_users_modified_by_id"`
+	CreatedAt                   *time.Time             `json:"created_at"`
+	DisplayName                 string                 `json:"display_name"`
+	EmailAddress                string                 `json:"email_address"`
+	FamilyName                  string                 `json:"family_name"`
+	FarmFieldsUsersCreatedById  *FarmFieldsModel       `json:"farm_fields_users_created_by_id"`
+	FarmFieldsUsersModifiedById *FarmFieldsModel       `json:"farm_fields_users_modified_by_id"`
+	GivenName                   string                 `json:"given_name"`
+	Id                          mssql.UniqueIdentifier `json:"id"`
+	ModifiedAt                  *time.Time             `json:"modified_at"`
+	Oid                         mssql.UniqueIdentifier `json:"oid"`
+	projection                  UsersProjection        `json:"-"`
 }
 
 type UsersModels []*UsersModel
@@ -1637,11 +1638,11 @@ func (m *UsersModel) getValue(
 	case "given_name":
 		return v.String(m.GivenName), nil
 	case "id":
-		return v.String(m.Id), nil
+		return v.String(m.Id.String()), nil
 	case "modified_at":
 		return v.DateTime(*m.ModifiedAt), nil
 	case "oid":
-		return v.String(m.Oid), nil
+		return v.String(m.Oid.String()), nil
 	default:
 		return nil, fmt.Errorf("unsupported column: '%s'", columnName)
 	}

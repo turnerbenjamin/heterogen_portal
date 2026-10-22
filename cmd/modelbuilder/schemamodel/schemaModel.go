@@ -17,16 +17,18 @@ const (
 )
 
 const (
-	MsqlTypeTinyInt        builderrepo.MsqlDataTypeName = "tinyint"
-	MsqlTypeNvarchar       builderrepo.MsqlDataTypeName = "nvarchar"
-	MsqlTypeInt            builderrepo.MsqlDataTypeName = "int"
-	MsqlTypeGeography      builderrepo.MsqlDataTypeName = "geography"
-	MsqlTypeDateTimeOffset builderrepo.MsqlDataTypeName = "datetimeoffset"
+	MsqlTypeUniqueIdentifier builderrepo.MsqlDataTypeName = "uniqueidentifier"
+	MsqlTypeTinyInt          builderrepo.MsqlDataTypeName = "tinyint"
+	MsqlTypeNvarchar         builderrepo.MsqlDataTypeName = "nvarchar"
+	MsqlTypeInt              builderrepo.MsqlDataTypeName = "int"
+	MsqlTypeGeography        builderrepo.MsqlDataTypeName = "geography"
+	MsqlTypeDateTimeOffset   builderrepo.MsqlDataTypeName = "datetimeoffset"
 )
 
 type GoColType string
 
 const (
+	GoColTypeId     GoColType = "mssql.UniqueIdentifier"
 	GoColTypeString GoColType = "string"
 	GoColTypeInt64  GoColType = "int64"
 	GoColTypeUInt8  GoColType = "uint8"
@@ -78,13 +80,14 @@ type AppColTypeIdentifier struct{}
 
 func (t AppColTypeIdentifier) IsAppColType() {}
 
-type AppColTypeEnum struct{}
+type AppColTypeEnum struct {
+	EnumType string
+}
 
 func (t AppColTypeEnum) IsAppColType() {}
 
 type AppColTypeLookup struct {
-	RelatedTable  *Table
-	RelatedColumn *Column
+	Relationship *Relationship
 }
 
 func (t AppColTypeLookup) IsAppColType() {}
@@ -254,8 +257,7 @@ func (s Schema) enrichRelationshipData() error {
 				),
 				QueryModelTypeIdentifier: QueryModelTypeString,
 				AppType: AppColTypeLookup{
-					RelatedTable:  foreignTable,
-					RelatedColumn: foreignColumn,
+					Relationship: relationship,
 				},
 			}
 
@@ -394,7 +396,7 @@ func buildRelationshipData(
 
 func buildColumnData(
 	tableData *builderrepo.TableMetadata,
-	RelationshipData RelationshipData,
+	relationshipData RelationshipData,
 ) (ColumnData, error) {
 	columnData := ColumnData{
 		Map:     map[string]*Column{},
@@ -403,7 +405,7 @@ func buildColumnData(
 	}
 
 	for _, metadata := range tableData.Columns {
-		typeData, err := parseTypeData(metadata)
+		typeData, err := parseTypeData(relationshipData, metadata)
 		if err != nil {
 			return columnData, err
 		}
@@ -427,7 +429,7 @@ func buildColumnData(
 		}
 	}
 
-	for _, relationship := range RelationshipData.Ordered {
+	for _, relationship := range relationshipData.Ordered {
 		columnData.Map[relationship.ExpansionColumn.Name] = relationship.ExpansionColumn
 		columnData.All = append(columnData.All, relationship.ExpansionColumn)
 	}
@@ -451,8 +453,14 @@ func validateColumnData(columnData ColumnData) error {
 	return nil
 }
 
-func parseTypeData(columnData *builderrepo.ColumnMetadata) (*TypeData, error) {
+func parseTypeData(
+	relationships RelationshipData,
+	columnData *builderrepo.ColumnMetadata,
+) (*TypeData, error) {
 	switch columnData.Type {
+
+	case MsqlTypeUniqueIdentifier:
+		return parseUniqueIdentifierType(relationships, columnData)
 
 	case MsqlTypeNvarchar:
 		return &TypeData{
@@ -478,7 +486,9 @@ func parseTypeData(columnData *builderrepo.ColumnMetadata) (*TypeData, error) {
 				DbType:                   MsqlTypeTinyInt,
 				GoTypeIdentifier:         enumTypeName(columnData.EnumName),
 				QueryModelTypeIdentifier: QueryModelTypeEnum,
-				AppType:                  AppColTypeEnum{},
+				AppType: AppColTypeEnum{
+					EnumType: columnData.EnumName,
+				},
 			}, nil
 		} else {
 			return &TypeData{
@@ -503,6 +513,32 @@ func parseTypeData(columnData *builderrepo.ColumnMetadata) (*TypeData, error) {
 	default:
 		return nil, fmt.Errorf("unable to map '%s' to go type", columnData.Type)
 	}
+}
+
+func parseUniqueIdentifierType(
+	relationships RelationshipData,
+	columnData *builderrepo.ColumnMetadata,
+) (*TypeData, error) {
+
+	if relationship, exists := relationships.Map[columnData.Name]; exists {
+		return &TypeData{
+			DbType:                   MsqlTypeUniqueIdentifier,
+			GoTypeIdentifier:         GoColTypeId,
+			QueryModelTypeIdentifier: QueryModelTypeString,
+			AppType: AppColTypeLookup{
+				Relationship: relationship,
+			},
+		}, nil
+	}
+
+	return &TypeData{
+		DbType:                   MsqlTypeUniqueIdentifier,
+		GoTypeIdentifier:         GoColTypeId,
+		QueryModelTypeIdentifier: QueryModelTypeString,
+		AppType: AppColTypeString{
+			MaxLenth: columnData.MaxLength,
+		},
+	}, nil
 }
 
 func parseGeographyType(
