@@ -128,19 +128,15 @@ const (
 	MaxLenBusinessesCphNumber     = 11
 	MaxLenBusinessesDescription   = 4000
 	MaxLenBusinessesEmailAddress  = 320
-	MaxLenBusinessesId            = 16
 	MaxLenBusinessesLogoUrl       = 2048
 	MaxLenBusinessesPostcode      = 20
 	MaxLenBusinessesReference     = 8
 	MaxLenBusinessesTown          = 100
 	MaxLenBusinessesTradingName   = 255
 	MaxLenBusinessesWebsiteUrl    = 2048
-	MaxLenFarmFieldsId            = 16
 	MaxLenFarmFieldsReference     = 255
 	MaxLenUsersDisplayName        = 128
 	MaxLenUsersEmailAddress       = 320
 	MaxLenUsersFamilyName         = 64
 	MaxLenUsersGivenName          = 64
-	MaxLenUsersId                 = 16
-	MaxLenUsersOid                = 16
 )

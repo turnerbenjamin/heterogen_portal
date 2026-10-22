@@ -42,9 +42,8 @@ EXEC sys.sp_addextendedproperty
     @level0name = N'hg',
     @level1type = N'TABLE',
     @level1name = N'users';
+
 -- +goose StatementEnd
-
-
 
 -- +goose Down
 

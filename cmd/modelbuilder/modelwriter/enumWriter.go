@@ -1,36 +1,34 @@
 package modelwriter
 
 import (
-	"fmt"
 	"go/format"
 	"log"
 	"os"
-	"strings"
 
-	"github.com/turnerbenjamin/heterogen_portal/cmd/modelbuilder/builderrepo"
+	"github.com/turnerbenjamin/heterogen_portal/cmd/modelbuilder/schemamodel"
 )
 
 type enumWriter struct {
-	path  string
-	wtr   writer
-	enums []*builderrepo.EnumMetadata
+	path     string
+	wtr      writer
+	enumData schemamodel.EnumData
 }
 
 func NewEnumWriter(
 	path string,
-	enums []*builderrepo.EnumMetadata,
+	enumData schemamodel.EnumData,
 ) *enumWriter {
 	return &enumWriter{
-		path:  path,
-		wtr:   writer{},
-		enums: enums,
+		path:     path,
+		wtr:      writer{},
+		enumData: enumData,
 	}
 }
 
 func (w *enumWriter) Write() {
 	w.writePackageDefinition()
 
-	for i, enum := range w.enums {
+	for i, enum := range w.enumData.Ordered {
 		if i > 0 {
 			w.wtr.NewLine()
 		}
@@ -67,28 +65,25 @@ type Enum interface {
 `)
 }
 
-func (w *enumWriter) writeEnum(enum *builderrepo.EnumMetadata) {
-	enumType := enumTypeName(enum.Name)
-
+func (w *enumWriter) writeEnum(enum *schemamodel.Enum) {
 	// Type
-	w.wtr.WriteLine("type %s uint8", enumType)
+	w.wtr.WriteLine("type %s uint8", enum.TypeName)
 	w.wtr.NewLine()
 
 	// Constants
 	w.wtr.WriteLine("const (")
-	for _, val := range enum.Values {
-		valueName := enumValueName(enumType, val.DisplayName)
-		w.wtr.WriteLine("%s %s = %d", valueName, enumType, val.Value)
+	for _, val := range enum.Options {
+		w.wtr.WriteLine("%s %s = %d", val.ConstantName, enum.TypeName, val.Value)
 	}
 	w.wtr.WriteLine(")")
 	w.wtr.NewLine()
 
 	// String Getter
-	w.wtr.WriteLine("func (e %s) String() (string, bool) {", enumType)
+	w.wtr.WriteLine("func (e %s) String() (string, bool) {", enum.TypeName)
 	w.wtr.WriteLine("switch e {")
-	for _, val := range enum.Values {
+	for _, val := range enum.Options {
 		w.wtr.WriteLine("case %d:", val.Value)
-		w.wtr.WriteLine("return \"%s\", true", val.DisplayName)
+		w.wtr.WriteLine("return \"%s\", true", val.Label)
 	}
 	w.wtr.WriteLine("default:")
 	w.wtr.WriteLine("return \"\", false")
@@ -97,10 +92,10 @@ func (w *enumWriter) writeEnum(enum *builderrepo.EnumMetadata) {
 	w.wtr.NewLine()
 
 	// Options
-	w.wtr.WriteLine("var %sOptions = []EnumOption {", enumType)
-	for _, val := range enum.Values {
+	w.wtr.WriteLine("var %s = []EnumOption {", enum.OptionSetName)
+	for _, val := range enum.Options {
 		w.wtr.WriteLine("{")
-		w.wtr.WriteLine("DisplayName: %s,", strLit(val.DisplayName))
+		w.wtr.WriteLine("DisplayName: %s,", strLit(val.Label))
 		w.wtr.WriteLine("Value: %d,", val.Value)
 		w.wtr.WriteLine("},")
 	}
@@ -108,18 +103,7 @@ func (w *enumWriter) writeEnum(enum *builderrepo.EnumMetadata) {
 	w.wtr.NewLine()
 
 	// Options Getter
-	w.wtr.WriteLine("func (e %s) Options() []EnumOption{", enumType)
-	w.wtr.WriteLine("  return %sOptions", enumType)
+	w.wtr.WriteLine("func (e %s) Options() []EnumOption{", enum.TypeName)
+	w.wtr.WriteLine("  return %s", enum.OptionSetName)
 	w.wtr.WriteLine("}")
-}
-
-func enumTypeName(enumTableName string) string {
-	return fmt.Sprintf("Enum%s", snakeToPascal(enumTableName))
-}
-
-func enumValueName(enumTypeName string, valueDisplayName string) string {
-	valueSnakeName := strings.ReplaceAll(valueDisplayName, " ", "_")
-	valueSnakeName = strings.ToLower(valueSnakeName)
-
-	return fmt.Sprintf("%s%s", enumTypeName, snakeToPascal(valueSnakeName))
 }

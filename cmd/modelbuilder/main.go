@@ -78,7 +78,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	enumWriter := modelwriter.NewEnumWriter(enumPath, metadata.Enums)
+	enumWriter := modelwriter.NewEnumWriter(enumPath, schemaData.EnumData)
 	enumWriter.Write()
 
 	queryModelPath, err := filepath.Abs("internal/model/queryModel.go")

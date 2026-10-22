@@ -5,6 +5,7 @@ import (
 	"go/format"
 	"log"
 	"os"
+	"slices"
 	"strings"
 
 	"github.com/turnerbenjamin/heterogen_portal/cmd/modelbuilder/schemamodel"
@@ -38,9 +39,10 @@ var tableConfig = map[string][]string{
 		"country",
 		"postcode",
 		"created_at",
+		"created_by_id",
 		"created_by_id/display_name",
 		"modified_at",
-		"modified_by_id/display_name",
+		"modified_by_id",
 	},
 }
 
@@ -49,8 +51,10 @@ type EnumOption struct {
 
 type TableColumnDef struct {
 	Path         string
+	FilterPath   string
 	DisplayName  string
 	PropertyName string
+	GetDataFunc  string
 	AppColType   schemamodel.AppColType
 	Expansion    string
 }
@@ -75,12 +79,24 @@ func NewTableColumnDefinitionWriter(
 func (w *tableColumnWriter) Write() error {
 	w.writePackageDefinition()
 
-	for k, v := range tableConfig {
+	configKeys := make([]string, 0, len(tableConfig))
+	for k := range tableConfig {
+		configKeys = append(configKeys, k)
+	}
+	slices.Sort(configKeys)
+
+	for _, k := range configKeys {
 		tableData, exists := w.metadata.TableData.Map[k]
 		if !exists {
 			return fmt.Errorf("invalid table config: cannot find data for %s", k)
 		}
-		err := w.writeTableConfig(tableData, v)
+
+		config, exists := tableConfig[k]
+		if !exists {
+			return fmt.Errorf("unable to access config for key '%s'", k)
+		}
+
+		err := w.writeTableConfig(tableData, config)
 		if err != nil {
 			return err
 		}
@@ -111,7 +127,7 @@ type AppColType interface {
 }
 
 type AppColTypeString struct {
-	MaxLenth int16
+	MaxLength int16
 }
 
 func (t AppColTypeString) IsAppColType() {}
@@ -133,7 +149,7 @@ type AppColTypeIdentifier struct{}
 func (t AppColTypeIdentifier) IsAppColType() {}
 
 type AppColTypeEnum struct {
-	EnumType string
+	Options []EnumOption
 }
 
 func (t AppColTypeEnum) IsAppColType() {}
@@ -175,16 +191,59 @@ func (w *tableColumnWriter) writeTableConfig(
 			table.Identifiers.ModelStruct,
 		)
 
-		w.wtr.WriteLine("Path: %s,", strLit(colDef.Path))
-		w.wtr.WriteLine("DisplayName: %s,", strLit(colDef.DisplayName))
-		// w.wtr.WriteLine("Type: %s,", )
-		w.wtr.WriteLine("Expansion: %s,", strLit(colDef.Expansion))
+		appType, err := w.writeTypeData(colDef.AppColType)
+		if err != nil {
+			return err
+		}
 
+		w.wtr.WriteLine("DisplayName: %s,", strLit(colDef.DisplayName))
+		w.wtr.WriteLine("Path: %s,", strLit(colDef.Path))
+		w.wtr.WriteLine("Expansion: %s,", strLit(colDef.Expansion))
+		w.wtr.WriteLine("Type: %s,", appType)
+		w.wtr.WriteLine("GetData: %s,", colDef.GetDataFunc)
 		w.wtr.WriteLine("}")
 		w.wtr.NewLine()
 	}
 
 	return nil
+}
+
+func (w *tableColumnWriter) writeTypeData(
+	appColType schemamodel.AppColType,
+) (string, error) {
+	twtr := writer{&strings.Builder{}}
+
+	switch t := appColType.(type) {
+
+	case schemamodel.AppColTypeString:
+		twtr.WriteLine("AppColTypeString {")
+		twtr.WriteLine("MaxLength: int16(%d),", t.MaxLenth)
+		twtr.Write("}")
+
+	case schemamodel.AppColTypeNumber:
+		twtr.Write("AppColTypeNumber {}")
+
+	case schemamodel.AppColTypeTime:
+		twtr.Write("AppColTypeTime {}")
+
+	case schemamodel.AppColTypePoint:
+		twtr.Write("AppColTypePoint {}")
+
+	case schemamodel.AppColTypeIdentifier:
+		twtr.Write("AppColTypeIdentifier {}")
+
+	case schemamodel.AppColTypeEnum:
+		twtr.WriteLine("AppColTypeEnum {")
+		twtr.WriteLine("Options: %s,", t.EnumData.OptionSetName)
+		twtr.Write("}")
+
+	case schemamodel.AppColTypeLookup:
+		twtr.WriteLine("AppColTypeLookup {")
+		twtr.WriteLine("TableName: %s,", strLit(t.Relationship.RelatedTable.Name))
+		twtr.Write("}")
+	}
+
+	return twtr.String(), nil
 }
 
 func (w *tableColumnWriter) buildTableConfig(
@@ -197,6 +256,7 @@ func (w *tableColumnWriter) buildTableConfig(
 	}
 
 	endResource := table
+	traversalSteps := []*schemamodel.Relationship{}
 	i := 0
 	for i < (len(pathComponents) - 1) {
 		intermediateComponent := pathComponents[i]
@@ -213,6 +273,8 @@ func (w *tableColumnWriter) buildTableConfig(
 			return nil, fmt.Errorf("unable to find related table from col: %s", intermediateComponent)
 		}
 		endResource = relationship.RelatedTable
+		traversalSteps = append(traversalSteps, relationship)
+
 		i++
 	}
 
@@ -222,21 +284,125 @@ func (w *tableColumnWriter) buildTableConfig(
 		return nil, fmt.Errorf("unable to find column data for: %s", columnName)
 	}
 
+	getDataFuncVal, err := buildGetDataFunctionStatement(
+		table,
+		traversalSteps,
+		colData,
+	)
+	if err != nil {
+		return nil, err
+	}
+
 	return &TableColumnDef{
-		DisplayName:  colData.DisplayName,
+		DisplayName:  buildColumnDisplayName(traversalSteps, colData),
 		PropertyName: colData.Identifiers.StructProperty,
 		Path:         columnPath,
+		GetDataFunc:  getDataFuncVal,
 		AppColType:   colData.TypeData.AppType,
-		Expansion:    buildExpansionStatement(pathComponents),
+		Expansion:    buildExpansionStatement(pathComponents, colData),
 	}, nil
 
 }
 
-func buildExpansionStatement(pathComponents []string) string {
-	if len(pathComponents) == 1 {
+func buildColumnDisplayName(
+	traversalSteps []*schemamodel.Relationship,
+	column *schemamodel.Column,
+) string {
+	if len(traversalSteps) == 0 {
+		return column.DisplayName
+	}
+
+	step := traversalSteps[0]
+	return fmt.Sprintf(
+		"%s(%s)",
+		step.Column.DisplayName,
+		buildColumnDisplayName(traversalSteps[1:], column),
+	)
+}
+
+func buildGetDataFunctionStatement(
+	table *schemamodel.Table,
+	traversalSteps []*schemamodel.Relationship,
+	column *schemamodel.Column,
+) (string, error) {
+	switch c := column.TypeData.AppType.(type) {
+	case schemamodel.AppColTypeLookup:
+		traversalSteps = append(traversalSteps, c.Relationship)
+		column = c.Relationship.RelatedTable.PrimaryColumn
+	}
+
+	fwtr := writer{&strings.Builder{}}
+
+	fwtr.WriteLine("func(r *%s) string {", table.Identifiers.ModelStruct)
+
+	resourceId := "r"
+	for i, step := range traversalSteps {
+		stepId := fmt.Sprintf("intermediateVal%d", i+1)
+		fwtr.WriteLine(
+			"%s := %s.%s",
+			stepId,
+			resourceId,
+			step.ExpansionColumn.Identifiers.StructProperty,
+		)
+		fwtr.WriteLine("if %s == nil {", stepId)
+		fwtr.WriteLine("return %s", strLit("-"))
+		fwtr.WriteLine("}")
+		fwtr.NewLine()
+
+		resourceId = stepId
+	}
+
+	fwtr.WriteLine("v := %s.%s", resourceId, column.Identifiers.StructProperty)
+
+	switch column.TypeData.AppType.(type) {
+	case schemamodel.AppColTypeString:
+		fwtr.WriteLine("return v")
+
+	case schemamodel.AppColTypeIdentifier,
+		schemamodel.AppColTypeLookup:
+		fwtr.WriteLine("return v.String()")
+
+	case schemamodel.AppColTypeEnum:
+		fwtr.WriteLine("label, exists := v.String()")
+		fwtr.WriteLine("if !exists{")
+		fwtr.WriteLine("  return %s", strLit("-"))
+		fwtr.WriteLine("}")
+		fwtr.WriteLine("return label")
+
+	case schemamodel.AppColTypeNumber:
+		fwtr.Write("return strconv.FormatInt(int64(v), 10)")
+
+	case schemamodel.AppColTypePoint:
+		fwtr.Write(
+			"return fmt.Sprintf(\"[%%d, %%d]\", v.Coordinates[0], v.Coordinates[1])",
+		)
+
+	case schemamodel.AppColTypeTime:
+		fwtr.Write("return v.Format(%s)", strLit("2 Jan 06 15:04"))
+
+	default:
+		return "", fmt.Errorf(
+			"unable to build get data function: unsupported app type",
+		)
+
+	}
+
+	fwtr.Write("}")
+
+	return fwtr.String(), nil
+}
+
+func buildExpansionStatement(pathComponents []string, column *schemamodel.Column) string {
+	segments := slices.Clone(pathComponents)
+	switch c := column.TypeData.AppType.(type) {
+	case schemamodel.AppColTypeLookup:
+		segments = append(segments, c.Relationship.RelatedTable.PrimaryColumn.Name)
+	}
+
+	if len(segments) == 1 {
 		return ""
 	}
-	return buildExpansion(pathComponents)
+	return buildExpansion(segments)
 }
 
 func buildExpansion(pathComponents []string) string {

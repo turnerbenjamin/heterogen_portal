@@ -81,7 +81,7 @@ type AppColTypeIdentifier struct{}
 func (t AppColTypeIdentifier) IsAppColType() {}
 
 type AppColTypeEnum struct {
-	EnumType string
+	EnumData *Enum
 }
 
 func (t AppColTypeEnum) IsAppColType() {}
@@ -198,20 +198,44 @@ type TableData struct {
 	Ordered []*Table
 }
 
+type EnumOption struct {
+	Value        uint8
+	Label        string
+	ConstantName string
+}
+
+type Enum struct {
+	DbName        string
+	TypeName      string
+	OptionSetName string
+	Options       []EnumOption
+}
+
+type EnumData struct {
+	DbNameMap   map[string]*Enum
+	TypeNameMap map[string]*Enum
+	Ordered     []*Enum
+}
+
 type Schema struct {
 	TableData TableData
+	EnumData  EnumData
 }
 
 func BuildModel(metadata *builderrepo.DatabaseSchema) (*Schema, error) {
+	enumData := buildEnumData(metadata)
+
 	schema := &Schema{
 		TableData: TableData{
 			Map:     make(map[string]*Table, len(metadata.Tables)),
 			Ordered: make([]*Table, 0, len(metadata.Tables)),
 		},
+		EnumData: enumData,
 	}
+
 	// Build Table
 	for _, tableData := range metadata.Tables {
-		table, err := buildTable(metadata, tableData)
+		table, err := buildTable(metadata, enumData, tableData)
 		if err != nil {
 			return nil, err
 		}
@@ -281,8 +305,50 @@ func (s Schema) enrichRelationshipData() error {
 	return nil
 }
 
+func buildEnumData(schema *builderrepo.DatabaseSchema) EnumData {
+	data := EnumData{
+		DbNameMap:   make(map[string]*Enum, len(schema.Enums)),
+		TypeNameMap: make(map[string]*Enum, len(schema.Enums)),
+		Ordered:     make([]*Enum, 0, len(schema.Enums)),
+	}
+
+	for _, enumData := range schema.Enums {
+		typeName := fmt.Sprintf("Enum%s", snakeToPascal(enumData.Name))
+		e := &Enum{
+			DbName:        enumData.Name,
+			TypeName:      typeName,
+			OptionSetName: fmt.Sprintf("%sOptions", typeName),
+			Options:       make([]EnumOption, 0, len(enumData.Values)),
+		}
+
+		for _, v := range enumData.Values {
+			v := EnumOption{
+				Value: v.Value,
+				Label: v.DisplayName,
+				ConstantName: fmt.Sprintf(
+					"%s%s",
+					e.TypeName,
+					snakeToPascal(strings.ReplaceAll(v.DisplayName, " ", "_")),
+				),
+			}
+			e.Options = append(e.Options, v)
+		}
+
+		data.DbNameMap[e.DbName] = e
+		data.TypeNameMap[e.TypeName] = e
+		data.Ordered = append(data.Ordered, e)
+	}
+
+	slices.SortFunc(data.Ordered, func(a *Enum, b *Enum) int {
+		return strings.Compare(a.TypeName, b.TypeName)
+	})
+
+	return data
+}
+
 func buildTable(
 	schema *builderrepo.DatabaseSchema,
+	enumData EnumData,
 	tableData *builderrepo.TableMetadata,
 ) (*Table, error) {
 
@@ -294,7 +360,7 @@ func buildTable(
 		return nil, err
 	}
 
-	columnData, err := buildColumnData(tableData, relationshipData)
+	columnData, err := buildColumnData(tableData, enumData, relationshipData)
 	if err != nil {
 		return nil, err
 	}
@@ -462,6 +528,7 @@ func buildRelationshipData(
 
 func buildColumnData(
 	tableData *builderrepo.TableMetadata,
+	enumData EnumData,
 	relationshipData RelationshipData,
 ) (ColumnData, error) {
 	columnData := ColumnData{
@@ -471,7 +538,7 @@ func buildColumnData(
 	}
 
 	for _, metadata := range tableData.Columns {
-		typeData, err := parseTypeData(relationshipData, metadata)
+		typeData, err := parseTypeData(relationshipData, enumData, metadata)
 		if err != nil {
 			return columnData, err
 		}
@@ -575,6 +642,7 @@ func validateColumnData(columnData ColumnData) error {
 
 func parseTypeData(
 	relationships RelationshipData,
+	enumData EnumData,
 	columnData *builderrepo.ColumnMetadata,
 ) (*TypeData, error) {
 	switch columnData.Type {
@@ -602,12 +670,20 @@ func parseTypeData(
 
 	case MsqlTypeTinyInt:
 		if columnData.EnumName != "" {
+			enum, exists := enumData.DbNameMap[columnData.EnumName]
+			if !exists {
+				return nil, fmt.Errorf(
+					"unable to find enum definition for %s",
+					columnData.EnumName,
+				)
+			}
+
 			return &TypeData{
 				DbType:                   MsqlTypeTinyInt,
-				GoTypeIdentifier:         enumTypeName(columnData.EnumName),
+				GoTypeIdentifier:         GoColType(enum.TypeName),
 				QueryModelTypeIdentifier: QueryModelTypeEnum,
 				AppType: AppColTypeEnum{
-					EnumType: columnData.EnumName,
+					EnumData: enum,
 				},
 			}, nil
 		} else {
@@ -655,9 +731,7 @@ func parseUniqueIdentifierType(
 		DbType:                   MsqlTypeUniqueIdentifier,
 		GoTypeIdentifier:         GoColTypeId,
 		QueryModelTypeIdentifier: QueryModelTypeString,
-		AppType: AppColTypeString{
-			MaxLenth: columnData.MaxLength,
-		},
+		AppType:                  AppColTypeIdentifier{},
 	}, nil
 }
 
@@ -749,10 +823,6 @@ func relationshipId(relationship *builderrepo.RelationshipMetadata) string {
 		relationship.ReferencedTable,
 		relationship.ReferencedColumn,
 	)
-}
-
-func enumTypeName(enumTableName string) GoColType {
-	return GoColType(fmt.Sprintf("Enum%s", snakeToPascal(enumTableName)))
 }
 
 func snakeToDisplayName(s string) string {
