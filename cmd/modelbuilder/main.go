@@ -80,7 +80,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	tableColumnDefinitionWriter := modelwriter.NewTableColumnDefinitionWriter(
+	tableColumnDefinitionWriter := modelwriter.NewTableDefinitionWriter(
 		config.BuilderConfig,
 		config.Paths.TableColumnDefinitions,
 		schemaData,

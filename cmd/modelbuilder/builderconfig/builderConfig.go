@@ -9,20 +9,16 @@ import (
 	"path/filepath"
 )
 
-type ColumnConfigs struct {
-	Path             string `json:"path"`
-	DoIncludeInTable bool   `json:"do-include-in-table"`
-}
-
 type TableColumnDefinitionConfig struct {
-	TableName string          `json:"table-name"`
-	Columns   []ColumnConfigs `json:"columns"`
+	TableName           string   `json:"table-name"`
+	ExcludeFromMainGrid []string `json:"exclude-from-main-grid"`
+	RelatedColumns      []string `json:"related-columns"`
 }
 
 type BuilderConfig struct {
-	ModelSchemaName        string                                 `json:"model-schema-name"`
-	EnumSchemaName         string                                 `json:"enum-schema-name"`
-	TableColumnDefinitions map[string]TableColumnDefinitionConfig `json:"table-column-definitions"`
+	ModelSchemaName  string                                 `json:"model-schema-name"`
+	EnumSchemaName   string                                 `json:"enum-schema-name"`
+	TableDefinitions map[string]TableColumnDefinitionConfig `json:"table-column-definitions"`
 }
 
 type Paths struct {
@@ -117,6 +113,6 @@ func getPaths(modelDir string) (Paths, error) {
 		QueryModel:             path.Join(d, "queryModel.go"),
 		Enums:                  path.Join(d, "enums.go"),
 		Constants:              path.Join(d, "constants.go"),
-		TableColumnDefinitions: path.Join(d, "tableColumnDefinitions.go"),
+		TableColumnDefinitions: path.Join(d, "tableDefinitions.go"),
 	}, nil
 }

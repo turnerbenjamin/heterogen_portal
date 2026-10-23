@@ -16,6 +16,7 @@ type EnumOption struct {
 }
 
 type TableColumnDef struct {
+	Identifier   string
 	Path         string
 	FilterPath   string
 	DisplayName  string
@@ -25,19 +26,19 @@ type TableColumnDef struct {
 	Expansion    string
 }
 
-type tableColumnWriter struct {
+type tableDefinitionWriter struct {
 	config   builderconfig.BuilderConfig
 	path     string
 	metadata *schemamodel.Schema
 	wtr      *writer
 }
 
-func NewTableColumnDefinitionWriter(
+func NewTableDefinitionWriter(
 	config builderconfig.BuilderConfig,
 	path string,
 	metadata *schemamodel.Schema,
-) *tableColumnWriter {
-	return &tableColumnWriter{
+) *tableDefinitionWriter {
+	return &tableDefinitionWriter{
 		config:   config,
 		path:     path,
 		metadata: metadata,
@@ -45,16 +46,16 @@ func NewTableColumnDefinitionWriter(
 	}
 }
 
-func (w *tableColumnWriter) Write() error {
+func (w *tableDefinitionWriter) Write() error {
 	w.writePackageDefinition()
 
 	for _, t := range w.metadata.TableData.Ordered {
-		config, exists := w.config.TableColumnDefinitions[t.Name]
-		if !exists {
-			continue
+		var tableConfig *builderconfig.TableColumnDefinitionConfig = nil
+		if config, exists := w.config.TableDefinitions[t.Name]; exists {
+			tableConfig = &config
 		}
 
-		err := w.writeTableConfig(t, config)
+		err := w.writeTableDefinition(t, tableConfig)
 		if err != nil {
 			return err
 		}
@@ -73,12 +74,16 @@ func (w *tableColumnWriter) Write() error {
 	return nil
 }
 
-func (w *tableColumnWriter) writePackageDefinition() {
+func (w *tableDefinitionWriter) writePackageDefinition() {
 	w.wtr.Write(`//GENERATED CODE
 // see cmd/modelbuilder/
 package model
 
-import "github.com/turnerbenjamin/querystack/querymodel"
+import (
+	"fmt"
+
+	"github.com/turnerbenjamin/querystack/querymodel"
+)
 
 type AppColType interface {
 	IsAppColType()
@@ -118,6 +123,12 @@ type AppColTypeLookup struct {
 
 func (t AppColTypeLookup) IsAppColType() {}
 
+type TableDefinition [T querymodel.TableModel] struct{
+  DisplayName string
+	PluralDisplayName string
+	MainGridColumns []TableColumn[T]
+}
+
 type TableColumn[T querymodel.TableModel] struct{
 	Path string
 	DisplayName string
@@ -128,24 +139,66 @@ type TableColumn[T querymodel.TableModel] struct{
 `)
 }
 
-func (w *tableColumnWriter) writeTableConfig(
+func (w *tableDefinitionWriter) writeTableDefinition(
 	table *schemamodel.Table,
-	tableConfig builderconfig.TableColumnDefinitionConfig,
+	tableConfig *builderconfig.TableColumnDefinitionConfig,
 ) error {
+	// Build exclude from main grid
+	excludeFromMainGrid := map[string]struct{}{}
+	if tableConfig != nil && len(tableConfig.ExcludeFromMainGrid) > 0 {
+		for _, col := range tableConfig.ExcludeFromMainGrid {
+			excludeFromMainGrid[col] = struct{}{}
+		}
+	}
+
+	// Build column definitions for all standard tables
 	tableColumnDefinitions := []*TableColumnDef{}
-	for _, columnConfig := range tableConfig.Columns {
-		columnDefiniton, err := w.buildTableConfig(table, columnConfig.Path)
+	for _, column := range table.ColumnData.Ordered {
+		columnDefiniton, err := w.buildTableConfig(table, column.Name)
 		if err != nil {
 			return err
 		}
 		tableColumnDefinitions = append(tableColumnDefinitions, columnDefiniton)
 	}
 
+	// Build columns definitions for any related Columns
+	if tableConfig != nil && len(tableConfig.RelatedColumns) > 0 {
+		for _, path := range tableConfig.RelatedColumns {
+			columnDefiniton, err := w.buildTableConfig(table, path)
+			if err != nil {
+				return err
+			}
+			tableColumnDefinitions = append(tableColumnDefinitions, columnDefiniton)
+		}
+	}
+
+	// write table column definition
+	w.wtr.WriteLine(
+		"var %sTable = TableDefinition[*%s]{",
+		snakeToPascal(table.Name),
+		table.Identifiers.ModelStruct,
+	)
+	w.wtr.WriteLine("DisplayName: %s,", strLit(table.DisplayName))
+	w.wtr.WriteLine("PluralDisplayName: %s,", strLit(table.PluralDisplayName))
+	w.wtr.WriteLine(
+		"MainGridColumns: []TableColumn[*%s]{",
+		table.Identifiers.ModelStruct,
+	)
+	for _, col := range tableColumnDefinitions {
+		if _, exists := excludeFromMainGrid[col.Path]; exists {
+			continue
+		}
+		w.wtr.WriteLine("%s,", col.Identifier)
+	}
+	w.wtr.WriteLine("},")
+	w.wtr.WriteLine("}")
+	w.wtr.NewLine()
+
+	// Write individual column definitions
 	for _, colDef := range tableColumnDefinitions {
 		w.wtr.WriteLine(
-			"var %s%sColumn =  TableColumn[*%s]{",
-			snakeToPascal(table.Name),
-			snakeToPascal(strings.ReplaceAll(colDef.Path, "/", "_")),
+			"var %s = TableColumn[*%s]{",
+			colDef.Identifier,
 			table.Identifiers.ModelStruct,
 		)
 
@@ -166,7 +219,7 @@ func (w *tableColumnWriter) writeTableConfig(
 	return nil
 }
 
-func (w *tableColumnWriter) writeTypeData(
+func (w *tableDefinitionWriter) writeTypeData(
 	appColType schemamodel.AppColType,
 ) (string, error) {
 	twtr := writer{&strings.Builder{}}
@@ -204,7 +257,7 @@ func (w *tableColumnWriter) writeTypeData(
 	return twtr.String(), nil
 }
 
-func (w *tableColumnWriter) buildTableConfig(
+func (w *tableDefinitionWriter) buildTableConfig(
 	table *schemamodel.Table,
 	columnPath string,
 ) (*TableColumnDef, error) {
@@ -252,6 +305,11 @@ func (w *tableColumnWriter) buildTableConfig(
 	}
 
 	return &TableColumnDef{
+		Identifier: fmt.Sprintf(
+			"%s%sColumn",
+			snakeToPascal(table.Name),
+			snakeToPascal(strings.ReplaceAll(columnPath, "/", "_")),
+		),
 		DisplayName:  buildColumnDisplayName(traversalSteps, colData),
 		PropertyName: colData.Identifiers.StructProperty,
 		Path:         columnPath,
@@ -332,7 +390,7 @@ func buildGetDataFunctionStatement(
 
 	case schemamodel.AppColTypePoint:
 		fwtr.Write(
-			"return fmt.Sprintf(\"[%%d, %%d]\", v.Coordinates[0], v.Coordinates[1])",
+			"return fmt.Sprintf(\"[%%f, %%f]\", v.Coordinates[0], v.Coordinates[1])",
 		)
 
 	case schemamodel.AppColTypeTime:

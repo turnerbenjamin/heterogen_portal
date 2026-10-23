@@ -4,41 +4,16 @@
   "table-column-definitions": {
     "users": {
       "table_name": "users",
-      "columns": [
-        { "path": "id", "do-include-in-table": true },
-        { "path": "given_name", "do-include-in-table": true },
-        { "path": "family_name", "do-include-in-table": true },
-        { "path": "display_name", "do-include-in-table": true },
-        { "path": "email_address", "do-include-in-table": true },
-        { "path": "created_at", "do-include-in-table": true },
-        { "path": "modified_at", "do-include-in-table": true }
-      ]
+      "exclude-from-main-grid": ["id", "oid"]
     },
     "businesses": {
       "table_name": "businesses",
-      "columns": [
-        { "path": "id", "do-include-in-table": true },
-        { "path": "reference", "do-include-in-table": true },
-        { "path": "trading_name", "do-include-in-table": true },
-        { "path": "business_type", "do-include-in-table": true },
-        { "path": "cph_number", "do-include-in-table": true },
-        { "path": "email_address", "do-include-in-table": true },
-        { "path": "website_url", "do-include-in-table": true },
-        { "path": "address_line_1", "do-include-in-table": true },
-        { "path": "address_line_2", "do-include-in-table": true },
-        { "path": "town", "do-include-in-table": true },
-        { "path": "county", "do-include-in-table": true },
-        { "path": "country", "do-include-in-table": true },
-        { "path": "postcode", "do-include-in-table": true },
-        { "path": "created_at", "do-include-in-table": true },
-        { "path": "created_by_id", "do-include-in-table": true },
-        {
-          "path": "created_by_id/display_name",
-          "do-include-in-table": true
-        },
-        { "path": "modified_at", "do-include-in-table": true },
-        { "path": "modified_by_id", "do-include-in-table": true }
-      ]
+      "exclude-from-main-grid": ["id", "location", "logo_url", "website_url"],
+      "related-columns": ["created_by_id/display_name"]
+    },
+    "farm_fields": {
+      "table_name": "farm_fields",
+      "exclude-from-main-grid": ["id", "location"]
     }
   }
 }
