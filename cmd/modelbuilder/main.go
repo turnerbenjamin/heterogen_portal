@@ -4,28 +4,24 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
-	"flag"
 	"log"
 	"os"
 	"path/filepath"
 
+	"github.com/turnerbenjamin/heterogen_portal/cmd/modelbuilder/builderconfig"
 	"github.com/turnerbenjamin/heterogen_portal/cmd/modelbuilder/builderrepo"
 	"github.com/turnerbenjamin/heterogen_portal/cmd/modelbuilder/modelwriter"
 	"github.com/turnerbenjamin/heterogen_portal/cmd/modelbuilder/schemamodel"
 )
 
-type config struct {
-	serverDsn       string
-	modelSchemaName string
-	enumSchemaName  string
-	useCache        bool
-}
-
 func main() {
 	ctx := context.Background()
 	defer ctx.Done()
 
-	config := readConfig()
+	config, err := builderconfig.GetConfig()
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	cachePath, err := filepath.Abs("cmd/modelbuilder/metadata_cache.json")
 	if err != nil {
@@ -33,7 +29,7 @@ func main() {
 	}
 
 	var metadata *builderrepo.DatabaseSchema = nil
-	if config.useCache {
+	if config.DoUseCache {
 		metadata, err = readFromCache(cachePath)
 		if err != nil {
 			log.Fatal(err)
@@ -41,13 +37,13 @@ func main() {
 	}
 
 	if metadata == nil {
-		dbConnection := initDBConnection(config.serverDsn)
+		dbConnection := initDBConnection(config.DSN)
 		defer closeDBConnection(dbConnection)
 
 		metadataRepo := builderrepo.MetadataRepo{Db: dbConnection}
 		metadata, err = metadataRepo.GetModelMetadata(
-			config.modelSchemaName,
-			config.enumSchemaName,
+			config.BuilderConfig.ModelSchemaName,
+			config.BuilderConfig.EnumSchemaName,
 		)
 		if err != nil {
 			log.Fatal(err)
@@ -64,67 +60,33 @@ func main() {
 		log.Fatal(err)
 	}
 
-	tableColumnDefinitionsPath, err := filepath.Abs("internal/model/tableColumnDefinitions.go")
-	if err != nil {
-		log.Fatal(err)
-	}
-	tableTypesWriter := modelwriter.NewTableColumnDefinitionWriter(tableColumnDefinitionsPath, schemaData)
-	err = tableTypesWriter.Write()
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	enumPath, err := filepath.Abs("internal/model/enums.go")
-	if err != nil {
-		log.Fatal(err)
-	}
-	enumWriter := modelwriter.NewEnumWriter(enumPath, schemaData.EnumData)
+	enumWriter := modelwriter.NewEnumWriter(
+		config.Paths.Enums,
+		schemaData.EnumData,
+	)
 	enumWriter.Write()
 
-	queryModelPath, err := filepath.Abs("internal/model/queryModel.go")
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	queryModelWriter := modelwriter.NewQueryModelWriter(queryModelPath, schemaData)
-	err = queryModelWriter.Write()
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	constantsPath, err := filepath.Abs("internal/model/constants.go")
-	if err != nil {
-		log.Fatal(err)
-	}
-	constantsWriter := modelwriter.NewConstantsWriter(constantsPath, schemaData)
+	constantsWriter := modelwriter.NewConstantsWriter(
+		config.Paths.Constants,
+		schemaData,
+	)
 	constantsWriter.Write()
-}
 
-func readConfig() config {
-	serverDsn := flag.String("dsn", "", "server dsn")
-	modelSchemaName := flag.String("model-schema-name", "", "model schema name")
-	enumSchemaName := flag.String("enum-schema-name", "", "enum schema name")
-	useCache := flag.Bool("use-cache", false, "use cache")
-
-	flag.Parse()
-
-	if *serverDsn == "" {
-		log.Fatal("dsn flag must be set")
+	queryModelWriter := modelwriter.NewQueryModelWriter(
+		config.Paths.QueryModel,
+		schemaData,
+	)
+	if err := queryModelWriter.Write(); err != nil {
+		log.Fatal(err)
 	}
 
-	if *modelSchemaName == "" {
-		log.Fatal("model-schema-name flag must be set")
-	}
-
-	if *enumSchemaName == "" {
-		log.Fatal("enum-schema-name flag must be set")
-	}
-
-	return config{
-		serverDsn:       *serverDsn,
-		modelSchemaName: *modelSchemaName,
-		enumSchemaName:  *enumSchemaName,
-		useCache:        *useCache,
+	tableColumnDefinitionWriter := modelwriter.NewTableColumnDefinitionWriter(
+		config.BuilderConfig,
+		config.Paths.TableColumnDefinitions,
+		schemaData,
+	)
+	if err := tableColumnDefinitionWriter.Write(); err != nil {
+		log.Fatal(err)
 	}
 }
 

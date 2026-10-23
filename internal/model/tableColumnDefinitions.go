@@ -297,29 +297,6 @@ var BusinessesModifiedByIdColumn = TableColumn[*BusinessesModel]{
 	},
 }
 
-var FarmFieldsBusinessIdCreatedByIdDisplayNameColumn = TableColumn[*FarmFieldsModel]{
-	DisplayName: "Business Id(Created By Id(Display Name))",
-	Path:        "business_id/created_by_id/display_name",
-	Expansion:   "expand=business_id(expand=created_by_id(select=display_name))",
-	Type: AppColTypeString{
-		MaxLength: int16(128),
-	},
-	GetData: func(r *FarmFieldsModel) string {
-		intermediateVal1 := r.Business
-		if intermediateVal1 == nil {
-			return "-"
-		}
-
-		intermediateVal2 := intermediateVal1.CreatedBy
-		if intermediateVal2 == nil {
-			return "-"
-		}
-
-		v := intermediateVal2.DisplayName
-		return v
-	},
-}
-
 var UsersIdColumn = TableColumn[*UsersModel]{
 	DisplayName: "Id",
 	Path:        "id",

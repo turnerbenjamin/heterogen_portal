@@ -8,43 +8,9 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/turnerbenjamin/heterogen_portal/cmd/modelbuilder/builderconfig"
 	"github.com/turnerbenjamin/heterogen_portal/cmd/modelbuilder/schemamodel"
 )
-
-var tableConfig = map[string][]string{
-	"farm_fields": {
-		"business_id/created_by_id/display_name",
-	},
-	"users": {
-		"id",
-		"given_name",
-		"family_name",
-		"display_name",
-		"email_address",
-		"created_at",
-		"modified_at",
-	},
-	"businesses": {
-		"id",
-		"reference",
-		"trading_name",
-		"business_type",
-		"cph_number",
-		"email_address",
-		"website_url",
-		"address_line_1",
-		"address_line_2",
-		"town",
-		"county",
-		"country",
-		"postcode",
-		"created_at",
-		"created_by_id",
-		"created_by_id/display_name",
-		"modified_at",
-		"modified_by_id",
-	},
-}
 
 type EnumOption struct {
 }
@@ -60,16 +26,19 @@ type TableColumnDef struct {
 }
 
 type tableColumnWriter struct {
+	config   builderconfig.BuilderConfig
 	path     string
 	metadata *schemamodel.Schema
 	wtr      *writer
 }
 
 func NewTableColumnDefinitionWriter(
+	config builderconfig.BuilderConfig,
 	path string,
 	metadata *schemamodel.Schema,
 ) *tableColumnWriter {
 	return &tableColumnWriter{
+		config:   config,
 		path:     path,
 		metadata: metadata,
 		wtr:      &writer{sb: &strings.Builder{}},
@@ -79,24 +48,13 @@ func NewTableColumnDefinitionWriter(
 func (w *tableColumnWriter) Write() error {
 	w.writePackageDefinition()
 
-	configKeys := make([]string, 0, len(tableConfig))
-	for k := range tableConfig {
-		configKeys = append(configKeys, k)
-	}
-	slices.Sort(configKeys)
-
-	for _, k := range configKeys {
-		tableData, exists := w.metadata.TableData.Map[k]
+	for _, t := range w.metadata.TableData.Ordered {
+		config, exists := w.config.TableColumnDefinitions[t.Name]
 		if !exists {
-			return fmt.Errorf("invalid table config: cannot find data for %s", k)
+			continue
 		}
 
-		config, exists := tableConfig[k]
-		if !exists {
-			return fmt.Errorf("unable to access config for key '%s'", k)
-		}
-
-		err := w.writeTableConfig(tableData, config)
+		err := w.writeTableConfig(t, config)
 		if err != nil {
 			return err
 		}
@@ -172,11 +130,11 @@ type TableColumn[T querymodel.TableModel] struct{
 
 func (w *tableColumnWriter) writeTableConfig(
 	table *schemamodel.Table,
-	columnPaths []string,
+	tableConfig builderconfig.TableColumnDefinitionConfig,
 ) error {
 	tableColumnDefinitions := []*TableColumnDef{}
-	for _, path := range columnPaths {
-		columnDefiniton, err := w.buildTableConfig(table, path)
+	for _, columnConfig := range tableConfig.Columns {
+		columnDefiniton, err := w.buildTableConfig(table, columnConfig.Path)
 		if err != nil {
 			return err
 		}
