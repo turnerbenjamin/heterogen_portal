@@ -1,0 +1,21 @@
+package inputs
+
+import "github.com/turnerbenjamin/heterogen_portal/internal/model"
+
+templ Enuminput(
+  typeName string,
+  options []model.EnumOption,
+  value *uint8,
+) {
+  <select data-type={typeName} >
+  <option value=""></option>
+  for _, opt := range options{
+    <option 
+      value={opt.Value}
+      selected?={value != nil && opt.Value == *value}
+    >
+      {opt.DisplayName}
+    </option>
+  }
+  </select>
+}

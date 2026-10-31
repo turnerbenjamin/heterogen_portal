@@ -28,3 +28,20 @@ func (w *writer) WriteLine(statement string, args ...any) {
 func (w *writer) String() string {
 	return w.sb.String()
 }
+
+func strLit(str string) string {
+	return fmt.Sprintf("\"%s\"", str)
+}
+
+func snakeToPascal(s string) string {
+	parts := strings.Split(s, "_")
+
+	for i, part := range parts {
+		if part == "" {
+			continue
+		}
+		parts[i] = strings.ToUpper(part[:1]) + strings.ToLower(part[1:])
+	}
+
+	return strings.Join(parts, "")
+}

@@ -1,0 +1,12 @@
+package inputs
+
+import "github.com/turnerbenjamin/heterogen_portal/internal/model"
+
+templ LookupInput(tableName string, value *string) {
+  <select 
+    data-type-table-name={tableName}
+    data-type={model.AppTypeLookup}
+  >
+  <option>Implement a lookup dipshit</option>
+  </select>
+}

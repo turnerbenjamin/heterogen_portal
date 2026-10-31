@@ -1,33 +1,36 @@
 package pagecontent
 
 import (
-    "github.com/turnerbenjamin/heterogen_portal/internal/templates"
 	  "github.com/turnerbenjamin/querystack/querymodel"
 	  "github.com/turnerbenjamin/heterogen_portal/internal/icons"
+	"github.com/turnerbenjamin/heterogen_portal/internal/tables"
+	"github.com/turnerbenjamin/heterogen_portal/internal/model"
 )
 
 
 templ MainTable[T querymodel.TableModel](
+    tableCellBuilder model.UiTableCellBuilder,
     icons *icons.IconSet,
-    tableData templates.TableData[T],
+    tableData tables.TableData[T],
 ){
     switch tableData.RequestTarget{
-        case templates.MainTableRequestTargetTableBody:
-            @tableBody(tableData)
-        case templates.MainTableRequestTargetTable:
-            @table(tableData)
+        case tables.MainTableRequestTargetTableBody:
+            @tableBody(tableCellBuilder, tableData)
+        case tables.MainTableRequestTargetTable:
+            @table(tableCellBuilder, tableData)
         default:
-            @mainTablePageContent(icons, tableData)
+            @mainTablePageContent(tableCellBuilder, icons, tableData)
     }
 }
 
 templ mainTablePageContent[T querymodel.TableModel](
+    tableCellBuilder model.UiTableCellBuilder,
     icons *icons.IconSet,
-    tableData templates.TableData[T],
+    tableData tables.TableData[T],
 ){
     <main id="main-table-content">
         <div class="main-table-head">
-            <h3>{tableData.TableName}</h3>
+            <h3>{tableData.TableDefinition.PluralDisplayName}</h3>
             <div class="main-table-cmd">
                 <button 
                     class="button-link"
@@ -47,17 +50,18 @@ templ mainTablePageContent[T querymodel.TableModel](
             </div>
         </div>
         <table id="main-table" class="main-table mt-6"> 
-        @table(tableData)
+        @table(tableCellBuilder, tableData)
         </table>
     </main>
 }
 
 templ table[T querymodel.TableModel](
-    tableData templates.TableData[T],
+    tableCellBuilder model.UiTableCellBuilder,
+    tableData tables.TableData[T],
 ){
     <thead>
         <tr>
-        for _, headerColumn := range tableData.Query.SelectCols{
+        for _, headerColumn := range tableData.Query.SelectQuery.Columns{
             <th 
                 data-column-path={headerColumn.Path}
             >
@@ -67,17 +71,18 @@ templ table[T querymodel.TableModel](
         </tr>
     </thead>
     <tbody id="main-table-body">
-        @tableBody(tableData) 
+        @tableBody(tableCellBuilder, tableData) 
     </tbody>
 }
 
 templ tableBody[T querymodel.TableModel](
-    tableData templates.TableData[T],
+    tableCellBuilder model.UiTableCellBuilder,
+    tableData tables.TableData[T],
 ){
 for _ , row := range tableData.Rows{
     <tr>
-    for _, headerColumn := range tableData.Query.SelectCols{
-        <td data-label={headerColumn.DisplayName}>{headerColumn.GetData(row)}</td>
+    for _, headerColumn := range tableData.Query.SelectQuery.Columns{
+        @headerColumn.BuildTableCell(row, tableCellBuilder)
     }
     </tr>
 }

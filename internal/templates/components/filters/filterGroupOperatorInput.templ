@@ -1,0 +1,12 @@
+package filters
+
+import "github.com/turnerbenjamin/querystack/querymodel"
+
+templ FilterGroupOperatorInput(
+  value querymodel.LogicalOperator,
+) {
+    <select required name="filter-group-operator" class="filter-group-operator">
+      <option value="and" selected?={value == querymodel.LogicalAnd}>And</option>
+      <option value="or" selected?={value == querymodel.LogicalOr}>Or</option>
+    </select>
+}

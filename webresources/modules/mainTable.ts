@@ -21,6 +21,7 @@ import {
   parseHtmlElement,
   classSelector,
   getElementById,
+  getTemplateById,
 } from "./utils";
 
 interface SelectStatement {
@@ -34,6 +35,8 @@ export class MainTable {
 
   private editColumnsListPreEditState: HTMLElement | null = null;
   private addColumnsListPreEditState: HTMLElement | null = null;
+
+  private sortableItemTemplate: HTMLElement | null = null;
 
   public constructor(
     alertManager: AlertManager,
@@ -151,9 +154,6 @@ export class MainTable {
       this._alertManager.renderError(editColumnsListItemsRes.error);
       return;
     }
-    const editColumnsListItems = editColumnsListItemsRes.value;
-
-    const protoEditColumn = editColumnsListItems[0];
 
     const addColumnsListItemsRes = this.getAddColumnsListItems(addColumnsList);
     if (!addColumnsListItemsRes.ok) {
@@ -195,7 +195,13 @@ export class MainTable {
       setVisibility(optionSetEl, false);
 
       // 2. Add to edit columns
-      const newEditItem = protoEditColumn.cloneNode(true) as HTMLElement;
+      const newEditItemRes = this.newSortableItem();
+      if (!newEditItemRes.ok) {
+        this._alertManager.renderError(newEditItemRes.error);
+        return;
+      }
+      const newEditItem = newEditItemRes.value;
+
       newEditItem.setAttribute(
         constants.classes.sortableList.items.attributes.columnPath,
         checkboxEl.value,
@@ -573,4 +579,42 @@ export class MainTable {
       document.getElementById(constants.mainPages.mainTablePage.id) !== null
     );
   };
+
+  private newSortableItem = (): Result<HTMLElement> => {
+    if (this.sortableItemTemplate === null) {
+      const prototype = this.getTemplateContents(
+        constants.editColumns.templates.sortableItem,
+        constants.classes.sortableList.items.className,
+      );
+      if (!prototype.ok) {
+        this._alertManager.renderError(prototype.error);
+        return prototype;
+      }
+
+      this.sortableItemTemplate = prototype.value;
+    }
+
+    const clone = this.sortableItemTemplate.cloneNode(true) as HTMLElement;
+    return Success(clone);
+  };
+
+  private getTemplateContents(
+    templateId: string,
+    wantClass: string,
+  ): Result<HTMLElement> {
+    const templRes = getTemplateById(templateId);
+    if (!templRes.ok) {
+      return templRes;
+    }
+
+    const prototype = parseHtmlElement(
+      templRes.value.content.querySelector(classSelector(wantClass)),
+    );
+    if (!prototype.ok) {
+      return Fail(
+        new UnexpectedErr(`expected ${templateId} to contain .${wantClass}`),
+      );
+    }
+    return prototype;
+  }
 }

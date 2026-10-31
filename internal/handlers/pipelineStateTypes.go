@@ -2,7 +2,7 @@ package handlers
 
 import (
 	"github.com/turnerbenjamin/heterogen_portal/internal/model"
-	"github.com/turnerbenjamin/heterogen_portal/internal/templates"
+	"github.com/turnerbenjamin/heterogen_portal/internal/tables"
 	"github.com/turnerbenjamin/querystack/querymodel"
 )
 
@@ -21,7 +21,7 @@ type UserState interface {
 }
 
 type TableState[T querymodel.TableModel] interface {
-	GetTableData() *templates.TableData[T]
+	GetTableData() *tables.TableData[T]
 }
 
 type userState struct {
@@ -42,13 +42,13 @@ func (s *userState) SetUser(v *model.UsersModel) {
 
 type UsersTableState struct {
 	User      *model.UsersModel
-	TableData *templates.TableData[*model.UsersModel]
+	TableData *tables.TableData[*model.UsersModel]
 }
 
 func UsersTableStateInit() *UsersTableState {
 	return &UsersTableState{
-		TableData: &templates.TableData[*model.UsersModel]{
-			ColumnDefinitions: userTableColumns,
+		TableData: &tables.TableData[*model.UsersModel]{
+			TableDefinition: model.UsersTable,
 		},
 	}
 }
@@ -61,19 +61,19 @@ func (s *UsersTableState) SetUser(v *model.UsersModel) {
 	s.User = v
 }
 
-func (s *UsersTableState) GetTableData() *templates.TableData[*model.UsersModel] {
+func (s *UsersTableState) GetTableData() *tables.TableData[*model.UsersModel] {
 	return s.TableData
 }
 
 type BusinessesTableState struct {
 	User      *model.UsersModel
-	TableData *templates.TableData[*model.BusinessesModel]
+	TableData *tables.TableData[*model.BusinessesModel]
 }
 
 func BusinessesTableStateInit() *BusinessesTableState {
 	return &BusinessesTableState{
-		TableData: &templates.TableData[*model.BusinessesModel]{
-			ColumnDefinitions: businessTableColumns,
+		TableData: &tables.TableData[*model.BusinessesModel]{
+			TableDefinition: model.BusinessesTable,
 		},
 	}
 }
@@ -86,6 +86,6 @@ func (s *BusinessesTableState) SetUser(v *model.UsersModel) {
 	s.User = v
 }
 
-func (s *BusinessesTableState) GetTableData() *templates.TableData[*model.BusinessesModel] {
+func (s *BusinessesTableState) GetTableData() *tables.TableData[*model.BusinessesModel] {
 	return s.TableData
 }

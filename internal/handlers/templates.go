@@ -7,6 +7,7 @@ import (
 
 	"github.com/turnerbenjamin/heterogen_portal/internal/etc"
 	"github.com/turnerbenjamin/heterogen_portal/internal/model"
+	"github.com/turnerbenjamin/heterogen_portal/internal/tables"
 	"github.com/turnerbenjamin/heterogen_portal/internal/templates"
 )
 
@@ -30,7 +31,7 @@ type TemplateStore interface {
 		ctx context.Context,
 		w io.Writer,
 		pageConfig templates.PageConfig,
-		tableData *templates.TableData[*model.UsersModel],
+		tableData *tables.TableData[*model.UsersModel],
 		resourceEndpoint string,
 	) error
 
@@ -38,7 +39,7 @@ type TemplateStore interface {
 		ctx context.Context,
 		w io.Writer,
 		pageConfig templates.PageConfig,
-		tableData *templates.TableData[*model.BusinessesModel],
+		tableData *tables.TableData[*model.BusinessesModel],
 		resourceEndpoint string,
 	) error
 

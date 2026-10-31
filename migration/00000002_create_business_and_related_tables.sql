@@ -22,7 +22,7 @@ VALUES
     (2, N'Grower');
 
 CREATE TABLE hg.businesses (
-    id NVARCHAR(36) NOT NULL PRIMARY KEY DEFAULT (NEWID()),
+    id UNIQUEIDENTIFIER NOT NULL PRIMARY KEY DEFAULT (NEWID()),
 
     reference NVARCHAR(8) NOT NULL UNIQUE,
     trading_name NVARCHAR(255) NOT NULL UNIQUE,
@@ -50,9 +50,9 @@ CREATE TABLE hg.businesses (
         CHECK (Location.STGeometryType() = 'Point'),
 
     created_at DATETIMEOFFSET(7) NOT NULL,
-    created_by_id NVARCHAR(36) NOT NULL,
+    created_by_id UNIQUEIDENTIFIER NOT NULL,
     modified_at DATETIMEOFFSET(7) NOT NULL,
-    modified_by_id NVARCHAR(36) NOT NULL,
+    modified_by_id UNIQUEIDENTIFIER NOT NULL,
 
     CONSTRAINT FK_business_business_type
         FOREIGN KEY (business_type)
@@ -77,21 +77,55 @@ EXEC sys.sp_addextendedproperty
     @level2type = N'COLUMN',
     @level2name = N'business_type';
 
+EXEC sys.sp_addextendedproperty
+    @name = N'DisplayName',
+    @value = N'CPH Number',
+    @level0type = N'SCHEMA',
+    @level0name = N'hg',
+    @level1type = N'TABLE',
+    @level1name = N'businesses',
+    @level2type = N'COLUMN',
+    @level2name = N'cph_number';
+
+EXEC sys.sp_addextendedproperty
+    @name = N'DisplayName',
+    @value = N'Business',
+    @level0type = N'SCHEMA',
+    @level0name = N'hg',
+    @level1type = N'TABLE',
+    @level1name = N'businesses';
+
+EXEC sys.sp_addextendedproperty
+    @name = N'PluralName',
+    @value = N'Businesses',
+    @level0type = N'SCHEMA',
+    @level0name = N'hg',
+    @level1type = N'TABLE',
+    @level1name = N'businesses';
+
+EXEC sys.sp_addextendedproperty
+    @name = N'PrimaryColumn',
+    @value = N'trading_name',
+    @level0type = N'SCHEMA',
+    @level0name = N'hg',
+    @level1type = N'TABLE',
+    @level1name = N'businesses';
+
 CREATE TABLE hg.farm_fields (
-    id NVARCHAR(36) NOT NULL PRIMARY KEY DEFAULT (NEWID()),
+    id UNIQUEIDENTIFIER NOT NULL PRIMARY KEY DEFAULT (NEWID()),
 
     reference NVARCHAR(255) NOT NULL,
 
-    business_id NVARCHAR(36) NOT NULL,
+    business_id UNIQUEIDENTIFIER NOT NULL,
 
     location GEOGRAPHY NOT NULL
         CONSTRAINT CK_FarmFields_Location_IsPoint
         CHECK (Location.STGeometryType() = 'Point'),
 
     created_at DATETIMEOFFSET(7) NOT NULL,
-    created_by_id NVARCHAR(36) NOT NULL,
+    created_by_id UNIQUEIDENTIFIER NOT NULL,
     modified_at DATETIMEOFFSET(7) NOT NULL,
-    modified_by_id NVARCHAR(36) NOT NULL,
+    modified_by_id UNIQUEIDENTIFIER NOT NULL,
 
     CONSTRAINT FK_field_business
         FOREIGN KEY (business_id)
@@ -106,6 +140,30 @@ CREATE TABLE hg.farm_fields (
         FOREIGN KEY (modified_by_id)
         REFERENCES hg.users(id)
 );
+
+EXEC sys.sp_addextendedproperty
+    @name = N'DisplayName',
+    @value = N'Field',
+    @level0type = N'SCHEMA',
+    @level0name = N'hg',
+    @level1type = N'TABLE',
+    @level1name = N'farm_fields';
+
+EXEC sys.sp_addextendedproperty
+    @name = N'PluralName',
+    @value = N'Fields',
+    @level0type = N'SCHEMA',
+    @level0name = N'hg',
+    @level1type = N'TABLE',
+    @level1name = N'farm_fields';
+
+EXEC sys.sp_addextendedproperty
+    @name = N'PrimaryColumn',
+    @value = N'reference',
+    @level0type = N'SCHEMA',
+    @level0name = N'hg',
+    @level1type = N'TABLE',
+    @level1name = N'farm_fields';
 
 CREATE INDEX IX_businesses_trading_name
     ON hg.businesses(trading_name);

@@ -7,22 +7,34 @@ import (
 	"github.com/turnerbenjamin/heterogen_portal/internal/icons"
 	"github.com/turnerbenjamin/heterogen_portal/internal/templates/sidebarcontent"
 	"github.com/turnerbenjamin/querystack/querymodel"
+	"github.com/turnerbenjamin/heterogen_portal/internal/tables"
+	"github.com/turnerbenjamin/heterogen_portal/internal/model"
 )
 
 
 templ MainTable[T querymodel.TableModel](
     pageConfig templates.PageConfig, 
     icons *icons.IconSet,
-    tableData templates.TableData[T],
+    inputBuilder model.UiInputControlBuilder,
+    tableCellBuilder model.UiTableCellBuilder,
+    tableData tables.TableData[T],
     resourceEndpoint string,
 ) {
     @layouts.App(
         pageConfig,
         icons,
         layouts.Content{
-           MainContent: pagecontent.MainTable(icons, tableData),
-            SidebarContent: sidebarcontent.MainTableSidebarContent(resourceEndpoint, icons, tableData),
-            NestedSidebarContent: sidebarcontent.MainTableNestedSidebarContent(icons, tableData),
+           MainContent: pagecontent.MainTable(tableCellBuilder, icons, tableData),
+            SidebarContent: sidebarcontent.MainTableSidebarContent(
+                resourceEndpoint, 
+                inputBuilder,
+                icons, 
+                tableData,
+            ),
+            NestedSidebarContent: sidebarcontent.MainTableNestedSidebarContent(
+                icons, 
+                tableData,
+            ),
         },
     )
 }

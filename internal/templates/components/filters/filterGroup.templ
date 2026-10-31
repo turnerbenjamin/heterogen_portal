@@ -1,0 +1,56 @@
+package filters
+
+import "github.com/turnerbenjamin/querystack/querymodel"
+import "github.com/turnerbenjamin/heterogen_portal/internal/tables"
+import "github.com/turnerbenjamin/heterogen_portal/internal/model"
+import "github.com/turnerbenjamin/heterogen_portal/internal/icons"
+
+templ FilterGroup[T querymodel.TableModel](
+  icons *icons.IconSet,
+  inputBuilder model.UiInputControlBuilder,
+  tableData tables.TableData[T],
+  filterGroup tables.FilterGroup,
+  depth uint8,
+) {
+  <div class="filter-item filter-group" data-depth={depth} data-depth-even?={depth % 2 == 0}>
+    <div class="filter-group-title">
+      @FilterGroupOperatorInput(filterGroup.GroupType)
+      if depth > 1{
+        <button 
+          class="icon icon-button small delete-button"
+          onclick="hg.mainTable.filters.deleteRuleGroup(event)"
+        >
+          @templ.Raw(icons.Trash)
+        </button>
+      }
+    </div>
+
+    <div class="filter-group-items">
+    if len(filterGroup.Items) > 0{
+      for _, i := range filterGroup.Items{
+        @FilterItem(icons, inputBuilder, tableData, i, depth)
+      }
+    }else{
+      @FilterRule(icons, inputBuilder, tableData, tables.FilterRule[T]{})
+    }
+
+    </div>
+    <div class="filter-group-controls">
+      <button 
+        class="secondary"
+        onClick="hg.mainTable.filters.newRule(event)"
+      >
+        New Rule
+      </button>
+      if depth < 5{
+      <button 
+        class="secondary filter-group-controls_new-rule-button"
+        onClick="hg.mainTable.filters.newRuleGroup(event)"
+      >
+        New Rule Group
+      </button>
+      }
+    </div>
+
+  </div>
+}

@@ -1,0 +1,19 @@
+package tablecells
+
+import "time"
+import "github.com/turnerbenjamin/heterogen_portal/internal/templates"
+
+templ DateCell(v *time.Time) {
+  {{
+    label := "-"
+    if v != nil{
+      label = v.In(templates.GMT).Format("2 Jan 2006 15:04 MST")
+    }
+  }}
+
+  <td 
+    title={label}
+  >
+    {label}
+  </td>
+}

@@ -7,32 +7,31 @@ import (
 	"os"
 	"strings"
 
-	"github.com/turnerbenjamin/heterogen_portal/cmd/modelbuilder/builderrepo"
+	"github.com/turnerbenjamin/heterogen_portal/cmd/modelbuilder/schemamodel"
 )
 
 type constantsWriter struct {
 	path     string
-	metadata *builderrepo.DatabaseSchema
-	sb       *strings.Builder
+	metadata *schemamodel.Schema
+	wtr      *writer
 }
 
 func NewConstantsWriter(
 	path string,
-	metadata *builderrepo.DatabaseSchema,
+	metadata *schemamodel.Schema,
 ) *constantsWriter {
 	return &constantsWriter{
 		path:     path,
 		metadata: metadata,
-		sb:       &strings.Builder{},
+		wtr:      &writer{&strings.Builder{}},
 	}
 }
 
 func (w *constantsWriter) Write() {
-	buildTableRelationshipData(w.metadata)
 	w.writePackageDefinition()
 	w.writeConstants()
 
-	raw := w.sb.String()
+	raw := w.wtr.String()
 	formatted, err := format.Source([]byte(raw))
 	if err != nil {
 		log.Fatal(err)
@@ -47,25 +46,25 @@ func (w *constantsWriter) Write() {
 func (w *constantsWriter) writeConstants() {
 
 	w.writeColumnNameConstants()
-	writeToBuilder(w.sb, "\n")
+	w.wtr.NewLine()
 
 	// w.writeColumnTypeConstants()
-	// writeToBuilder(w.sb, "\n")
+	// w.wtr.NewLine()
 
 	w.writeColumnDisplayNameConstants()
-	writeToBuilder(w.sb, "\n")
+	w.wtr.NewLine()
 
 	w.writeRelationshipNameConstants()
-	writeToBuilder(w.sb, "\n")
+	w.wtr.NewLine()
 
 	w.writeRelationshipDisplayNameConstants()
-	writeToBuilder(w.sb, "\n")
+	w.wtr.NewLine()
 
 	w.writeMaxLengthConstants()
 }
 
 func (w *constantsWriter) writePackageDefinition() {
-	writeToBuilder(w.sb, `//GENERATED CODE
+	w.wtr.WriteLine(`//GENERATED CODE
 // see cmd/modelbuilder/
 package model
 
@@ -74,62 +73,62 @@ type DataType string
 const (
 	DataTypeString DataType = "string"
 	DataTypeNumber DataType = "number"
+	DataTypeEnum DataType = "enum"
 	DataTypeTime   DataType = "time"
 	DataTypePoint  DataType = "point"
-)
-`)
+)`)
 }
 
 func (w *constantsWriter) writeColumnNameConstants() {
-	writeToBuilder(w.sb, "// Constants representing column names in the database\n")
-	writeToBuilder(w.sb, "const(\n")
-	for i, table := range w.metadata.Tables {
+	w.wtr.WriteLine("// Constants representing column names in the database")
+	w.wtr.WriteLine("const(")
+	for i, table := range w.metadata.TableData.Ordered {
 		if i != 0 {
-			writeToBuilder(w.sb, "\n")
+			w.wtr.NewLine()
 		}
 
-		for _, column := range table.Columns {
+		for _, column := range table.ColumnData.Ordered {
 			fieldNameConst := fmt.Sprintf(
 				"Col%s%s",
 				snakeToPascal(table.Name),
 				snakeToPascal(column.Name),
 			)
-			writeToBuilder(w.sb, fmt.Sprintf("%s = \"%s\"\n", fieldNameConst, column.Name))
+			w.wtr.WriteLine("%s = %s", fieldNameConst, strLit(column.Name))
 		}
 	}
-	writeToBuilder(w.sb, ")\n")
+	w.wtr.WriteLine(")")
 }
 
 func (w *constantsWriter) writeColumnDisplayNameConstants() {
-	writeToBuilder(w.sb, "// Constants representing column display names in the database\n")
-	writeToBuilder(w.sb, "const(\n")
-	for i, table := range w.metadata.Tables {
+	w.wtr.WriteLine("// Constants representing column display names in the database")
+	w.wtr.WriteLine("const(")
+	for i, table := range w.metadata.TableData.Ordered {
 		if i != 0 {
-			writeToBuilder(w.sb, "\n")
+			w.wtr.NewLine()
 		}
 
-		for _, column := range table.Columns {
+		for _, column := range table.ColumnData.Ordered {
 			fieldNameConst := fmt.Sprintf(
 				"ColDisplayName%s%s",
 				snakeToPascal(table.Name),
 				snakeToPascal(column.Name),
 			)
-			writeToBuilder(w.sb, fmt.Sprintf("%s = \"%s\"\n", fieldNameConst, snakeToDisplayName(column.Name)))
+			w.wtr.WriteLine("%s = %s", fieldNameConst, strLit(snakeToDisplayName(column.Name)))
 		}
 	}
-	writeToBuilder(w.sb, ")\n")
+	w.wtr.WriteLine(")")
 }
 
 // func (w *constantsWriter) writeColumnTypeConstants() {
-// 	writeToBuilder(w.sb, "// Constants representing column data types\n")
-// 	writeToBuilder(w.sb, "const(\n")
-// 	for i, table := range w.metadata.Tables {
+// 	w.wtr.WriteLine("// Constants representing column data types")
+// 	w.wtr.WriteLine("const(")
+// 	for i, table := range w.metadata.TableData.Ordered {
 // 		if i != 0 {
-// 			writeToBuilder(w.sb, "\n")
+// 			w.wtr.NewLine()
 // 		}
 
-// 		for _, column := range table.Columns {
-// 			dataType := msqlTypeToDataTypeString(column.Type, column.Checks)
+// 		for _, column := range table.ColumnData.Ordered {
+// 			dataType := msqlTypeToDataTypeString(column)
 // 			if dataType == "" {
 // 				log.Fatal(fmt.Errorf("unable to convert type to go type: %s(%s)", column.Name, column.Type))
 // 			}
@@ -139,78 +138,70 @@ func (w *constantsWriter) writeColumnDisplayNameConstants() {
 // 				snakeToPascal(table.Name),
 // 				snakeToPascal(column.Name),
 // 			)
-// 			writeToBuilder(w.sb, fmt.Sprintf("%s = %s\n", fieldNameConst, dataType))
+// 			w.wtr.WriteLine("%s = %s", fieldNameConst, dataType)
 // 		}
 // 	}
-// 	writeToBuilder(w.sb, ")\n")
+// 	w.wtr.WriteLine(")")
 // }
 
 func (w *constantsWriter) writeRelationshipNameConstants() {
-	writeToBuilder(w.sb, "// Constants representing relationship columns names\n")
-	writeToBuilder(w.sb, "const(\n")
-	for i, table := range w.metadata.Tables {
+	w.wtr.WriteLine("// Constants representing relationship columns names")
+	w.wtr.WriteLine("const(")
+	for i, table := range w.metadata.TableData.Ordered {
 		if i != 0 {
-			writeToBuilder(w.sb, "\n")
+			w.wtr.NewLine()
 		}
 
-		for _, relationship := range table.Relationships {
-			if relationship.Type != "querymodel.RelationshipManyToOne" {
-				continue
-			}
-
+		for _, relationship := range table.RelationshipData.ManyToOneRelationships {
 			fieldNameConst := fmt.Sprintf(
 				"RelCol%s%s",
 				snakeToPascal(table.Name),
 				snakeToPascal(relationship.ColumnName),
 			)
-			writeToBuilder(w.sb, fmt.Sprintf("%s = \"%s\"\n", fieldNameConst, relationship.ColumnName))
+			w.wtr.WriteLine("%s = %s", fieldNameConst, strLit(relationship.ColumnName))
 		}
 	}
-	writeToBuilder(w.sb, ")\n")
+	w.wtr.WriteLine(")")
 }
 
 func (w *constantsWriter) writeRelationshipDisplayNameConstants() {
-	writeToBuilder(w.sb, "// Constants representing relationship columns display names\n")
-	writeToBuilder(w.sb, "const(\n")
-	for i, table := range w.metadata.Tables {
+	w.wtr.WriteLine("// Constants representing relationship columns display names")
+	w.wtr.WriteLine("const(")
+	for i, table := range w.metadata.TableData.Ordered {
 		if i != 0 {
-			writeToBuilder(w.sb, "\n")
+			w.wtr.NewLine()
 		}
 
-		for _, relationship := range table.Relationships {
-			if relationship.Type != "querymodel.RelationshipManyToOne" {
-				continue
-			}
-
+		for _, relationship := range table.RelationshipData.ManyToOneRelationships {
 			fieldNameConst := fmt.Sprintf(
 				"RelColDisplayName%s%s",
 				snakeToPascal(table.Name),
 				snakeToPascal(relationship.ColumnName),
 			)
-			writeToBuilder(w.sb, fmt.Sprintf("%s = \"%s\"\n", fieldNameConst, snakeToDisplayName(relationship.ExpansionColumnName)))
+			w.wtr.WriteLine("%s = %s", fieldNameConst, strLit(relationship.ExpansionColumn.DisplayName))
 		}
 	}
-	writeToBuilder(w.sb, ")\n")
+	w.wtr.WriteLine(")")
 }
 
 func (w *constantsWriter) writeMaxLengthConstants() {
-	writeToBuilder(w.sb, "// Constants representing column max lengths\n")
-	writeToBuilder(w.sb, "const(\n")
-	for _, table := range w.metadata.Tables {
-		for _, column := range table.Columns {
-			if column.Type != MsqlTypeNvarchar {
-				continue
+	w.wtr.WriteLine("// Constants representing column max lengths")
+	w.wtr.WriteLine("const(")
+	for _, table := range w.metadata.TableData.Ordered {
+		for _, column := range table.ColumnData.Ordered {
+			switch col := column.TypeData.AppType.(type) {
+			case schemamodel.AppColTypeString:
+				constraintConst := fmt.Sprintf(
+					"MaxLen%s%s",
+					snakeToPascal(table.Name),
+					snakeToPascal(column.Name),
+				)
+				w.wtr.WriteLine("%s = %d", constraintConst, col.MaxLenth)
 			}
-			constraintConst := fmt.Sprintf(
-				"MaxLen%s%s",
-				snakeToPascal(table.Name),
-				snakeToPascal(column.Name),
-			)
-			writeToBuilder(w.sb, fmt.Sprintf("%s = %d\n", constraintConst, column.MaxLength))
 		}
 	}
 
-	writeToBuilder(w.sb, ")\n")
+	w.wtr.WriteLine(")")
 }
 
 func snakeToDisplayName(s string) string {

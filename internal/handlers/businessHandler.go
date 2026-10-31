@@ -9,6 +9,7 @@ import (
 
 	"github.com/turnerbenjamin/heterogen_portal/internal/etc"
 	"github.com/turnerbenjamin/heterogen_portal/internal/model"
+	"github.com/turnerbenjamin/heterogen_portal/internal/tables"
 	"github.com/turnerbenjamin/heterogen_portal/internal/templates"
 	"github.com/turnerbenjamin/querystack/querymodel"
 )
@@ -21,12 +22,12 @@ type BusinessesService interface {
 }
 
 type BusinessesHandler struct {
-	templateStore       TemplateStore
-	businessesService   BusinessesService
-	orderedTableColumns []templates.ColumnData[*model.BusinessesModel]
-	tableColumns        map[string]templates.ColumnData[*model.BusinessesModel]
+	templateStore     TemplateStore
+	businessesService BusinessesService
 
-	defaultQuery *templates.TableQuery[*model.BusinessesModel]
+	TableDefinition model.TableDefinition[*model.BusinessesModel]
+
+	defaultSelect tables.SelectQuery[*model.BusinessesModel]
 }
 
 func NewBusinessesHandler(
@@ -37,14 +38,14 @@ func NewBusinessesHandler(
 		templateStore:     templateStore,
 		businessesService: businessesService,
 
-		orderedTableColumns: OrderedColumnData(businessTableColumns),
-		tableColumns:        businessTableColumns,
+		TableDefinition: model.BusinessesTable,
 
-		defaultQuery: newTableQuery([]templates.ColumnData[*model.BusinessesModel]{
-			columnDataBusinessesTradingName,
-			columnDataBusinessesReference,
-			columnDataBusinessesBusinessType,
-			columnDataBusinessesCounty,
+		defaultSelect: tables.BuildSelectQuery([]model.TableColumn[*model.BusinessesModel]{
+			model.BusinessesTradingNameColumn,
+			model.BusinessesReferenceColumn,
+			model.BusinessesBusinessTypeColumn,
+			model.BusinessesCountyColumn,
+			model.BusinessesCreatedByIdColumn,
 		}),
 	}
 
@@ -63,16 +64,18 @@ func (h *BusinessesHandler) GetRoot(
 	}
 
 	d := c.state.TableData
+	d.TableDefinition = h.TableDefinition
 
-	d.TableName = "Businesses"
-	d.SchemaVersion = 1
-
-	d.OrderedColumnDefinitions = h.orderedTableColumns
-	d.ColumnDefinitions = h.tableColumns
-
-	if d.Query == nil {
-		d.Query = h.defaultQuery
+	if len(d.Query.SelectQuery.Columns) == 0 {
+		d.Query.SetSelect(h.defaultSelect)
 	}
+
+	// d.Query.QueryString +=
+	// 	"&filter=reference contains '0' and (county eq 'Dorset' or county " +
+	// 		"contains 'shire' or business_type eq 2) and created_at lt " +
+	// 		"datetime(2029-10-15T07:30:44.958590557+01:00) and " +
+	// 		"(created_by_id/email_address startswith 'info') and (trading_name ne null " +
+	// 		" or (created_by_id ne null and trading_name endswith 'turn'))"
 
 	result, err := h.businessesService.ExecuteQuery(
 		r.Context(),
@@ -82,8 +85,16 @@ func (h *BusinessesHandler) GetRoot(
 		return etc.NewServerError(err)
 	}
 
+	tableFilter, err := tables.BuildTableFilter(
+		&h.TableDefinition,
+		result.Filter,
+	)
+	if err != nil {
+		return etc.NewServerError(err)
+	}
+
+	d.Filter = tableFilter
 	d.Rows = result.Data
-	c.state.TableData = d
 
 	err = h.templateStore.ExecutePageBusinesses(
 		r.Context(),

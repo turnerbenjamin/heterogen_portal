@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"time"
 
+	mssql "github.com/microsoft/go-mssqldb"
 	"github.com/turnerbenjamin/querystack/querymodel"
 )
 
@@ -60,7 +61,10 @@ func (r BusinessesResource) InitProjection() querymodel.Projection {
 }
 
 // SliceFromJSON unmarshals a json array of businesses and returns it as a slice
-func (m BusinessesResource) SliceFromJSON(jsonData []byte, projectionNode *querymodel.ProjectionNode) ([]querymodel.TableModel, error) {
+func (m BusinessesResource) SliceFromJSON(
+	jsonData []byte,
+	projectionNode *querymodel.ProjectionNode,
+) ([]querymodel.TableModel, error) {
 	if len(jsonData) == 0 {
 		return []querymodel.TableModel{}, nil
 	}
@@ -81,7 +85,11 @@ func (m BusinessesResource) SliceFromJSON(jsonData []byte, projectionNode *query
 }
 
 // TypedSliceFromJSON unmarshals a json array of businesses and returns it as a slice
-func (m BusinessesResource) TypedSliceFromJSON(jsonData []byte, projectionNode *querymodel.ProjectionNode) ([]*BusinessesModel, error) {
+
+func (m BusinessesResource) TypedSliceFromJSON(
+	jsonData []byte,
+	projectionNode *querymodel.ProjectionNode,
+) ([]*BusinessesModel, error) {
 	if len(jsonData) == 0 {
 		return []*BusinessesModel{}, nil
 	}
@@ -107,46 +115,6 @@ var BusinessesMetadata = querymodel.TableMetadata{
 		Type: querymodel.DbTypeString,
 	},
 	Columns: map[string]querymodel.ColumnMetadata{
-		"id": {
-			Name: "id",
-			Type: querymodel.DbTypeString,
-		},
-		"reference": {
-			Name: "reference",
-			Type: querymodel.DbTypeString,
-		},
-		"trading_name": {
-			Name: "trading_name",
-			Type: querymodel.DbTypeString,
-		},
-		"logo_url": {
-			Name: "logo_url",
-			Type: querymodel.DbTypeString,
-		},
-		"description": {
-			Name: "description",
-			Type: querymodel.DbTypeString,
-		},
-		"business_type": {
-			Name: "business_type",
-			Type: querymodel.DbTypeEnum,
-		},
-		"cph_number": {
-			Name: "cph_number",
-			Type: querymodel.DbTypeString,
-		},
-		"email_address": {
-			Name: "email_address",
-			Type: querymodel.DbTypeString,
-		},
-		"contact_number": {
-			Name: "contact_number",
-			Type: querymodel.DbTypeString,
-		},
-		"website_url": {
-			Name: "website_url",
-			Type: querymodel.DbTypeString,
-		},
 		"address_line_1": {
 			Name: "address_line_1",
 			Type: querymodel.DbTypeString,
@@ -155,79 +123,87 @@ var BusinessesMetadata = querymodel.TableMetadata{
 			Name: "address_line_2",
 			Type: querymodel.DbTypeString,
 		},
-		"town": {
-			Name: "town",
-			Type: querymodel.DbTypeString,
+		"business_type": {
+			Name: "business_type",
+			Type: querymodel.DbTypeEnum,
 		},
-		"county": {
-			Name: "county",
+		"contact_number": {
+			Name: "contact_number",
 			Type: querymodel.DbTypeString,
 		},
 		"country": {
 			Name: "country",
 			Type: querymodel.DbTypeString,
 		},
-		"postcode": {
-			Name: "postcode",
+		"county": {
+			Name: "county",
+			Type: querymodel.DbTypeString,
+		},
+		"cph_number": {
+			Name: "cph_number",
+			Type: querymodel.DbTypeString,
+		},
+		"created_at": {
+			Name: "created_at",
+			Type: querymodel.DbTypeDate,
+		},
+		"created_by_id": {
+			Name: "created_by_id",
+			Type: querymodel.DbTypeString,
+		},
+		"description": {
+			Name: "description",
+			Type: querymodel.DbTypeString,
+		},
+		"email_address": {
+			Name: "email_address",
+			Type: querymodel.DbTypeString,
+		},
+		"id": {
+			Name: "id",
 			Type: querymodel.DbTypeString,
 		},
 		"location": {
 			Name: "location",
 			Type: querymodel.DbTypePoint,
 		},
-		"created_at": {
-			Name: "created_at",
-			Type: querymodel.DbTypeDateTime,
-		},
-		"created_by_id": {
-			Name: "created_by_id",
+		"logo_url": {
+			Name: "logo_url",
 			Type: querymodel.DbTypeString,
 		},
 		"modified_at": {
 			Name: "modified_at",
-			Type: querymodel.DbTypeDateTime,
+			Type: querymodel.DbTypeDate,
 		},
 		"modified_by_id": {
 			Name: "modified_by_id",
 			Type: querymodel.DbTypeString,
 		},
+		"postcode": {
+			Name: "postcode",
+			Type: querymodel.DbTypeString,
+		},
+		"reference": {
+			Name: "reference",
+			Type: querymodel.DbTypeString,
+		},
+		"town": {
+			Name: "town",
+			Type: querymodel.DbTypeString,
+		},
+		"trading_name": {
+			Name: "trading_name",
+			Type: querymodel.DbTypeString,
+		},
+		"website_url": {
+			Name: "website_url",
+			Type: querymodel.DbTypeString,
+		},
 	},
 	Relationships: map[string]querymodel.RelationshipMetadata{
-		"modified_by_id": {
-			Id:                  "businesses_modified_by_id_users_id",
-			Type:                querymodel.RelationshipManyToOne,
-			ColumnName:          "modified_by_id",
-			ExpansionColumnName: "modified_by",
-			From:                BusinessesResource{},
-			To:                  UsersResource{},
-			FromColumn: querymodel.ColumnMetadata{
-				Name: "modified_by_id",
-				Type: querymodel.DbTypeString,
-			},
-			ToColumn: querymodel.ColumnMetadata{
-				Name: "id",
-				Type: querymodel.DbTypeString,
-			},
-		},
-		"farm_fields_businesses_business_id": {
-			Id:                  "farm_fields_business_id_businesses_id",
-			Type:                querymodel.RelationshipOneToMany,
-			ColumnName:          "farm_fields_businesses_business_id",
-			ExpansionColumnName: "farm_fields_businesses_business_id",
-			From:                BusinessesResource{},
-			To:                  FarmFieldsResource{},
-			FromColumn: querymodel.ColumnMetadata{
-				Name: "id",
-				Type: querymodel.DbTypeString,
-			},
-			ToColumn: querymodel.ColumnMetadata{
-				Name: "business_id",
-				Type: querymodel.DbTypeString,
-			},
-		},
 		"created_by_id": {
 			Id:                  "businesses_created_by_id_users_id",
-			Type:                querymodel.RelationshipManyToOne,
+			Type:                "N:1",
 			ColumnName:          "created_by_id",
 			ExpansionColumnName: "created_by",
 			From:                BusinessesResource{},
@@ -241,35 +217,67 @@ var BusinessesMetadata = querymodel.TableMetadata{
 				Type: querymodel.DbTypeString,
 			},
 		},
+		"farm_fields_businesses_business_id": {
+			Id:                  "farm_fields_business_id_businesses_id",
+			Type:                "1:N",
+			ColumnName:          "farm_fields_businesses_business_id",
+			ExpansionColumnName: "farm_fields_businesses_business_id",
+			From:                BusinessesResource{},
+			To:                  FarmFieldsResource{},
+			FromColumn: querymodel.ColumnMetadata{
+				Name: "farm_fields_businesses_business_id",
+				Type: querymodel.DbTypeString,
+			},
+			ToColumn: querymodel.ColumnMetadata{
+				Name: "business_id",
+				Type: querymodel.DbTypeString,
+			},
+		},
+		"modified_by_id": {
+			Id:                  "businesses_modified_by_id_users_id",
+			Type:                "N:1",
+			ColumnName:          "modified_by_id",
+			ExpansionColumnName: "modified_by",
+			From:                BusinessesResource{},
+			To:                  UsersResource{},
+			FromColumn: querymodel.ColumnMetadata{
+				Name: "modified_by_id",
+				Type: querymodel.DbTypeString,
+			},
+			ToColumn: querymodel.ColumnMetadata{
+				Name: "id",
+				Type: querymodel.DbTypeString,
+			},
+		},
 	},
 }
 
 // BusinessesModel represents a row from the hg.businesses table.
 type BusinessesModel struct {
-	Id                             string                     `json:"id"`
-	Reference                      string                     `json:"reference"`
-	TradingName                    string                     `json:"trading_name"`
-	LogoUrl                        string                     `json:"logo_url"`
-	Description                    string                     `json:"description"`
-	BusinessType                   EnumBusinessesBusinessType `json:"business_type"`
-	CphNumber                      string                     `json:"cph_number"`
-	EmailAddress                   string                     `json:"email_address"`
-	ContactNumber                  string                     `json:"contact_number"`
-	WebsiteUrl                     string                     `json:"website_url"`
 	AddressLine1                   string                     `json:"address_line_1"`
 	AddressLine2                   string                     `json:"address_line_2"`
-	Town                           string                     `json:"town"`
-	County                         string                     `json:"county"`
+	BusinessType                   EnumBusinessesBusinessType `json:"business_type"`
+	ContactNumber                  string                     `json:"contact_number"`
 	Country                        string                     `json:"country"`
-	Postcode                       string                     `json:"postcode"`
-	Location                       *querymodel.Point          `json:"location"`
+	County                         string                     `json:"county"`
+	CphNumber                      string                     `json:"cph_number"`
 	CreatedAt                      *time.Time                 `json:"created_at"`
-	CreatedById                    string                     `json:"created_by_id"`
-	ModifiedAt                     *time.Time                 `json:"modified_at"`
-	ModifiedById                   string                     `json:"modified_by_id"`
 	CreatedBy                      *UsersModel                `json:"created_by"`
+	CreatedById                    mssql.UniqueIdentifier     `json:"created_by_id"`
+	Description                    string                     `json:"description"`
+	EmailAddress                   string                     `json:"email_address"`
+	FarmFieldsBusinessesBusinessId *FarmFieldsModel           `json:"farm_fields_businesses_business_id"`
+	Id                             mssql.UniqueIdentifier     `json:"id"`
+	Location                       *querymodel.Point          `json:"location"`
+	LogoUrl                        string                     `json:"logo_url"`
+	ModifiedAt                     *time.Time                 `json:"modified_at"`
 	ModifiedBy                     *UsersModel                `json:"modified_by"`
-	FarmFieldsBusinessesBusinessId FarmFieldsModels           `json:"farm_fields_businesses_business_id"`
+	ModifiedById                   mssql.UniqueIdentifier     `json:"modified_by_id"`
+	Postcode                       string                     `json:"postcode"`
+	Reference                      string                     `json:"reference"`
+	Town                           string                     `json:"town"`
+	TradingName                    string                     `json:"trading_name"`
+	WebsiteUrl                     string                     `json:"website_url"`
 	projection                     BusinessesProjection       `json:"-"`
 }
 
@@ -314,21 +322,22 @@ func (ms BusinessesModels) SetProjection(projectionNode *querymodel.ProjectionNo
 
 // setBusinessesProjection sets a projection node and sets projection for itself and any
 // child nodes
-func (m *BusinessesModel) setBusinessesProjection(projection BusinessesProjection, childNodes map[string]*querymodel.ProjectionNode) error {
+func (m *BusinessesModel) setBusinessesProjection(
+	projection BusinessesProjection,
+	childNodes map[string]*querymodel.ProjectionNode,
+) error {
 	m.projection = projection
-	if node, exists := childNodes["farm_fields_businesses_business_id"]; exists {
-		if m.FarmFieldsBusinessesBusinessId != nil {
-			if err := m.FarmFieldsBusinessesBusinessId.SetProjection(node); err != nil {
-				return err
-			}
-		} else {
-			m.FarmFieldsBusinessesBusinessId = FarmFieldsModels{}
-		}
-	}
-
 	if node, exists := childNodes["created_by"]; exists {
 		if m.CreatedBy != nil {
 			if err := m.CreatedBy.SetProjection(node); err != nil {
+				return err
+			}
+		}
+	}
+
+	if node, exists := childNodes["farm_fields_businesses_business_id"]; exists {
+		if m.FarmFieldsBusinessesBusinessId != nil {
+			if err := m.FarmFieldsBusinessesBusinessId.SetProjection(node); err != nil {
 				return err
 			}
 		}
@@ -345,92 +354,12 @@ func (m *BusinessesModel) setBusinessesProjection(projection BusinessesProjectio
 	return nil
 }
 
-// MarshalJSON marshals the model to a json string based on the projection
+// MarshalJSON marshals BusinessesModel to a json string based on the projection
 func (m *BusinessesModel) MarshalJSON() ([]byte, error) {
 	var buf bytes.Buffer
 	buf.WriteByte('{')
 
 	isFirst := true
-	if m.projection.Has(businessesProjectionId) {
-		err := marshalProperty(&buf, isFirst, "id", m.Id)
-		if err != nil {
-			return nil, err
-		}
-		isFirst = false
-	}
-
-	if m.projection.Has(businessesProjectionReference) {
-		err := marshalProperty(&buf, isFirst, "reference", m.Reference)
-		if err != nil {
-			return nil, err
-		}
-		isFirst = false
-	}
-
-	if m.projection.Has(businessesProjectionTradingName) {
-		err := marshalProperty(&buf, isFirst, "trading_name", m.TradingName)
-		if err != nil {
-			return nil, err
-		}
-		isFirst = false
-	}
-
-	if m.projection.Has(businessesProjectionLogoUrl) {
-		err := marshalProperty(&buf, isFirst, "logo_url", m.LogoUrl)
-		if err != nil {
-			return nil, err
-		}
-		isFirst = false
-	}
-
-	if m.projection.Has(businessesProjectionDescription) {
-		err := marshalProperty(&buf, isFirst, "description", m.Description)
-		if err != nil {
-			return nil, err
-		}
-		isFirst = false
-	}
-
-	if m.projection.Has(businessesProjectionBusinessType) {
-		err := marshalProperty(&buf, isFirst, "business_type", m.BusinessType)
-		if err != nil {
-			return nil, err
-		}
-		isFirst = false
-	}
-
-	if m.projection.Has(businessesProjectionCphNumber) {
-		err := marshalProperty(&buf, isFirst, "cph_number", m.CphNumber)
-		if err != nil {
-			return nil, err
-		}
-		isFirst = false
-	}
-
-	if m.projection.Has(businessesProjectionEmailAddress) {
-		err := marshalProperty(&buf, isFirst, "email_address", m.EmailAddress)
-		if err != nil {
-			return nil, err
-		}
-		isFirst = false
-	}
-
-	if m.projection.Has(businessesProjectionContactNumber) {
-		err := marshalProperty(&buf, isFirst, "contact_number", m.ContactNumber)
-		if err != nil {
-			return nil, err
-		}
-		isFirst = false
-	}
-
-	if m.projection.Has(businessesProjectionWebsiteUrl) {
-		err := marshalProperty(&buf, isFirst, "website_url", m.WebsiteUrl)
-		if err != nil {
-			return nil, err
-		}
-		isFirst = false
-	}
-
 	if m.projection.Has(businessesProjectionAddressLine1) {
 		err := marshalProperty(&buf, isFirst, "address_line_1", m.AddressLine1)
 		if err != nil {
@@ -447,16 +376,16 @@ func (m *BusinessesModel) MarshalJSON() ([]byte, error) {
 		isFirst = false
 	}
 
-	if m.projection.Has(businessesProjectionTown) {
-		err := marshalProperty(&buf, isFirst, "town", m.Town)
+	if m.projection.Has(businessesProjectionBusinessType) {
+		err := marshalProperty(&buf, isFirst, "business_type", m.BusinessType)
 		if err != nil {
 			return nil, err
 		}
 		isFirst = false
 	}
 
-	if m.projection.Has(businessesProjectionCounty) {
-		err := marshalProperty(&buf, isFirst, "county", m.County)
+	if m.projection.Has(businessesProjectionContactNumber) {
+		err := marshalProperty(&buf, isFirst, "contact_number", m.ContactNumber)
 		if err != nil {
 			return nil, err
 		}
@@ -471,16 +400,16 @@ func (m *BusinessesModel) MarshalJSON() ([]byte, error) {
 		isFirst = false
 	}
 
-	if m.projection.Has(businessesProjectionPostcode) {
-		err := marshalProperty(&buf, isFirst, "postcode", m.Postcode)
+	if m.projection.Has(businessesProjectionCounty) {
+		err := marshalProperty(&buf, isFirst, "county", m.County)
 		if err != nil {
 			return nil, err
 		}
 		isFirst = false
 	}
 
-	if m.projection.Has(businessesProjectionLocation) {
-		err := marshalProperty(&buf, isFirst, "location", m.Location)
+	if m.projection.Has(businessesProjectionCphNumber) {
+		err := marshalProperty(&buf, isFirst, "cph_number", m.CphNumber)
 		if err != nil {
 			return nil, err
 		}
@@ -495,8 +424,64 @@ func (m *BusinessesModel) MarshalJSON() ([]byte, error) {
 		isFirst = false
 	}
 
+	if m.projection.Has(businessesProjectionFkBusinessCreatedById) {
+		err := marshalProperty(&buf, isFirst, "created_by", m.CreatedBy)
+		if err != nil {
+			return nil, err
+		}
+		isFirst = false
+	}
+
 	if m.projection.Has(businessesProjectionCreatedById) {
 		err := marshalProperty(&buf, isFirst, "created_by_id", m.CreatedById)
+		if err != nil {
+			return nil, err
+		}
+		isFirst = false
+	}
+
+	if m.projection.Has(businessesProjectionDescription) {
+		err := marshalProperty(&buf, isFirst, "description", m.Description)
+		if err != nil {
+			return nil, err
+		}
+		isFirst = false
+	}
+
+	if m.projection.Has(businessesProjectionEmailAddress) {
+		err := marshalProperty(&buf, isFirst, "email_address", m.EmailAddress)
+		if err != nil {
+			return nil, err
+		}
+		isFirst = false
+	}
+
+	if m.projection.Has(businessesProjectionFkFieldBusiness) {
+		err := marshalProperty(&buf, isFirst, "farm_fields_businesses_business_id", m.FarmFieldsBusinessesBusinessId)
+		if err != nil {
+			return nil, err
+		}
+		isFirst = false
+	}
+
+	if m.projection.Has(businessesProjectionId) {
+		err := marshalProperty(&buf, isFirst, "id", m.Id)
+		if err != nil {
+			return nil, err
+		}
+		isFirst = false
+	}
+
+	if m.projection.Has(businessesProjectionLocation) {
+		err := marshalProperty(&buf, isFirst, "location", m.Location)
+		if err != nil {
+			return nil, err
+		}
+		isFirst = false
+	}
+
+	if m.projection.Has(businessesProjectionLogoUrl) {
+		err := marshalProperty(&buf, isFirst, "logo_url", m.LogoUrl)
 		if err != nil {
 			return nil, err
 		}
@@ -511,6 +496,14 @@ func (m *BusinessesModel) MarshalJSON() ([]byte, error) {
 		isFirst = false
 	}
 
+	if m.projection.Has(businessesProjectionFkBusinessModifiedById) {
+		err := marshalProperty(&buf, isFirst, "modified_by", m.ModifiedBy)
+		if err != nil {
+			return nil, err
+		}
+		isFirst = false
+	}
+
 	if m.projection.Has(businessesProjectionModifiedById) {
 		err := marshalProperty(&buf, isFirst, "modified_by_id", m.ModifiedById)
 		if err != nil {
@@ -519,24 +512,40 @@ func (m *BusinessesModel) MarshalJSON() ([]byte, error) {
 		isFirst = false
 	}
 
-	if m.projection.Has(businessesProjectionCreatedBy) {
-		err := marshalProperty(&buf, isFirst, "created_by", m.CreatedBy)
+	if m.projection.Has(businessesProjectionPostcode) {
+		err := marshalProperty(&buf, isFirst, "postcode", m.Postcode)
 		if err != nil {
 			return nil, err
 		}
 		isFirst = false
 	}
 
-	if m.projection.Has(businessesProjectionModifiedBy) {
-		err := marshalProperty(&buf, isFirst, "modified_by", m.ModifiedBy)
+	if m.projection.Has(businessesProjectionReference) {
+		err := marshalProperty(&buf, isFirst, "reference", m.Reference)
 		if err != nil {
 			return nil, err
 		}
 		isFirst = false
 	}
 
-	if m.projection.Has(businessesProjectionFarmFieldsBusinessesBusinessId) {
-		err := marshalProperty(&buf, isFirst, "farm_fields_businesses_business_id", m.FarmFieldsBusinessesBusinessId)
+	if m.projection.Has(businessesProjectionTown) {
+		err := marshalProperty(&buf, isFirst, "town", m.Town)
+		if err != nil {
+			return nil, err
+		}
+		isFirst = false
+	}
+
+	if m.projection.Has(businessesProjectionTradingName) {
+		err := marshalProperty(&buf, isFirst, "trading_name", m.TradingName)
+		if err != nil {
+			return nil, err
+		}
+		isFirst = false
+	}
+
+	if m.projection.Has(businessesProjectionWebsiteUrl) {
+		err := marshalProperty(&buf, isFirst, "website_url", m.WebsiteUrl)
 		if err != nil {
 			return nil, err
 		}
@@ -547,7 +556,11 @@ func (m *BusinessesModel) MarshalJSON() ([]byte, error) {
 }
 
 // GetValue returns the value from a given path
-func (m *BusinessesModel) GetValue(v querymodel.ValueBuilder, path []*querymodel.TraversalStep, columnName string) (querymodel.Value, error) {
+func (m *BusinessesModel) GetValue(
+	v querymodel.ValueBuilder,
+	path []*querymodel.TraversalStep,
+	columnName string,
+) (querymodel.Value, error) {
 	if len(path) > 0 {
 		nextStep := path[0]
 		nextEntity, nextEntityIsNil, err := m.getRelatedEntity(nextStep.Relationship)
@@ -571,7 +584,9 @@ func (m *BusinessesModel) GetValue(v querymodel.ValueBuilder, path []*querymodel
 
 // getRelatedEntity returns the value from N:1/1:1 relationships as a TableModel
 // It will return an error for invalid relationships and relationship types
-func (m *BusinessesModel) getRelatedEntity(relationship querymodel.RelationshipMetadata) (querymodel.TableModel, bool, error) {
+func (m *BusinessesModel) getRelatedEntity(
+	relationship querymodel.RelationshipMetadata,
+) (querymodel.TableModel, bool, error) {
 	switch relationship.Id {
 	case "businesses_created_by_id_users_id":
 		v := m.CreatedBy
@@ -580,55 +595,61 @@ func (m *BusinessesModel) getRelatedEntity(relationship querymodel.RelationshipM
 		v := m.ModifiedBy
 		return v, v == nil, nil
 	default:
-		return nil, true, fmt.Errorf("unable to get related entity: unsupported relationship '%s'", relationship.Id)
+		return nil, true, fmt.Errorf(
+			"unable to get related entity: unsupported relationship '%s'",
+			relationship.Id,
+		)
 	}
 }
 
 // getValue returns the value from a given column
-func (m *BusinessesModel) getValue(columnName string, v querymodel.ValueBuilder) (querymodel.Value, error) {
+func (m *BusinessesModel) getValue(
+	columnName string,
+	v querymodel.ValueBuilder,
+) (querymodel.Value, error) {
 	switch columnName {
-	case "id":
-		return v.String(m.Id), nil
-	case "reference":
-		return v.String(m.Reference), nil
-	case "trading_name":
-		return v.String(m.TradingName), nil
-	case "logo_url":
-		return v.String(m.LogoUrl), nil
-	case "description":
-		return v.String(m.Description), nil
-	case "business_type":
-		return v.Int(int64(m.BusinessType)), nil
-	case "cph_number":
-		return v.String(m.CphNumber), nil
-	case "email_address":
-		return v.String(m.EmailAddress), nil
-	case "contact_number":
-		return v.String(m.ContactNumber), nil
-	case "website_url":
-		return v.String(m.WebsiteUrl), nil
 	case "address_line_1":
 		return v.String(m.AddressLine1), nil
 	case "address_line_2":
 		return v.String(m.AddressLine2), nil
-	case "town":
-		return v.String(m.Town), nil
-	case "county":
-		return v.String(m.County), nil
+	case "business_type":
+		return v.Int(int64(m.BusinessType)), nil
+	case "contact_number":
+		return v.String(m.ContactNumber), nil
 	case "country":
 		return v.String(m.Country), nil
-	case "postcode":
-		return v.String(m.Postcode), nil
-	case "location":
-		return v.Point(m.Location.Coordinates[0], m.Location.Coordinates[1]), nil
+	case "county":
+		return v.String(m.County), nil
+	case "cph_number":
+		return v.String(m.CphNumber), nil
 	case "created_at":
 		return v.DateTime(*m.CreatedAt), nil
 	case "created_by_id":
-		return v.String(m.CreatedById), nil
+		return v.String(m.CreatedById.String()), nil
+	case "description":
+		return v.String(m.Description), nil
+	case "email_address":
+		return v.String(m.EmailAddress), nil
+	case "id":
+		return v.String(m.Id.String()), nil
+	case "location":
+		return v.Point(m.Location.Coordinates[0], m.Location.Coordinates[1]), nil
+	case "logo_url":
+		return v.String(m.LogoUrl), nil
 	case "modified_at":
 		return v.DateTime(*m.ModifiedAt), nil
 	case "modified_by_id":
-		return v.String(m.ModifiedById), nil
+		return v.String(m.ModifiedById.String()), nil
+	case "postcode":
+		return v.String(m.Postcode), nil
+	case "reference":
+		return v.String(m.Reference), nil
+	case "town":
+		return v.String(m.Town), nil
+	case "trading_name":
+		return v.String(m.TradingName), nil
+	case "website_url":
+		return v.String(m.WebsiteUrl), nil
 	default:
 		return nil, fmt.Errorf("unsupported column: '%s'", columnName)
 	}
@@ -643,83 +664,83 @@ func (m *BusinessesModel) Project(columnName string) error {
 type BusinessesProjection uint64
 
 const (
-	businessesProjectionId BusinessesProjection = 1 << iota
-	businessesProjectionReference
-	businessesProjectionTradingName
-	businessesProjectionLogoUrl
-	businessesProjectionDescription
-	businessesProjectionBusinessType
-	businessesProjectionCphNumber
-	businessesProjectionEmailAddress
-	businessesProjectionContactNumber
-	businessesProjectionWebsiteUrl
-	businessesProjectionAddressLine1
+	businessesProjectionAddressLine1 BusinessesProjection = 1 << iota
 	businessesProjectionAddressLine2
-	businessesProjectionTown
-	businessesProjectionCounty
+	businessesProjectionBusinessType
+	businessesProjectionContactNumber
 	businessesProjectionCountry
-	businessesProjectionPostcode
-	businessesProjectionLocation
+	businessesProjectionCounty
+	businessesProjectionCphNumber
 	businessesProjectionCreatedAt
+	businessesProjectionFkBusinessCreatedById
 	businessesProjectionCreatedById
+	businessesProjectionDescription
+	businessesProjectionEmailAddress
+	businessesProjectionFkFieldBusiness
+	businessesProjectionId
+	businessesProjectionLocation
+	businessesProjectionLogoUrl
 	businessesProjectionModifiedAt
+	businessesProjectionFkBusinessModifiedById
 	businessesProjectionModifiedById
-	businessesProjectionCreatedBy
-	businessesProjectionModifiedBy
-	businessesProjectionFarmFieldsBusinessesBusinessId
+	businessesProjectionPostcode
+	businessesProjectionReference
+	businessesProjectionTown
+	businessesProjectionTradingName
+	businessesProjectionWebsiteUrl
 )
 
 // Add includes a given column within the projection
 func (p *BusinessesProjection) Add(columnName string) error {
 	switch columnName {
-	case "id":
-		*p |= businessesProjectionId
-	case "reference":
-		*p |= businessesProjectionReference
-	case "trading_name":
-		*p |= businessesProjectionTradingName
-	case "logo_url":
-		*p |= businessesProjectionLogoUrl
-	case "description":
-		*p |= businessesProjectionDescription
-	case "business_type":
-		*p |= businessesProjectionBusinessType
-	case "cph_number":
-		*p |= businessesProjectionCphNumber
-	case "email_address":
-		*p |= businessesProjectionEmailAddress
-	case "contact_number":
-		*p |= businessesProjectionContactNumber
-	case "website_url":
-		*p |= businessesProjectionWebsiteUrl
 	case "address_line_1":
 		*p |= businessesProjectionAddressLine1
 	case "address_line_2":
 		*p |= businessesProjectionAddressLine2
-	case "town":
-		*p |= businessesProjectionTown
-	case "county":
-		*p |= businessesProjectionCounty
+	case "business_type":
+		*p |= businessesProjectionBusinessType
+	case "contact_number":
+		*p |= businessesProjectionContactNumber
 	case "country":
 		*p |= businessesProjectionCountry
-	case "postcode":
-		*p |= businessesProjectionPostcode
-	case "location":
-		*p |= businessesProjectionLocation
+	case "county":
+		*p |= businessesProjectionCounty
+	case "cph_number":
+		*p |= businessesProjectionCphNumber
 	case "created_at":
 		*p |= businessesProjectionCreatedAt
+	case "created_by":
+		*p |= businessesProjectionFkBusinessCreatedById
 	case "created_by_id":
 		*p |= businessesProjectionCreatedById
+	case "description":
+		*p |= businessesProjectionDescription
+	case "email_address":
+		*p |= businessesProjectionEmailAddress
+	case "farm_fields_businesses_business_id":
+		*p |= businessesProjectionFkFieldBusiness
+	case "id":
+		*p |= businessesProjectionId
+	case "location":
+		*p |= businessesProjectionLocation
+	case "logo_url":
+		*p |= businessesProjectionLogoUrl
 	case "modified_at":
 		*p |= businessesProjectionModifiedAt
+	case "modified_by":
+		*p |= businessesProjectionFkBusinessModifiedById
 	case "modified_by_id":
 		*p |= businessesProjectionModifiedById
-	case "created_by":
-		*p |= businessesProjectionCreatedBy
-	case "modified_by":
-		*p |= businessesProjectionModifiedBy
-	case "farm_fields_businesses_business_id":
-		*p |= businessesProjectionFarmFieldsBusinessesBusinessId
+	case "postcode":
+		*p |= businessesProjectionPostcode
+	case "reference":
+		*p |= businessesProjectionReference
+	case "town":
+		*p |= businessesProjectionTown
+	case "trading_name":
+		*p |= businessesProjectionTradingName
+	case "website_url":
+		*p |= businessesProjectionWebsiteUrl
 	default:
 		return fmt.Errorf("unsupported column: '%s'", columnName)
 	}
@@ -747,7 +768,10 @@ func (r FarmFieldsResource) InitProjection() querymodel.Projection {
 }
 
 // SliceFromJSON unmarshals a json array of farm_fields and returns it as a slice
-func (m FarmFieldsResource) SliceFromJSON(jsonData []byte, projectionNode *querymodel.ProjectionNode) ([]querymodel.TableModel, error) {
+func (m FarmFieldsResource) SliceFromJSON(
+	jsonData []byte,
+	projectionNode *querymodel.ProjectionNode,
+) ([]querymodel.TableModel, error) {
 	if len(jsonData) == 0 {
 		return []querymodel.TableModel{}, nil
 	}
@@ -768,7 +792,11 @@ func (m FarmFieldsResource) SliceFromJSON(jsonData []byte, projectionNode *query
 }
 
 // TypedSliceFromJSON unmarshals a json array of farm_fields and returns it as a slice
-func (m FarmFieldsResource) TypedSliceFromJSON(jsonData []byte, projectionNode *querymodel.ProjectionNode) ([]*FarmFieldsModel, error) {
+
+func (m FarmFieldsResource) TypedSliceFromJSON(
+	jsonData []byte,
+	projectionNode *querymodel.ProjectionNode,
+) ([]*FarmFieldsModel, error) {
 	if len(jsonData) == 0 {
 		return []*FarmFieldsModel{}, nil
 	}
@@ -794,43 +822,43 @@ var FarmFieldsMetadata = querymodel.TableMetadata{
 		Type: querymodel.DbTypeString,
 	},
 	Columns: map[string]querymodel.ColumnMetadata{
-		"id": {
-			Name: "id",
-			Type: querymodel.DbTypeString,
-		},
-		"reference": {
-			Name: "reference",
-			Type: querymodel.DbTypeString,
-		},
 		"business_id": {
 			Name: "business_id",
+			Type: querymodel.DbTypeString,
+		},
+		"created_at": {
+			Name: "created_at",
+			Type: querymodel.DbTypeDate,
+		},
+		"created_by_id": {
+			Name: "created_by_id",
+			Type: querymodel.DbTypeString,
+		},
+		"id": {
+			Name: "id",
 			Type: querymodel.DbTypeString,
 		},
 		"location": {
 			Name: "location",
 			Type: querymodel.DbTypePoint,
 		},
-		"created_at": {
-			Name: "created_at",
-			Type: querymodel.DbTypeDateTime,
-		},
-		"created_by_id": {
-			Name: "created_by_id",
-			Type: querymodel.DbTypeString,
-		},
 		"modified_at": {
 			Name: "modified_at",
-			Type: querymodel.DbTypeDateTime,
+			Type: querymodel.DbTypeDate,
 		},
 		"modified_by_id": {
 			Name: "modified_by_id",
+			Type: querymodel.DbTypeString,
+		},
+		"reference": {
+			Name: "reference",
 			Type: querymodel.DbTypeString,
 		},
 	},
 	Relationships: map[string]querymodel.RelationshipMetadata{
 		"business_id": {
 			Id:                  "farm_fields_business_id_businesses_id",
-			Type:                querymodel.RelationshipManyToOne,
+			Type:                "N:1",
 			ColumnName:          "business_id",
 			ExpansionColumnName: "business",
 			From:                FarmFieldsResource{},
@@ -846,7 +874,7 @@ var FarmFieldsMetadata = querymodel.TableMetadata{
 		},
 		"created_by_id": {
 			Id:                  "farm_fields_created_by_id_users_id",
-			Type:                querymodel.RelationshipManyToOne,
+			Type:                "N:1",
 			ColumnName:          "created_by_id",
 			ExpansionColumnName: "created_by",
 			From:                FarmFieldsResource{},
@@ -862,7 +890,7 @@ var FarmFieldsMetadata = querymodel.TableMetadata{
 		},
 		"modified_by_id": {
 			Id:                  "farm_fields_modified_by_id_users_id",
-			Type:                querymodel.RelationshipManyToOne,
+			Type:                "N:1",
 			ColumnName:          "modified_by_id",
 			ExpansionColumnName: "modified_by",
 			From:                FarmFieldsResource{},
@@ -881,18 +909,18 @@ var FarmFieldsMetadata = querymodel.TableMetadata{
 
 // FarmFieldsModel represents a row from the hg.farm_fields table.
 type FarmFieldsModel struct {
-	Id           string               `json:"id"`
-	Reference    string               `json:"reference"`
-	BusinessId   string               `json:"business_id"`
-	Location     *querymodel.Point    `json:"location"`
-	CreatedAt    *time.Time           `json:"created_at"`
-	CreatedById  string               `json:"created_by_id"`
-	ModifiedAt   *time.Time           `json:"modified_at"`
-	ModifiedById string               `json:"modified_by_id"`
-	Business     *BusinessesModel     `json:"business"`
-	CreatedBy    *UsersModel          `json:"created_by"`
-	ModifiedBy   *UsersModel          `json:"modified_by"`
-	projection   FarmFieldsProjection `json:"-"`
+	Business     *BusinessesModel       `json:"business"`
+	BusinessId   mssql.UniqueIdentifier `json:"business_id"`
+	CreatedAt    *time.Time             `json:"created_at"`
+	CreatedBy    *UsersModel            `json:"created_by"`
+	CreatedById  mssql.UniqueIdentifier `json:"created_by_id"`
+	Id           mssql.UniqueIdentifier `json:"id"`
+	Location     *querymodel.Point      `json:"location"`
+	ModifiedAt   *time.Time             `json:"modified_at"`
+	ModifiedBy   *UsersModel            `json:"modified_by"`
+	ModifiedById mssql.UniqueIdentifier `json:"modified_by_id"`
+	Reference    string                 `json:"reference"`
+	projection   FarmFieldsProjection   `json:"-"`
 }
 
 type FarmFieldsModels []*FarmFieldsModel
@@ -936,8 +964,19 @@ func (ms FarmFieldsModels) SetProjection(projectionNode *querymodel.ProjectionNo
 
 // setFarmFieldsProjection sets a projection node and sets projection for itself and any
 // child nodes
-func (m *FarmFieldsModel) setFarmFieldsProjection(projection FarmFieldsProjection, childNodes map[string]*querymodel.ProjectionNode) error {
+func (m *FarmFieldsModel) setFarmFieldsProjection(
+	projection FarmFieldsProjection,
+	childNodes map[string]*querymodel.ProjectionNode,
+) error {
 	m.projection = projection
+	if node, exists := childNodes["business"]; exists {
+		if m.Business != nil {
+			if err := m.Business.SetProjection(node); err != nil {
+				return err
+			}
+		}
+	}
+
 	if node, exists := childNodes["created_by"]; exists {
 		if m.CreatedBy != nil {
 			if err := m.CreatedBy.SetProjection(node); err != nil {
@@ -954,33 +993,17 @@ func (m *FarmFieldsModel) setFarmFieldsProjection(projection FarmFieldsProjectio
 		}
 	}
 
-	if node, exists := childNodes["business"]; exists {
-		if m.Business != nil {
-			if err := m.Business.SetProjection(node); err != nil {
-				return err
-			}
-		}
-	}
-
 	return nil
 }
 
-// MarshalJSON marshals the model to a json string based on the projection
+// MarshalJSON marshals FarmFieldsModel to a json string based on the projection
 func (m *FarmFieldsModel) MarshalJSON() ([]byte, error) {
 	var buf bytes.Buffer
 	buf.WriteByte('{')
 
 	isFirst := true
-	if m.projection.Has(farmFieldsProjectionId) {
-		err := marshalProperty(&buf, isFirst, "id", m.Id)
-		if err != nil {
-			return nil, err
-		}
-		isFirst = false
-	}
-
-	if m.projection.Has(farmFieldsProjectionReference) {
-		err := marshalProperty(&buf, isFirst, "reference", m.Reference)
+	if m.projection.Has(farmFieldsProjectionFkFieldBusiness) {
+		err := marshalProperty(&buf, isFirst, "business", m.Business)
 		if err != nil {
 			return nil, err
 		}
@@ -995,16 +1018,16 @@ func (m *FarmFieldsModel) MarshalJSON() ([]byte, error) {
 		isFirst = false
 	}
 
-	if m.projection.Has(farmFieldsProjectionLocation) {
-		err := marshalProperty(&buf, isFirst, "location", m.Location)
+	if m.projection.Has(farmFieldsProjectionCreatedAt) {
+		err := marshalProperty(&buf, isFirst, "created_at", m.CreatedAt)
 		if err != nil {
 			return nil, err
 		}
 		isFirst = false
 	}
 
-	if m.projection.Has(farmFieldsProjectionCreatedAt) {
-		err := marshalProperty(&buf, isFirst, "created_at", m.CreatedAt)
+	if m.projection.Has(farmFieldsProjectionFkFieldCreatedById) {
+		err := marshalProperty(&buf, isFirst, "created_by", m.CreatedBy)
 		if err != nil {
 			return nil, err
 		}
@@ -1019,8 +1042,32 @@ func (m *FarmFieldsModel) MarshalJSON() ([]byte, error) {
 		isFirst = false
 	}
 
+	if m.projection.Has(farmFieldsProjectionId) {
+		err := marshalProperty(&buf, isFirst, "id", m.Id)
+		if err != nil {
+			return nil, err
+		}
+		isFirst = false
+	}
+
+	if m.projection.Has(farmFieldsProjectionLocation) {
+		err := marshalProperty(&buf, isFirst, "location", m.Location)
+		if err != nil {
+			return nil, err
+		}
+		isFirst = false
+	}
+
 	if m.projection.Has(farmFieldsProjectionModifiedAt) {
 		err := marshalProperty(&buf, isFirst, "modified_at", m.ModifiedAt)
+		if err != nil {
+			return nil, err
+		}
+		isFirst = false
+	}
+
+	if m.projection.Has(farmFieldsProjectionFkFieldModifiedById) {
+		err := marshalProperty(&buf, isFirst, "modified_by", m.ModifiedBy)
 		if err != nil {
 			return nil, err
 		}
@@ -1035,24 +1082,8 @@ func (m *FarmFieldsModel) MarshalJSON() ([]byte, error) {
 		isFirst = false
 	}
 
-	if m.projection.Has(farmFieldsProjectionBusiness) {
-		err := marshalProperty(&buf, isFirst, "business", m.Business)
-		if err != nil {
-			return nil, err
-		}
-		isFirst = false
-	}
-
-	if m.projection.Has(farmFieldsProjectionCreatedBy) {
-		err := marshalProperty(&buf, isFirst, "created_by", m.CreatedBy)
-		if err != nil {
-			return nil, err
-		}
-		isFirst = false
-	}
-
-	if m.projection.Has(farmFieldsProjectionModifiedBy) {
-		err := marshalProperty(&buf, isFirst, "modified_by", m.ModifiedBy)
+	if m.projection.Has(farmFieldsProjectionReference) {
+		err := marshalProperty(&buf, isFirst, "reference", m.Reference)
 		if err != nil {
 			return nil, err
 		}
@@ -1063,7 +1094,11 @@ func (m *FarmFieldsModel) MarshalJSON() ([]byte, error) {
 }
 
 // GetValue returns the value from a given path
-func (m *FarmFieldsModel) GetValue(v querymodel.ValueBuilder, path []*querymodel.TraversalStep, columnName string) (querymodel.Value, error) {
+func (m *FarmFieldsModel) GetValue(
+	v querymodel.ValueBuilder,
+	path []*querymodel.TraversalStep,
+	columnName string,
+) (querymodel.Value, error) {
 	if len(path) > 0 {
 		nextStep := path[0]
 		nextEntity, nextEntityIsNil, err := m.getRelatedEntity(nextStep.Relationship)
@@ -1087,7 +1122,9 @@ func (m *FarmFieldsModel) GetValue(v querymodel.ValueBuilder, path []*querymodel
 
 // getRelatedEntity returns the value from N:1/1:1 relationships as a TableModel
 // It will return an error for invalid relationships and relationship types
-func (m *FarmFieldsModel) getRelatedEntity(relationship querymodel.RelationshipMetadata) (querymodel.TableModel, bool, error) {
+func (m *FarmFieldsModel) getRelatedEntity(
+	relationship querymodel.RelationshipMetadata,
+) (querymodel.TableModel, bool, error) {
 	switch relationship.Id {
 	case "farm_fields_business_id_businesses_id":
 		v := m.Business
@@ -1099,29 +1136,35 @@ func (m *FarmFieldsModel) getRelatedEntity(relationship querymodel.RelationshipM
 		v := m.ModifiedBy
 		return v, v == nil, nil
 	default:
-		return nil, true, fmt.Errorf("unable to get related entity: unsupported relationship '%s'", relationship.Id)
+		return nil, true, fmt.Errorf(
+			"unable to get related entity: unsupported relationship '%s'",
+			relationship.Id,
+		)
 	}
 }
 
 // getValue returns the value from a given column
-func (m *FarmFieldsModel) getValue(columnName string, v querymodel.ValueBuilder) (querymodel.Value, error) {
+func (m *FarmFieldsModel) getValue(
+	columnName string,
+	v querymodel.ValueBuilder,
+) (querymodel.Value, error) {
 	switch columnName {
-	case "id":
-		return v.String(m.Id), nil
-	case "reference":
-		return v.String(m.Reference), nil
 	case "business_id":
-		return v.String(m.BusinessId), nil
-	case "location":
-		return v.Point(m.Location.Coordinates[0], m.Location.Coordinates[1]), nil
+		return v.String(m.BusinessId.String()), nil
 	case "created_at":
 		return v.DateTime(*m.CreatedAt), nil
 	case "created_by_id":
-		return v.String(m.CreatedById), nil
+		return v.String(m.CreatedById.String()), nil
+	case "id":
+		return v.String(m.Id.String()), nil
+	case "location":
+		return v.Point(m.Location.Coordinates[0], m.Location.Coordinates[1]), nil
 	case "modified_at":
 		return v.DateTime(*m.ModifiedAt), nil
 	case "modified_by_id":
-		return v.String(m.ModifiedById), nil
+		return v.String(m.ModifiedById.String()), nil
+	case "reference":
+		return v.String(m.Reference), nil
 	default:
 		return nil, fmt.Errorf("unsupported column: '%s'", columnName)
 	}
@@ -1136,44 +1179,44 @@ func (m *FarmFieldsModel) Project(columnName string) error {
 type FarmFieldsProjection uint64
 
 const (
-	farmFieldsProjectionId FarmFieldsProjection = 1 << iota
-	farmFieldsProjectionReference
+	farmFieldsProjectionFkFieldBusiness FarmFieldsProjection = 1 << iota
 	farmFieldsProjectionBusinessId
-	farmFieldsProjectionLocation
 	farmFieldsProjectionCreatedAt
+	farmFieldsProjectionFkFieldCreatedById
 	farmFieldsProjectionCreatedById
+	farmFieldsProjectionId
+	farmFieldsProjectionLocation
 	farmFieldsProjectionModifiedAt
+	farmFieldsProjectionFkFieldModifiedById
 	farmFieldsProjectionModifiedById
-	farmFieldsProjectionBusiness
-	farmFieldsProjectionCreatedBy
-	farmFieldsProjectionModifiedBy
+	farmFieldsProjectionReference
 )
 
 // Add includes a given column within the projection
 func (p *FarmFieldsProjection) Add(columnName string) error {
 	switch columnName {
-	case "id":
-		*p |= farmFieldsProjectionId
-	case "reference":
-		*p |= farmFieldsProjectionReference
+	case "business":
+		*p |= farmFieldsProjectionFkFieldBusiness
 	case "business_id":
 		*p |= farmFieldsProjectionBusinessId
-	case "location":
-		*p |= farmFieldsProjectionLocation
 	case "created_at":
 		*p |= farmFieldsProjectionCreatedAt
+	case "created_by":
+		*p |= farmFieldsProjectionFkFieldCreatedById
 	case "created_by_id":
 		*p |= farmFieldsProjectionCreatedById
+	case "id":
+		*p |= farmFieldsProjectionId
+	case "location":
+		*p |= farmFieldsProjectionLocation
 	case "modified_at":
 		*p |= farmFieldsProjectionModifiedAt
+	case "modified_by":
+		*p |= farmFieldsProjectionFkFieldModifiedById
 	case "modified_by_id":
 		*p |= farmFieldsProjectionModifiedById
-	case "created_by":
-		*p |= farmFieldsProjectionCreatedBy
-	case "modified_by":
-		*p |= farmFieldsProjectionModifiedBy
-	case "business":
-		*p |= farmFieldsProjectionBusiness
+	case "reference":
+		*p |= farmFieldsProjectionReference
 	default:
 		return fmt.Errorf("unsupported column: '%s'", columnName)
 	}
@@ -1201,7 +1244,10 @@ func (r UsersResource) InitProjection() querymodel.Projection {
 }
 
 // SliceFromJSON unmarshals a json array of users and returns it as a slice
-func (m UsersResource) SliceFromJSON(jsonData []byte, projectionNode *querymodel.ProjectionNode) ([]querymodel.TableModel, error) {
+func (m UsersResource) SliceFromJSON(
+	jsonData []byte,
+	projectionNode *querymodel.ProjectionNode,
+) ([]querymodel.TableModel, error) {
 	if len(jsonData) == 0 {
 		return []querymodel.TableModel{}, nil
 	}
@@ -1222,7 +1268,11 @@ func (m UsersResource) SliceFromJSON(jsonData []byte, projectionNode *querymodel
 }
 
 // TypedSliceFromJSON unmarshals a json array of users and returns it as a slice
-func (m UsersResource) TypedSliceFromJSON(jsonData []byte, projectionNode *querymodel.ProjectionNode) ([]*UsersModel, error) {
+
+func (m UsersResource) TypedSliceFromJSON(
+	jsonData []byte,
+	projectionNode *querymodel.ProjectionNode,
+) ([]*UsersModel, error) {
 	if len(jsonData) == 0 {
 		return []*UsersModel{}, nil
 	}
@@ -1248,21 +1298,9 @@ var UsersMetadata = querymodel.TableMetadata{
 		Type: querymodel.DbTypeString,
 	},
 	Columns: map[string]querymodel.ColumnMetadata{
-		"id": {
-			Name: "id",
-			Type: querymodel.DbTypeString,
-		},
-		"oid": {
-			Name: "oid",
-			Type: querymodel.DbTypeString,
-		},
-		"given_name": {
-			Name: "given_name",
-			Type: querymodel.DbTypeString,
-		},
-		"family_name": {
-			Name: "family_name",
-			Type: querymodel.DbTypeString,
+		"created_at": {
+			Name: "created_at",
+			Type: querymodel.DbTypeDate,
 		},
 		"display_name": {
 			Name: "display_name",
@@ -1272,25 +1310,37 @@ var UsersMetadata = querymodel.TableMetadata{
 			Name: "email_address",
 			Type: querymodel.DbTypeString,
 		},
-		"created_at": {
-			Name: "created_at",
-			Type: querymodel.DbTypeDateTime,
+		"family_name": {
+			Name: "family_name",
+			Type: querymodel.DbTypeString,
+		},
+		"given_name": {
+			Name: "given_name",
+			Type: querymodel.DbTypeString,
+		},
+		"id": {
+			Name: "id",
+			Type: querymodel.DbTypeString,
 		},
 		"modified_at": {
 			Name: "modified_at",
-			Type: querymodel.DbTypeDateTime,
+			Type: querymodel.DbTypeDate,
+		},
+		"oid": {
+			Name: "oid",
+			Type: querymodel.DbTypeString,
 		},
 	},
 	Relationships: map[string]querymodel.RelationshipMetadata{
 		"businesses_users_created_by_id": {
 			Id:                  "businesses_created_by_id_users_id",
-			Type:                querymodel.RelationshipOneToMany,
+			Type:                "1:N",
 			ColumnName:          "businesses_users_created_by_id",
 			ExpansionColumnName: "businesses_users_created_by_id",
 			From:                UsersResource{},
 			To:                  BusinessesResource{},
 			FromColumn: querymodel.ColumnMetadata{
-				Name: "id",
+				Name: "businesses_users_created_by_id",
 				Type: querymodel.DbTypeString,
 			},
 			ToColumn: querymodel.ColumnMetadata{
@@ -1300,13 +1350,13 @@ var UsersMetadata = querymodel.TableMetadata{
 		},
 		"businesses_users_modified_by_id": {
 			Id:                  "businesses_modified_by_id_users_id",
-			Type:                querymodel.RelationshipOneToMany,
+			Type:                "1:N",
 			ColumnName:          "businesses_users_modified_by_id",
 			ExpansionColumnName: "businesses_users_modified_by_id",
 			From:                UsersResource{},
 			To:                  BusinessesResource{},
 			FromColumn: querymodel.ColumnMetadata{
-				Name: "id",
+				Name: "businesses_users_modified_by_id",
 				Type: querymodel.DbTypeString,
 			},
 			ToColumn: querymodel.ColumnMetadata{
@@ -1316,13 +1366,13 @@ var UsersMetadata = querymodel.TableMetadata{
 		},
 		"farm_fields_users_created_by_id": {
 			Id:                  "farm_fields_created_by_id_users_id",
-			Type:                querymodel.RelationshipOneToMany,
+			Type:                "1:N",
 			ColumnName:          "farm_fields_users_created_by_id",
 			ExpansionColumnName: "farm_fields_users_created_by_id",
 			From:                UsersResource{},
 			To:                  FarmFieldsResource{},
 			FromColumn: querymodel.ColumnMetadata{
-				Name: "id",
+				Name: "farm_fields_users_created_by_id",
 				Type: querymodel.DbTypeString,
 			},
 			ToColumn: querymodel.ColumnMetadata{
@@ -1332,13 +1382,13 @@ var UsersMetadata = querymodel.TableMetadata{
 		},
 		"farm_fields_users_modified_by_id": {
 			Id:                  "farm_fields_modified_by_id_users_id",
-			Type:                querymodel.RelationshipOneToMany,
+			Type:                "1:N",
 			ColumnName:          "farm_fields_users_modified_by_id",
 			ExpansionColumnName: "farm_fields_users_modified_by_id",
 			From:                UsersResource{},
 			To:                  FarmFieldsResource{},
 			FromColumn: querymodel.ColumnMetadata{
-				Name: "id",
+				Name: "farm_fields_users_modified_by_id",
 				Type: querymodel.DbTypeString,
 			},
 			ToColumn: querymodel.ColumnMetadata{
@@ -1351,19 +1401,19 @@ var UsersMetadata = querymodel.TableMetadata{
 
 // UsersModel represents a row from the hg.users table.
 type UsersModel struct {
-	Id                          string           `json:"id"`
-	Oid                         string           `json:"oid"`
-	GivenName                   string           `json:"given_name"`
-	FamilyName                  string           `json:"family_name"`
-	DisplayName                 string           `json:"display_name"`
-	EmailAddress                string           `json:"email_address"`
-	CreatedAt                   *time.Time       `json:"created_at"`
-	ModifiedAt                  *time.Time       `json:"modified_at"`
-	BusinessesUsersCreatedById  BusinessesModels `json:"businesses_users_created_by_id"`
-	BusinessesUsersModifiedById BusinessesModels `json:"businesses_users_modified_by_id"`
-	FarmFieldsUsersCreatedById  FarmFieldsModels `json:"farm_fields_users_created_by_id"`
-	FarmFieldsUsersModifiedById FarmFieldsModels `json:"farm_fields_users_modified_by_id"`
-	projection                  UsersProjection  `json:"-"`
+	BusinessesUsersCreatedById  *BusinessesModel       `json:"businesses_users_created_by_id"`
+	BusinessesUsersModifiedById *BusinessesModel       `json:"businesses_users_modified_by_id"`
+	CreatedAt                   *time.Time             `json:"created_at"`
+	DisplayName                 string                 `json:"display_name"`
+	EmailAddress                string                 `json:"email_address"`
+	FamilyName                  string                 `json:"family_name"`
+	FarmFieldsUsersCreatedById  *FarmFieldsModel       `json:"farm_fields_users_created_by_id"`
+	FarmFieldsUsersModifiedById *FarmFieldsModel       `json:"farm_fields_users_modified_by_id"`
+	GivenName                   string                 `json:"given_name"`
+	Id                          mssql.UniqueIdentifier `json:"id"`
+	ModifiedAt                  *time.Time             `json:"modified_at"`
+	Oid                         mssql.UniqueIdentifier `json:"oid"`
+	projection                  UsersProjection        `json:"-"`
 }
 
 type UsersModels []*UsersModel
@@ -1407,15 +1457,24 @@ func (ms UsersModels) SetProjection(projectionNode *querymodel.ProjectionNode) e
 
 // setUsersProjection sets a projection node and sets projection for itself and any
 // child nodes
-func (m *UsersModel) setUsersProjection(projection UsersProjection, childNodes map[string]*querymodel.ProjectionNode) error {
+func (m *UsersModel) setUsersProjection(
+	projection UsersProjection,
+	childNodes map[string]*querymodel.ProjectionNode,
+) error {
 	m.projection = projection
+	if node, exists := childNodes["businesses_users_created_by_id"]; exists {
+		if m.BusinessesUsersCreatedById != nil {
+			if err := m.BusinessesUsersCreatedById.SetProjection(node); err != nil {
+				return err
+			}
+		}
+	}
+
 	if node, exists := childNodes["businesses_users_modified_by_id"]; exists {
 		if m.BusinessesUsersModifiedById != nil {
 			if err := m.BusinessesUsersModifiedById.SetProjection(node); err != nil {
 				return err
 			}
-		} else {
-			m.BusinessesUsersModifiedById = BusinessesModels{}
 		}
 	}
 
@@ -1424,8 +1483,6 @@ func (m *UsersModel) setUsersProjection(projection UsersProjection, childNodes m
 			if err := m.FarmFieldsUsersCreatedById.SetProjection(node); err != nil {
 				return err
 			}
-		} else {
-			m.FarmFieldsUsersCreatedById = FarmFieldsModels{}
 		}
 	}
 
@@ -1434,56 +1491,36 @@ func (m *UsersModel) setUsersProjection(projection UsersProjection, childNodes m
 			if err := m.FarmFieldsUsersModifiedById.SetProjection(node); err != nil {
 				return err
 			}
-		} else {
-			m.FarmFieldsUsersModifiedById = FarmFieldsModels{}
-		}
-	}
-
-	if node, exists := childNodes["businesses_users_created_by_id"]; exists {
-		if m.BusinessesUsersCreatedById != nil {
-			if err := m.BusinessesUsersCreatedById.SetProjection(node); err != nil {
-				return err
-			}
-		} else {
-			m.BusinessesUsersCreatedById = BusinessesModels{}
 		}
 	}
 
 	return nil
 }
 
-// MarshalJSON marshals the model to a json string based on the projection
+// MarshalJSON marshals UsersModel to a json string based on the projection
 func (m *UsersModel) MarshalJSON() ([]byte, error) {
 	var buf bytes.Buffer
 	buf.WriteByte('{')
 
 	isFirst := true
-	if m.projection.Has(usersProjectionId) {
-		err := marshalProperty(&buf, isFirst, "id", m.Id)
+	if m.projection.Has(usersProjectionFkBusinessCreatedById) {
+		err := marshalProperty(&buf, isFirst, "businesses_users_created_by_id", m.BusinessesUsersCreatedById)
 		if err != nil {
 			return nil, err
 		}
 		isFirst = false
 	}
 
-	if m.projection.Has(usersProjectionOid) {
-		err := marshalProperty(&buf, isFirst, "oid", m.Oid)
+	if m.projection.Has(usersProjectionFkBusinessModifiedById) {
+		err := marshalProperty(&buf, isFirst, "businesses_users_modified_by_id", m.BusinessesUsersModifiedById)
 		if err != nil {
 			return nil, err
 		}
 		isFirst = false
 	}
 
-	if m.projection.Has(usersProjectionGivenName) {
-		err := marshalProperty(&buf, isFirst, "given_name", m.GivenName)
-		if err != nil {
-			return nil, err
-		}
-		isFirst = false
-	}
-
-	if m.projection.Has(usersProjectionFamilyName) {
-		err := marshalProperty(&buf, isFirst, "family_name", m.FamilyName)
+	if m.projection.Has(usersProjectionCreatedAt) {
+		err := marshalProperty(&buf, isFirst, "created_at", m.CreatedAt)
 		if err != nil {
 			return nil, err
 		}
@@ -1506,8 +1543,40 @@ func (m *UsersModel) MarshalJSON() ([]byte, error) {
 		isFirst = false
 	}
 
-	if m.projection.Has(usersProjectionCreatedAt) {
-		err := marshalProperty(&buf, isFirst, "created_at", m.CreatedAt)
+	if m.projection.Has(usersProjectionFamilyName) {
+		err := marshalProperty(&buf, isFirst, "family_name", m.FamilyName)
+		if err != nil {
+			return nil, err
+		}
+		isFirst = false
+	}
+
+	if m.projection.Has(usersProjectionFkFieldCreatedById) {
+		err := marshalProperty(&buf, isFirst, "farm_fields_users_created_by_id", m.FarmFieldsUsersCreatedById)
+		if err != nil {
+			return nil, err
+		}
+		isFirst = false
+	}
+
+	if m.projection.Has(usersProjectionFkFieldModifiedById) {
+		err := marshalProperty(&buf, isFirst, "farm_fields_users_modified_by_id", m.FarmFieldsUsersModifiedById)
+		if err != nil {
+			return nil, err
+		}
+		isFirst = false
+	}
+
+	if m.projection.Has(usersProjectionGivenName) {
+		err := marshalProperty(&buf, isFirst, "given_name", m.GivenName)
+		if err != nil {
+			return nil, err
+		}
+		isFirst = false
+	}
+
+	if m.projection.Has(usersProjectionId) {
+		err := marshalProperty(&buf, isFirst, "id", m.Id)
 		if err != nil {
 			return nil, err
 		}
@@ -1522,32 +1591,8 @@ func (m *UsersModel) MarshalJSON() ([]byte, error) {
 		isFirst = false
 	}
 
-	if m.projection.Has(usersProjectionFarmFieldsUsersModifiedById) {
-		err := marshalProperty(&buf, isFirst, "farm_fields_users_modified_by_id", m.FarmFieldsUsersModifiedById)
-		if err != nil {
-			return nil, err
-		}
-		isFirst = false
-	}
-
-	if m.projection.Has(usersProjectionBusinessesUsersCreatedById) {
-		err := marshalProperty(&buf, isFirst, "businesses_users_created_by_id", m.BusinessesUsersCreatedById)
-		if err != nil {
-			return nil, err
-		}
-		isFirst = false
-	}
-
-	if m.projection.Has(usersProjectionBusinessesUsersModifiedById) {
-		err := marshalProperty(&buf, isFirst, "businesses_users_modified_by_id", m.BusinessesUsersModifiedById)
-		if err != nil {
-			return nil, err
-		}
-		isFirst = false
-	}
-
-	if m.projection.Has(usersProjectionFarmFieldsUsersCreatedById) {
-		err := marshalProperty(&buf, isFirst, "farm_fields_users_created_by_id", m.FarmFieldsUsersCreatedById)
+	if m.projection.Has(usersProjectionOid) {
+		err := marshalProperty(&buf, isFirst, "oid", m.Oid)
 		if err != nil {
 			return nil, err
 		}
@@ -1558,7 +1603,11 @@ func (m *UsersModel) MarshalJSON() ([]byte, error) {
 }
 
 // GetValue returns the value from a given path
-func (m *UsersModel) GetValue(v querymodel.ValueBuilder, path []*querymodel.TraversalStep, columnName string) (querymodel.Value, error) {
+func (m *UsersModel) GetValue(
+	v querymodel.ValueBuilder,
+	path []*querymodel.TraversalStep,
+	columnName string,
+) (querymodel.Value, error) {
 	if len(path) > 0 {
 		return nil, fmt.Errorf("unable to get value: invalid path")
 	}
@@ -1573,24 +1622,27 @@ func (m *UsersModel) GetValue(v querymodel.ValueBuilder, path []*querymodel.Trav
 }
 
 // getValue returns the value from a given column
-func (m *UsersModel) getValue(columnName string, v querymodel.ValueBuilder) (querymodel.Value, error) {
+func (m *UsersModel) getValue(
+	columnName string,
+	v querymodel.ValueBuilder,
+) (querymodel.Value, error) {
 	switch columnName {
-	case "id":
-		return v.String(m.Id), nil
-	case "oid":
-		return v.String(m.Oid), nil
-	case "given_name":
-		return v.String(m.GivenName), nil
-	case "family_name":
-		return v.String(m.FamilyName), nil
+	case "created_at":
+		return v.DateTime(*m.CreatedAt), nil
 	case "display_name":
 		return v.String(m.DisplayName), nil
 	case "email_address":
 		return v.String(m.EmailAddress), nil
-	case "created_at":
-		return v.DateTime(*m.CreatedAt), nil
+	case "family_name":
+		return v.String(m.FamilyName), nil
+	case "given_name":
+		return v.String(m.GivenName), nil
+	case "id":
+		return v.String(m.Id.String()), nil
 	case "modified_at":
 		return v.DateTime(*m.ModifiedAt), nil
+	case "oid":
+		return v.String(m.Oid.String()), nil
 	default:
 		return nil, fmt.Errorf("unsupported column: '%s'", columnName)
 	}
@@ -1605,47 +1657,47 @@ func (m *UsersModel) Project(columnName string) error {
 type UsersProjection uint64
 
 const (
-	usersProjectionId UsersProjection = 1 << iota
-	usersProjectionOid
-	usersProjectionGivenName
-	usersProjectionFamilyName
+	usersProjectionFkBusinessCreatedById UsersProjection = 1 << iota
+	usersProjectionFkBusinessModifiedById
+	usersProjectionCreatedAt
 	usersProjectionDisplayName
 	usersProjectionEmailAddress
-	usersProjectionCreatedAt
+	usersProjectionFamilyName
+	usersProjectionFkFieldCreatedById
+	usersProjectionFkFieldModifiedById
+	usersProjectionGivenName
+	usersProjectionId
 	usersProjectionModifiedAt
-	usersProjectionFarmFieldsUsersModifiedById
-	usersProjectionBusinessesUsersCreatedById
-	usersProjectionBusinessesUsersModifiedById
-	usersProjectionFarmFieldsUsersCreatedById
+	usersProjectionOid
 )
 
 // Add includes a given column within the projection
 func (p *UsersProjection) Add(columnName string) error {
 	switch columnName {
-	case "id":
-		*p |= usersProjectionId
-	case "oid":
-		*p |= usersProjectionOid
-	case "given_name":
-		*p |= usersProjectionGivenName
-	case "family_name":
-		*p |= usersProjectionFamilyName
+	case "businesses_users_created_by_id":
+		*p |= usersProjectionFkBusinessCreatedById
+	case "businesses_users_modified_by_id":
+		*p |= usersProjectionFkBusinessModifiedById
+	case "created_at":
+		*p |= usersProjectionCreatedAt
 	case "display_name":
 		*p |= usersProjectionDisplayName
 	case "email_address":
 		*p |= usersProjectionEmailAddress
-	case "created_at":
-		*p |= usersProjectionCreatedAt
+	case "family_name":
+		*p |= usersProjectionFamilyName
+	case "farm_fields_users_created_by_id":
+		*p |= usersProjectionFkFieldCreatedById
+	case "farm_fields_users_modified_by_id":
+		*p |= usersProjectionFkFieldModifiedById
+	case "given_name":
+		*p |= usersProjectionGivenName
+	case "id":
+		*p |= usersProjectionId
 	case "modified_at":
 		*p |= usersProjectionModifiedAt
-	case "businesses_users_modified_by_id":
-		*p |= usersProjectionBusinessesUsersModifiedById
-	case "farm_fields_users_created_by_id":
-		*p |= usersProjectionFarmFieldsUsersCreatedById
-	case "farm_fields_users_modified_by_id":
-		*p |= usersProjectionFarmFieldsUsersModifiedById
-	case "businesses_users_created_by_id":
-		*p |= usersProjectionBusinessesUsersCreatedById
+	case "oid":
+		*p |= usersProjectionOid
 	default:
 		return fmt.Errorf("unsupported column: '%s'", columnName)
 	}
@@ -1689,27 +1741,27 @@ func (p *DatabaseAccessPolicy) GetTableAccessPolicy(
 // BusinessesAccessPolicy defines an access policy for the businesses table
 type BusinessesAccessPolicy struct {
 	UserCanAccess bool
-	Id            bool
-	Reference     bool
-	TradingName   bool
-	LogoUrl       bool
-	Description   bool
-	BusinessType  bool
-	CphNumber     bool
-	EmailAddress  bool
-	ContactNumber bool
-	WebsiteUrl    bool
 	AddressLine1  bool
 	AddressLine2  bool
-	Town          bool
-	County        bool
+	BusinessType  bool
+	ContactNumber bool
 	Country       bool
-	Postcode      bool
-	Location      bool
+	County        bool
+	CphNumber     bool
 	CreatedAt     bool
 	CreatedById   bool
+	Description   bool
+	EmailAddress  bool
+	Id            bool
+	Location      bool
+	LogoUrl       bool
 	ModifiedAt    bool
 	ModifiedById  bool
+	Postcode      bool
+	Reference     bool
+	Town          bool
+	TradingName   bool
+	WebsiteUrl    bool
 }
 
 // CanAccess defines, at the table level, if a user can perform any
@@ -1725,64 +1777,67 @@ func (p *BusinessesAccessPolicy) CanAccessColumn(
 	columnName string,
 ) (bool, error) {
 	switch columnName {
-	case "id":
-		return p.Id, nil
-	case "reference":
-		return p.Reference, nil
-	case "trading_name":
-		return p.TradingName, nil
-	case "logo_url":
-		return p.LogoUrl, nil
-	case "description":
-		return p.Description, nil
-	case "business_type":
-		return p.BusinessType, nil
-	case "cph_number":
-		return p.CphNumber, nil
-	case "email_address":
-		return p.EmailAddress, nil
-	case "contact_number":
-		return p.ContactNumber, nil
-	case "website_url":
-		return p.WebsiteUrl, nil
 	case "address_line_1":
 		return p.AddressLine1, nil
 	case "address_line_2":
 		return p.AddressLine2, nil
-	case "town":
-		return p.Town, nil
-	case "county":
-		return p.County, nil
+	case "business_type":
+		return p.BusinessType, nil
+	case "contact_number":
+		return p.ContactNumber, nil
 	case "country":
 		return p.Country, nil
-	case "postcode":
-		return p.Postcode, nil
-	case "location":
-		return p.Location, nil
+	case "county":
+		return p.County, nil
+	case "cph_number":
+		return p.CphNumber, nil
 	case "created_at":
 		return p.CreatedAt, nil
 	case "created_by_id":
 		return p.CreatedById, nil
+	case "description":
+		return p.Description, nil
+	case "email_address":
+		return p.EmailAddress, nil
+	case "id":
+		return p.Id, nil
+	case "location":
+		return p.Location, nil
+	case "logo_url":
+		return p.LogoUrl, nil
 	case "modified_at":
 		return p.ModifiedAt, nil
 	case "modified_by_id":
 		return p.ModifiedById, nil
+	case "postcode":
+		return p.Postcode, nil
+	case "reference":
+		return p.Reference, nil
+	case "town":
+		return p.Town, nil
+	case "trading_name":
+		return p.TradingName, nil
+	case "website_url":
+		return p.WebsiteUrl, nil
 	default:
-		return false, fmt.Errorf("column %s does not exists on the businesses table", columnName)
+		return false, fmt.Errorf(
+			"column %s does not exists on the businesses table",
+			columnName,
+		)
 	}
 }
 
 // FarmFieldsAccessPolicy defines an access policy for the farm_fields table
 type FarmFieldsAccessPolicy struct {
 	UserCanAccess bool
-	Id            bool
-	Reference     bool
 	BusinessId    bool
-	Location      bool
 	CreatedAt     bool
 	CreatedById   bool
+	Id            bool
+	Location      bool
 	ModifiedAt    bool
 	ModifiedById  bool
+	Reference     bool
 }
 
 // CanAccess defines, at the table level, if a user can perform any
@@ -1798,38 +1853,41 @@ func (p *FarmFieldsAccessPolicy) CanAccessColumn(
 	columnName string,
 ) (bool, error) {
 	switch columnName {
-	case "id":
-		return p.Id, nil
-	case "reference":
-		return p.Reference, nil
 	case "business_id":
 		return p.BusinessId, nil
-	case "location":
-		return p.Location, nil
 	case "created_at":
 		return p.CreatedAt, nil
 	case "created_by_id":
 		return p.CreatedById, nil
+	case "id":
+		return p.Id, nil
+	case "location":
+		return p.Location, nil
 	case "modified_at":
 		return p.ModifiedAt, nil
 	case "modified_by_id":
 		return p.ModifiedById, nil
+	case "reference":
+		return p.Reference, nil
 	default:
-		return false, fmt.Errorf("column %s does not exists on the farm_fields table", columnName)
+		return false, fmt.Errorf(
+			"column %s does not exists on the farm_fields table",
+			columnName,
+		)
 	}
 }
 
 // UsersAccessPolicy defines an access policy for the users table
 type UsersAccessPolicy struct {
 	UserCanAccess bool
-	Id            bool
-	Oid           bool
-	GivenName     bool
-	FamilyName    bool
+	CreatedAt     bool
 	DisplayName   bool
 	EmailAddress  bool
-	CreatedAt     bool
+	FamilyName    bool
+	GivenName     bool
+	Id            bool
 	ModifiedAt    bool
+	Oid           bool
 }
 
 // CanAccess defines, at the table level, if a user can perform any
@@ -1845,23 +1903,26 @@ func (p *UsersAccessPolicy) CanAccessColumn(
 	columnName string,
 ) (bool, error) {
 	switch columnName {
-	case "id":
-		return p.Id, nil
-	case "oid":
-		return p.Oid, nil
-	case "given_name":
-		return p.GivenName, nil
-	case "family_name":
-		return p.FamilyName, nil
+	case "created_at":
+		return p.CreatedAt, nil
 	case "display_name":
 		return p.DisplayName, nil
 	case "email_address":
 		return p.EmailAddress, nil
-	case "created_at":
-		return p.CreatedAt, nil
+	case "family_name":
+		return p.FamilyName, nil
+	case "given_name":
+		return p.GivenName, nil
+	case "id":
+		return p.Id, nil
 	case "modified_at":
 		return p.ModifiedAt, nil
+	case "oid":
+		return p.Oid, nil
 	default:
-		return false, fmt.Errorf("column %s does not exists on the users table", columnName)
+		return false, fmt.Errorf(
+			"column %s does not exists on the users table",
+			columnName,
+		)
 	}
 }

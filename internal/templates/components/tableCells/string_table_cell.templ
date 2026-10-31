@@ -1,0 +1,16 @@
+package tablecells
+
+templ StringCell(v *string) {
+  {{
+    label := "-"
+    if v != nil{
+      label = *v
+    }
+  }}
+
+  <td 
+    title={label}
+  >
+    {label}
+  </td>
+}

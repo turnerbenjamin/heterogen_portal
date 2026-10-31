@@ -1,31 +1,35 @@
 package sidebarcontent
 
 import (
-    "github.com/turnerbenjamin/heterogen_portal/internal/templates"
-	  "github.com/turnerbenjamin/querystack/querymodel"
-	  "github.com/turnerbenjamin/heterogen_portal/internal/icons"
+	"github.com/turnerbenjamin/querystack/querymodel"
+	"github.com/turnerbenjamin/heterogen_portal/internal/icons"
 	"fmt"
+	"github.com/turnerbenjamin/heterogen_portal/internal/templates/components/filters"
+	"github.com/turnerbenjamin/heterogen_portal/internal/tables"
+	"github.com/turnerbenjamin/heterogen_portal/internal/model"
+	"github.com/turnerbenjamin/heterogen_portal/internal/templates/components/inputs"
 )
 
 
 templ MainTableSidebarContent[T querymodel.TableModel](
     resourceEndpoint string,
+    inputBuilder model.UiInputControlBuilder,
     icons *icons.IconSet,
-    tableData templates.TableData[T],
+    tableData tables.TableData[T],
 ){
     <div id="edit-columns-sidebar" class="sidebar-content-group-container">
         @editColumnsContent(resourceEndpoint, icons, tableData)
     </div>
 
     <div id="edit-filters-sidebar" class="sidebar-content-group-container">
-        @editFiltersContent(resourceEndpoint, icons, tableData)
+        @editFiltersContent(resourceEndpoint, inputBuilder, icons, tableData)
     </div>
 }
 
 templ editColumnsContent[T querymodel.TableModel](
     resourceEndpoint string,
     icons *icons.IconSet,
-    tableData templates.TableData[T],
+    tableData tables.TableData[T],
 ){
     <div class="sidebar-title">
         <h3 sidebar-label>Edit Columns</h3>
@@ -41,26 +45,11 @@ templ editColumnsContent[T querymodel.TableModel](
 
     <div class="sidebar-content">
         <div id="edit-columns-list" class="sortable-list mt-7 mb-6">
-        for _, headerColumn := range tableData.Query.SelectCols{
-            <div 
-                role="button"
-                aria-label={fmt.Sprintf("%s column. Press Space to toggle select and arrow keys to move.", headerColumn.DisplayName)}
-                class="sortable-item" 
-                draggable="true" 
-                data-column-path={headerColumn.Path}
-                tabindex="0"
-                aria-pressed="false"
-            >
-                <div class="draggable-icon">@templ.Raw(icons.Draggable)</div>
-                <div class="sortable-item-text">{headerColumn.DisplayName}</div>
-                <button 
-                    class="icon-button minus-icon"
-                    onclick="hg.editColumns.removeColumn(event)"
-                    arialabel={fmt.Sprintf("Remove %s column from selection", headerColumn.DisplayName)}
-                >
-                    @templ.Raw(icons.Minus)
-                </button>
-            </div>
+        <template id="sortable-item_template">
+            @editColumnRow(icons, model.TableColumn[T]{})
+        </template>
+        for _, headerColumn := range tableData.Query.SelectQuery.Columns{
+            @editColumnRow(icons, headerColumn)
         }
         </div>
 
@@ -88,8 +77,9 @@ templ editColumnsContent[T querymodel.TableModel](
 
 templ editFiltersContent[T querymodel.TableModel](
     resourceEndpoint string,
+    inputBuilder model.UiInputControlBuilder,
     icons *icons.IconSet,
-    tableData templates.TableData[T],
+    tableData tables.TableData[T],
 ){
     <div class="sidebar-title">
         <h3 sidebar-label>Filter Columns</h3>
@@ -104,10 +94,33 @@ templ editFiltersContent[T querymodel.TableModel](
     </div>
 
     <div class="sidebar-content">
-        <p>Do some filtering or something I recon</p> 
+        <div class="filter-container">
+            <template id="filter-rule_template">
+                @filters.FilterRule(icons, inputBuilder, tableData, tables.FilterRule[T]{})
+            </template>
+            <template id="filter-group_template">
+                @filters.FilterGroup(icons, inputBuilder, tableData, tables.FilterGroup{
+                    GroupType: querymodel.LogicalAnd,
+                    Items: []tables.FilterItem{},
+                }, 2)
+            </template>
+            <template id="filter-input_templates">
+                @inputs.TextInput(nil)
+                @inputs.IntegerInput(nil)
+                @inputs.FloatInput(nil)
+                @inputs.DateInput(nil)
+                @inputs.IdentifierInput(nil)
+                @inputs.LookupInput("", nil)
+                @inputs.PointInput()
+                for _, t := range tableData.TableDefinition.EnumTypes{
+                    @inputs.Enuminput(t.TypeName, t.Options, nil)
+                }
+            </template>
+            @filters.FilterItem(icons, inputBuilder, tableData, tableData.Filter, 0)
+        </div>
         <button
-            id="apply-column-edits-button"
-            aria-label="Apply column edits"
+            id="apply-filters-button"
+            aria-label="Apply filters"
             hx-get={resourceEndpoint} 
             hx-swap="innerHTML" 
             hx-target="#main-table"
@@ -115,6 +128,31 @@ templ editFiltersContent[T querymodel.TableModel](
             hx-indicator="main"
         >
             Apply
+        </button>
+    </div>
+}
+
+templ editColumnRow[T querymodel.TableModel](
+    icons *icons.IconSet,
+    headerColumn model.TableColumn[T],
+){
+    <div 
+        role="button"
+        aria-label={fmt.Sprintf("%s column. Press Space to toggle select and arrow keys to move.", headerColumn.DisplayName)}
+        class="sortable-item" 
+        draggable="true" 
+        data-column-path={headerColumn.Path}
+        tabindex="0"
+        aria-pressed="false"
+    >
+        <div class="draggable-icon">@templ.Raw(icons.Draggable)</div>
+        <div class="sortable-item-text">{headerColumn.DisplayName}</div>
+        <button 
+            class="icon-button minus-icon"
+            onclick="hg.editColumns.removeColumn(event)"
+            arialabel={fmt.Sprintf("Remove %s column from selection", headerColumn.DisplayName)}
+        >
+            @templ.Raw(icons.Minus)
         </button>
     </div>
 }

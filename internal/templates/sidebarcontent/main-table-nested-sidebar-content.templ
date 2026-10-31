@@ -1,15 +1,15 @@
 package sidebarcontent
 
 import (
-    "github.com/turnerbenjamin/heterogen_portal/internal/templates"
 	  "github.com/turnerbenjamin/querystack/querymodel"
 	"github.com/turnerbenjamin/heterogen_portal/internal/icons"
+	"github.com/turnerbenjamin/heterogen_portal/internal/tables"
 )
 
 
 templ MainTableNestedSidebarContent[T querymodel.TableModel](
     icons *icons.IconSet,
-    tableData templates.TableData[T],
+    tableData tables.TableData[T],
 
 ){
     <div id="add-columns-sidebar" class="sidebar-content-group-container">
@@ -27,10 +27,10 @@ templ MainTableNestedSidebarContent[T querymodel.TableModel](
 
         <div class="nested-sidebar-content">
             <div id="add-columns-options" class="option-group mt-7 mb-7">
-            for _, column := range tableData.OrderedColumnDefinitions{
+            for _, column := range tableData.TableDefinition.MainGridColumns{
                 {{
                     hiddenClass := "";
-                    _, doHide := tableData.Query.SelectColsSet[column.Path]
+                    _, doHide := tableData.Query.SelectQuery.ColumnSet[column.Path]
                     if doHide{
                         hiddenClass = "hidden"
                     }

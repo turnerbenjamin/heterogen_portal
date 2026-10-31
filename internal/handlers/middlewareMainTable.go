@@ -3,11 +3,11 @@ package handlers
 import (
 	"fmt"
 	"net/http"
-	"strings"
 
 	"github.com/turnerbenjamin/heterogen_portal/internal/constants"
 	"github.com/turnerbenjamin/heterogen_portal/internal/etc"
-	"github.com/turnerbenjamin/heterogen_portal/internal/templates"
+	"github.com/turnerbenjamin/heterogen_portal/internal/model"
+	"github.com/turnerbenjamin/heterogen_portal/internal/tables"
 	"github.com/turnerbenjamin/querystack/querymodel"
 )
 
@@ -22,7 +22,7 @@ func MainTableRequestEnrichment[MT querymodel.TableModel, PT TableState[MT]]() M
 			}
 			d.RequestTarget = requestTarget
 
-			tableQuery, err := parseTableQuery(r, d.ColumnDefinitions)
+			tableQuery, err := parseTableQuery(r, d.TableDefinition)
 			if err != nil {
 				return etc.NewServerError(err)
 			}
@@ -35,28 +35,41 @@ func MainTableRequestEnrichment[MT querymodel.TableModel, PT TableState[MT]]() M
 
 func parseTableQuery[T querymodel.TableModel](
 	r *http.Request,
-	columns map[string]templates.ColumnData[T],
-) (*templates.TableQuery[T], error) {
+	tableDefinition model.TableDefinition[T],
+) (*tables.TableQuery[T], error) {
 	queryValues := r.URL.Query()
-	selectQuery := queryValues.Get("select")
+
+	filterString := queryValues.Get("filter")
+
+	selectQueryString := queryValues.Get("select")
+	selectQuery, err := parseSelectQuery(selectQueryString, tableDefinition)
+	if err != nil {
+		return nil, err
+	}
+
+	return tables.NewTableQuery(selectQuery, filterString), nil
+}
+
+func parseSelectQuery[T querymodel.TableModel](
+	selectQuery string,
+	tableDefinition model.TableDefinition[T],
+) (tables.SelectQuery[T], error) {
 	if selectQuery == "" {
-		return nil, nil
+		return tables.SelectQuery[T]{
+			Columns:   make([]model.TableColumn[T], 0),
+			ColumnSet: map[string]struct{}{},
+		}, nil
 	}
 	selectQueryLen := len(selectQuery)
 
-	query := templates.TableQuery[T]{
-		SelectCols:    []templates.ColumnData[T]{},
-		SelectColsSet: map[string]struct{}{},
+	query := tables.SelectQuery[T]{
+		Columns:   []model.TableColumn[T]{},
+		ColumnSet: map[string]struct{}{},
 	}
-
-	selectBuilder := strings.Builder{}
-	selectCount := 0
-
-	expandBuilder := strings.Builder{}
-	expandCount := 0
 
 	li := 0
 	ri := 0
+
 	for ri < selectQueryLen {
 		nextC := byte(0)
 		if (ri + 1) < selectQueryLen {
@@ -69,112 +82,47 @@ func parseTableQuery[T querymodel.TableModel](
 		}
 
 		colPath := string(selectQuery[li : ri+1])
-		col, exists := columns[colPath]
+		col, exists := tableDefinition.MainGridColumnsMap[colPath]
 		if !exists {
-			return nil, fmt.Errorf(
+			return query, fmt.Errorf(
 				"unable to parse select columns: invalid column path '%s'",
 				colPath,
 			)
 		}
 
-		if _, selected := query.SelectColsSet[colPath]; selected {
-			return nil, fmt.Errorf(
+		if _, selected := query.ColumnSet[colPath]; selected {
+			return query, fmt.Errorf(
 				"unable to parse select columns: duplicate column found '%s'",
 				colPath,
 			)
 		}
 
-		query.SelectCols = append(query.SelectCols, col)
-		query.SelectColsSet[colPath] = struct{}{}
-
-		if col.Expansion != "" {
-			if expandCount > 0 {
-				expandBuilder.WriteByte(',')
-			}
-			expandBuilder.WriteString(col.Expansion)
-			expandCount++
-		} else {
-			if selectCount > 0 {
-				selectBuilder.WriteByte(',')
-			}
-			selectBuilder.WriteString(col.Path)
-			selectCount++
-		}
+		query.Columns = append(query.Columns, col)
+		query.ColumnSet[colPath] = struct{}{}
 
 		ri += 2
 		li = ri
 	}
 
-	query.QueryString = buildQueryString(selectBuilder, expandBuilder)
-	return &query, nil
+	return query, nil
 }
 
-func parseRequestTarget(r *http.Request) (templates.MainTableRequestTarget, error) {
+func parseRequestTarget(r *http.Request) (tables.MainTableRequestTarget, error) {
 	target := r.Header.Get(constants.HxRequestHeaderTarget)
 
 	switch target {
 	case "":
-		return templates.MainTableRequestTargetFullPage, nil
+		return tables.MainTableRequestTargetFullPage, nil
 	case "div#page-content":
-		return templates.MainTableRequestTargetPageContent, nil
+		return tables.MainTableRequestTargetPageContent, nil
 	case "table#main-table":
-		return templates.MainTableRequestTargetTable, nil
+		return tables.MainTableRequestTargetTable, nil
 	case "tbody#main-table-body":
-		return templates.MainTableRequestTargetTableBody, nil
+		return tables.MainTableRequestTargetTableBody, nil
 	default:
-		return templates.MainTableRequestTargetFullPage, fmt.Errorf(
+		return tables.MainTableRequestTargetFullPage, fmt.Errorf(
 			"unable to enrich main table request: unrecognised target: '%s'",
 			target,
 		)
 	}
-}
-
-func newTableQuery[T querymodel.TableModel](selectCols []templates.ColumnData[T]) *templates.TableQuery[T] {
-	selectBuilder := strings.Builder{}
-	expandBuilder := strings.Builder{}
-	selectColsSet := make(map[string]struct{}, len(selectCols))
-
-	expandCount := 0
-	selectCount := 0
-	for _, c := range selectCols {
-		selectColsSet[c.Path] = struct{}{}
-		if c.Expansion != "" {
-			if expandCount > 0 {
-				expandBuilder.WriteByte(',')
-			}
-			expandBuilder.WriteString(c.Expansion)
-			expandCount++
-		} else {
-			if selectCount > 0 {
-				selectBuilder.WriteByte(',')
-			}
-			selectBuilder.WriteString(c.Path)
-			selectCount++
-		}
-	}
-
-	return &templates.TableQuery[T]{
-		SelectCols:    selectCols,
-		SelectColsSet: selectColsSet,
-		QueryString:   buildQueryString(selectBuilder, expandBuilder),
-	}
-}
-
-func buildQueryString(selectBuilder strings.Builder, expandBuilder strings.Builder) string {
-	selectStmt := selectBuilder.String()
-	expandStmt := expandBuilder.String()
-
-	if selectStmt == "" && expandStmt == "" {
-		return ""
-	}
-
-	if selectStmt != "" && expandStmt == "" {
-		return fmt.Sprintf("select=%s", selectStmt)
-	}
-
-	if expandStmt != "" && selectStmt == "" {
-		return fmt.Sprintf("expand=%s", expandStmt)
-	}
-
-	return fmt.Sprintf("select=%s&expand=%s", selectStmt, expandStmt)
 }

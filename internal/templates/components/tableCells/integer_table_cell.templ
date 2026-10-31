@@ -1,0 +1,18 @@
+package tablecells
+
+import "strconv"
+
+templ IntegerCell(v *int64) {
+  {{
+    label := "-"
+    if v != nil{
+      label = strconv.FormatInt(*v, 10)
+    }
+  }}
+
+  <td 
+    title={label}
+  >
+    {label}
+  </td>
+}

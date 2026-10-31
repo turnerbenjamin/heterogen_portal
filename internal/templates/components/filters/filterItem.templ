@@ -1,0 +1,21 @@
+package filters
+
+import "github.com/turnerbenjamin/querystack/querymodel"
+import "github.com/turnerbenjamin/heterogen_portal/internal/tables"
+import "github.com/turnerbenjamin/heterogen_portal/internal/model"
+import "github.com/turnerbenjamin/heterogen_portal/internal/icons"
+
+templ FilterItem[T querymodel.TableModel](
+  icons *icons.IconSet,
+  inputBuilder model.UiInputControlBuilder,
+  tableData tables.TableData[T],
+  filterData tables.FilterItem,
+  depth uint8,
+) {
+  switch typedEx := filterData.(type){
+    case tables.FilterGroup:
+      @FilterGroup(icons, inputBuilder, tableData, typedEx, depth + 1)
+    case tables.FilterRule[T]:
+      @FilterRule(icons, inputBuilder, tableData, typedEx)
+  }
+}
