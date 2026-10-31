@@ -525,6 +525,7 @@ func (m *BusinessesModel) MarshalJSON() ([]byte, error) {
 		if err != nil {
 			return nil, err
 		}
+		isFirst = false
 	}
 
 	if m.projection.Has(businessesProjectionTown) {
@@ -548,7 +549,6 @@ func (m *BusinessesModel) MarshalJSON() ([]byte, error) {
 		if err != nil {
 			return nil, err
 		}
-		isFirst = false
 	}
 
 	buf.WriteByte('}')
@@ -1063,6 +1063,7 @@ func (m *FarmFieldsModel) MarshalJSON() ([]byte, error) {
 		if err != nil {
 			return nil, err
 		}
+		isFirst = false
 	}
 
 	if m.projection.Has(farmFieldsProjectionFkFieldModifiedById) {
@@ -1086,7 +1087,6 @@ func (m *FarmFieldsModel) MarshalJSON() ([]byte, error) {
 		if err != nil {
 			return nil, err
 		}
-		isFirst = false
 	}
 
 	buf.WriteByte('}')
@@ -1564,6 +1564,7 @@ func (m *UsersModel) MarshalJSON() ([]byte, error) {
 		if err != nil {
 			return nil, err
 		}
+		isFirst = false
 	}
 
 	if m.projection.Has(usersProjectionGivenName) {
@@ -1595,7 +1596,6 @@ func (m *UsersModel) MarshalJSON() ([]byte, error) {
 		if err != nil {
 			return nil, err
 		}
-		isFirst = false
 	}
 
 	buf.WriteByte('}')

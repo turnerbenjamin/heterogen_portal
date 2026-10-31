@@ -64,7 +64,9 @@ func (w *queryModelWriter) Write() error {
 		}
 		w.wtr.NewLine()
 
-		w.WriteTableModelProjection(table)
+		if err = w.WriteTableModelProjection(table); err != nil {
+			return err
+		}
 	}
 
 	w.wtr.NewLine()
@@ -528,7 +530,7 @@ func (w *queryModelWriter) WriteModelMarshalJSONFunction(
 		w.wtr.NewLine()
 	}
 
-	colCount := len(tableData.ColumnData.Ordered)
+	colCount := len(tableData.ColumnData.All)
 	for i, column := range tableData.ColumnData.All {
 		isLastItem := (i == colCount-1)
 		writeColumn(isLastItem, column)
