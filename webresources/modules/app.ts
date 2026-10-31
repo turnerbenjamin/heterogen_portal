@@ -6,6 +6,7 @@ import { WindowManager } from "./windowManager";
 import { SortableListManager } from "./sortableListManager";
 import { AlertManager } from "./alertManager";
 import { parseAppError } from "./errors";
+import { TableFilterManager } from "./tableFilterManager";
 
 export interface HgNamespace {
   closeAlert: () => void;
@@ -20,6 +21,12 @@ export interface HgNamespace {
     showEditFiltersSidebar: () => void;
     closeEditColumnsSidebar: () => void;
     closeEditFiltersSidebar: () => void;
+    filters: {
+      newRule: (_e: MouseEvent) => void;
+      newRuleGroup: (_e: MouseEvent) => void;
+      deleteRule: (_e: MouseEvent) => void;
+      deleteRuleGroup: (_e: MouseEvent) => void;
+    };
   };
 }
 
@@ -32,6 +39,7 @@ export class App {
   public readonly sidebarManager: SidebarManager | undefined;
   public readonly sortableListManager: SortableListManager | undefined;
   public readonly mainTable: MainTable | undefined;
+  public readonly tableFilterManager: TableFilterManager | undefined;
 
   public constructor() {
     try {
@@ -47,6 +55,8 @@ export class App {
       );
 
       this.mainTable = new MainTable(this.alertManager, this.sidebarManager);
+      this.tableFilterManager = new TableFilterManager(this.alertManager);
+
       this.sortableListManager = new SortableListManager(
         this.windowManager,
         this.alertManager,
@@ -76,6 +86,12 @@ export class App {
             this.mainTable.hgHandlerShowEditFiltersSidebar,
           closeEditFiltersSidebar:
             this.mainTable.hgHandlerCloseEditColumnsSidebar,
+          filters: {
+            newRule: this.tableFilterManager.hgHandlerNewRule,
+            newRuleGroup: this.tableFilterManager.hgHandlerNewRuleGroup,
+            deleteRule: this.tableFilterManager.hgHandlerDeleteRule,
+            deleteRuleGroup: this.tableFilterManager.hgHandlerDeleteRuleGroup,
+          },
         },
       };
     } catch (err: unknown) {

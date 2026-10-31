@@ -22,12 +22,12 @@ type BusinessesService interface {
 }
 
 type BusinessesHandler struct {
-	templateStore       TemplateStore
-	businessesService   BusinessesService
-	orderedTableColumns []tables.ColumnData[*model.BusinessesModel]
-	tableColumns        map[string]tables.ColumnData[*model.BusinessesModel]
+	templateStore     TemplateStore
+	businessesService BusinessesService
 
-	defaultQuery *tables.TableQuery[*model.BusinessesModel]
+	TableDefinition model.TableDefinition[*model.BusinessesModel]
+
+	defaultSelect tables.SelectQuery[*model.BusinessesModel]
 }
 
 func NewBusinessesHandler(
@@ -38,14 +38,14 @@ func NewBusinessesHandler(
 		templateStore:     templateStore,
 		businessesService: businessesService,
 
-		orderedTableColumns: OrderedColumnData(businessTableColumns),
-		tableColumns:        businessTableColumns,
+		TableDefinition: model.BusinessesTable,
 
-		defaultQuery: newTableQuery([]tables.ColumnData[*model.BusinessesModel]{
-			columnDataBusinessesTradingName,
-			columnDataBusinessesReference,
-			columnDataBusinessesBusinessType,
-			columnDataBusinessesCounty,
+		defaultSelect: tables.BuildSelectQuery([]model.TableColumn[*model.BusinessesModel]{
+			model.BusinessesTradingNameColumn,
+			model.BusinessesReferenceColumn,
+			model.BusinessesBusinessTypeColumn,
+			model.BusinessesCountyColumn,
+			model.BusinessesCreatedByIdColumn,
 		}),
 	}
 
@@ -64,26 +64,18 @@ func (h *BusinessesHandler) GetRoot(
 	}
 
 	d := c.state.TableData
+	d.TableDefinition = h.TableDefinition
 
-	d.TableName = "Businesses"
-	d.SchemaVersion = 1
-
-	d.OrderedColumnDefinitions = h.orderedTableColumns
-	d.ColumnDefinitions = h.tableColumns
-
-	if d.Query == nil {
-		d.Query = h.defaultQuery
+	if len(d.Query.SelectQuery.Columns) == 0 {
+		d.Query.SetSelect(h.defaultSelect)
 	}
 
-	// DUMMY FILTER
-	d.Query.QueryString +=
-		"&filter=reference contains '0' and (county eq 'Dorset' or county " +
-			"contains 'shire' or business_type eq 1) and created_at lt " +
-			"datetime(2026-10-15T07:30:44.958590557+01:00) and " +
-			"(created_by_id/display_name startswith 'p') and (trading_name ne null " +
-			" or (trading_name startswith 'T' and trading_name endswith 't'))"
-	// d.Query.QueryString += "&filter=reference contains '0' or reference startswith '0'"
-	// d.Query.QueryString += "&filter=reference contains '0'"
+	// d.Query.QueryString +=
+	// 	"&filter=reference contains '0' and (county eq 'Dorset' or county " +
+	// 		"contains 'shire' or business_type eq 2) and created_at lt " +
+	// 		"datetime(2029-10-15T07:30:44.958590557+01:00) and " +
+	// 		"(created_by_id/email_address startswith 'info') and (trading_name ne null " +
+	// 		" or (created_by_id ne null and trading_name endswith 'turn'))"
 
 	result, err := h.businessesService.ExecuteQuery(
 		r.Context(),
@@ -94,7 +86,7 @@ func (h *BusinessesHandler) GetRoot(
 	}
 
 	tableFilter, err := tables.BuildTableFilter(
-		d.ColumnDefinitions,
+		&h.TableDefinition,
 		result.Filter,
 	)
 	if err != nil {

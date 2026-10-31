@@ -48,7 +48,7 @@ type UsersTableState struct {
 func UsersTableStateInit() *UsersTableState {
 	return &UsersTableState{
 		TableData: &tables.TableData[*model.UsersModel]{
-			ColumnDefinitions: userTableColumns,
+			TableDefinition: model.UsersTable,
 		},
 	}
 }
@@ -73,7 +73,7 @@ type BusinessesTableState struct {
 func BusinessesTableStateInit() *BusinessesTableState {
 	return &BusinessesTableState{
 		TableData: &tables.TableData[*model.BusinessesModel]{
-			ColumnDefinitions: businessTableColumns,
+			TableDefinition: model.BusinessesTable,
 		},
 	}
 }

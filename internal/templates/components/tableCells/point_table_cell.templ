@@ -1,0 +1,19 @@
+package tablecells
+
+import "github.com/turnerbenjamin/querystack/querymodel"
+import "fmt"
+
+templ PointCell(v *querymodel.Point) {
+  {{
+    label := "-"
+    if v != nil{
+      label = fmt.Sprintf("[%f,%f]", v.Coordinates[0], v.Coordinates[1])
+    }
+  }}
+
+  <td 
+    title={label}
+  >
+    {label}
+  </td>
+}

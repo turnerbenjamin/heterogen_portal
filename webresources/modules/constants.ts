@@ -8,6 +8,34 @@ export default {
     },
   },
 
+  filterColumns: {
+    componentId: "edit-filters-sidebar",
+    templates: {
+      filterRule: "filter-rule_template",
+      filterGroup: "filter-group_template",
+      filterInputs: "filter-input_templates",
+    },
+
+    columnTypes: {
+      string: "string",
+      number: "number",
+      date: "date",
+      enum: "enum",
+      identifier: "identifier",
+      lookup: "lookup",
+      point: "point",
+    },
+
+    applyFiltersBtnId: "apply-filters-button",
+  },
+
+  editColumns: {
+    componentId: "edit-columns-sidebar",
+    templates: {
+      sortableItem: "sortable-item_template",
+    },
+  },
+
   layers: {
     app: {
       id: "app",
@@ -19,6 +47,7 @@ export default {
         labelElAttribute: "sidebar-label",
         editColumnsSidebar: {
           id: "edit-columns-sidebar",
+
           editColumnsList: {
             id: "edit-columns-list",
           },
@@ -148,6 +177,59 @@ export default {
         },
       },
     },
+
+    filterGroup: {
+      className: "filter-group",
+      attributes: {
+        depth: "data-depth",
+        depthEven: "data-depth-even",
+      },
+      children: {
+        operator: {
+          className: "filter-group-operator",
+        },
+        items: {
+          className: "filter-group-items",
+        },
+        controls: {
+          className: "filter-group-controls",
+          children: {
+            newRuleGroupButton: {
+              className: "filter-group-controls_new-rule-button",
+            },
+          },
+        },
+      },
+    },
+
+    filterRule: {
+      className: "filter-rule",
+      children: {
+        columnSelector: {
+          className: "filter-rule-display-name",
+        },
+        operatorSelector: {
+          className: "filter-rule-operator",
+        },
+        valueInputWrapper: {
+          className: "filter-rule-value",
+        },
+      },
+    },
+  },
+
+  comparisonOperators: {
+    empty: "empty",
+    notEmpty: "notempty",
+    equal: "eq",
+    notEqual: "ne",
+    greaterThan: "gt",
+    greaterThanOrEqual: "ge",
+    lessThan: "lt",
+    lessThanOrEqual: "le",
+    contains: "contains",
+    startsWith: "startswith",
+    endsWith: "endswith",
   },
 
   keyCodes: {

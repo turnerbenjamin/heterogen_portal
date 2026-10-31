@@ -51,9 +51,9 @@ func MainTableNestedSidebarContent[T querymodel.TableModel](
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		for _, column := range tableData.OrderedColumnDefinitions {
+		for _, column := range tableData.TableDefinition.MainGridColumns {
 			hiddenClass := ""
-			_, doHide := tableData.Query.SelectColsSet[column.Path]
+			_, doHide := tableData.Query.SelectQuery.ColumnSet[column.Path]
 			if doHide {
 				hiddenClass = "hidden"
 			}

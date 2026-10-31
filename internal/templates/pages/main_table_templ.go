@@ -10,6 +10,7 @@ import templruntime "github.com/a-h/templ/runtime"
 
 import (
 	"github.com/turnerbenjamin/heterogen_portal/internal/icons"
+	"github.com/turnerbenjamin/heterogen_portal/internal/model"
 	"github.com/turnerbenjamin/heterogen_portal/internal/tables"
 	"github.com/turnerbenjamin/heterogen_portal/internal/templates"
 	"github.com/turnerbenjamin/heterogen_portal/internal/templates/layouts"
@@ -21,6 +22,8 @@ import (
 func MainTable[T querymodel.TableModel](
 	pageConfig templates.PageConfig,
 	icons *icons.IconSet,
+	inputBuilder model.UiInputControlBuilder,
+	tableCellBuilder model.UiTableCellBuilder,
 	tableData tables.TableData[T],
 	resourceEndpoint string,
 ) templ.Component {
@@ -48,9 +51,17 @@ func MainTable[T querymodel.TableModel](
 			pageConfig,
 			icons,
 			layouts.Content{
-				MainContent:          pagecontent.MainTable(icons, tableData),
-				SidebarContent:       sidebarcontent.MainTableSidebarContent(resourceEndpoint, icons, tableData),
-				NestedSidebarContent: sidebarcontent.MainTableNestedSidebarContent(icons, tableData),
+				MainContent: pagecontent.MainTable(tableCellBuilder, icons, tableData),
+				SidebarContent: sidebarcontent.MainTableSidebarContent(
+					resourceEndpoint,
+					inputBuilder,
+					icons,
+					tableData,
+				),
+				NestedSidebarContent: sidebarcontent.MainTableNestedSidebarContent(
+					icons,
+					tableData,
+				),
 			},
 		).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {

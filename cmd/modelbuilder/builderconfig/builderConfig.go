@@ -11,6 +11,7 @@ import (
 
 type TableColumnDefinitionConfig struct {
 	TableName           string   `json:"table-name"`
+	Version             uint64   `json:"version"`
 	ExcludeFromMainGrid []string `json:"exclude-from-main-grid"`
 	RelatedColumns      []string `json:"related-columns"`
 }

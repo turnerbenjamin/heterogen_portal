@@ -4,15 +4,18 @@
   "table-column-definitions": {
     "users": {
       "table_name": "users",
+      "version": 1,
       "exclude-from-main-grid": ["id", "oid"]
     },
     "businesses": {
       "table_name": "businesses",
+      "version": 1,
       "exclude-from-main-grid": ["id", "location", "logo_url", "website_url"],
-      "related-columns": ["created_by_id/display_name"]
+      "related-columns": ["created_by_id/email_address"]
     },
     "farm_fields": {
       "table_name": "farm_fields",
+      "version": 1,
       "exclude-from-main-grid": ["id", "location"]
     }
   }

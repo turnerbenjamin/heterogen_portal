@@ -1,0 +1,13 @@
+package inputs
+
+import "github.com/turnerbenjamin/heterogen_portal/internal/model"
+
+templ FloatInput(value *float64) {
+  <input 
+    type="number"
+    data-type={model.AppTypeFloat}
+    if value != nil{
+      value={*value}
+    }
+   />
+}

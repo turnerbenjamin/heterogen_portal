@@ -11,16 +11,24 @@ import (
 )
 
 func BuildTableFilter[T querymodel.TableModel](
-	columnData map[string]ColumnData[T],
+	tableData *model.TableDefinition[T],
 	ast querymodel.FilterExpression,
 ) (FilterItem, error) {
 	pathBuilder := strings.Builder{}
 
 	if ast == nil {
-		return nil, nil
+		return FilterGroup{
+			GroupType: querymodel.LogicalAnd,
+			Items:     []FilterItem{},
+		}, nil
 	}
 
-	filterItems, err := flattenExpression(columnData, pathBuilder, nil, ast)
+	filterItems, err := flattenExpression(
+		tableData,
+		pathBuilder,
+		nil,
+		ast,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -33,11 +41,21 @@ func BuildTableFilter[T querymodel.TableModel](
 		)
 	}
 
+	topLevelItem := filterItems[0]
+	switch i := topLevelItem.(type) {
+	case FilterGroup:
+		return i, nil
+	case FilterRule[T]:
+		return FilterGroup{
+			GroupType: querymodel.LogicalAnd,
+			Items:     []FilterItem{topLevelItem},
+		}, nil
+	}
 	return filterItems[0], nil
 }
 
 func flattenExpression[T querymodel.TableModel](
-	columnData map[string]ColumnData[T],
+	tableData *model.TableDefinition[T],
 	pathBuilder strings.Builder,
 	parentGroupType *querymodel.LogicalOperator,
 	ast querymodel.FilterExpression,
@@ -45,7 +63,7 @@ func flattenExpression[T querymodel.TableModel](
 	switch typedEx := ast.(type) {
 	case *querymodel.LogicalExpression:
 		left, err := flattenExpression(
-			columnData,
+			tableData,
 			pathBuilder,
 			&typedEx.Operator,
 			typedEx.Left,
@@ -55,7 +73,7 @@ func flattenExpression[T querymodel.TableModel](
 		}
 
 		right, err := flattenExpression(
-			columnData,
+			tableData,
 			pathBuilder,
 			&typedEx.Operator,
 			typedEx.Right,
@@ -74,8 +92,8 @@ func flattenExpression[T querymodel.TableModel](
 		}
 
 	case *querymodel.ComparisonExpression:
-		path, columnType, err := getColData(
-			columnData,
+		column, err := getColDefinition(
+			tableData,
 			pathBuilder,
 			typedEx.ResolvedColumn,
 		)
@@ -91,22 +109,15 @@ func flattenExpression[T querymodel.TableModel](
 			return nil, err
 		}
 
-		supportedOperators, exists := DataTypeToOperatorMapping[columnType]
-		if !exists {
-			return nil, fmt.Errorf(
-				"unable to build table filter: unable to access supported operators for %s",
-				columnType,
-			)
+		value, err := parseFilterValue(column, typedEx.Value)
+		if err != nil {
+			return nil, fmt.Errorf("unable to build table filter: %v", err)
 		}
 
-		return []FilterItem{FilterRule{
-			ColumnType: columnType,
-			ColumnPath: path,
-
-			Operator:           operator,
-			SupportedOperators: supportedOperators,
-
-			Value: typedEx.Value,
+		return []FilterItem{FilterRule[T]{
+			Column:   column,
+			Operator: operator,
+			Value:    value,
 		}}, nil
 
 	default:
@@ -116,11 +127,11 @@ func flattenExpression[T querymodel.TableModel](
 	}
 }
 
-func getColData[T querymodel.TableModel](
-	columns map[string]ColumnData[T],
+func getColDefinition[T querymodel.TableModel](
+	tableData *model.TableDefinition[T],
 	pathBuilder strings.Builder,
 	col *querymodel.ResolvedColumn,
-) (path string, columnType model.DataType, err error) {
+) (*model.TableColumn[T], error) {
 
 	pathBuilder.Reset()
 	for _, s := range col.ResolvedPath.Steps {
@@ -129,17 +140,18 @@ func getColData[T querymodel.TableModel](
 	}
 	pathBuilder.WriteString(col.Metadata.Name)
 
-	path = pathBuilder.String()
+	path := pathBuilder.String()
 
-	colData, exists := columns[pathBuilder.String()]
+	column, exists := tableData.MainGridColumnsMap[path]
 	if !exists {
-		return "", "", fmt.Errorf(
-			"unable to get col data: unable to access column with path %s",
-			pathBuilder.String(),
+		return nil, fmt.Errorf(
+			"unable to find column definition for %s -> %s",
+			tableData.DisplayName,
+			path,
 		)
 	}
 
-	return path, colData.DataType, nil
+	return &column, nil
 }
 
 func getOperator(

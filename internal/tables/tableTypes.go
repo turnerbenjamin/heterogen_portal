@@ -15,22 +15,13 @@ const (
 )
 
 type HeaderColumn[T querymodel.TableModel] struct {
-	Column ColumnData[T]
+	Column model.TableColumn[T]
 	Width  string
 }
 
-type ColumnData[T querymodel.TableModel] struct {
-	Path        string
-	DisplayName string
-	DataType    model.DataType
-	Expansion   string
-	GetData     func(T) string
-}
-
-type TableQuery[T querymodel.TableModel] struct {
-	SelectCols    []ColumnData[T]
-	SelectColsSet map[string]struct{}
-	QueryString   string
+type SelectQuery[T querymodel.TableModel] struct {
+	Columns   []model.TableColumn[T]
+	ColumnSet map[string]struct{}
 }
 
 type FilterItem interface {
@@ -44,26 +35,17 @@ type FilterGroup struct {
 
 func (g FilterGroup) isFilterItem() {}
 
-type FilterRule struct {
-	ColumnType model.DataType
-	ColumnPath string
-
-	Operator           *ComparisonOperator
-	SupportedOperators []*ComparisonOperator
-
-	Value querymodel.Value
+type FilterRule[T querymodel.TableModel] struct {
+	Column   *model.TableColumn[T]
+	Operator *ComparisonOperator
+	Value    FilterValue
 }
 
-func (r FilterRule) isFilterItem() {}
+func (r FilterRule[T]) isFilterItem() {}
 
 type TableData[T querymodel.TableModel] struct {
-	TableName     string
-	SchemaVersion uint64
-	RequestTarget MainTableRequestTarget
-
-	OrderedColumnDefinitions []ColumnData[T]
-
-	ColumnDefinitions map[string]ColumnData[T]
+	RequestTarget   MainTableRequestTarget
+	TableDefinition model.TableDefinition[T]
 
 	Query *TableQuery[T]
 

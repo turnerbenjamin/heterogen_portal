@@ -15,15 +15,22 @@ import (
 type EnumOption struct {
 }
 
+type Expansion struct {
+	Path   string
+	Select string
+}
+
 type TableColumnDef struct {
-	Identifier   string
-	Path         string
-	FilterPath   string
-	DisplayName  string
-	PropertyName string
-	GetDataFunc  string
-	AppColType   schemamodel.AppColType
-	Expansion    string
+	Identifier         string
+	ValuePath          string
+	FilterPath         string
+	Expansion          *Expansion
+	DisplayName        string
+	PropertyName       string
+	BuildInputFunc     string
+	BuildTableCellFunc string
+	AppColType         schemamodel.AppColType
+	Enums              []*schemamodel.Enum
 }
 
 type tableDefinitionWriter struct {
@@ -80,61 +87,163 @@ func (w *tableDefinitionWriter) writePackageDefinition() {
 package model
 
 import (
-	"fmt"
+	"time"
 
+	"github.com/a-h/templ"
 	"github.com/turnerbenjamin/querystack/querymodel"
 )
 
+type AppInputType string
+type AppDataType string
+
+const (
+	AppTypeString     AppInputType = "string"
+	AppTypeInteger     AppInputType = "integer"
+	AppTypeFloat     AppInputType = "float"
+	AppTypeDate       AppInputType = "date"
+	AppTypeEnum       AppInputType = "enum"
+	AppTypeIdentifier AppInputType = "identifier"
+	AppTypeLookup     AppInputType = "lookup"
+	AppTypePoint      AppInputType = "point"
+)
+
 type AppColType interface {
-	IsAppColType()
+	GetInputType() AppInputType
+	GetDataType() AppDataType
 }
 
 type AppColTypeString struct {
 	MaxLength int16
 }
 
-func (t AppColTypeString) IsAppColType() {}
+func (t AppColTypeString) GetInputType() AppInputType {
+	return AppTypeString
+}
 
-type AppColTypeNumber struct{}
+func (t AppColTypeString) GetDataType() AppDataType {
+	return AppDataType(AppTypeString)
+}
 
-func (t AppColTypeNumber) IsAppColType() {}
+type AppColTypeInteger struct{}
 
-type AppColTypeTime struct{}
+func (t AppColTypeInteger) GetInputType() AppInputType {
+	return AppTypeInteger
+}
 
-func (t AppColTypeTime) IsAppColType() {}
+func (t AppColTypeInteger) GetDataType() AppDataType {
+	return AppDataType(AppTypeInteger)
+}
+
+type AppColTypeFloat struct{}
+
+func (t AppColTypeFloat) GetInputType() AppInputType {
+	return AppTypeFloat
+}
+
+func (t AppColTypeFloat) GetDataType() AppDataType {
+	return AppDataType(AppTypeFloat)
+}
+
+type AppColTypeDate struct{}
+
+func (t AppColTypeDate) GetInputType() AppInputType {
+	return AppTypeDate
+}
+
+func (t AppColTypeDate) GetDataType() AppDataType {
+	return AppDataType(AppTypeDate)
+}
 
 type AppColTypePoint struct{}
 
-func (t AppColTypePoint) IsAppColType() {}
+func (t AppColTypePoint) GetInputType() AppInputType {
+	return AppTypePoint
+}
+
+func (t AppColTypePoint) GetDataType() AppDataType {
+	return AppDataType(AppTypePoint)
+}
 
 type AppColTypeIdentifier struct{}
 
-func (t AppColTypeIdentifier) IsAppColType() {}
-
-type AppColTypeEnum struct {
-	Options []EnumOption
+func (t AppColTypeIdentifier) GetInputType() AppInputType {
+	return AppTypeIdentifier
 }
 
-func (t AppColTypeEnum) IsAppColType() {}
+func (t AppColTypeIdentifier) GetDataType() AppDataType {
+	return AppDataType(AppTypeIdentifier)
+}
+
+type AppColTypeEnum struct {
+	TypeName string
+	Options  []EnumOption
+}
+
+func (t AppColTypeEnum) GetInputType() AppInputType {
+	return AppTypeEnum
+}
+
+func (t AppColTypeEnum) GetDataType() AppDataType {
+	return AppDataType(t.TypeName)
+}
 
 type AppColTypeLookup struct {
 	TableName string
 }
 
-func (t AppColTypeLookup) IsAppColType() {}
+func (t AppColTypeLookup) GetInputType() AppInputType {
+	return AppTypeLookup
+}
 
-type TableDefinition [T querymodel.TableModel] struct{
-  DisplayName string
-	PluralDisplayName string
-	MainGridColumns []TableColumn[T]
+func (t AppColTypeLookup) GetDataType() AppDataType {
+	return AppDataType(AppTypeLookup)
+}
+
+
+type UiInputControlBuilder interface {
+	StringInput(v *string) templ.Component
+	DateInput(v *time.Time) templ.Component
+	EnumInput(typeName string, options []EnumOption, v *uint8) templ.Component
+	IdentifierInput(v *string) templ.Component
+	LookupInput(tableName string, v *string) templ.Component
+	IntegerInput(v *int64) templ.Component
+	FloatInput(v *float64) templ.Component
+	PointInput(v *querymodel.Point) templ.Component
+}
+
+type UiTableCellBuilder interface {
+	StringCell(v *string) templ.Component
+	DateCell(v *time.Time) templ.Component
+	EnumCell(v *string) templ.Component
+	IdentifierCell(v *string) templ.Component
+	LookupCell(v *string) templ.Component
+	IntegerCell(v *int64) templ.Component
+	FloatCell(v *float64) templ.Component
+	PointCell(v *querymodel.Point) templ.Component
+}
+
+type TableDefinition[T querymodel.TableModel] struct {
+	DisplayName        string
+	PluralDisplayName  string
+	MainGridColumns    []TableColumn[T]
+	MainGridColumnsMap map[string]TableColumn[T]
+	EnumTypes          []AppColTypeEnum
+}
+
+type Expansion struct {
+	Path   string
+	Select string
 }
 
 type TableColumn[T querymodel.TableModel] struct{
-	Path string
 	DisplayName string
 	Type AppColType
-	Expansion string
-	GetData func(T) string
+
+	Path string
+	Expansion *Expansion
+
+	BuildInput func(T, UiInputControlBuilder) templ.Component
+	BuildTableCell func(T, UiTableCellBuilder) templ.Component
 }
 `)
 }
@@ -172,6 +281,13 @@ func (w *tableDefinitionWriter) writeTableDefinition(
 		}
 	}
 
+	slices.SortFunc(
+		tableColumnDefinitions,
+		func(a *TableColumnDef, b *TableColumnDef) int {
+			return strings.Compare(a.DisplayName, b.DisplayName)
+		},
+	)
+
 	// write table column definition
 	w.wtr.WriteLine(
 		"var %sTable = TableDefinition[*%s]{",
@@ -185,10 +301,29 @@ func (w *tableDefinitionWriter) writeTableDefinition(
 		table.Identifiers.ModelStruct,
 	)
 	for _, col := range tableColumnDefinitions {
-		if _, exists := excludeFromMainGrid[col.Path]; exists {
+		if _, exists := excludeFromMainGrid[col.ValuePath]; exists {
 			continue
 		}
 		w.wtr.WriteLine("%s,", col.Identifier)
+	}
+	w.wtr.WriteLine("},")
+	w.wtr.WriteLine(
+		"MainGridColumnsMap: map[string]TableColumn[*%s]{",
+		table.Identifiers.ModelStruct,
+	)
+	for _, col := range tableColumnDefinitions {
+		if _, exists := excludeFromMainGrid[col.ValuePath]; exists {
+			continue
+		}
+		w.wtr.WriteLine("%s: %s,", strLit(col.ValuePath), col.Identifier)
+	}
+	w.wtr.WriteLine("},")
+	w.wtr.WriteLine("EnumTypes: []AppColTypeEnum{")
+	for _, e := range table.Enums {
+		w.wtr.WriteLine("{")
+		w.wtr.WriteLine("TypeName: %s,", strLit(e.TypeName))
+		w.wtr.WriteLine("Options: %s,", e.OptionSetName)
+		w.wtr.Write("}")
 	}
 	w.wtr.WriteLine("},")
 	w.wtr.WriteLine("}")
@@ -208,10 +343,16 @@ func (w *tableDefinitionWriter) writeTableDefinition(
 		}
 
 		w.wtr.WriteLine("DisplayName: %s,", strLit(colDef.DisplayName))
-		w.wtr.WriteLine("Path: %s,", strLit(colDef.Path))
-		w.wtr.WriteLine("Expansion: %s,", strLit(colDef.Expansion))
+		w.wtr.WriteLine("Path: %s,", strLit(colDef.ValuePath))
+		if colDef.Expansion != nil {
+			w.wtr.WriteLine("Expansion: &Expansion{")
+			w.wtr.WriteLine("  Path: %s,", strLit(colDef.Expansion.Path))
+			w.wtr.WriteLine("  Select: %s,", strLit(colDef.Expansion.Select))
+			w.wtr.WriteLine("},")
+		}
 		w.wtr.WriteLine("Type: %s,", appType)
-		w.wtr.WriteLine("GetData: %s,", colDef.GetDataFunc)
+		w.wtr.WriteLine("BuildInput: %s,", colDef.BuildInputFunc)
+		w.wtr.WriteLine("BuildTableCell: %s,", colDef.BuildTableCellFunc)
 		w.wtr.WriteLine("}")
 		w.wtr.NewLine()
 	}
@@ -231,11 +372,11 @@ func (w *tableDefinitionWriter) writeTypeData(
 		twtr.WriteLine("MaxLength: int16(%d),", t.MaxLenth)
 		twtr.Write("}")
 
-	case schemamodel.AppColTypeNumber:
+	case schemamodel.AppColTypeInteger:
 		twtr.Write("AppColTypeNumber {}")
 
-	case schemamodel.AppColTypeTime:
-		twtr.Write("AppColTypeTime {}")
+	case schemamodel.AppColTypeDate:
+		twtr.Write("AppColTypeDate {}")
 
 	case schemamodel.AppColTypePoint:
 		twtr.Write("AppColTypePoint {}")
@@ -245,6 +386,7 @@ func (w *tableDefinitionWriter) writeTypeData(
 
 	case schemamodel.AppColTypeEnum:
 		twtr.WriteLine("AppColTypeEnum {")
+		twtr.WriteLine("TypeName: %s,", strLit(t.EnumData.TypeName))
 		twtr.WriteLine("Options: %s,", t.EnumData.OptionSetName)
 		twtr.Write("}")
 
@@ -295,14 +437,35 @@ func (w *tableDefinitionWriter) buildTableConfig(
 		return nil, fmt.Errorf("unable to find column data for: %s", columnName)
 	}
 
-	getDataFuncVal, err := buildGetDataFunctionStatement(
+	buildInputFuncVal, err := generateBuilderFunc(
 		table,
 		traversalSteps,
 		colData,
+		"UiInputControlBuilder",
+		writeCallInputBuilder,
 	)
 	if err != nil {
 		return nil, err
 	}
+
+	buildTableCellFuncVal, err := generateBuilderFunc(
+		table,
+		traversalSteps,
+		colData,
+		"UiTableCellBuilder",
+		writeCallTableCellBuilder,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	enums := make([]*schemamodel.Enum, 0, len(table.Enums))
+	for _, e := range table.Enums {
+		enums = append(enums, e)
+	}
+	slices.SortFunc(enums, func(a *schemamodel.Enum, b *schemamodel.Enum) int {
+		return strings.Compare(a.DbName, b.DbName)
+	})
 
 	return &TableColumnDef{
 		Identifier: fmt.Sprintf(
@@ -310,12 +473,14 @@ func (w *tableDefinitionWriter) buildTableConfig(
 			snakeToPascal(table.Name),
 			snakeToPascal(strings.ReplaceAll(columnPath, "/", "_")),
 		),
-		DisplayName:  buildColumnDisplayName(traversalSteps, colData),
-		PropertyName: colData.Identifiers.StructProperty,
-		Path:         columnPath,
-		GetDataFunc:  getDataFuncVal,
-		AppColType:   colData.TypeData.AppType,
-		Expansion:    buildExpansionStatement(pathComponents, colData),
+		DisplayName:        buildColumnDisplayName(traversalSteps, colData),
+		PropertyName:       colData.Identifiers.StructProperty,
+		ValuePath:          columnPath,
+		BuildInputFunc:     buildInputFuncVal,
+		BuildTableCellFunc: buildTableCellFuncVal,
+		AppColType:         colData.TypeData.AppType,
+		Expansion:          buildExpansionStatement(pathComponents, colData),
+		Enums:              enums,
 	}, nil
 
 }
@@ -325,21 +490,38 @@ func buildColumnDisplayName(
 	column *schemamodel.Column,
 ) string {
 	if len(traversalSteps) == 0 {
-		return column.DisplayName
+		return getColumnDisplayName(column)
 	}
 
 	step := traversalSteps[0]
 	return fmt.Sprintf(
-		"%s(%s)",
-		step.Column.DisplayName,
+		"%s (%s)",
+		getColumnDisplayName(step.Column),
 		buildColumnDisplayName(traversalSteps[1:], column),
 	)
 }
 
-func buildGetDataFunctionStatement(
+func getColumnDisplayName(column *schemamodel.Column) string {
+	switch c := column.TypeData.AppType.(type) {
+	case schemamodel.AppColTypeLookup:
+		return c.Relationship.ExpansionColumn.DisplayName
+	default:
+		return column.DisplayName
+	}
+}
+
+func generateBuilderFunc(
 	table *schemamodel.Table,
 	traversalSteps []*schemamodel.Relationship,
 	column *schemamodel.Column,
+	builderTypeName string,
+	writeCallToBuilder func(
+		w *writer,
+		builderIdentifier string,
+		valueIdentifier string,
+		column *schemamodel.Column,
+		valueIsNil bool,
+	) error,
 ) (string, error) {
 	switch c := column.TypeData.AppType.(type) {
 	case schemamodel.AppColTypeLookup:
@@ -347,11 +529,20 @@ func buildGetDataFunctionStatement(
 		column = c.Relationship.RelatedTable.PrimaryColumn
 	}
 
-	fwtr := writer{&strings.Builder{}}
-
-	fwtr.WriteLine("func(r *%s) string {", table.Identifiers.ModelStruct)
+	fwtr := &writer{&strings.Builder{}}
 
 	resourceId := "r"
+	builderId := "b"
+	valueId := "v"
+
+	fwtr.WriteLine(
+		"func(%s *%s, %s %s) templ.Component {",
+		resourceId,
+		table.Identifiers.ModelStruct,
+		builderId,
+		builderTypeName,
+	)
+
 	for i, step := range traversalSteps {
 		stepId := fmt.Sprintf("intermediateVal%d", i+1)
 		fwtr.WriteLine(
@@ -361,54 +552,252 @@ func buildGetDataFunctionStatement(
 			step.ExpansionColumn.Identifiers.StructProperty,
 		)
 		fwtr.WriteLine("if %s == nil {", stepId)
-		fwtr.WriteLine("return %s", strLit("-"))
+		err := writeCallToBuilder(
+			fwtr,
+			builderId,
+			valueId,
+			column,
+			true,
+		)
+		if err != nil {
+			return "", err
+		}
 		fwtr.WriteLine("}")
 		fwtr.NewLine()
 
 		resourceId = stepId
 	}
 
-	fwtr.WriteLine("v := %s.%s", resourceId, column.Identifiers.StructProperty)
-
-	switch column.TypeData.AppType.(type) {
-	case schemamodel.AppColTypeString:
-		fwtr.WriteLine("return v")
-
-	case schemamodel.AppColTypeIdentifier,
-		schemamodel.AppColTypeLookup:
-		fwtr.WriteLine("return v.String()")
-
-	case schemamodel.AppColTypeEnum:
-		fwtr.WriteLine("label, exists := v.String()")
-		fwtr.WriteLine("if !exists{")
-		fwtr.WriteLine("  return %s", strLit("-"))
-		fwtr.WriteLine("}")
-		fwtr.WriteLine("return label")
-
-	case schemamodel.AppColTypeNumber:
-		fwtr.Write("return strconv.FormatInt(int64(v), 10)")
-
-	case schemamodel.AppColTypePoint:
-		fwtr.Write(
-			"return fmt.Sprintf(\"[%%f, %%f]\", v.Coordinates[0], v.Coordinates[1])",
-		)
-
-	case schemamodel.AppColTypeTime:
-		fwtr.Write("return v.Format(%s)", strLit("2 Jan 06 15:04"))
-
-	default:
-		return "", fmt.Errorf(
-			"unable to build get data function: unsupported app type",
-		)
-
+	fwtr.WriteLine("%s := %s.%s", valueId, resourceId, column.Identifiers.StructProperty)
+	err := writeCallToBuilder(
+		fwtr,
+		builderId,
+		valueId,
+		column,
+		false,
+	)
+	if err != nil {
+		return "", err
 	}
 
 	fwtr.Write("}")
 
 	return fwtr.String(), nil
+
 }
 
-func buildExpansionStatement(pathComponents []string, column *schemamodel.Column) string {
+func writeCallInputBuilder(
+	w *writer,
+	builderIdentifier string,
+	valueIdentifier string,
+	column *schemamodel.Column,
+	valueIsNil bool,
+) error {
+	switch c := column.TypeData.AppType.(type) {
+	case schemamodel.AppColTypeString:
+		if valueIsNil {
+			w.WriteLine("return %s.StringInput(nil)", builderIdentifier)
+			return nil
+		}
+		w.WriteLine("return %s.StringInput(&%s)", builderIdentifier, valueIdentifier)
+		return nil
+
+	case schemamodel.AppColTypeDate:
+		if valueIsNil {
+			w.WriteLine("return %s.DateInput(nil)", builderIdentifier)
+			return nil
+		}
+		w.WriteLine(
+			"return %s.DateInput(%s)",
+			builderIdentifier,
+			valueIdentifier,
+		)
+		return nil
+
+	case schemamodel.AppColTypeEnum:
+		if valueIsNil {
+			w.WriteLine(
+				" return %s.EnumInput(%s, %s, nil)",
+				builderIdentifier,
+				strLit(c.EnumData.TypeName),
+				c.EnumData.OptionSetName,
+			)
+			return nil
+		}
+
+		w.WriteLine("_, exists := %s.String()", valueIdentifier)
+		w.WriteLine("if !exists{")
+		w.WriteLine(
+			" return %s.EnumInput(%s, %s, nil)",
+			builderIdentifier,
+			strLit(c.EnumData.TypeName),
+			c.EnumData.OptionSetName,
+		)
+		w.WriteLine("}")
+		w.WriteLine("cv := uint8(v)")
+		w.WriteLine(
+			" return %s.EnumInput(%s, %s, &cv)",
+			builderIdentifier,
+			strLit(c.EnumData.TypeName),
+			c.EnumData.OptionSetName,
+		)
+		return nil
+
+	case schemamodel.AppColTypeIdentifier:
+		if valueIsNil {
+			w.WriteLine("return %s.IdentifierInput(nil)", builderIdentifier)
+			return nil
+		}
+
+		w.WriteLine("s := %s.String()", valueIdentifier)
+		w.WriteLine(
+			"return %s.IdentifierInput(&s)",
+			builderIdentifier,
+		)
+		return nil
+
+	case schemamodel.AppColTypeLookup:
+		if valueIsNil {
+			w.WriteLine("return %s.LookupInput(nil)", builderIdentifier)
+			return nil
+		}
+
+		w.WriteLine("s := %s.String()", valueIdentifier)
+		w.WriteLine(
+			"return %s.LookupIdentifier(&s)",
+			builderIdentifier,
+		)
+		return nil
+
+	case schemamodel.AppColTypeInteger:
+		if valueIsNil {
+			w.WriteLine("return %s.NumberInput(nil)", builderIdentifier)
+			return nil
+		}
+
+		w.Write("return %s.NumberInput(&%s)", builderIdentifier, valueIdentifier)
+		return nil
+
+	case schemamodel.AppColTypePoint:
+		if valueIsNil {
+			w.WriteLine("return %s.PointInput(nil)", builderIdentifier)
+			return nil
+		}
+
+		w.Write("return %s.PointInput(%s)", builderIdentifier, valueIdentifier)
+		return nil
+
+	default:
+		return fmt.Errorf(
+			"unable to generate input Builder call: unsupported app type",
+		)
+	}
+}
+
+func writeCallTableCellBuilder(
+	w *writer,
+	builderIdentifier string,
+	valueIdentifier string,
+	column *schemamodel.Column,
+	valueIsNil bool,
+) error {
+	switch column.TypeData.AppType.(type) {
+	case schemamodel.AppColTypeString:
+		if valueIsNil {
+			w.WriteLine("return %s.StringCell(nil)", builderIdentifier)
+			return nil
+		}
+
+		w.WriteLine("return %s.StringCell(&%s)", builderIdentifier, valueIdentifier)
+		return nil
+
+	case schemamodel.AppColTypeDate:
+		if valueIsNil {
+			w.WriteLine(
+				"return %s.DateCell(nil)",
+				builderIdentifier,
+			)
+			return nil
+		}
+
+		w.WriteLine("if v == nil {")
+		w.WriteLine(
+			"return %s.DateCell(nil)",
+			builderIdentifier,
+		)
+		w.WriteLine("}")
+		w.WriteLine(
+			"return %s.DateCell(%s)",
+			builderIdentifier,
+			valueIdentifier,
+		)
+		return nil
+
+	case schemamodel.AppColTypeEnum:
+		if valueIsNil {
+			w.WriteLine("return %s.EnumCell(nil)", builderIdentifier)
+			return nil
+		}
+
+		w.WriteLine("label, exists := %s.String()", valueIdentifier)
+		w.WriteLine("if !exists{")
+		w.WriteLine("return %s.EnumCell(nil)", builderIdentifier)
+		w.WriteLine("}")
+		w.WriteLine("return %s.EnumCell(&label)", builderIdentifier)
+		return nil
+
+	case schemamodel.AppColTypeIdentifier:
+		if valueIsNil {
+			w.WriteLine("return %s.IdentifierCell(nil)", builderIdentifier)
+			return nil
+		}
+
+		w.WriteLine("s := %s.String()", valueIdentifier)
+		w.WriteLine(
+			"return %s.IdentifierCell(&s)",
+			builderIdentifier,
+		)
+		return nil
+
+	case schemamodel.AppColTypeLookup:
+		if valueIsNil {
+			w.WriteLine("return %s.LookupCell(nil)", builderIdentifier)
+			return nil
+		}
+
+		w.WriteLine("s := %s.String()", valueIdentifier)
+		w.WriteLine(
+			"return %s.LookupCell(&s)",
+			builderIdentifier,
+		)
+		return nil
+
+	case schemamodel.AppColTypeInteger:
+		if valueIsNil {
+			w.WriteLine("return %s.IntegerCell(nil)", builderIdentifier)
+			return nil
+		}
+
+		w.Write("return %s.IntegerCell(&%s)", builderIdentifier, valueIdentifier)
+		return nil
+
+	case schemamodel.AppColTypePoint:
+		if valueIsNil {
+			w.WriteLine("return %s.PointCell(nil)", builderIdentifier)
+			return nil
+		}
+
+		w.Write("return %s.PointCell(%s)", builderIdentifier, valueIdentifier)
+		return nil
+
+	default:
+		return fmt.Errorf(
+			"unable to generate table cell Builder call: unsupported app type",
+		)
+	}
+}
+
+func buildExpansionStatement(pathComponents []string, column *schemamodel.Column) *Expansion {
 	segments := slices.Clone(pathComponents)
 	switch c := column.TypeData.AppType.(type) {
 	case schemamodel.AppColTypeLookup:
@@ -416,19 +805,29 @@ func buildExpansionStatement(pathComponents []string, column *schemamodel.Column
 	}
 
 	if len(segments) == 1 {
-		return ""
+		return nil
 	}
-	return buildExpansion(segments)
+
+	return &Expansion{
+		Path:   buildExpansion(0, segments[0:len(segments)-1]),
+		Select: segments[len(segments)-1],
+	}
 }
 
-func buildExpansion(pathComponents []string) string {
+func buildExpansion(depth int, pathComponents []string) string {
+	operator := ""
+	if depth > 1 {
+		operator = "expand="
+	}
+
 	if len(pathComponents) == 1 {
-		return fmt.Sprintf("select=%s", pathComponents[0])
+		return fmt.Sprintf("%s%s", operator, pathComponents[0])
 	}
 
 	return fmt.Sprintf(
-		"expand=%s(%s)",
+		"%s%s(%s)",
+		operator,
 		pathComponents[0],
-		buildExpansion(pathComponents[1:]),
+		buildExpansion(depth+1, pathComponents[1:]),
 	)
 }

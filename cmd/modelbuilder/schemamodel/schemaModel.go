@@ -46,7 +46,7 @@ const (
 	QueryModelTypeEnum   QueryModelType = "DbTypeEnum"
 	QueryModelTypeString QueryModelType = "DbTypeString"
 	QueryModelTypeInt    QueryModelType = "DbTypeInt"
-	QueryModelTypeTime   QueryModelType = "DbTypeDateTime"
+	QueryModelTypeDate   QueryModelType = "DbTypeDate"
 	QueryModelTypePoint  QueryModelType = "DbTypePoint"
 )
 
@@ -64,13 +64,13 @@ type AppColTypeString struct {
 
 func (t AppColTypeString) IsAppColType() {}
 
-type AppColTypeNumber struct{}
+type AppColTypeInteger struct{}
 
-func (t AppColTypeNumber) IsAppColType() {}
+func (t AppColTypeInteger) IsAppColType() {}
 
-type AppColTypeTime struct{}
+type AppColTypeDate struct{}
 
-func (t AppColTypeTime) IsAppColType() {}
+func (t AppColTypeDate) IsAppColType() {}
 
 type AppColTypePoint struct{}
 
@@ -191,6 +191,7 @@ type Table struct {
 
 	ColumnData       ColumnData
 	RelationshipData RelationshipData
+	Enums            map[string]*Enum
 }
 
 type TableData struct {
@@ -422,6 +423,14 @@ func buildTable(
 		)
 	}
 
+	enums := map[string]*Enum{}
+	for _, col := range columnData.Ordered {
+		switch t := col.TypeData.AppType.(type) {
+		case AppColTypeEnum:
+			enums[t.EnumData.TypeName] = t.EnumData
+		}
+	}
+
 	return &Table{
 		Name:               tableData.Name,
 		FullyQualifiedName: fmt.Sprintf("%s.%s", tableData.Schema, tableData.Name),
@@ -441,6 +450,7 @@ func buildTable(
 
 		ColumnData:       columnData,
 		RelationshipData: relationshipData,
+		Enums:            enums,
 	}, nil
 }
 
@@ -665,7 +675,7 @@ func parseTypeData(
 			DbType:                   MsqlTypeInt,
 			GoTypeIdentifier:         GoColTypeInt64,
 			QueryModelTypeIdentifier: QueryModelTypeInt,
-			AppType:                  AppColTypeNumber{},
+			AppType:                  AppColTypeInteger{},
 		}, nil
 
 	case MsqlTypeTinyInt:
@@ -691,7 +701,7 @@ func parseTypeData(
 				DbType:                   MsqlTypeTinyInt,
 				GoTypeIdentifier:         GoColTypeUInt8,
 				QueryModelTypeIdentifier: QueryModelTypeInt,
-				AppType:                  AppColTypeNumber{},
+				AppType:                  AppColTypeInteger{},
 			}, nil
 		}
 
@@ -699,8 +709,8 @@ func parseTypeData(
 		return &TypeData{
 			DbType:                   MsqlTypeDateTimeOffset,
 			GoTypeIdentifier:         GoColTypeTime,
-			QueryModelTypeIdentifier: QueryModelTypeTime,
-			AppType:                  AppColTypeTime{},
+			QueryModelTypeIdentifier: QueryModelTypeDate,
+			AppType:                  AppColTypeDate{},
 		}, nil
 
 	case MsqlTypeGeography:

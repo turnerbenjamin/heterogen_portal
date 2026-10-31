@@ -10,11 +10,13 @@ import templruntime "github.com/a-h/templ/runtime"
 
 import (
 	"github.com/turnerbenjamin/heterogen_portal/internal/icons"
+	"github.com/turnerbenjamin/heterogen_portal/internal/model"
 	"github.com/turnerbenjamin/heterogen_portal/internal/tables"
 	"github.com/turnerbenjamin/querystack/querymodel"
 )
 
 func MainTable[T querymodel.TableModel](
+	tableCellBuilder model.UiTableCellBuilder,
 	icons *icons.IconSet,
 	tableData tables.TableData[T],
 ) templ.Component {
@@ -40,17 +42,17 @@ func MainTable[T querymodel.TableModel](
 		ctx = templ.ClearChildren(ctx)
 		switch tableData.RequestTarget {
 		case tables.MainTableRequestTargetTableBody:
-			templ_7745c5c3_Err = tableBody(tableData).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = tableBody(tableCellBuilder, tableData).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		case tables.MainTableRequestTargetTable:
-			templ_7745c5c3_Err = table(tableData).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = table(tableCellBuilder, tableData).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		default:
-			templ_7745c5c3_Err = mainTablePageContent(icons, tableData).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = mainTablePageContent(tableCellBuilder, icons, tableData).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -60,6 +62,7 @@ func MainTable[T querymodel.TableModel](
 }
 
 func mainTablePageContent[T querymodel.TableModel](
+	tableCellBuilder model.UiTableCellBuilder,
 	icons *icons.IconSet,
 	tableData tables.TableData[T],
 ) templ.Component {
@@ -88,9 +91,9 @@ func mainTablePageContent[T querymodel.TableModel](
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var3 string
-		templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(tableData.TableName)
+		templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(tableData.TableDefinition.PluralDisplayName)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `pagecontent/main-table.templ`, Line: 30, Col: 36}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `pagecontent/main-table.templ`, Line: 33, Col: 60}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
 		if templ_7745c5c3_Err != nil {
@@ -100,7 +103,7 @@ func mainTablePageContent[T querymodel.TableModel](
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = table(tableData).Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = table(tableCellBuilder, tableData).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -113,6 +116,7 @@ func mainTablePageContent[T querymodel.TableModel](
 }
 
 func table[T querymodel.TableModel](
+	tableCellBuilder model.UiTableCellBuilder,
 	tableData tables.TableData[T],
 ) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
@@ -139,7 +143,7 @@ func table[T querymodel.TableModel](
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		for _, headerColumn := range tableData.Query.SelectCols {
+		for _, headerColumn := range tableData.Query.SelectQuery.Columns {
 			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "<th data-column-path=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
@@ -147,7 +151,7 @@ func table[T querymodel.TableModel](
 			var templ_7745c5c3_Var5 string
 			templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.ResolveAttributeValue(headerColumn.Path)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pagecontent/main-table.templ`, Line: 62, Col: 51}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pagecontent/main-table.templ`, Line: 66, Col: 51}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var5)
 			if templ_7745c5c3_Err != nil {
@@ -160,7 +164,7 @@ func table[T querymodel.TableModel](
 			var templ_7745c5c3_Var6 string
 			templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(headerColumn.DisplayName)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pagecontent/main-table.templ`, Line: 64, Col: 41}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pagecontent/main-table.templ`, Line: 68, Col: 41}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
 			if templ_7745c5c3_Err != nil {
@@ -175,7 +179,7 @@ func table[T querymodel.TableModel](
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = tableBody(tableData).Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = tableBody(tableCellBuilder, tableData).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -188,6 +192,7 @@ func table[T querymodel.TableModel](
 }
 
 func tableBody[T querymodel.TableModel](
+	tableCellBuilder model.UiTableCellBuilder,
 	tableData tables.TableData[T],
 ) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
@@ -215,39 +220,13 @@ func tableBody[T querymodel.TableModel](
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			for _, headerColumn := range tableData.Query.SelectCols {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "<td data-label=\"")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				var templ_7745c5c3_Var8 string
-				templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.ResolveAttributeValue(headerColumn.DisplayName)
-				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pagecontent/main-table.templ`, Line: 80, Col: 48}
-				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var8)
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "\">")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				var templ_7745c5c3_Var9 string
-				templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinStringErrs(headerColumn.GetData(row))
-				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pagecontent/main-table.templ`, Line: 80, Col: 76}
-				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var9))
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "</td>")
+			for _, headerColumn := range tableData.Query.SelectQuery.Columns {
+				templ_7745c5c3_Err = headerColumn.BuildTableCell(row, tableCellBuilder).Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "</tr>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "</tr>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

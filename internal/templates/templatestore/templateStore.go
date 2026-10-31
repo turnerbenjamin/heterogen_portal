@@ -55,6 +55,8 @@ func (s *store) ExecutePageUsers(
 	page := pages.MainTable(
 		pageConfig,
 		icons.Set,
+		InputComponentBuilder,
+		TableCellComponentBuilder,
 		*tableData,
 		resourceEndpoint,
 	)
@@ -71,6 +73,8 @@ func (s *store) ExecutePageBusinesses(
 	page := pages.MainTable(
 		pageConfig,
 		icons.Set,
+		InputComponentBuilder,
+		TableCellComponentBuilder,
 		*tableData,
 		resourceEndpoint,
 	)

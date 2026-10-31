@@ -10,10 +10,15 @@ import templruntime "github.com/a-h/templ/runtime"
 
 import "github.com/turnerbenjamin/querystack/querymodel"
 import "github.com/turnerbenjamin/heterogen_portal/internal/tables"
+import "github.com/turnerbenjamin/heterogen_portal/internal/model"
+import "github.com/turnerbenjamin/heterogen_portal/internal/icons"
 
 func FilterItem[T querymodel.TableModel](
+	icons *icons.IconSet,
+	inputBuilder model.UiInputControlBuilder,
 	tableData tables.TableData[T],
 	filterData tables.FilterItem,
+	depth uint8,
 ) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
@@ -37,12 +42,12 @@ func FilterItem[T querymodel.TableModel](
 		ctx = templ.ClearChildren(ctx)
 		switch typedEx := filterData.(type) {
 		case tables.FilterGroup:
-			templ_7745c5c3_Err = FilterGroup(tableData, typedEx).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = FilterGroup(icons, inputBuilder, tableData, typedEx, depth+1).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-		case tables.FilterRule:
-			templ_7745c5c3_Err = FilterRule(tableData, typedEx).Render(ctx, templ_7745c5c3_Buffer)
+		case tables.FilterRule[T]:
+			templ_7745c5c3_Err = FilterRule(icons, inputBuilder, tableData, typedEx).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

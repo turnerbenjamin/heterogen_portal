@@ -145,7 +145,7 @@ var BusinessesMetadata = querymodel.TableMetadata{
 		},
 		"created_at": {
 			Name: "created_at",
-			Type: querymodel.DbTypeDateTime,
+			Type: querymodel.DbTypeDate,
 		},
 		"created_by_id": {
 			Name: "created_by_id",
@@ -173,7 +173,7 @@ var BusinessesMetadata = querymodel.TableMetadata{
 		},
 		"modified_at": {
 			Name: "modified_at",
-			Type: querymodel.DbTypeDateTime,
+			Type: querymodel.DbTypeDate,
 		},
 		"modified_by_id": {
 			Name: "modified_by_id",
@@ -828,7 +828,7 @@ var FarmFieldsMetadata = querymodel.TableMetadata{
 		},
 		"created_at": {
 			Name: "created_at",
-			Type: querymodel.DbTypeDateTime,
+			Type: querymodel.DbTypeDate,
 		},
 		"created_by_id": {
 			Name: "created_by_id",
@@ -844,7 +844,7 @@ var FarmFieldsMetadata = querymodel.TableMetadata{
 		},
 		"modified_at": {
 			Name: "modified_at",
-			Type: querymodel.DbTypeDateTime,
+			Type: querymodel.DbTypeDate,
 		},
 		"modified_by_id": {
 			Name: "modified_by_id",
@@ -1300,7 +1300,7 @@ var UsersMetadata = querymodel.TableMetadata{
 	Columns: map[string]querymodel.ColumnMetadata{
 		"created_at": {
 			Name: "created_at",
-			Type: querymodel.DbTypeDateTime,
+			Type: querymodel.DbTypeDate,
 		},
 		"display_name": {
 			Name: "display_name",
@@ -1324,7 +1324,7 @@ var UsersMetadata = querymodel.TableMetadata{
 		},
 		"modified_at": {
 			Name: "modified_at",
-			Type: querymodel.DbTypeDateTime,
+			Type: querymodel.DbTypeDate,
 		},
 		"oid": {
 			Name: "oid",

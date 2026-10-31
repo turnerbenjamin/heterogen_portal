@@ -1,0 +1,14 @@
+package inputs
+
+import "github.com/turnerbenjamin/heterogen_portal/internal/model"
+import "time"
+
+templ DateInput(value *time.Time) {
+  <input 
+    type="date"
+    data-type={model.AppTypeDate}
+    if value != nil{
+      value={value.Format(time.DateOnly)}
+    }
+   />
+}

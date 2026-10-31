@@ -2,30 +2,82 @@ package filters
 
 import "github.com/turnerbenjamin/querystack/querymodel"
 import "github.com/turnerbenjamin/heterogen_portal/internal/tables"
+import "github.com/turnerbenjamin/heterogen_portal/internal/model"
+import "github.com/turnerbenjamin/heterogen_portal/internal/icons"
 
 templ FilterRule[T querymodel.TableModel](
+  icons *icons.IconSet,
+  inputBuilder model.UiInputControlBuilder,
   tableData tables.TableData[T],
-  filterRule tables.FilterRule,
+  filterRule tables.FilterRule[T],
 ) {
-  <div class="filter-rule">
+  <div class="filter-item filter-rule">
     // Table column drop down
-    <select class="filter-rule-display-name" name="filter-rule-column">
-      for _, c := range tableData.OrderedColumnDefinitions{
-        <option value={c.Path} selected?={c.Path == filterRule.ColumnPath}>
+    <select 
+      class="filter-rule-display-name" 
+      name="filter-rule-column"
+      if filterRule.Column != nil{
+        title={filterRule.Column.DisplayName}
+      }
+      autocomplete="off"
+    >
+      <option value=""></option>
+      for _, c := range tableData.TableDefinition.MainGridColumns{
+        <option 
+          value={c.Path} 
+          selected?={filterRule.Column != nil && c.Path == filterRule.Column.Path}
+          data-input-type={c.Type.GetInputType()}
+          data-data-type={c.Type.GetDataType()}
+        >
           {c.DisplayName}
         </option>
       }
     </select>
 
     // Operator drop down
-    <select class="filter-rule-operator" name="filter-rule-operator">
-      for _, o := range filterRule.SupportedOperators{
-        <option value={o.Operator} selected?={o.Operator == filterRule.Operator.Operator}>
+    <select 
+      class="filter-rule-operator" 
+      name="filter-rule-operator"
+      if filterRule.Operator != nil{
+        title={filterRule.Operator.DisplayName}
+      }
+      disabled?={filterRule.Column == nil}
+    >
+      <option value=""></option>
+      for _, o := range tables.ComparisonOperators{
+        <option 
+          if filterRule.Column != nil{
+            if _, exists := o.SupportedTypes[filterRule.Column.Type.GetInputType()]; !exists{
+              class="hidden"
+            }
+          }
+
+          value={o.Operator} 
+          selected?={filterRule.Operator != nil && o.Operator == filterRule.Operator.Operator}
+          data-is-unary?={o.IsUnary}
+          data-supports-string?={_, exists := o.SupportedTypes[model.AppTypeString]; exists}
+          data-supports-integer?={_, exists := o.SupportedTypes[model.AppTypeInteger]; exists}
+          data-supports-float?={_, exists := o.SupportedTypes[model.AppTypeFloat]; exists}
+          data-supports-date?={_, exists := o.SupportedTypes[model.AppTypeDate]; exists}
+          data-supports-enum?={_, exists := o.SupportedTypes[model.AppTypeEnum]; exists}
+          data-supports-identifier?={_, exists := o.SupportedTypes[model.AppTypeIdentifier]; exists}
+          data-supports-lookup?={_, exists := o.SupportedTypes[model.AppTypeIdentifier]; exists}
+        > 
           {o.DisplayName}
         </option>
       }
     </select>
 
-    <p class="filter-rule-value">{"I am a value"}</p> 
+    <div class="filter-rule-value">
+    if filterRule.Column != nil && filterRule.Value != nil && !filterRule.Operator.IsUnary{
+      @filterRule.Value.BuildInput(inputBuilder)
+    }
+    </div>
+    <button 
+      class="icon icon-button small delete-button interactive"
+      onclick="hg.mainTable.filters.deleteRule(event)"
+    >
+      @templ.Raw(icons.Trash)
+    </button>
   </div>
 }

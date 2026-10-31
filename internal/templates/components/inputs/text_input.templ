@@ -1,0 +1,13 @@
+package inputs
+
+import "github.com/turnerbenjamin/heterogen_portal/internal/model"
+
+templ TextInput(value *string) {
+  <input 
+    type="text"
+    data-type={model.AppTypeString}
+    if value != nil{
+      value={*value}
+    }
+   />
+}

@@ -22,12 +22,11 @@ type UsersService interface {
 }
 
 type UsersHandler struct {
-	templateStore       TemplateStore
-	usersService        UsersService
-	orderedTableColumns []tables.ColumnData[*model.UsersModel]
-	tableColumns        map[string]tables.ColumnData[*model.UsersModel]
+	templateStore   TemplateStore
+	usersService    UsersService
+	TableDefinition model.TableDefinition[*model.UsersModel]
 
-	defaultQuery *tables.TableQuery[*model.UsersModel]
+	defaultSelect tables.SelectQuery[*model.UsersModel]
 }
 
 func NewUsersHandler(
@@ -38,13 +37,11 @@ func NewUsersHandler(
 		templateStore: templateStore,
 		usersService:  usersService,
 
-		orderedTableColumns: OrderedColumnData(userTableColumns),
-		tableColumns:        userTableColumns,
-
-		defaultQuery: newTableQuery([]tables.ColumnData[*model.UsersModel]{
-			columnDataUsersDisplayName,
-			columnDataUsersGivenName,
-			columnDataUsersFamilyName,
+		TableDefinition: model.UsersTable,
+		defaultSelect: tables.BuildSelectQuery([]model.TableColumn[*model.UsersModel]{
+			model.UsersDisplayNameColumn,
+			model.UsersGivenNameColumn,
+			model.UsersFamilyNameColumn,
 		}),
 	}
 
@@ -59,15 +56,10 @@ func (h *UsersHandler) GetRoot(w http.ResponseWriter, r *http.Request, c *Pipeli
 	}
 
 	d := c.state.TableData
+	d.TableDefinition = h.TableDefinition
 
-	d.TableName = "Users"
-	d.SchemaVersion = 1
-
-	d.OrderedColumnDefinitions = h.orderedTableColumns
-	d.ColumnDefinitions = h.tableColumns
-
-	if d.Query == nil {
-		d.Query = h.defaultQuery
+	if len(d.Query.SelectQuery.Columns) == 0 {
+		d.Query.SetSelect(h.defaultSelect)
 	}
 
 	result, err := h.usersService.ExecuteQuery(
@@ -79,7 +71,7 @@ func (h *UsersHandler) GetRoot(w http.ResponseWriter, r *http.Request, c *Pipeli
 	}
 
 	tableFilter, err := tables.BuildTableFilter(
-		d.ColumnDefinitions,
+		&h.TableDefinition,
 		result.Filter,
 	)
 	if err != nil {
