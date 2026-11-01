@@ -11,13 +11,13 @@ templ NestedSidebar(
     content []templ.Component,
 ) {
     if pageConfig.ContentOnly {
-        <div hx-swap-oob="innerHTML:#nested-sidebar-layer">
         if len(content) > 0 {
+        <div hx-swap-oob="innerHTML:#nested-sidebar-layer">
             for _, c := range content{
                 @c
             }
-        }
         </div>
+        }
     }else{
         <div id="nested-sidebar-layer">
         if len(content) > 0{

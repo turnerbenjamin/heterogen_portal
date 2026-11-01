@@ -12,11 +12,11 @@ templ Sidebar(
 ) {
     if pageConfig.ContentOnly {
         if len(content) > 0{
-            <div hx-swap-oob="innerHTML:#sidebar-layer">
+        <div hx-swap-oob="innerHTML:#sidebar-layer">
             for _, c := range content{
                 @c
             }
-            </div>
+        </div>
         }
     } else {
         <div id="sidebar-layer">
