@@ -1,0 +1,67 @@
+package sidebar
+
+import "github.com/turnerbenjamin/querystack/querymodel"
+import "github.com/turnerbenjamin/heterogen_portal/internal/icons"
+import "github.com/turnerbenjamin/heterogen_portal/internal/tables"
+import "github.com/turnerbenjamin/heterogen_portal/internal/model"
+import "github.com/turnerbenjamin/heterogen_portal/internal/templates/components/filters"
+import "github.com/turnerbenjamin/heterogen_portal/internal/templates/components/inputs"
+
+templ EditTableFiltersSidebar[T querymodel.TableModel](
+    resourceEndpoint string,
+    inputBuilder model.UiInputControlBuilder,
+    icons *icons.IconSet,
+    tableData tables.TableData[T],
+){
+    <div id="edit-filters-sidebar" class="sidebar hidden">
+        <div class="sidebar-title">
+            <h3 sidebar-label>Filter Columns</h3>
+            <button 
+                aria-label="Close edit column modal"
+                class="icon-button icon large interactive" 
+                onclick="hg.mainTable.closeEditFiltersSidebar()"
+                initial-focus 
+            >
+                @templ.Raw(icons.Xmark)
+            </button>
+        </div>
+
+        <div class="sidebar-content">
+            <div class="filter-container">
+                <template id="filter-rule_template">
+                    @filters.FilterRule(icons, inputBuilder, tableData, tables.FilterRule[T]{})
+                </template>
+                <template id="filter-group_template">
+                    @filters.FilterGroup(icons, inputBuilder, tableData, tables.FilterGroup{
+                        GroupType: querymodel.LogicalAnd,
+                        Items: []tables.FilterItem{},
+                    }, 2)
+                </template>
+                <template id="filter-input_templates">
+                    @inputs.TextInput(nil)
+                    @inputs.IntegerInput(nil)
+                    @inputs.FloatInput(nil)
+                    @inputs.DateInput(nil)
+                    @inputs.IdentifierInput(nil)
+                    @inputs.LookupInput("", nil)
+                    @inputs.PointInput()
+                    for _, t := range tableData.TableDefinition.EnumTypes{
+                        @inputs.Enuminput(t.TypeName, t.Options, nil)
+                    }
+                </template>
+                @filters.FilterItem(icons, inputBuilder, tableData, tableData.Filter, 0)
+            </div>
+            <button
+                id="apply-filters-button"
+                aria-label="Apply filters"
+                hx-get={resourceEndpoint} 
+                hx-swap="innerHTML" 
+                hx-target="#main-table"
+                hx-push-url="false"
+                hx-indicator="main"
+            >
+                Apply
+            </button>
+        </div>
+    </div>
+}

@@ -8,21 +8,23 @@ import (
 templ Sidebar(
     pageConfig templates.PageConfig,
     icons *icons.IconSet,
-    content templ.Component,    
+    content []templ.Component,    
 ) {
     if pageConfig.ContentOnly {
-        if content != nil{
-            <div hx-swap-oob="innerHTML:#sidebar">
-                @content
+        if len(content) > 0{
+            <div hx-swap-oob="innerHTML:#sidebar-layer">
+            for _, c := range content{
+                @c
+            }
             </div>
         }
     } else {
         <div id="sidebar-layer">
-            <div id="sidebar" class="hidden" aria-modal="true">
-                if content != nil{
-                    @content
-                }
-            </div>
+        if len(content) > 0{
+            for _, c := range content{
+                @c
+            }
+        }
         </div>
     }
 }

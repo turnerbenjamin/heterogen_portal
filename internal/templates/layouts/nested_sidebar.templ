@@ -8,21 +8,23 @@ import (
 templ NestedSidebar(
     pageConfig templates.PageConfig,
     icons *icons.IconSet,
-    content templ.Component,
+    content []templ.Component,
 ) {
     if pageConfig.ContentOnly {
-        if content != nil {
-            <div hx-swap-oob="innerHTML:#nested-sidebar">
-                @content
-            </div>
+        <div hx-swap-oob="innerHTML:#nested-sidebar-layer">
+        if len(content) > 0 {
+            for _, c := range content{
+                @c
+            }
         }
+        </div>
     }else{
         <div id="nested-sidebar-layer">
-            <div id="nested-sidebar" class="hidden" aria-modal="true">
-                if content != nil{
-                    @content
-                }
-            </div>
+        if len(content) > 0{
+            for _, c := range content{
+                @c
+            }
+        }
         </div>
     }
 }

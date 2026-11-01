@@ -8,6 +8,31 @@ export default {
     },
   },
 
+  alert: {
+    id: "alert",
+    title: {
+      id: "alert-title",
+    },
+    message: {
+      id: "alert-message",
+    },
+    detail: {
+      id: "alert-detail",
+    },
+    confirmButton: {
+      id: "alert-accept",
+    },
+    declineButton: {
+      id: "alert-decline",
+    },
+    modifiers: {
+      error: "error",
+    },
+    attributes: {
+      serverAlert: "server-alert",
+    },
+  },
+
   filterColumns: {
     componentId: "edit-filters-sidebar",
     templates: {
@@ -42,7 +67,7 @@ export default {
     },
 
     sidebar: {
-      id: "sidebar",
+      id: "sidebar-layer",
       content: {
         labelElAttribute: "sidebar-label",
         editColumnsSidebar: {
@@ -65,7 +90,7 @@ export default {
     },
 
     nestedSidebar: {
-      id: "nested-sidebar",
+      id: "nested-sidebar-layer",
       content: {
         addColumnsSidebar: {
           id: "add-columns-sidebar",
@@ -77,29 +102,7 @@ export default {
     },
 
     alert: {
-      id: "alert",
-      containerId: "alert-layer",
-      title: {
-        id: "alert-title",
-      },
-      message: {
-        id: "alert-message",
-      },
-      detail: {
-        id: "alert-detail",
-      },
-      confirmButton: {
-        id: "alert-accept",
-      },
-      declineButton: {
-        id: "alert-decline",
-      },
-      modifiers: {
-        error: "error",
-      },
-      attributes: {
-        serverAlert: "server-alert",
-      },
+      id: "alert-layer",
     },
 
     toast: {
