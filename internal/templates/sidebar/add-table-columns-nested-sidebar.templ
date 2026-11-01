@@ -1,4 +1,4 @@
-package sidebarcontent
+package sidebar
 
 import (
 	  "github.com/turnerbenjamin/querystack/querymodel"
@@ -7,12 +7,11 @@ import (
 )
 
 
-templ MainTableNestedSidebarContent[T querymodel.TableModel](
+templ AddTableColumnsNestedSidebar[T querymodel.TableModel](
     icons *icons.IconSet,
     tableData tables.TableData[T],
-
 ){
-    <div id="add-columns-sidebar" class="sidebar-content-group-container">
+    <div id="add-columns-sidebar" class="sidebar hidden">
         <div class="sidebar-title">
             <h3 sidebar-label>Add Columns</h3>
             <button 
@@ -25,7 +24,7 @@ templ MainTableNestedSidebarContent[T querymodel.TableModel](
             </button>
         </div>
 
-        <div class="nested-sidebar-content">
+        <div class="sidebar-content">
             <div id="add-columns-options" class="option-group mt-7 mb-7">
             for _, column := range tableData.TableDefinition.MainGridColumns{
                 {{

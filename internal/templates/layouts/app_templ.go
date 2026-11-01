@@ -17,8 +17,8 @@ import (
 
 type Content struct {
 	MainContent          templ.Component
-	SidebarContent       templ.Component
-	NestedSidebarContent templ.Component
+	SidebarContent       []templ.Component
+	NestedSidebarContent []templ.Component
 }
 
 func App(

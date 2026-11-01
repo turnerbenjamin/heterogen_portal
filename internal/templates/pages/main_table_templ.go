@@ -9,16 +9,14 @@ package pages
 import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
-import (
-	"github.com/turnerbenjamin/heterogen_portal/internal/icons"
-	"github.com/turnerbenjamin/heterogen_portal/internal/model"
-	"github.com/turnerbenjamin/heterogen_portal/internal/tables"
-	"github.com/turnerbenjamin/heterogen_portal/internal/templates"
-	"github.com/turnerbenjamin/heterogen_portal/internal/templates/layouts"
-	"github.com/turnerbenjamin/heterogen_portal/internal/templates/pagecontent"
-	"github.com/turnerbenjamin/heterogen_portal/internal/templates/sidebarcontent"
-	"github.com/turnerbenjamin/querystack/querymodel"
-)
+import "github.com/turnerbenjamin/querystack/querymodel"
+import "github.com/turnerbenjamin/heterogen_portal/internal/templates"
+import "github.com/turnerbenjamin/heterogen_portal/internal/icons"
+import "github.com/turnerbenjamin/heterogen_portal/internal/model"
+import "github.com/turnerbenjamin/heterogen_portal/internal/tables"
+import "github.com/turnerbenjamin/heterogen_portal/internal/templates/layouts"
+import "github.com/turnerbenjamin/heterogen_portal/internal/templates/pagecontent"
+import "github.com/turnerbenjamin/heterogen_portal/internal/templates/sidebar"
 
 func MainTable[T querymodel.TableModel](
 	pageConfig templates.PageConfig,
@@ -49,16 +47,25 @@ func MainTable[T querymodel.TableModel](
 			icons,
 			layouts.Content{
 				MainContent: pagecontent.MainTable(tableCellBuilder, icons, tableData),
-				SidebarContent: sidebarcontent.MainTableSidebarContent(
-					resourceEndpoint,
-					inputBuilder,
-					icons,
-					tableData,
-				),
-				NestedSidebarContent: sidebarcontent.MainTableNestedSidebarContent(
-					icons,
-					tableData,
-				),
+				SidebarContent: []templ.Component{
+					sidebar.EditTableColumnsSidebar(
+						resourceEndpoint,
+						icons,
+						tableData,
+					),
+					sidebar.EditTableFiltersSidebar(
+						resourceEndpoint,
+						inputBuilder,
+						icons,
+						tableData,
+					),
+				},
+				NestedSidebarContent: []templ.Component{
+					sidebar.AddTableColumnsNestedSidebar(
+						icons,
+						tableData,
+					),
+				},
 			},
 		).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {

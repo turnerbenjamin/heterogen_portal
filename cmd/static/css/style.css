@@ -206,12 +206,15 @@ body {
   position: absolute;
   inset: 0;
   z-index: var(--z-sidebar);
+  opacity: 0;
+  pointer-events: none;
 
-  &:has(#sidebar.hidden),
-  &:has(#nested-sidebar.hidden),
-  &:has(#alert.hidden) {
-    opacity: 0;
-    pointer-events: none;
+  transition: opacity 150ms ease-in-out;
+
+  &:has(.sidebar:not(.hidden)),
+  &:has(#alert:not(.hidden)) {
+    opacity: 100;
+    pointer-events: all;
   }
 }
 
@@ -232,35 +235,30 @@ body {
   pointer-events: none;
 }
 
-body:has(#sidebar:not(.hidden)),
-body:has(#nested-sidebar:not(.hidden)),
-body:has(#alert:not(.hidden)) {
+body:has(#sidebar-layer:not([inert])),
+body:has(#nested-sidebar-layer:not([inert])),
+body:has(#alert-layer:not([inert])) {
   #modal-overlay {
     opacity: 85%;
     pointer-events: all;
   }
 
-  &:has(#sidebar:not(.hidden)) {
+  &:has(#sidebar-layer:not([inert])) {
     #modal-overlay {
       z-index: var(--z-sidebar);
     }
   }
 
-  &:has(#nested-sidebar:not(.hidden)) {
+  &:has(#nested-sidebar-layer:not([inert])) {
     #modal-overlay {
       z-index: var(--z-nested-sidebar);
     }
   }
 
-  &:has(#alert:not(.hidden)) {
-    #modal-overlay {
-      z-index: var(--z-alert);
-    }
-  }
-
-  &:has(#alert:not(.hidden)) {
+  &:has(#alert-layer:not([inert])) {
     #modal-overlay {
       opacity: 95%; /* make alert stand out more */
+      z-index: var(--z-alert);
     }
   }
 }
@@ -989,8 +987,7 @@ input {
   }
 }
 
-#sidebar,
-#nested-sidebar {
+.sidebar {
   position: fixed;
   width: var(--side-bar-width);
   right: 0;
@@ -1008,8 +1005,7 @@ input {
   box-shadow: -2px 2px 2px 3px rgba(var(--base-fg-rgb) / 10%);
   z-index: var(--z-sidebar);
 
-  .sidebar-content,
-  .nested-sidebar-content {
+  .sidebar-content {
     display: flex;
     flex-direction: column;
     min-height: 0;
@@ -1039,18 +1035,14 @@ input {
     align-items: center;
 
     margin-bottom: var(--ws-6);
-
-    #close-sidebar {
-      svg:hover path {
-        stroke: var(--light-red);
-      }
-    }
   }
 }
 
-#nested-sidebar {
-  z-index: var(--z-nested-sidebar);
-  width: var(--side-bar-nested-width);
+#nested-sidebar-layer {
+  .sidebar {
+    z-index: var(--z-nested-sidebar);
+    width: var(--side-bar-nested-width);
+  }
 }
 
 /* SORTABLE LIST */

@@ -116,9 +116,7 @@ export class AlertManager {
     }
     const alertElement = alertElementRes.value;
 
-    alertElement.container.classList.remove(
-      constants.layers.alert.modifiers.error,
-    );
+    alertElement.container.classList.remove(constants.alert.modifiers.error);
 
     if (alert) {
       alertElement.title.textContent = alert.title;
@@ -129,9 +127,7 @@ export class AlertManager {
     setVisibility(alertElement.detail, alert?.type === "error");
     if (alert?.type === "error") {
       alertElement.detail.textContent = alert.detail;
-      alertElement.container.classList.add(
-        constants.layers.alert.modifiers.error,
-      );
+      alertElement.container.classList.add(constants.alert.modifiers.error);
     }
 
     setVisibility(alertElement.declineBtn, alert?.type === "confirmation");
@@ -152,7 +148,7 @@ export class AlertManager {
   }
 
   private getAlertElement = (): Result<AlertElement> => {
-    const alertConstants = constants.layers.alert;
+    const alertConstants = constants.alert;
 
     const containerEl = document.getElementById(alertConstants.id);
     if (!containerEl || !(containerEl instanceof HTMLDivElement)) {
@@ -208,16 +204,12 @@ export class AlertManager {
       return this._panic(getAlertElRes.error);
     }
     if (
-      !getAlertElRes.value.hasAttribute(
-        constants.layers.alert.attributes.serverAlert,
-      )
+      !getAlertElRes.value.hasAttribute(constants.alert.attributes.serverAlert)
     ) {
       return;
     }
 
-    getAlertElRes.value.removeAttribute(
-      constants.layers.alert.attributes.serverAlert,
-    );
+    getAlertElRes.value.removeAttribute(constants.alert.attributes.serverAlert);
     this.renderAlert();
     this._windowManager.pushAlertLayer();
   };

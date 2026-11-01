@@ -85,7 +85,7 @@ export class App {
           showEditFiltersSidebar:
             this.mainTable.hgHandlerShowEditFiltersSidebar,
           closeEditFiltersSidebar:
-            this.mainTable.hgHandlerCloseEditColumnsSidebar,
+            this.mainTable.hgHandlerCloseEditFiltersSidebar,
           filters: {
             newRule: this.tableFilterManager.hgHandlerNewRule,
             newRuleGroup: this.tableFilterManager.hgHandlerNewRuleGroup,

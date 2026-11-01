@@ -2,7 +2,7 @@
 
 // templ: version: v0.3.1100
 
-package sidebarcontent
+package sidebar
 
 //lint:file-ignore SA4006 This context is only used if a nested component is present.
 
@@ -15,10 +15,9 @@ import (
 	"github.com/turnerbenjamin/querystack/querymodel"
 )
 
-func MainTableNestedSidebarContent[T querymodel.TableModel](
+func AddTableColumnsNestedSidebar[T querymodel.TableModel](
 	icons *icons.IconSet,
 	tableData tables.TableData[T],
-
 ) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
@@ -36,7 +35,7 @@ func MainTableNestedSidebarContent[T querymodel.TableModel](
 		}
 		ctx = templ.InitializeContext(ctx)
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div id=\"add-columns-sidebar\" class=\"sidebar-content-group-container\"><div class=\"sidebar-title\"><h3 sidebar-label>Add Columns</h3><button aria-label=\"Close add column modal\" class=\"icon-button icon large interactive\" onclick=\"hg.editColumns.closeAddColumnsSidebar()\" initial-focus>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div id=\"add-columns-sidebar\" class=\"sidebar hidden\"><div class=\"sidebar-title\"><h3 sidebar-label>Add Columns</h3><button aria-label=\"Close add column modal\" class=\"icon-button icon large interactive\" onclick=\"hg.editColumns.closeAddColumnsSidebar()\" initial-focus>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -44,7 +43,7 @@ func MainTableNestedSidebarContent[T querymodel.TableModel](
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "</button></div><div class=\"nested-sidebar-content\"><div id=\"add-columns-options\" class=\"option-group mt-7 mb-7\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "</button></div><div class=\"sidebar-content\"><div id=\"add-columns-options\" class=\"option-group mt-7 mb-7\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -65,7 +64,7 @@ func MainTableNestedSidebarContent[T querymodel.TableModel](
 				var templ_7745c5c3_Var2 string
 				templ_7745c5c3_Var2, templ_7745c5c3_Err = templruntime.NewAttributeExpression(column.Path).Resolve(ctx)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `sidebarcontent/main-table-nested-sidebar-content.templ`, Line: 39, Col: 50}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `sidebar/add-table-columns-nested-sidebar.templ`, Line: 38, Col: 50}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var2)
 				if templ_7745c5c3_Err != nil {
@@ -83,7 +82,7 @@ func MainTableNestedSidebarContent[T querymodel.TableModel](
 				var templ_7745c5c3_Var4 string
 				templ_7745c5c3_Var4, templ_7745c5c3_Err = templruntime.NewAttributeExpression(templ.CSSClasses(templ_7745c5c3_Var3).String()).Resolve(ctx)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `sidebarcontent/main-table-nested-sidebar-content.templ`, Line: 1, Col: 0}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `sidebar/add-table-columns-nested-sidebar.templ`, Line: 1, Col: 0}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var4)
 				if templ_7745c5c3_Err != nil {
@@ -110,7 +109,7 @@ func MainTableNestedSidebarContent[T querymodel.TableModel](
 			var templ_7745c5c3_Var5 string
 			templ_7745c5c3_Var5, templ_7745c5c3_Err = templruntime.NewAttributeExpression("column-selector-" + column.DisplayName).Resolve(ctx)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `sidebarcontent/main-table-nested-sidebar-content.templ`, Line: 40, Col: 82}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `sidebar/add-table-columns-nested-sidebar.templ`, Line: 39, Col: 82}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var5)
 			if templ_7745c5c3_Err != nil {
@@ -123,7 +122,7 @@ func MainTableNestedSidebarContent[T querymodel.TableModel](
 			var templ_7745c5c3_Var6 string
 			templ_7745c5c3_Var6, templ_7745c5c3_Err = templruntime.NewAttributeExpression(column.DisplayName).Resolve(ctx)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `sidebarcontent/main-table-nested-sidebar-content.templ`, Line: 40, Col: 108}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `sidebar/add-table-columns-nested-sidebar.templ`, Line: 39, Col: 108}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var6)
 			if templ_7745c5c3_Err != nil {
@@ -136,7 +135,7 @@ func MainTableNestedSidebarContent[T querymodel.TableModel](
 			var templ_7745c5c3_Var7 string
 			templ_7745c5c3_Var7, templ_7745c5c3_Err = templruntime.NewAttributeExpression(column.Path).Resolve(ctx)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `sidebarcontent/main-table-nested-sidebar-content.templ`, Line: 40, Col: 128}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `sidebar/add-table-columns-nested-sidebar.templ`, Line: 39, Col: 128}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var7)
 			if templ_7745c5c3_Err != nil {
@@ -149,7 +148,7 @@ func MainTableNestedSidebarContent[T querymodel.TableModel](
 			var templ_7745c5c3_Var8 string
 			templ_7745c5c3_Var8, templ_7745c5c3_Err = templruntime.NewAttributeExpression("column-selector-" + column.DisplayName).Resolve(ctx)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `sidebarcontent/main-table-nested-sidebar-content.templ`, Line: 41, Col: 67}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `sidebar/add-table-columns-nested-sidebar.templ`, Line: 40, Col: 67}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var8)
 			if templ_7745c5c3_Err != nil {
@@ -162,7 +161,7 @@ func MainTableNestedSidebarContent[T querymodel.TableModel](
 			var templ_7745c5c3_Var9 string
 			templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinStringErrs(column.DisplayName)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `sidebarcontent/main-table-nested-sidebar-content.templ`, Line: 41, Col: 88}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `sidebar/add-table-columns-nested-sidebar.templ`, Line: 40, Col: 88}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var9))
 			if templ_7745c5c3_Err != nil {
