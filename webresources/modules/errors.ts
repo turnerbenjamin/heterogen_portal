@@ -62,14 +62,6 @@ export class NoElWithIdErr extends UnexpectedErr {
   }
 }
 
-export class NoElWithIdAndTypeErr extends UnexpectedErr {
-  public constructor(elementId: string, type: string) {
-    super(
-      `Expected element with id '${elementId}' and type '${type}'to be in the DOM`,
-    );
-  }
-}
-
 export class NullParentErr extends UnexpectedErr {
   public constructor(el: HTMLElement, parentSelector: string) {
     super(

@@ -18,22 +18,22 @@ export default {
   },
 
   alert: {
-    id: "alert",
+    className: "alert",
     templateId: "alert_template",
     title: {
-      id: "alert-title",
+      className: "alert-title",
     },
     message: {
-      id: "alert-message",
+      className: "alert-message",
     },
     detail: {
-      id: "alert-detail",
+      className: "error-detail",
     },
     confirmButton: {
-      id: "alert-accept",
+      className: "alert-accept",
     },
     declineButton: {
-      id: "alert-decline",
+      className: "alert-decline",
     },
     modifiers: {
       error: "error",
