@@ -5,59 +5,70 @@ import "github.com/turnerbenjamin/heterogen_portal/internal/icons"
 import "github.com/turnerbenjamin/heterogen_portal/internal/tables"
 import "github.com/turnerbenjamin/heterogen_portal/internal/model"
 import "fmt"
+import "github.com/turnerbenjamin/heterogen_portal/internal/templates/components"
 
 templ EditTableColumnsSidebar[T querymodel.TableModel](
     resourceEndpoint string,
     icons *icons.IconSet,
     tableData tables.TableData[T],
 ){
-    <div id="edit-columns-sidebar" class="sidebar hidden">
-        <div class="sidebar-title">
-            <h3 sidebar-label>Edit Columns</h3>
-            <button 
-                aria-label="Close edit column modal"
-                class="icon-button icon large interactive" 
-                onclick="hg.mainTable.closeEditColumnsSidebar()"
-                initial-focus 
-            >
-                @templ.Raw(icons.Xmark)
-            </button>
-        </div>
-
-        <div class="sidebar-content">
-            <div id="edit-columns-list" class="sortable-list mt-7 mb-6">
-            <template id="sortable-item_template">
-                @editColumnRow(icons, model.TableColumn[T]{})
-            </template>
-            for _, headerColumn := range tableData.Query.SelectQuery.Columns{
-                @editColumnRow(icons, headerColumn)
-            }
-            </div>
-
-            <button 
-                id="open-add-column-screen-button"
-                class="button-link mb-4"
-                aria-label="Open add columns modal"
-                onclick="hg.editColumns.showAddColumnsSidebar()" 
-            >
-                Add Columns
-            </button>
-            <button
-                id="apply-column-edits-button"
-                aria-label="Apply column edits"
-                hx-get={resourceEndpoint} 
-                hx-swap="innerHTML" 
-                hx-target="#main-table"
-                hx-push-url="false"
-                hx-indicator="main"
-            >
-                Apply
-            </button>
-        </div>
-    </div>
+    @components.SidebarContent(
+        icons,
+        components.SidebarConfig{
+            Id: "edit-columns-sidebar",
+            Title: "Edit Columns",
+            CloseHandler: "hg.mainTable.closeEditColumnsSidebar",
+        },
+        editColumnsSidebarContent(
+            resourceEndpoint,
+            icons,
+            tableData,
+        ),
+    )
 }
 
+templ editColumnsSidebarContent[T querymodel.TableModel](
+    resourceEndpoint string,
+    icons *icons.IconSet,
+    tableData tables.TableData[T],
+){
+    <form
+        id="apply-column-edits-form"
+        hx-get={resourceEndpoint} 
+        hx-swap="outerHTML" 
+        hx-target="#main-table"
+        hx-push-url="false"
+        hx-indicator="main"
+    >
+        <div id="edit-columns-list" class="sortable-list mt-7 mb-6">
 
+        <template id="sortable-item_template">
+            @editColumnRow(icons, model.TableColumn[T]{})
+        </template>
+
+        for _, headerColumn := range tableData.Query.SelectQuery.Columns{
+            @editColumnRow(icons, headerColumn)
+        }
+        </div>
+
+        <button 
+            type="button"
+            id="open-add-column-screen-button"
+            class="button-link mb-4"
+            aria-label="Open add columns modal"
+            onclick="hg.editColumns.showAddColumnsSidebar()" 
+        >
+            Add Columns
+        </button>
+        <button
+            type="submit"
+            id="apply-column-edits-button"
+            aria-label="Apply column edits"
+        >
+            Apply
+        </button>
+    </form>
+}
 
 templ editColumnRow[T querymodel.TableModel](
     icons *icons.IconSet,
@@ -75,9 +86,10 @@ templ editColumnRow[T querymodel.TableModel](
         <div class="draggable-icon">@templ.Raw(icons.Draggable)</div>
         <div class="sortable-item-text">{headerColumn.DisplayName}</div>
         <button 
+            type="button"
             class="icon-button minus-icon"
             onclick="hg.editColumns.removeColumn(event)"
-            arialabel={fmt.Sprintf("Remove %s column from selection", headerColumn.DisplayName)}
+            aria-label={fmt.Sprintf("Remove %s column from selection", headerColumn.DisplayName)}
         >
             @templ.Raw(icons.Minus)
         </button>

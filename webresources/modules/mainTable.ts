@@ -1,7 +1,6 @@
 import { AlertManager } from "./alertManager";
 import constants from "./constants";
 import {
-  NoElWithIdErr,
   UnexpectedErr,
   QSelectFail,
   NullAttributeErr,
@@ -22,6 +21,7 @@ import {
   classSelector,
   getElementById,
   getTemplateById,
+  getChildByClass,
 } from "./utils";
 
 interface SelectStatement {
@@ -47,12 +47,27 @@ export class MainTable {
 
     onHtmxConfigRequestEvent(this.handleHtmxConfigRequestEvent);
     onHtmxAfterSwapEvent(this.handleHtmxAfterSwapEvent);
+
+    this._sidebarManager.registerOnEscapeHook(
+      constants.editColumns.sidebarId,
+      this.hgHandlerCloseEditColumnsSidebar,
+    );
+
+    this._sidebarManager.registerOnEscapeHook(
+      constants.filterColumns.sidebarId,
+      this.hgHandlerCloseEditFiltersSidebar,
+    );
+
+    this._sidebarManager.registerOnEscapeHook(
+      constants.addColumns.sidebarId,
+      this.hgHandlerCloseAddColumnsSidebar,
+    );
   }
 
   public hgHandlerShowEditColumnsSidebar = () => {
     this.snapshotColumnState();
     const err = this._sidebarManager.showSidebar(
-      constants.layers.sidebar.content.editColumnsSidebar.id,
+      constants.editColumns.sidebarId,
     );
     if (err) {
       this._alertManager.renderError(err);
@@ -66,7 +81,7 @@ export class MainTable {
 
   public hgHandlerShowEditFiltersSidebar = () => {
     const err = this._sidebarManager.showSidebar(
-      constants.layers.sidebar.content.editFiltersSidebar.id,
+      constants.filterColumns.sidebarId,
     );
     if (err) {
       this._alertManager.renderError(err);
@@ -79,7 +94,7 @@ export class MainTable {
 
   public hgHandlerOpenAddColumnsSidebar = () => {
     const err = this._sidebarManager.showNestedSidebar(
-      constants.layers.nestedSidebar.content.addColumnsSidebar.id,
+      constants.addColumns.sidebarId,
     );
     if (err) {
       this._alertManager.renderError(err);
@@ -103,8 +118,8 @@ export class MainTable {
     const target = targetRes.value;
 
     if (
-      target.id !==
-      constants.layers.sidebar.content.editColumnsSidebar.applyButton.id
+      target.id !== constants.editColumns.applyEditsButtonId &&
+      target.id !== constants.editColumns.formId
     ) {
       return;
     }
@@ -140,7 +155,9 @@ export class MainTable {
     this._sidebarManager.closeSidebar();
   };
 
-  public hgHandlerAddColumns = () => {
+  public hgHandlerAddColumns = (e: Event) => {
+    e.preventDefault();
+
     const getListElementsRes = this.getEditAndAddColumnListEls();
     if (!getListElementsRes.ok) {
       this._alertManager.renderError(getListElementsRes.ok);
@@ -192,6 +209,8 @@ export class MainTable {
 
       // 1. Reset and hide the column
       checkboxEl.checked = false;
+
+      checkboxEl.blur();
       setVisibility(optionSetEl, false);
 
       // 2. Add to edit columns
@@ -208,41 +227,28 @@ export class MainTable {
       );
 
       // 3. Set text field for new edit item
-      const newItemTextContainer = newEditItem.querySelector(
-        classSelector(
-          constants.classes.sortableList.items.textContainer.className,
-        ),
+
+      const newItemTextContainerRes = getChildByClass(
+        newEditItem,
+        constants.classes.sortableList.items.textContainer.className,
       );
-      if (!newItemTextContainer) {
-        this._alertManager.renderError(
-          new QSelectFail(
-            constants.classes.sortableList.items.textContainer.className,
-            constants.classes.sortableList.items.className,
-          ),
-        );
-        return;
+      if (!newItemTextContainerRes.ok) {
+        return this._alertManager.renderError(newEditItem);
       }
-      newItemTextContainer.textContent = labelEl.textContent;
+      newItemTextContainerRes.value.textContent = labelEl.textContent;
 
       // 4. Append new edit column to edit columns
       editColumnsList.appendChild(newEditItem);
     }
 
-    const openAddColumnScreenBtn = document.getElementById(
-      constants.layers.sidebar.content.editColumnsSidebar
-        .openAddColumnScreenButton.id,
+    const openAddColumnScreenBtnRes = getElementById(
+      constants.editColumns.openAddColumnScreenButtonId,
     );
-    if (!openAddColumnScreenBtn) {
-      this._alertManager.renderError(
-        new NoElWithIdErr(
-          constants.layers.sidebar.content.editColumnsSidebar
-            .openAddColumnScreenButton.id,
-        ),
-      );
-      return;
+    if (!openAddColumnScreenBtnRes.ok) {
+      return this._alertManager.renderError(openAddColumnScreenBtnRes.error);
     }
 
-    setVisibility(openAddColumnScreenBtn, uncheckedCount > 0);
+    setVisibility(openAddColumnScreenBtnRes.value, uncheckedCount > 0);
     this._sidebarManager.closeNestedSidebar();
   };
 
@@ -252,8 +258,7 @@ export class MainTable {
     }
 
     const getAddColumnOptionElRes = getElementById(
-      constants.layers.nestedSidebar.content.addColumnsSidebar.addColumnsOptions
-        .id,
+      constants.addColumns.addColumnsOptionsId,
     );
     if (!getAddColumnOptionElRes.ok) {
       this._alertManager.renderError(getAddColumnOptionElRes.error);
@@ -311,7 +316,9 @@ export class MainTable {
       return;
     }
 
-    const addColumnListRes = this.getAddColumnsList();
+    const addColumnListRes = getElementById(
+      constants.addColumns.addColumnsOptionsId,
+    );
     if (!addColumnListRes.ok) {
       this._alertManager.renderError(addColumnListRes.error);
       return;
@@ -416,7 +423,9 @@ export class MainTable {
   };
 
   private buildSelectStatement = (): Result<SelectStatement> => {
-    const editColumnsListElRes = this.getEditColumnsList();
+    const editColumnsListElRes = getElementById(
+      constants.editColumns.editColumnsListId,
+    );
     if (!editColumnsListElRes.ok) {
       return Fail(editColumnsListElRes.error);
     }
@@ -488,33 +497,22 @@ export class MainTable {
   private getEditAndAddColumnListEls = (): Result<
     [HTMLElement, HTMLElement]
   > => {
-    const editColumnsListElRes = this.getEditColumnsList();
+    const editColumnsListElRes = getElementById(
+      constants.editColumns.editColumnsListId,
+    );
     if (!editColumnsListElRes.ok) {
       return Fail(editColumnsListElRes.error);
     }
 
-    const addColumnsListElRes = this.getAddColumnsList();
+    const addColumnsListElRes = getElementById(
+      constants.addColumns.addColumnsOptionsId,
+    );
     if (!addColumnsListElRes.ok) {
       return Fail(addColumnsListElRes.error);
     }
 
     return Success([editColumnsListElRes.value, addColumnsListElRes.value]);
   };
-
-  private getEditColumnsList(): Result<HTMLElement> {
-    const editColumnsListEl = document.getElementById(
-      constants.layers.sidebar.content.editColumnsSidebar.editColumnsList.id,
-    );
-    if (!editColumnsListEl) {
-      return Fail(
-        new NoElWithIdErr(
-          constants.layers.sidebar.content.editColumnsSidebar.editColumnsList
-            .id,
-        ),
-      );
-    }
-    return Success(editColumnsListEl);
-  }
 
   private getEditColumnsListItems(listEl: HTMLElement): Result<HTMLElement[]> {
     const listItems = Array.from(
@@ -535,22 +533,6 @@ export class MainTable {
     }
 
     return Success(listItems);
-  }
-
-  private getAddColumnsList(): Result<HTMLElement> {
-    const addColumnsListEl = document.getElementById(
-      constants.layers.nestedSidebar.content.addColumnsSidebar.addColumnsOptions
-        .id,
-    );
-    if (!addColumnsListEl) {
-      return Fail(
-        new NoElWithIdErr(
-          constants.layers.nestedSidebar.content.addColumnsSidebar
-            .addColumnsOptions.id,
-        ),
-      );
-    }
-    return Success(addColumnsListEl);
   }
 
   private getAddColumnsListItems(listEl: HTMLElement): Result<HTMLElement[]> {

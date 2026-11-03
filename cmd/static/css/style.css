@@ -167,6 +167,18 @@
   pointer-events: none;
 }
 
+.live-region {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 html {
   font-size: 62.5%;
   line-height: 1.15;
@@ -209,8 +221,6 @@ body {
   opacity: 0;
   pointer-events: none;
 
-  transition: opacity 150ms ease-in-out;
-
   &:has(.sidebar:not(.hidden)),
   &:has(#alert:not(.hidden)) {
     opacity: 100;
@@ -227,6 +237,7 @@ body {
 }
 
 #modal-overlay {
+  transition: opacity 150ms ease-in-out;
   background-color: var(--base-bg);
   position: absolute;
   inset: 0;

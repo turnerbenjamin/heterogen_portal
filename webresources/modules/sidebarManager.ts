@@ -2,8 +2,15 @@ import { AlertManager } from "./alertManager";
 import constants from "./constants";
 import { NullTargetErr, UnexpectedErr } from "./errors";
 import { onHtmxAfterSwapEvent } from "./htmx";
-import { getElementById, parseHtmlElement, setVisibility } from "./utils";
-import { WindowManager } from "./windowManager";
+import {
+  elString,
+  getChildBySelector,
+  getElementById,
+  parseHtmlElement,
+  setBoolAttribute,
+  setVisibility,
+} from "./utils";
+import { Hook, WindowManager } from "./windowManager";
 
 export class SidebarManager {
   private readonly _windowManager: WindowManager;
@@ -12,6 +19,8 @@ export class SidebarManager {
   private activeSidebarId: string | null = null;
   private activeNestedSidebarId: string | null = null;
 
+  private onEscapeHooks: Partial<Record<string, Array<() => void>>> = {};
+
   public constructor(windowManager: WindowManager, alertManager: AlertManager) {
     this._windowManager = windowManager;
     this._alertManager = alertManager;
@@ -19,15 +28,27 @@ export class SidebarManager {
     document.addEventListener("animationend", this.handleSidebarTransitionEnd);
     onHtmxAfterSwapEvent(this.updateSidebarVisibility);
     this.updateSidebarVisibility();
+
+    this._windowManager.registerHook(Hook.escSidebar, this.handleEscapeSidebar);
+    this._windowManager.registerHook(
+      Hook.escNestedSidebar,
+      this.handleEscapeNestedSidebar,
+    );
+  }
+
+  public registerOnEscapeHook(sidebarId: string, callback: () => void) {
+    if (this.onEscapeHooks[sidebarId] === undefined) {
+      this.onEscapeHooks[sidebarId] = [];
+    }
+    this.onEscapeHooks[sidebarId].push(callback);
   }
 
   public showSidebar = (sidebarId: string): Error | null => {
+    this.activeSidebarId = sidebarId;
     const err = this.showSidebarElement(constants.layers.sidebar.id, sidebarId);
     if (err) {
       return err;
     }
-    this.activeSidebarId = sidebarId;
-    this._windowManager.pushSidebar();
     return null;
   };
 
@@ -41,7 +62,7 @@ export class SidebarManager {
     }
 
     this.activeNestedSidebarId = sidebarId;
-    this._windowManager.pushNestedSidebar();
+
     return null;
   };
 
@@ -51,8 +72,6 @@ export class SidebarManager {
       this._alertManager.renderError(err);
       return;
     }
-
-    this.activeSidebarId = null;
   };
 
   public closeNestedSidebar = () => {
@@ -61,12 +80,10 @@ export class SidebarManager {
       this._alertManager.renderError(err);
       return;
     }
-
-    this.activeNestedSidebarId = null;
   };
 
   private showSidebarElement = (
-    _layerId: string,
+    layerId: string,
     sidebarId: string,
   ): Error | null => {
     const sidebarElRes = getElementById(sidebarId);
@@ -84,8 +101,28 @@ export class SidebarManager {
     }
 
     // remove close and hidden classes
-    sidebarEl.classList.add(constants.layers.modifierClasses.show);
     setVisibility(sidebarEl, true);
+    setBoolAttribute(sidebarEl, "inert", true);
+
+    sidebarEl.classList.add(constants.layers.modifierClasses.show);
+
+    const err = this.setInitialFocusAttribute(sidebarEl);
+    if (err !== null) {
+      return err;
+    }
+
+    switch (layerId) {
+      case constants.layers.sidebar.id:
+        this._windowManager.pushSidebar();
+        break;
+      case constants.layers.nestedSidebar.id:
+        this._windowManager.pushNestedSidebar();
+        break;
+      default:
+        return new UnexpectedErr(
+          `unable to show sidebar el: unexpected layer id '${layerId}'`,
+        );
+    }
 
     return null;
   };
@@ -110,7 +147,9 @@ export class SidebarManager {
       return null;
     }
 
+    setBoolAttribute(activeSidebar, "inert", true);
     activeSidebar.classList.add(constants.layers.modifierClasses.close);
+
     return null;
   };
 
@@ -131,19 +170,33 @@ export class SidebarManager {
 
     if (e.animationName === constants.sidebarCommon.animations.showSidebar) {
       sidebar.classList.remove(constants.layers.modifierClasses.show);
+
+      // sidebar is made inert during transition
+      setBoolAttribute(sidebar, "inert", false);
+      const parentLayer = sidebarRes.value.parentElement;
+      const err = this.setInitialFocus(parentLayer);
+      if (err !== null) {
+        this._alertManager.renderError(err);
+        return;
+      }
     }
 
     if (e.animationName === constants.sidebarCommon.animations.closeSidebar) {
       sidebar.classList.remove(constants.layers.modifierClasses.close);
 
       const parentLayer = sidebarRes.value.parentElement;
+
       switch (parentLayer?.id) {
         case constants.layers.sidebar.id:
           this._windowManager.popSidebar();
+          this.activeSidebarId = null;
           break;
+
         case constants.layers.nestedSidebar.id:
           this._windowManager.popNestedSidebar();
+          this.activeNestedSidebarId = null;
           break;
+
         default:
           this._alertManager.renderError(
             new UnexpectedErr(
@@ -189,11 +242,12 @@ export class SidebarManager {
     let activeSidebarFound = false;
     for (const child of sidebarLayerRes.value.children) {
       const isActive = activeElId !== null && child.id === activeElId;
-      setVisibility(child, isActive);
 
       if (isActive) {
         activeSidebarFound = true;
       }
+      setVisibility(child, isActive);
+      setBoolAttribute(child, "inert", !isActive);
     }
 
     if (activeElId !== null && !activeSidebarFound) {
@@ -203,5 +257,79 @@ export class SidebarManager {
     }
 
     return null;
+  };
+
+  private setInitialFocusAttribute(sidebarElement: HTMLElement): Error | null {
+    const parentLayer = sidebarElement.parentElement;
+    if (parentLayer === null) {
+      return new UnexpectedErr(
+        `unable to set initial focus attribute: ${elString(sidebarElement)} parent is null`,
+      );
+    }
+
+    const current = getChildBySelector(parentLayer, "[initial-focus]");
+    if (current.ok) {
+      setBoolAttribute(current.value, "initial-focus", false);
+    }
+
+    const nextActiveEl = getChildBySelector(
+      sidebarElement,
+      "[initial-focus-sidebar]",
+    );
+    if (!nextActiveEl.ok) {
+      return nextActiveEl.error;
+    }
+    setBoolAttribute(nextActiveEl.value, "initial-focus", true);
+
+    return null;
+  }
+
+  private setInitialFocus(parentLayer: HTMLElement | null): Error | null {
+    if (parentLayer === null) {
+      return new UnexpectedErr(
+        `unable to set initial focus: parent layer is null`,
+      );
+    }
+
+    const current = getChildBySelector(parentLayer, "[initial-focus]");
+    if (!current.ok) {
+      return current.error;
+    }
+
+    current.value.focus();
+    return null;
+  }
+
+  private handleEscapeSidebar = () => {
+    if (this.activeSidebarId === null) {
+      return this._alertManager.renderError(
+        new UnexpectedErr(
+          `unable to handle escape sidebar: active sidebar id is null`,
+        ),
+      );
+    }
+
+    const activeSidebar = getElementById(this.activeSidebarId);
+    if (!activeSidebar.ok) {
+      return this._alertManager.renderError(activeSidebar.error);
+    }
+
+    for (const cb of this.onEscapeHooks[this.activeSidebarId] ?? []) {
+      cb();
+    }
+  };
+
+  private handleEscapeNestedSidebar = () => {
+    if (this.activeNestedSidebarId === null) {
+      return this._alertManager.renderError(
+        new UnexpectedErr(
+          `unable to handle escape nested sidebar: active sidebar id is null`,
+        ),
+      );
+    }
+
+    for (const cb of this.onEscapeHooks[this.activeNestedSidebarId] ?? []) {
+      cb();
+    }
   };
 }

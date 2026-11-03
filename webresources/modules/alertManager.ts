@@ -2,9 +2,16 @@ import constants from "./constants";
 import { NoElWithIdAndTypeErr, parseAppError } from "./errors";
 import { Fail, Result, Success } from "./result";
 import { toastMyError } from "./toasts";
-import { getElementById, setVisibility } from "./utils";
-import { WindowManager } from "./windowManager";
-import { HtmxEvent, HtmxAfterSwapEvent, onHtmxAfterSwapEvent } from "./htmx";
+import {
+  getChildBySelector,
+  getElementById,
+  getTemplateById,
+  getTemplateContentBySelector,
+  idSelector,
+  setVisibility,
+} from "./utils";
+import { Hook, WindowManager } from "./windowManager";
+import { onHtmxAfterSwapEvent } from "./htmx";
 
 interface Alert {
   type: "notification" | "error" | "confirmation";
@@ -37,7 +44,7 @@ interface ConfirmationAlert extends Alert {
 }
 
 interface AlertElement {
-  container: HTMLDivElement;
+  container: HTMLElement;
   title: HTMLHeadingElement;
   message: HTMLParagraphElement;
   detail: HTMLPreElement;
@@ -57,12 +64,12 @@ export class AlertManager {
     this._panic = panic;
 
     onHtmxAfterSwapEvent(this.handleAfterHtmxSwap);
-    document.addEventListener("keydown", this.handleEsc);
+    windowManager.registerHook(Hook.escAlert, this.hgHandlerCloseAlert);
   }
 
   public hgHandlerCloseAlert = () => {
-    this.hideAlert();
     this._windowManager.popAlert();
+    this.hideAlert();
   };
 
   public renderNotificationMsg = (title: string, message: string): void => {
@@ -72,12 +79,10 @@ export class AlertManager {
       message: message,
       confirmButtonText: "Ok",
     });
-    this._windowManager.pushAlertLayer();
   };
 
   public renderError = (errObj: unknown): void => {
     const err = parseAppError(errObj);
-
     if (err.doBlock) {
       this.renderAlert({
         type: "error",
@@ -86,7 +91,6 @@ export class AlertManager {
         detail: err.details,
         confirmButtonText: "Ok",
       });
-      this._windowManager.pushAlertLayer();
     } else {
       const toastErr = toastMyError(err.message);
       if (toastErr) {
@@ -103,8 +107,6 @@ export class AlertManager {
       confirmButtonText: "Continue",
       declineButtonText: "Cancel",
     });
-
-    this._windowManager.pushAlertLayer();
   };
 
   private renderAlert = (
@@ -115,7 +117,6 @@ export class AlertManager {
       return this._panic(alertElementRes.error);
     }
     const alertElement = alertElementRes.value;
-
     alertElement.container.classList.remove(constants.alert.modifiers.error);
 
     if (alert) {
@@ -135,97 +136,119 @@ export class AlertManager {
       alertElement.detail.textContent = alert.declineButtonText;
     }
 
-    setVisibility(alertElement.container, true);
+    this._windowManager.pushAlertLayer();
+
+    const announcement = `${alertElement.title.textContent}: ${alertElement.message.textContent}`;
+    this._windowManager.announceAssertively(announcement);
+
+    alertElement.confirmBtn.focus();
   };
 
   public hideAlert() {
-    const alertElementRes = this.getAlertElement();
+    const alertElementRes = getElementById(constants.alert.id);
     if (!alertElementRes.ok) {
       return this._panic(alertElementRes.error);
     }
-    const alertElement = alertElementRes.value;
-    setVisibility(alertElement.container, false);
+    alertElementRes.value.remove();
   }
 
   private getAlertElement = (): Result<AlertElement> => {
-    const alertConstants = constants.alert;
-
-    const containerEl = document.getElementById(alertConstants.id);
-    if (!containerEl || !(containerEl instanceof HTMLDivElement)) {
-      return Fail(new NoElWithIdAndTypeErr(alertConstants.id, "div"));
+    const alertLayerRes = getElementById(constants.layers.alert.id);
+    if (!alertLayerRes.ok) {
+      return alertLayerRes;
     }
 
-    const titleEl = document.getElementById(alertConstants.title.id);
-    if (!titleEl || !(titleEl instanceof HTMLHeadingElement)) {
-      return Fail(new NoElWithIdAndTypeErr(alertConstants.title.id, "heading"));
+    const alertTemplateRes = getTemplateById(constants.alert.templateId);
+    if (!alertTemplateRes.ok) {
+      return alertTemplateRes;
     }
-    HTMLTitleElement;
-    const msgEl = document.getElementById(alertConstants.message.id);
-    if (!msgEl || !(msgEl instanceof HTMLParagraphElement)) {
+
+    const alertPrototypeRes = getTemplateContentBySelector(
+      alertTemplateRes.value,
+      idSelector(constants.alert.id),
+    );
+    if (!alertPrototypeRes.ok) {
+      return alertPrototypeRes;
+    }
+
+    const alertEl = alertPrototypeRes.value.cloneNode(true) as HTMLElement;
+    alertLayerRes.value.appendChild(alertEl);
+
+    const titleEl = getChildBySelector(
+      alertEl,
+      idSelector(constants.alert.title.id),
+    );
+    if (!titleEl.ok || !(titleEl.value instanceof HTMLHeadingElement)) {
       return Fail(
-        new NoElWithIdAndTypeErr(alertConstants.message.id, "paragraph"),
+        new NoElWithIdAndTypeErr(constants.alert.title.id, "heading"),
       );
     }
 
-    const detailEl = document.getElementById(alertConstants.detail.id);
-    if (!detailEl || !(detailEl instanceof HTMLPreElement)) {
-      return Fail(new NoElWithIdAndTypeErr(alertConstants.detail.id, "pre"));
-    }
-
-    const confirmBtn = document.getElementById(alertConstants.confirmButton.id);
-    if (!confirmBtn || !(confirmBtn instanceof HTMLButtonElement)) {
+    const msgEl = getChildBySelector(
+      alertEl,
+      idSelector(constants.alert.message.id),
+    );
+    if (!msgEl.ok || !(msgEl.value instanceof HTMLParagraphElement)) {
       return Fail(
-        new NoElWithIdAndTypeErr(alertConstants.confirmButton.id, "button"),
+        new NoElWithIdAndTypeErr(constants.alert.message.id, "paragraph"),
       );
     }
 
-    const declineBtn = document.getElementById(alertConstants.declineButton.id);
-    if (!declineBtn || !(declineBtn instanceof HTMLButtonElement)) {
-      throw new NoElWithIdAndTypeErr(alertConstants.declineButton.id, "button");
+    const detailEl = getChildBySelector(
+      alertEl,
+      idSelector(constants.alert.detail.id),
+    );
+    if (!detailEl.ok || !(detailEl.value instanceof HTMLPreElement)) {
+      return Fail(new NoElWithIdAndTypeErr(constants.alert.detail.id, "pre"));
+    }
+
+    const confirmBtn = getChildBySelector(
+      alertEl,
+      idSelector(constants.alert.confirmButton.id),
+    );
+    if (!confirmBtn.ok || !(confirmBtn.value instanceof HTMLButtonElement)) {
+      return Fail(
+        new NoElWithIdAndTypeErr(constants.alert.confirmButton.id, "button"),
+      );
+    }
+
+    const declineBtn = getChildBySelector(
+      alertEl,
+      idSelector(constants.alert.declineButton.id),
+    );
+    if (!declineBtn.ok || !(declineBtn.value instanceof HTMLButtonElement)) {
+      throw new NoElWithIdAndTypeErr(
+        constants.alert.declineButton.id,
+        "button",
+      );
     }
 
     return Success({
-      container: containerEl,
-      title: titleEl,
-      message: msgEl,
-      detail: detailEl,
-      confirmBtn: confirmBtn,
-      declineBtn: declineBtn,
+      container: alertEl,
+      title: titleEl.value,
+      message: msgEl.value,
+      detail: detailEl.value,
+      confirmBtn: confirmBtn.value,
+      declineBtn: declineBtn.value,
     });
   };
 
-  private handleAfterHtmxSwap = (e: HtmxEvent<HtmxAfterSwapEvent>) => {
-    if (e.detail.ctx.response?.raw.ok) {
+  private handleAfterHtmxSwap = () => {
+    const alert = getElementById(constants.alert.id);
+    if (!alert.ok) {
       return;
     }
 
-    const getAlertElRes = getElementById(constants.layers.alert.id);
-    if (!getAlertElRes.ok) {
-      return this._panic(getAlertElRes.error);
-    }
-    if (
-      !getAlertElRes.value.hasAttribute(constants.alert.attributes.serverAlert)
-    ) {
+    const alertConfirmationButton = getChildBySelector(
+      alert.value,
+      idSelector(constants.alert.confirmButton.id),
+    );
+    if (!alertConfirmationButton.ok) {
+      this._panic(alertConfirmationButton.error);
       return;
     }
 
-    getAlertElRes.value.removeAttribute(constants.alert.attributes.serverAlert);
-    this.renderAlert();
     this._windowManager.pushAlertLayer();
-  };
-
-  private handleEsc = (e: KeyboardEvent) => {
-    if (e.key !== constants.keyCodes.Escape) {
-      return;
-    }
-
-    const activeLayer = this._windowManager.getActiveLayer();
-    if (!activeLayer.ok) {
-      return this.renderError(activeLayer.error);
-    }
-
-    if (activeLayer.value.layerId === constants.layers.alert.id) {
-      this._windowManager.popAlert();
-    }
+    alertConfirmationButton.value.focus();
   };
 }

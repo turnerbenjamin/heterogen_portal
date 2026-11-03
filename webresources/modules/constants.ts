@@ -8,8 +8,18 @@ export default {
     },
   },
 
+  announcers: {
+    polite: {
+      id: "announcer-polite",
+    },
+    assertive: {
+      id: "announcer-assertive",
+    },
+  },
+
   alert: {
     id: "alert",
+    templateId: "alert_template",
     title: {
       id: "alert-title",
     },
@@ -34,7 +44,11 @@ export default {
   },
 
   filterColumns: {
+    sidebarId: "edit-filters-sidebar",
     componentId: "edit-filters-sidebar",
+    formId: "apply-filter-edits-form",
+    applyFiltersButtonId: "apply-filters-button",
+
     templates: {
       filterRule: "filter-rule_template",
       filterGroup: "filter-group_template",
@@ -50,15 +64,25 @@ export default {
       lookup: "lookup",
       point: "point",
     },
-
-    applyFiltersBtnId: "apply-filters-button",
   },
 
   editColumns: {
+    sidebarId: "edit-columns-sidebar",
     componentId: "edit-columns-sidebar",
+    formId: "apply-column-edits-form",
+    applyEditsButtonId: "apply-column-edits-button",
+
+    editColumnsListId: "edit-columns-list",
+    openAddColumnScreenButtonId: "open-add-column-screen-button",
+
     templates: {
       sortableItem: "sortable-item_template",
     },
+  },
+
+  addColumns: {
+    sidebarId: "add-columns-sidebar",
+    addColumnsOptionsId: "add-columns-options",
   },
 
   layers: {
@@ -68,37 +92,10 @@ export default {
 
     sidebar: {
       id: "sidebar-layer",
-      content: {
-        labelElAttribute: "sidebar-label",
-        editColumnsSidebar: {
-          id: "edit-columns-sidebar",
-
-          editColumnsList: {
-            id: "edit-columns-list",
-          },
-          openAddColumnScreenButton: {
-            id: "open-add-column-screen-button",
-          },
-          applyButton: {
-            id: "apply-column-edits-button",
-          },
-        },
-        editFiltersSidebar: {
-          id: "edit-filters-sidebar",
-        },
-      },
     },
 
     nestedSidebar: {
       id: "nested-sidebar-layer",
-      content: {
-        addColumnsSidebar: {
-          id: "add-columns-sidebar",
-          addColumnsOptions: {
-            id: "add-columns-options",
-          },
-        },
-      },
     },
 
     alert: {

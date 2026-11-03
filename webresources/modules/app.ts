@@ -11,7 +11,7 @@ import { TableFilterManager } from "./tableFilterManager";
 export interface HgNamespace {
   closeAlert: () => void;
   editColumns: {
-    addColumns: () => void;
+    addColumns: (_e: Event) => void;
     removeColumn: (_e: MouseEvent) => void;
     showAddColumnsSidebar: () => void;
     closeAddColumnsSidebar: () => void;
@@ -65,7 +65,7 @@ export class App {
       // Global try/catch
       addEventListener("error", (e: ErrorEvent) => {
         e.preventDefault();
-        this.alertManager?.renderError(e.error);
+        this.panic(e.error);
       });
 
       this.hgNamespace = {

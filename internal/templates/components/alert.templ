@@ -17,31 +17,33 @@ templ Alert(
 		</div>
 	}else{
 		<div id="alert-layer">
-					@alertContent(data)
+			<template id="alert_template">
+				@alertTemplate(AlertData{})
+			</template>
+			@alertContent(data)
 		</div>
 	}
 } 
 
 templ alertContent(data AlertData){
-{{
-	serverAlertAttr := ""
-	if data.Title != "" && data.Message != ""{
-		serverAlertAttr = "server-alert"
+	if data.Title != "" && data.Message !=""{
+		@alertTemplate(data)
 	}
-}}
+}
 
+templ alertTemplate(
+	data AlertData,
+){
 <div 
 	id="alert" 
+  role="alertdialog"
 	aria-modal="true" 
-	class="hidden" 
-	aria-hidden="true" 
 	aria-labelledby="alert-title"
 	aria-describedby="alert-message"
-	{serverAlertAttr}
 >
 	<h2 id="alert-title">{data.Title}</h2>
 	<p id="alert-message">{data.Message}</p>
-	<pre id="alert-detail" class="error-detail hiddon"></pre>
+	<pre id="alert-detail" class="error-detail hidden"></pre>
 	<div id="alert-controls">
 		<button 
 			id="alert-accept" 

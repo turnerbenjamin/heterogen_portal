@@ -65,7 +65,10 @@ export class TableFilterManager {
     }
     const target = targetRes.value;
 
-    if (target.id !== constants.filterColumns.applyFiltersBtnId) {
+    if (
+      target.id !== constants.filterColumns.applyFiltersButtonId &&
+      target.id !== constants.filterColumns.formId
+    ) {
       return;
     }
 
@@ -223,9 +226,7 @@ export class TableFilterManager {
   };
 
   private buildFilterQueryString = (): Result<string> => {
-    const sidebarRes = getElementById(
-      constants.layers.sidebar.content.editFiltersSidebar.id,
-    );
+    const sidebarRes = getElementById(constants.filterColumns.sidebarId);
     if (!sidebarRes.ok) {
       return sidebarRes;
     }

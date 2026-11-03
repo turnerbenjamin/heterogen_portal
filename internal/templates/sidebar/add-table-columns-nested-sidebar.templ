@@ -4,6 +4,7 @@ import (
 	  "github.com/turnerbenjamin/querystack/querymodel"
 	"github.com/turnerbenjamin/heterogen_portal/internal/icons"
 	"github.com/turnerbenjamin/heterogen_portal/internal/tables"
+	"github.com/turnerbenjamin/heterogen_portal/internal/templates/components"
 )
 
 
@@ -11,37 +12,49 @@ templ AddTableColumnsNestedSidebar[T querymodel.TableModel](
     icons *icons.IconSet,
     tableData tables.TableData[T],
 ){
-    <div id="add-columns-sidebar" class="sidebar hidden">
-        <div class="sidebar-title">
-            <h3 sidebar-label>Add Columns</h3>
-            <button 
-                aria-label="Close add column modal"
-                class="icon-button icon large interactive" 
-                onclick="hg.editColumns.closeAddColumnsSidebar()"
-                initial-focus
-            >
-                @templ.Raw(icons.Xmark)
-            </button>
-        </div>
+    @components.SidebarContent(
+        icons,
+        components.SidebarConfig{
+            Id: "add-columns-sidebar",
+            Title: "Add Columns",
+            CloseHandler: "hg.editColumns.closeAddColumnsSidebar",
+        },
+        addTableColumnsNestedSidebarContent(
+            icons,
+            tableData,
+        ),
+    )
+}
 
-        <div class="sidebar-content">
-            <div id="add-columns-options" class="option-group mt-7 mb-7">
-            for _, column := range tableData.TableDefinition.MainGridColumns{
-                {{
-                    hiddenClass := "";
-                    _, doHide := tableData.Query.SelectQuery.ColumnSet[column.Path]
-                    if doHide{
-                        hiddenClass = "hidden"
-                    }
-                
-                }}
-                <div data-column-path={column.Path} class={"option-group-item " + hiddenClass}>
-                <input type="checkbox" id={"column-selector-" + column.DisplayName} name={column.DisplayName} value={column.Path}/>
-                <label for={"column-selector-" + column.DisplayName}>{column.DisplayName}</label>
-                </div>
-            }
+templ addTableColumnsNestedSidebarContent[T querymodel.TableModel](
+    icons *icons.IconSet,
+    tableData tables.TableData[T],
+){
+    <form
+        id="add-columns-form" 
+        onsubmit="hg.editColumns.addColumns(event)"
+    >
+        <div id="add-columns-options" class="option-group mt-7 mb-7">
+        for _, column := range tableData.TableDefinition.MainGridColumns{
+            {{
+                hiddenClass := "";
+                _, doHide := tableData.Query.SelectQuery.ColumnSet[column.Path]
+                if doHide{
+                    hiddenClass = "hidden"
+                }
+            
+            }}
+            <div data-column-path={column.Path} class={"option-group-item " + hiddenClass}>
+            <input type="checkbox" id={"column-selector-" + column.DisplayName} name={column.DisplayName} value={column.Path}/>
+            <label for={"column-selector-" + column.DisplayName}>{column.DisplayName}</label>
             </div>
-            <button onclick="hg.editColumns.addColumns()">add</button>
+        }
         </div>
-    </div>
+        <button 
+            type="submit"
+            onclick="hg.editColumns.addColumns(event)"
+        >
+            add
+        </button>
+    </form>
 }
