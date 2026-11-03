@@ -12,41 +12,45 @@ templ Alert(
 	data AlertData,
 ) {
 	if pageConfig.ContentOnly{
-		<div hx-swap-oob="outerHTML:#alert">
 				@alertContent(data)
-		</div>
 	}else{
 		<div id="alert-layer">
 			<template id="alert_template">
-				@alertTemplate(AlertData{})
+				@alertTemplate(true)
 			</template>
+			<div id="alerts">
 			@alertContent(data)
+			</div>
 		</div>
 	}
 } 
 
 templ alertContent(data AlertData){
 	if data.Title != "" && data.Message !=""{
-		@alertTemplate(data)
+		<div hx-swap-oob="innerHTML:#alerts">
+			@alertTemplate(false)
+		</div>
 	}
 }
 
 templ alertTemplate(
-	data AlertData,
+	isTemplate bool,
 ){
 <div 
-	id="alert" 
+	class="alert" 
+	server-error?={!isTemplate}
+	aria-live="assertive"
   role="alertdialog"
 	aria-modal="true" 
 	aria-labelledby="alert-title"
 	aria-describedby="alert-message"
 >
-	<h2 id="alert-title">{data.Title}</h2>
-	<p id="alert-message">{data.Message}</p>
-	<pre id="alert-detail" class="error-detail hidden"></pre>
-	<div id="alert-controls">
+	<h2 class="alert-title"></h2>
+	<p class="alert-message"></p>
+	<pre class="error-detail hidden"></pre>
+	<div class="alert-controls">
 		<button 
-			id="alert-accept" 
+			class="alert-accept" 
 
 			initial-focus
 			onclick="hg.closeAlert()"
@@ -54,7 +58,7 @@ templ alertTemplate(
 				Ok
 		</button>
 		<button 
-			id="alert-decline"
+			class="alert-decline"
 			onclick="hg.closeAlert()"
 		>
 			Cancel 
