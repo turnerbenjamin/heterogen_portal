@@ -276,7 +276,7 @@ func FilterRule[T querymodel.TableModel](
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 33, "</div><button class=\"icon icon-button small delete-button interactive\" onclick=\"hg.mainTable.filters.deleteRule(event)\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 33, "</div><button type=\"button\" class=\"icon icon-button small delete-button interactive\" onclick=\"hg.mainTable.filters.deleteRule(event)\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

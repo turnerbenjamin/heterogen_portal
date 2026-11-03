@@ -15,6 +15,7 @@ import "github.com/turnerbenjamin/heterogen_portal/internal/tables"
 import "github.com/turnerbenjamin/heterogen_portal/internal/model"
 import "github.com/turnerbenjamin/heterogen_portal/internal/templates/components/filters"
 import "github.com/turnerbenjamin/heterogen_portal/internal/templates/components/inputs"
+import "github.com/turnerbenjamin/heterogen_portal/internal/templates/components"
 
 func EditTableFiltersSidebar[T querymodel.TableModel](
 	resourceEndpoint string,
@@ -38,15 +39,63 @@ func EditTableFiltersSidebar[T querymodel.TableModel](
 		}
 		ctx = templ.InitializeContext(ctx)
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div id=\"edit-filters-sidebar\" class=\"sidebar hidden\"><div class=\"sidebar-title\"><h3 sidebar-label>Filter Columns</h3><button aria-label=\"Close edit column modal\" class=\"icon-button icon large interactive\" onclick=\"hg.mainTable.closeEditFiltersSidebar()\" initial-focus>")
+		templ_7745c5c3_Err = components.SidebarContent(
+			icons,
+			components.SidebarConfig{
+				Id:           "edit-filters-sidebar",
+				Title:        "Edit Filters",
+				CloseHandler: "hg.mainTable.closeEditFiltersSidebar",
+			},
+			editTableFiltersSidebarContent(
+				resourceEndpoint,
+				inputBuilder,
+				icons,
+				tableData,
+			),
+		).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templ.Raw(icons.Xmark).Render(ctx, templ_7745c5c3_Buffer)
+		return nil
+	})
+}
+
+func editTableFiltersSidebarContent[T querymodel.TableModel](
+	resourceEndpoint string,
+	inputBuilder model.UiInputControlBuilder,
+	icons *icons.IconSet,
+	tableData tables.TableData[T],
+) templ.Component {
+	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
+			return templ_7745c5c3_CtxErr
+		}
+		templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+		if !templ_7745c5c3_IsBuffer {
+			defer func() {
+				templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err == nil {
+					templ_7745c5c3_Err = templ_7745c5c3_BufErr
+				}
+			}()
+		}
+		ctx = templ.InitializeContext(ctx)
+		ctx = templ.ClearChildren(ctx)
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<form id=\"apply-filter-edits-form\" hx-get=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "</button></div><div class=\"sidebar-content\"><div class=\"filter-container\"><template id=\"filter-rule_template\">")
+		var templ_7745c5c3_Var3 string
+		templ_7745c5c3_Var3, templ_7745c5c3_Err = templruntime.NewAttributeExpression(resourceEndpoint).Resolve(ctx)
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `sidebar/edit-table-filters-sidebar.templ`, Line: 41, Col: 32}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var3)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "\" hx-swap=\"outerHTML\" hx-target=\"#main-table\" hx-push-url=\"false\" hx-indicator=\"main\"><div class=\"filter-container\"><template id=\"filter-rule_template\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -111,20 +160,7 @@ func EditTableFiltersSidebar[T querymodel.TableModel](
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "</div><button id=\"apply-filters-button\" aria-label=\"Apply filters\" hx-get=\"")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		var templ_7745c5c3_Var2 string
-		templ_7745c5c3_Var2, templ_7745c5c3_Err = templruntime.NewAttributeExpression(resourceEndpoint).Resolve(ctx)
-		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `sidebar/edit-table-filters-sidebar.templ`, Line: 57, Col: 40}
-		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var2)
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "\" hx-swap=\"innerHTML\" hx-target=\"#main-table\" hx-push-url=\"false\" hx-indicator=\"main\">Apply</button></div></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "</div><button id=\"apply-filters-button\" aria-label=\"Apply filters\" type=\"submit\">Apply</button></form>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

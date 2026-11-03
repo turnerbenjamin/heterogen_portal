@@ -3,6 +3,8 @@ import constants from "./constants";
 import { NullParentErr } from "./errors";
 import {
   classSelector,
+  getClosestByClass,
+  getTarget,
   parseHtmlElement,
   switchSiblingElements,
 } from "./utils";
@@ -103,6 +105,7 @@ export class SortableListManager {
       classSelector(constants.classes.sortableList.items.className),
       this._currentDraggedItem.item,
       dropzone,
+      this._windowManager.announcePolitely,
     );
     if (error !== null) {
       this._alertManager.renderError(error);
@@ -117,7 +120,20 @@ export class SortableListManager {
   };
 
   private handleKeyDown = (e: KeyboardEvent) => {
+    // Toggle drag start/end on space
     if (e.key === constants.keyCodes.Space) {
+      const target = getTarget(e);
+      if (!target.ok) {
+        return;
+      }
+
+      const parentList = getClosestByClass(
+        target.value,
+        constants.classes.sortableList.className,
+      );
+      if (!parentList.ok) {
+        return;
+      }
       e.preventDefault(); // stop default scroll down behaviour
 
       if (this._currentDraggedItem === null) {
@@ -128,6 +144,7 @@ export class SortableListManager {
       return;
     }
 
+    // Move item with arrow keys
     if (
       this._currentDraggedItem === null ||
       (e.key !== constants.keyCodes.ArrowDown &&
@@ -154,6 +171,7 @@ export class SortableListManager {
       classSelector(constants.classes.sortableList.items.className),
       this._currentDraggedItem.item,
       nextElRes.value,
+      this._windowManager.announcePolitely,
     );
     if (error !== null) {
       this._alertManager.renderError(error);

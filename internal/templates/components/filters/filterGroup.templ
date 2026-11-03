@@ -17,6 +17,7 @@ templ FilterGroup[T querymodel.TableModel](
       @FilterGroupOperatorInput(filterGroup.GroupType)
       if depth > 1{
         <button 
+          type="button"
           class="icon icon-button small delete-button"
           onclick="hg.mainTable.filters.deleteRuleGroup(event)"
         >
@@ -37,6 +38,7 @@ templ FilterGroup[T querymodel.TableModel](
     </div>
     <div class="filter-group-controls">
       <button 
+        type="button"
         class="secondary"
         onClick="hg.mainTable.filters.newRule(event)"
       >
@@ -44,6 +46,7 @@ templ FilterGroup[T querymodel.TableModel](
       </button>
       if depth < 5{
       <button 
+        type="button"
         class="secondary filter-group-controls_new-rule-button"
         onClick="hg.mainTable.filters.newRuleGroup(event)"
       >

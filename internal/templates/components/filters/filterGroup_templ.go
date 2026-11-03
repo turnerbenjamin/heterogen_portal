@@ -69,7 +69,7 @@ func FilterGroup[T querymodel.TableModel](
 			return templ_7745c5c3_Err
 		}
 		if depth > 1 {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "<button class=\"icon icon-button small delete-button\" onclick=\"hg.mainTable.filters.deleteRuleGroup(event)\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "<button type=\"button\" class=\"icon icon-button small delete-button\" onclick=\"hg.mainTable.filters.deleteRuleGroup(event)\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -99,12 +99,12 @@ func FilterGroup[T querymodel.TableModel](
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "</div><div class=\"filter-group-controls\"><button class=\"secondary\" onClick=\"hg.mainTable.filters.newRule(event)\">New Rule</button> ")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "</div><div class=\"filter-group-controls\"><button type=\"button\" class=\"secondary\" onClick=\"hg.mainTable.filters.newRule(event)\">New Rule</button> ")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if depth < 5 {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "<button class=\"secondary filter-group-controls_new-rule-button\" onClick=\"hg.mainTable.filters.newRuleGroup(event)\">New Rule Group</button>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "<button type=\"button\" class=\"secondary filter-group-controls_new-rule-button\" onClick=\"hg.mainTable.filters.newRuleGroup(event)\">New Rule Group</button>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

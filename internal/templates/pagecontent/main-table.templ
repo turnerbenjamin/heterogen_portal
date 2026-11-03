@@ -49,9 +49,7 @@ templ mainTablePageContent[T querymodel.TableModel](
                 <input type=text/>
             </div>
         </div>
-        <table id="main-table" class="main-table mt-6"> 
         @table(tableCellBuilder, tableData)
-        </table>
     </main>
 }
 
@@ -59,20 +57,22 @@ templ table[T querymodel.TableModel](
     tableCellBuilder model.UiTableCellBuilder,
     tableData tables.TableData[T],
 ){
-    <thead>
-        <tr>
-        for _, headerColumn := range tableData.Query.SelectQuery.Columns{
-            <th 
-                data-column-path={headerColumn.Path}
-            >
-                {headerColumn.DisplayName}
-            </th>
-        }
-        </tr>
-    </thead>
-    <tbody id="main-table-body">
-        @tableBody(tableCellBuilder, tableData) 
-    </tbody>
+    <table id="main-table" class="main-table mt-6"> 
+        <thead>
+            <tr>
+            for _, headerColumn := range tableData.Query.SelectQuery.Columns{
+                <th 
+                    data-column-path={headerColumn.Path}
+                >
+                    {headerColumn.DisplayName}
+                </th>
+            }
+            </tr>
+        </thead>
+        <tbody id="main-table-body">
+            @tableBody(tableCellBuilder, tableData) 
+        </tbody>
+    </table>
 }
 
 templ tableBody[T querymodel.TableModel](

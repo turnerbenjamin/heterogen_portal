@@ -48,6 +48,7 @@ export function switchSiblingElements(
   childSelector: string,
   a: HTMLElement,
   b: HTMLElement,
+  announcer: (s: string) => void | null,
 ): Error | null {
   const childElements = parentElement.querySelectorAll(childSelector);
 
@@ -75,6 +76,10 @@ export function switchSiblingElements(
     parentElement.appendChild(a);
   }
 
+  if (announcer) {
+    announcer(`'${a.textContent}' has moved to position ${bIndex + 1}`);
+  }
+
   return null;
 }
 
@@ -100,7 +105,7 @@ export function classSelector(className: string): string {
 }
 
 export function idSelector(className: string): string {
-  return `.${className}`;
+  return `#${className}`;
 }
 
 export function attributeSelector(
@@ -115,7 +120,7 @@ export function attributeSelector(
 }
 
 export function setBoolAttribute(
-  el: HTMLElement,
+  el: Element,
   attributeName: string,
   value = true,
 ): void {
@@ -243,6 +248,21 @@ export function getClosestByClass(
     return Fail(
       new UnexpectedErr(
         `Unable to access parent with class name ${parentClass} from ${elString(child)}`,
+      ),
+    );
+  }
+  return c;
+}
+
+export function getClosestBySelector(
+  child: HTMLElement,
+  selector: string,
+): Result<HTMLElement> {
+  const c = parseHtmlElement(child.closest(selector));
+  if (!c.ok) {
+    return Fail(
+      new UnexpectedErr(
+        `Unable to access closest element with selector '${selector}' from ${elString(child)}`,
       ),
     );
   }

@@ -1,0 +1,39 @@
+package components
+
+import "fmt"
+import "github.com/turnerbenjamin/heterogen_portal/internal/icons"
+
+type SidebarConfig struct{
+  Id string
+  Title string
+  CloseHandler string
+}
+
+templ SidebarContent(
+  icons *icons.IconSet,
+  config SidebarConfig,
+  content templ.Component,
+){
+  <div 
+    id={config.Id} 
+    class="sidebar hidden"
+    role="dialog"
+    aria-modal="true"
+    aria-labelled="sidebar-title"
+  >
+    <div class="sidebar-title">
+      <h3 sidebar-label>{config.Title}</h3>
+      <button 
+          aria-label={fmt.Sprintf("close %s sidebar", config.Title)}
+          class="icon-button icon large interactive" 
+          onclick={templ.JSFuncCall(config.CloseHandler, templ.JSExpression("event"))}
+          initial-focus-sidebar
+      >
+          @templ.Raw(icons.Xmark)
+      </button>
+    </div>
+    <div class="sidebar-content">
+      @content
+    </div>
+  </div>
+}
