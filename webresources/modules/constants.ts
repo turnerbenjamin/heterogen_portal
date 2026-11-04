@@ -8,6 +8,10 @@ export default {
     },
   },
 
+  table: {
+    minColWidthPx: 120,
+  },
+
   announcers: {
     polite: {
       id: "announcer-polite",

@@ -63,9 +63,7 @@ templ table[T querymodel.TableModel](
        <thead>
             <tr>
             for _, headerColumn := range tableData.Query.SelectQuery.Columns{
-                <th 
-                    data-column-path={headerColumn.Path}
-                >
+                <th data-column-path={headerColumn.Path}>
                     <div class="th-label">{headerColumn.DisplayName}</div>
                     <div class="table-resize-handle"><span></span></div>
                 </th>

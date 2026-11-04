@@ -34,7 +34,6 @@ interface SelectStatement {
 
 interface DragTarget {
   column: HTMLElement;
-  minWidth: number;
   startX: number;
   startWidth: number;
 }
@@ -172,11 +171,19 @@ export class MainTable {
       return this._alertManager.renderError(columnHeader.error);
     }
 
-    const minWidth = parseFloat(getComputedStyle(columnHeader.value).minWidth);
+    //Set the width of all headers to prevent shrink
+    const table = getClosestBySelector(columnHeader.value, "table");
+    if (!table.ok) {
+      return this._alertManager.renderError(table.error);
+    }
+
+    const headerCells = table.value.querySelectorAll("th");
+    for (const header of headerCells) {
+      header.style.width = `${header.getBoundingClientRect().width}px`;
+    }
 
     this.activeDragTarget = {
       column: columnHeader.value,
-      minWidth: minWidth,
       startX: e.clientX,
       startWidth: columnHeader.value.getBoundingClientRect().width,
     };
@@ -196,7 +203,7 @@ export class MainTable {
 
     const delta = e.clientX - this.activeDragTarget.startX;
     const newWidth = this.activeDragTarget.startWidth + delta;
-    if (newWidth < this.activeDragTarget.minWidth) {
+    if (newWidth < constants.table.minColWidthPx) {
       return;
     }
 
