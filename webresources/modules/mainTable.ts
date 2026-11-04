@@ -34,6 +34,7 @@ interface SelectStatement {
 
 interface DragTarget {
   column: HTMLElement;
+  minWidth: number;
   startX: number;
   startWidth: number;
 }
@@ -174,8 +175,11 @@ export class MainTable {
       return this._alertManager.renderError(columnHeader.error);
     }
 
+    const minWidth = parseFloat(getComputedStyle(columnHeader.value).minWidth);
+
     this.activeDragTarget = {
       column: columnHeader.value,
+      minWidth: minWidth,
       startX: e.clientX,
       startWidth: columnHeader.value.getBoundingClientRect().width,
     };
@@ -195,7 +199,7 @@ export class MainTable {
 
     const delta = e.clientX - this.activeDragTarget.startX;
     const newWidth = this.activeDragTarget.startWidth + delta;
-    if (newWidth < constants.table.minColWidthPx) {
+    if (newWidth < this.activeDragTarget.minWidth) {
       return;
     }
 
@@ -219,8 +223,6 @@ export class MainTable {
       "lostpointercapture",
       this.handleResizeHandleDragEnd,
     );
-
-    // write new column definition
 
     // return
     this.activeDragTarget = null;
