@@ -815,6 +815,14 @@ input {
 
 /** MAIN TABLE */
 
+#main-table-content {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  width: 100%;
+  min-height: 0;
+}
+
 .main-table-head {
   display: flex;
   flex-direction: row;
@@ -848,7 +856,7 @@ input {
   user-select: none;
   -webkit-user-select: none;
 
-  th,
+  th .th-label,
   td {
     white-space: nowrap;
     text-overflow: ellipsis;
@@ -870,8 +878,35 @@ input {
     border-bottom: 2px solid rgba(var(--base-fg-rgb) / 40%);
     text-align: left;
 
-    td {
-      padding-bottom: var(--ws-4);
+    th {
+      position: relative;
+      padding: var(--ws-4);
+      min-width: 120px;
+    }
+
+    .table-resize-handle {
+      position: absolute;
+
+      height: 100%;
+      width: 30px;
+      right: -15px;
+      top: 0;
+
+      cursor: col-resize;
+      z-index: var(--z-navigation);
+
+      &:hover {
+        span {
+          background-color: var(--light-green);
+        }
+      }
+
+      span {
+        display: block;
+        height: 100%;
+        width: 2px;
+        margin: 0 auto;
+      }
     }
   }
 
