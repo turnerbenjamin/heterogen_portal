@@ -10,6 +10,11 @@ export default {
 
   table: {
     minColWidthPx: 120,
+    header: {
+      resizeHandle: {
+        className: "table-resize-handle",
+      },
+    },
   },
 
   announcers: {

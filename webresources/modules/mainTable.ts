@@ -159,7 +159,10 @@ export class MainTable {
       return;
     }
 
-    const handle = getClosestByClass(target.value, "table-resize-handle");
+    const handle = getClosestByClass(
+      target.value,
+      constants.table.header.resizeHandle.className,
+    );
     if (!handle.ok) {
       return;
     }
