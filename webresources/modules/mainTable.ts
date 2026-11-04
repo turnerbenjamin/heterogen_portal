@@ -171,17 +171,6 @@ export class MainTable {
       return this._alertManager.renderError(columnHeader.error);
     }
 
-    //Set the width of all headers to prevent shrink
-    const table = getClosestBySelector(columnHeader.value, "table");
-    if (!table.ok) {
-      return this._alertManager.renderError(table.error);
-    }
-
-    const headerCells = table.value.querySelectorAll("th");
-    for (const header of headerCells) {
-      header.style.width = `${header.getBoundingClientRect().width}px`;
-    }
-
     this.activeDragTarget = {
       column: columnHeader.value,
       startX: e.clientX,
