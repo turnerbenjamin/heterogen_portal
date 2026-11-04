@@ -92,7 +92,7 @@ func mainTablePageContent[T querymodel.TableModel](
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "</h3><div class=\"main-table-cmd\"><button class=\"button-link\" onclick=\"hg.mainTable.showEditColumnsSidebar()\" initial-focus>Edit Columns</button> <button class=\"button-link\" onclick=\"hg.mainTable.showEditFiltersSidebar()\" initial-focus>Edit Filters</button> <input type=\"text\"></div></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "</h3><div class=\"main-table-cmd\"><button class=\"button-link\" onclick=\"hg.mainTable.showEditColumnsSidebar()\" initial-focus>Edit Columns</button> <button class=\"button-link\" onclick=\"hg.mainTable.showEditFiltersSidebar()\" initial-focus>Edit Filters</button> <input type=\"text\"></div></div><div class=\"main-table-wrapper\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -100,7 +100,7 @@ func mainTablePageContent[T querymodel.TableModel](
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "</main>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "</div></main>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -128,7 +128,7 @@ func table[T querymodel.TableModel](
 		}
 		ctx = templ.InitializeContext(ctx)
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "<table id=\"main-table\" class=\"main-table mt-6\"><thead><tr>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "<table id=\"main-table\" class=\"main-table\"><thead><tr>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

@@ -49,9 +49,9 @@ templ mainTablePageContent[T querymodel.TableModel](
                 <input type=text/>
             </div>
         </div>
-        // <div class="main-table-wrapper">
+        <div class="main-table-wrapper">
         @table(tableCellBuilder, tableData)
-        // </div>
+        </div>
     </main>
 }
 
@@ -59,7 +59,7 @@ templ table[T querymodel.TableModel](
     tableCellBuilder model.UiTableCellBuilder,
     tableData tables.TableData[T],
 ){
-    <table id="main-table" class="main-table mt-6"> 
+    <table id="main-table" class="main-table"> 
        <thead>
             <tr>
             for _, headerColumn := range tableData.Query.SelectQuery.Columns{

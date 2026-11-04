@@ -844,19 +844,26 @@ input {
 
   align-items: center;
   justify-content: end;
+  margin-bottom: var(--ws-6);
+}
+
+.main-table-wrapper {
+  position: relative;
+  flex: 1 1 auto;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+
+  overflow: auto;
 }
 
 .main-table {
   width: 100%;
-  min-height: 0;
-  flex: 1 1 auto;
-  display: flex;
-  flex-direction: column;
   border-collapse: collapse;
   user-select: none;
   -webkit-user-select: none;
 
-  th .th-label,
+  th,
   td {
     white-space: nowrap;
     text-overflow: ellipsis;
@@ -870,16 +877,17 @@ input {
   }
 
   thead {
-    display: table;
-    width: 100%;
-    flex: 0 0 auto;
-    table-layout: fixed;
     font-weight: 700;
     border-bottom: 2px solid rgba(var(--base-fg-rgb) / 40%);
     text-align: left;
+    background-color: var(--base-bg);
 
     th {
-      position: relative;
+      position: sticky;
+      z-index: var(--z-navigation);
+      top: 0;
+      background-color: var(--base-bg);
+
       padding: var(--ws-4);
       min-width: 120px;
     }
@@ -911,15 +919,8 @@ input {
   }
 
   tbody {
-    display: block;
-    flex: 1 1 auto;
-    min-height: 0;
-    overflow-y: auto;
-
     tr {
-      display: table;
       width: 100%;
-      table-layout: fixed;
       cursor: pointer;
 
       &:hover {
