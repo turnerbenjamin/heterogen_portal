@@ -8,6 +8,14 @@ export default {
     },
   },
 
+  table: {
+    header: {
+      resizeHandle: {
+        className: "table-resize-handle",
+      },
+    },
+  },
+
   announcers: {
     polite: {
       id: "announcer-polite",

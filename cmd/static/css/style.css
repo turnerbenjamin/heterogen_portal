@@ -815,6 +815,14 @@ input {
 
 /** MAIN TABLE */
 
+#main-table-content {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  width: 100%;
+  min-height: 0;
+}
+
 .main-table-head {
   display: flex;
   flex-direction: row;
@@ -836,14 +844,24 @@ input {
 
   align-items: center;
   justify-content: end;
+  margin-bottom: var(--ws-6);
+}
+
+.main-table-wrapper {
+  position: relative;
+  flex: 1 1 auto;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+
+  overflow: auto;
 }
 
 .main-table {
-  width: 100%;
-  min-height: 0;
-  flex: 1 1 auto;
-  display: flex;
-  flex-direction: column;
+  min-width: 100%;
+  width: min-content;
+
+  table-layout: fixed;
   border-collapse: collapse;
   user-select: none;
   -webkit-user-select: none;
@@ -853,38 +871,58 @@ input {
     white-space: nowrap;
     text-overflow: ellipsis;
     overflow: hidden;
+    min-width: 120px;
   }
 
   td {
     padding: var(--ws-5) var(--ws-4) var(--ws-4) var(--ws-4);
     border-bottom: 1px solid rgba(var(--base-fg-rgb) / 20%);
-    min-width: 6rem;
   }
 
   thead {
-    display: table;
-    width: 100%;
-    flex: 0 0 auto;
-    table-layout: fixed;
     font-weight: 700;
-    border-bottom: 2px solid rgba(var(--base-fg-rgb) / 40%);
     text-align: left;
+    background-color: var(--base-bg);
 
-    td {
-      padding-bottom: var(--ws-4);
+    th {
+      position: sticky;
+      z-index: var(--z-navigation);
+      top: 0;
+      background-color: var(--base-bg);
+      box-shadow: inset 0 -2px 0 rgba(var(--base-fg-rgb) / 40%);
+
+      padding: var(--ws-4);
+    }
+
+    .table-resize-handle {
+      position: absolute;
+
+      height: 100%;
+      width: 30px;
+      right: -15px;
+      top: 0;
+
+      cursor: col-resize;
+      z-index: var(--z-navigation);
+
+      &:hover {
+        span {
+          background-color: var(--light-green);
+        }
+      }
+
+      span {
+        display: block;
+        height: 100%;
+        width: 2px;
+        margin: 0 auto;
+      }
     }
   }
 
   tbody {
-    display: block;
-    flex: 1 1 auto;
-    min-height: 0;
-    overflow-y: auto;
-
     tr {
-      display: table;
       width: 100%;
-      table-layout: fixed;
       cursor: pointer;
 
       &:hover {

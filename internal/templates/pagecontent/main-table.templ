@@ -49,7 +49,9 @@ templ mainTablePageContent[T querymodel.TableModel](
                 <input type=text/>
             </div>
         </div>
+        <div class="main-table-wrapper">
         @table(tableCellBuilder, tableData)
+        </div>
     </main>
 }
 
@@ -57,14 +59,13 @@ templ table[T querymodel.TableModel](
     tableCellBuilder model.UiTableCellBuilder,
     tableData tables.TableData[T],
 ){
-    <table id="main-table" class="main-table mt-6"> 
-        <thead>
+    <table id="main-table" class="main-table"> 
+       <thead>
             <tr>
             for _, headerColumn := range tableData.Query.SelectQuery.Columns{
-                <th 
-                    data-column-path={headerColumn.Path}
-                >
-                    {headerColumn.DisplayName}
+                <th data-column-path={headerColumn.Path} style="width=120px;">
+                    <div class="th-label">{headerColumn.DisplayName}</div>
+                    <div class="table-resize-handle"><span></span></div>
                 </th>
             }
             </tr>

@@ -22,11 +22,21 @@ import {
   getElementById,
   getTemplateById,
   getChildByClass,
+  getTarget,
+  getClosestByClass,
+  getClosestBySelector,
 } from "./utils";
 
 interface SelectStatement {
   statement: string;
   isDiff: boolean;
+}
+
+interface DragTarget {
+  column: HTMLElement;
+  minWidth: number;
+  startX: number;
+  startWidth: number;
 }
 
 export class MainTable {
@@ -37,6 +47,8 @@ export class MainTable {
   private addColumnsListPreEditState: HTMLElement | null = null;
 
   private sortableItemTemplate: HTMLElement | null = null;
+
+  private activeDragTarget: DragTarget | null = null;
 
   public constructor(
     alertManager: AlertManager,
@@ -62,6 +74,8 @@ export class MainTable {
       constants.addColumns.sidebarId,
       this.hgHandlerCloseAddColumnsSidebar,
     );
+
+    document.addEventListener("pointerdown", this.handleResizeHandleDragStart);
   }
 
   public hgHandlerShowEditColumnsSidebar = () => {
@@ -137,6 +151,81 @@ export class MainTable {
 
     e.detail.ctx.request.action += `?select=${selectRes.value.statement}`;
     this.snapshotColumnState();
+  };
+
+  private handleResizeHandleDragStart = (e: PointerEvent) => {
+    // Get the target handle or return
+    const target = getTarget(e);
+    if (!target.ok) {
+      return;
+    }
+
+    const handle = getClosestByClass(
+      target.value,
+      constants.table.header.resizeHandle.className,
+    );
+    if (!handle.ok) {
+      return;
+    }
+    handle.value.setPointerCapture(e.pointerId);
+
+    // require parent column header
+    const columnHeader = getClosestBySelector(handle.value, "th");
+    if (!columnHeader.ok) {
+      return this._alertManager.renderError(columnHeader.error);
+    }
+
+    const minWidth = parseFloat(getComputedStyle(columnHeader.value).minWidth);
+
+    this.activeDragTarget = {
+      column: columnHeader.value,
+      minWidth: minWidth,
+      startX: e.clientX,
+      startWidth: columnHeader.value.getBoundingClientRect().width,
+    };
+
+    // register drag handlers
+    document.addEventListener("pointermove", this.handleResizeHandleDrag);
+    document.addEventListener(
+      "lostpointercapture",
+      this.handleResizeHandleDragEnd,
+    );
+  };
+
+  private handleResizeHandleDrag = (e: PointerEvent) => {
+    if (!this.activeDragTarget) {
+      return;
+    }
+
+    const delta = e.clientX - this.activeDragTarget.startX;
+    const newWidth = this.activeDragTarget.startWidth + delta;
+    if (newWidth < this.activeDragTarget.minWidth) {
+      return;
+    }
+
+    this.activeDragTarget.column.style.width = `${newWidth}px`;
+  };
+
+  private handleResizeHandleDragEnd = () => {
+    // assert active drag handle column populated
+    if (this.activeDragTarget === null) {
+      this._alertManager.renderError(
+        new UnexpectedErr(
+          `unable to handle drag end: active drag handle is null`,
+        ),
+      );
+      return;
+    }
+
+    // clean up handlers
+    document.removeEventListener("pointermove", this.handleResizeHandleDrag);
+    document.removeEventListener(
+      "lostpointercapture",
+      this.handleResizeHandleDragEnd,
+    );
+
+    // return
+    this.activeDragTarget = null;
   };
 
   private handleHtmxAfterSwapEvent = (e: HtmxEvent<HtmxAfterSwapEvent>) => {
